@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -77,7 +77,7 @@
 
 <br/>
 
-<%@ include file="/caisicore/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
@@ -146,14 +146,14 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/admin.jsp'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin'"/></td>
         <td><input type="button" value="Assign default issues"
-                   onclick="location.href='<%=request.getContextPath()%>/DefaultEncounterIssue.do?method=edit'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/DefaultEncounterIssue?method=edit'"/></td>
         <%
             if (issueList != null) {
         %>
         <td><input type="button" value="Remove default issues"
-                   onclick="location.href='<%=request.getContextPath()%>/DefaultEncounterIssue.do?method=editRemove'" );
+                   onclick="location.href='<%=request.getContextPath()%>/DefaultEncounterIssue?method=editRemove'" );
         <%
             }
         %>

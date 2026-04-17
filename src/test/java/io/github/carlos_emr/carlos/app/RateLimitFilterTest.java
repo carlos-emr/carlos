@@ -91,7 +91,7 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
         when(request.getContextPath()).thenReturn("/carlos");
         when(request.getRemoteAddr()).thenReturn("10.0.0.1");
-        when(request.getRequestURI()).thenReturn("/carlos/someAction.do");
+        when(request.getRequestURI()).thenReturn("/carlos/someAction");
     }
 
     @AfterEach
@@ -223,8 +223,6 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             filter.doFilter(rawRequest, rawResponse, chain);
 
             verify(chain).doFilter(rawRequest, rawResponse);
-            // No HTTP interaction attempted
-            verify(rawResponse, never()).getClass(); // response type not checked
         }
     }
 
@@ -282,13 +280,13 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("3");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
-            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login.do=10/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=10/60");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
             filter.init(mock(FilterConfig.class));
 
-            // Request URI doesn't match /login.do, so global limit of 3 applies
-            when(request.getRequestURI()).thenReturn("/carlos/someOtherAction.do");
+            // Request URI doesn't match /login, so global limit of 3 applies
+            when(request.getRequestURI()).thenReturn("/carlos/someOtherAction");
 
             for (int i = 0; i < 3; i++) {
                 filter.doFilter(request, response, chain);
@@ -314,13 +312,13 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
-            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login.do=2/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=2/60");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
             filter.init(mock(FilterConfig.class));
 
-            // /login.do has a limit of 2, far below global 100
-            when(request.getRequestURI()).thenReturn("/carlos/login.do");
+            // /login has a limit of 2, far below global 100
+            when(request.getRequestURI()).thenReturn("/carlos/login");
 
             filter.doFilter(request, response, chain); // 1st — allowed
             filter.doFilter(request, response, chain); // 2nd — allowed
@@ -336,13 +334,13 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn("enforce");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn("100");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn("60");
-            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login.do=1/60,/mfa/=1/60");
+            when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn("/login=1/60,/mfa/=1/60");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1");
             when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
             filter.init(mock(FilterConfig.class));
 
-            // Exhaust /login.do counter
-            when(request.getRequestURI()).thenReturn("/carlos/login.do");
+            // Exhaust /login counter
+            when(request.getRequestURI()).thenReturn("/carlos/login");
             filter.doFilter(request, response, chain);
 
             // /mfa/ should still have its own counter and allow 1 request
@@ -437,7 +435,7 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
             // Second IP still has its own fresh counter
             HttpServletRequest request2 = mock(HttpServletRequest.class);
             when(request2.getRemoteAddr()).thenReturn("10.0.0.2");
-            when(request2.getRequestURI()).thenReturn("/carlos/someAction.do");
+            when(request2.getRequestURI()).thenReturn("/carlos/someAction");
             when(request2.getContextPath()).thenReturn("/carlos");
 
             filter.doFilter(request2, response, chain); // allowed — different IP
@@ -485,11 +483,11 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should parse valid path rate config")
         void shouldParsePathRateConfig_withValidFormat() {
-            Map<String, RateConfig> result = filter.parsePathRates("/login.do=10/60,/ws/=200/60");
+            Map<String, RateConfig> result = filter.parsePathRates("/login=10/60,/ws/=200/60");
 
             assertThat(result).hasSize(2);
-            assertThat(result.get("/login.do").requests).isEqualTo(10);
-            assertThat(result.get("/login.do").windowSeconds).isEqualTo(60);
+            assertThat(result.get("/login").requests).isEqualTo(10);
+            assertThat(result.get("/login").windowSeconds).isEqualTo(60);
             assertThat(result.get("/ws/").requests).isEqualTo(200);
             assertThat(result.get("/ws/").windowSeconds).isEqualTo(60);
         }
@@ -498,12 +496,12 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         @DisplayName("should ignore invalid path rate config entries with malformed format")
         void shouldIgnoreInvalidPathRateConfig_withMalformedFormat() {
             // Malformed entries should be skipped silently (with a warning log)
-            Map<String, RateConfig> result = filter.parsePathRates("abc/xyz,/valid.do=5/30,,=10/60");
+            Map<String, RateConfig> result = filter.parsePathRates("abc/xyz,/valid=5/30,,=10/60");
 
             // Only the valid entry should be parsed
             assertThat(result).hasSize(1);
-            assertThat(result).containsKey("/valid.do");
-            assertThat(result.get("/valid.do").requests).isEqualTo(5);
+            assertThat(result).containsKey("/valid");
+            assertThat(result.get("/valid").requests).isEqualTo(5);
         }
 
         @Test

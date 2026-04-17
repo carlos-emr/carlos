@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *   <li><b>Logout broadcast:</b> When any window detects a logout (manual or timeout),
  *       it broadcasts via BroadcastChannel and localStorage to all other open windows,
  *       causing popups to close and tabs to redirect to the login page.</li>
- *   <li><b>Session heartbeat:</b> Each window polls {@code /status/sessionHeartbeat.jsp}
+ *   <li><b>Session heartbeat:</b> Each window polls {@code /status/SessionHeartbeat}
  *       every 60 seconds to detect server-side session loss (restart, timeout, invalidation).
  *       On detection, the window broadcasts logout to all others.</li>
  * </ol>
@@ -86,7 +86,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *     &lt;filter-class&gt;io.github.carlos_emr.carlos.app.LogoutBroadcastFilter&lt;/filter-class&gt;
  *     &lt;init-param&gt;
  *         &lt;param-name&gt;exclusions&lt;/param-name&gt;
- *         &lt;param-value&gt;/logout.jsp,/status/sessionHeartbeat.jsp&lt;/param-value&gt;
+ *         &lt;param-value&gt;/logoutPage,/status/SessionHeartbeat&lt;/param-value&gt;
  *     &lt;/init-param&gt;
  * &lt;/filter&gt;
  * </pre>
@@ -147,7 +147,7 @@ public class LogoutBroadcastFilter implements Filter {
      * Filters HTML responses to append the logout broadcast and session heartbeat script.
      *
      * <p>Excluded URLs are short-circuited before response wrapping to avoid unnecessary
-     * buffer allocation (e.g., for the lightweight sessionHeartbeat.jsp endpoint).
+     * buffer allocation (e.g., for the lightweight SessionHeartbeat endpoint).
      *
      * <p>The script is appended only to authenticated, non-AJAX, HTML responses
      * that are not in the exclusion list.
@@ -222,13 +222,27 @@ public class LogoutBroadcastFilter implements Filter {
             return false;
         }
 
-        servletPath = servletPath.toLowerCase().trim();
+        servletPath = normalizeServletPath(servletPath);
         for (String ex : exclusions) {
-            if (servletPath.startsWith(ex)) {
+            if (matchesExcludedPath(servletPath, ex)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private String normalizeServletPath(String servletPath) {
+        return servletPath.toLowerCase(Locale.ROOT).trim();
+    }
+
+    private boolean matchesExcludedPath(String servletPath, String exclusion) {
+        if (servletPath.equals(exclusion)) {
+            return true;
+        }
+        if (exclusion.endsWith("/")) {
+            return servletPath.startsWith(exclusion);
+        }
+        return servletPath.startsWith(exclusion + "/");
     }
 
     /**
@@ -294,7 +308,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "var cp='" + Encode.forJavaScript(contextPath) + "';" +
                 "var ilMs=" + inactivityLimitMins + "*60000;" +
                 "var lastOk=Date.now();" +
-                "var loginUrl=cp+'/index.jsp';" +
+                "var loginUrl=cp+'/index';" +
                 "var done=false;" +
                 "var logoutMsg='" + Encode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
                 // Grace period: ignore logout broadcasts for 5s after page load
@@ -315,7 +329,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "setInterval(function(){" +
                 "if(done)return;" +
                 "if(Date.now()-lastOk>ilMs){bL();return}" +
-                "fetch(cp+'/status/sessionHeartbeat.jsp?autoRefresh=true')" +
+                "fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')" +
                 ".then(function(r){" +
                 "if(r.ok)return r.json();" +
                 "if(r.status===401||r.status===403){bL();return null}" +

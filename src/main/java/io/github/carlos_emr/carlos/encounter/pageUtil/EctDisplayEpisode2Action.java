@@ -60,8 +60,8 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
                 String winName = "episode" + bean.demographicNo;
                 String pathview, pathedit;
 
-                pathview = request.getContextPath() + "/Episode.do?method=list&demographicNo=" + bean.demographicNo;
-                pathedit = request.getContextPath() + "/Episode.do?method=edit&demographicNo=" + bean.demographicNo;
+                pathview = request.getContextPath() + "/Episode?method=list&demographicNo=" + bean.demographicNo;
+                pathedit = request.getContextPath() + "/Episode?method=edit&demographicNo=" + bean.demographicNo;
 
 
                 String url;
@@ -84,7 +84,7 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
                     item.setTitle(itemHeader);
                     item.setDate(episode.getStartDate());
                     int hash = Math.abs(winName.hashCode());
-                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Episode.do?method=edit&episode.id=" + episode.getId() + "'); return false;";
+                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Episode?method=edit&episode.id=" + episode.getId() + "'); return false;";
                     item.setURL(url);
                     Dao.addItem(item);
                 }

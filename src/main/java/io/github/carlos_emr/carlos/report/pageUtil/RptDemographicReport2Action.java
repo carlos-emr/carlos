@@ -49,8 +49,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ModelDriven;
 
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RptDemographicReport2Action extends ActionSupport implements ModelDriven<RptDemographicReport2Form> {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -63,6 +67,9 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
 
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
 
         String query = form.getQuery();
         String[] select = form.getSelect();

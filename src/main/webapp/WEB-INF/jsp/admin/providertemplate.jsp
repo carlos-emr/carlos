@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_newCasemgmt.templates" rights="w" reverse="true">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_newCasemgmt.templates");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_newCasemgmt.templates");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +47,7 @@
 <%
     String curUser_no = (String) request.getAttribute("curUser_no");
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -92,7 +92,7 @@
                 <h3><fmt:message key="admin.providertemplate.msgTitle"/></h3>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="edittemplate" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do" class="d-flex flex-wrap align-items-center gap-2">
+                    <form name="edittemplate" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate" class="d-flex flex-wrap align-items-center gap-2">
                         <!--<fmt:message key="admin.providertemplate.formEdit"/>:-->
                         Select Template<br>
                         <select name="name">
@@ -127,7 +127,7 @@
                 %>
 
                 <div class="card card-body bg-body-tertiary">
-                    <form name="template" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate.do">
+                    <form name="template" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate">
                         <input type="hidden" name="dboperation" value="">
 
                         <fmt:message key="admin.providertemplate.formTemplateName"/>:<br>

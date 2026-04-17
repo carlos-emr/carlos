@@ -1,0 +1,1285 @@
+<%--
+
+    Copyright (c) 2012- Centre de Medecine Integree
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version. 
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for
+    Centre de Medecine Integree, Saint-Laurent, Quebec, Canada to be provided
+    as part of the OSCAR McMaster EMR System
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@page import="java.io.File" %>
+<%@ page import="java.util.*" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@page import="org.springframework.web.context.WebApplicationContext" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel" %>
+
+<%@page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
+<jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
+
+
+<style>
+    .autocomplete_style {
+        background: #fff;
+        text-align: left;
+        z-index: 2;
+    }
+
+    .autocomplete_style ul {
+        border: 1px solid #aaa;
+        margin: 0px;
+        padding: 2px;
+        list-style: none;
+    }
+
+    .autocomplete_style ul li.selected {
+        background-color: #ffa;
+        text-decoration: underline;
+    }
+
+    /* Constrain the left panel so fields don't extend off-page */
+    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
+    #incoming-docs-wrapper fieldset input[type="button"] {
+        font-size: 11px; padding: 2px 6px; margin: 1px;
+    }
+
+
+    .multiPage {
+        background-color: RED;
+        color: WHITE;
+        font-weight: bold;
+        padding: 0px 5px;
+        font-size: medium;
+    }
+
+    .topalign {
+        vertical-align: text-top;
+    }
+
+    #incoming-docs-wrapper {
+        margin: auto 15px;
+    }
+
+    * table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+</style>
+
+<%
+    String user_no = (String) session.getAttribute("user");
+
+    String imageType = IncomingDocUtil.getAndSetViewDocumentAs(user_no, request.getParameter("imageType"));
+    String queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, request.getParameter("defaultQueue"));
+    String entryMode = IncomingDocUtil.getAndSetEntryMode(user_no, request.getParameter("entryMode"));
+
+    UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+    UserProperty uProp = userPropertyDAO.getProp(user_no, UserProperty.DOCUMENT_DESCRIPTION_TEMPLATE);
+    String useDocumentDescriptionTemplateType = UserProperty.CLINIC;
+    if (uProp != null && uProp.getValue().equals(UserProperty.USER)) {
+        useDocumentDescriptionTemplateType = UserProperty.USER;
+    }
+
+    // add to most recent patient list
+    int listsize = LastPatientsBean.size();
+    String ptid = request.getParameter("lastdemographic_no") == null ? "" : request.getParameter("lastdemographic_no");
+    if (ptid.length() > 0) {
+        if (LastPatientsBean.contains(ptid) == true) {
+            LastPatientsBean.remove(LastPatientsBean.indexOf(ptid));
+            LastPatientsBean.add(ptid);
+        } else {
+            LastPatientsBean.add(ptid);
+            if (listsize > 2) {
+                LastPatientsBean.remove(0);
+            }
+        }
+    }
+
+    java.util.Locale vLocale = request.getLocale();
+    WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletConfig().getServletContext());
+    ProviderLabRoutingDao providerLabRoutingDao = ctx.getBean(ProviderLabRoutingDao.class);
+    DemographicDao demographicDao = ctx.getBean(DemographicDao.class);
+    QueueDao queueDao = ctx.getBean(QueueDao.class);
+
+    CtlDocClassDao docClassDao = ctx.getBean(CtlDocClassDao.class);
+    List<String> reportClasses = docClassDao.findUniqueReportClasses();
+    ArrayList<String> subClasses = new ArrayList<String>();
+    ArrayList<String> consultA = new ArrayList<String>();
+    ArrayList<String> consultB = new ArrayList<String>();
+    for (String reportClass : reportClasses) {
+        List<String> subClassList = docClassDao.findSubClassesByReportClass(reportClass);
+        if (reportClass.equals("Consultant ReportA")) {
+            consultA.addAll(subClassList);
+        } else if (reportClass.equals("Consultant ReportB")) {
+            consultB.addAll(subClassList);
+        } else {
+            subClasses.addAll(subClassList);
+        }
+
+        if (!consultA.isEmpty() && !consultB.isEmpty()) {
+            for (String partA : consultA) {
+                for (String partB : consultB) {
+                    subClasses.add(partA + " " + partB);
+                }
+            }
+        }
+    }
+
+
+    List<Integer> routingIdList = providerLabRoutingDao.findLastRoutingIdGroupedByProviderAndCreatedByDocCreator(user_no);
+    Collections.sort(routingIdList, Collections.reverseOrder());
+
+    List<Hashtable> queues = queueDao.getQueues();
+    int queueId = 1;
+    if (queueIdStr != null) {
+        queueIdStr = queueIdStr.trim();
+        queueId = Integer.parseInt(queueIdStr);
+    }
+
+    String errorMessage = "";
+    String pdfNo = "";
+    String pdfDirParam = request.getParameter("pdfDir");
+    // Validate pdfDir against whitelist to prevent path traversal (CWE-22)
+    String pdfDir = ("Fax".equals(pdfDirParam) || "Mail".equals(pdfDirParam)
+            || "File".equals(pdfDirParam) || "Refile".equals(pdfDirParam))
+            ? pdfDirParam : "Fax";
+    String pdfDirectory = IncomingDocUtil.getIncomingDocumentFilePath(queueIdStr, pdfDir);
+    String pdfAction = request.getParameter("pdfAction") == null ? "" : request.getParameter("pdfAction");
+    String pdfPageNumber = request.getParameter("pdfPageNumber") == null ? "1" : request.getParameter("pdfPageNumber");
+    // Validate pdfName with PathValidationUtils to prevent path traversal (CWE-22)
+    String pdfNameParam = request.getParameter("pdfName");
+    String pdfName = "";
+    if (pdfNameParam != null && !pdfNameParam.isEmpty()) {
+        try {
+            File allowedPdfDir = new File(pdfDirectory);
+            pdfName = PathValidationUtils.validatePath(pdfNameParam, allowedPdfDir).getName();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for pdfName in incomingDocs.jsp");
+            pdfName = "";
+        }
+    }
+    String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
+
+    try {
+        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
+    } catch (Exception e) {
+        errorMessage = e.getMessage();
+    }
+
+
+    IncomingDocUtil myIncomingDocUtil = new IncomingDocUtil();
+    ArrayList pdfList = myIncomingDocUtil.getDocList(pdfDirectory);
+    ArrayList pdfListModifiedDate = myIncomingDocUtil.getPdfListModifiedDate();
+
+    pdfNo = request.getParameter("pdfNo") == null ? "1" : request.getParameter("pdfNo");
+    int pdfNoInt;
+    try { pdfNoInt = Integer.parseInt(pdfNo); } catch (NumberFormatException e) { pdfNoInt = 1; }
+    if (pdfNoInt <= 0) {
+        pdfNoInt = 1;
+    }
+
+    if (pdfList.size() < pdfNoInt) {
+        pdfNoInt = pdfList.size();
+    }
+    pdfNo = String.valueOf(pdfNoInt);
+
+    int PdfIndex = pdfNoInt - 1;
+    if (pdfList.size() >= 1 && PdfIndex <= (pdfList.size() - 1)) {
+        pdfName = (String) pdfList.get(PdfIndex);
+    } else {
+        pdfName = "";
+    }
+
+    ArrayList docTypes = EDocUtil.getDoctypes("demographic");
+    String todayDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+
+
+    int tabIndex = 0;
+    int numOfPage = 0;
+    if (!pdfName.isEmpty()) {
+        numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+    }
+
+    if (Integer.parseInt(pdfPageNumber) > numOfPage) {
+        pdfPageNumber = String.valueOf(numOfPage);
+    }
+%>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/global.css"/>
+    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
+    <!-- main calendar program -->
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+    <!-- language for the calendar -->
+    <script type="text/javascript"
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
+    <!-- the following script defines the Calendar.setup helper function, which makes
+           adding a calendar a matter of 1 or 2 lines of code. -->
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <!-- calendar stylesheet -->
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+    <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+    <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
+
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
+
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
+
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
+    <script type="text/javascript">
+        var curPage =<e:forJavaScript value='<%= pdfPageNumber %>' />;
+        var totalPage =<%=numOfPage%>;
+        var ctx = '<%= request.getContextPath() %>';
+
+        function popupPage(vheight, vwidth, varpage) {
+            var page = "" + varpage;
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=0,top=0,left=0";
+            var popup = window.open(page, "PopUp", windowprops);
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                }
+                popup.focus();
+            }
+        }
+
+        function loadSelectedPdf(pdfDir) {
+            seldocobj = document.getElementById('SelectPdfList');
+            pdfNo = seldocobj.selectedIndex;
+            if (pdfNo > 0) {
+                loadPdf(pdfNo, pdfDir);
+            } else {
+                alert("<fmt:message key="dms.incomingDocs.nothingSelected"/>");
+            }
+
+        }
+
+        function loadSelectedPage(queueId, pdfDir, pdfName) {
+            seldocobj = document.getElementById('SelectPageList');
+            PageNo = seldocobj.selectedIndex;
+
+            if (PageNo > 0) {
+                curPage = PageNo;
+                showPageImg(queueId, pdfDir, pdfName, curPage);
+            } else {
+                alert("<fmt:message key="dms.incomingDocs.nothingSelected"/>");
+            }
+        }
+
+        function loadPdf(pdfNo, pdfDir) {
+            if (parseInt(pdfNo, 10) <= 0) {
+                pdfNo = "1";
+            }
+            document.PdfInfoForm.pdfName.value = "";
+            document.PdfInfoForm.pdfNo.value = pdfNo;
+            document.PdfInfoForm.pdfDir.value = pdfDir;
+            document.PdfInfoForm.submit();
+        }
+
+        function setImageType() {
+            document.PdfInfoForm.imageType.value = document.getElementById('imageTypeList').options[document.getElementById('imageTypeList').selectedIndex].value;
+            document.PdfInfoForm.pdfPageNumber.value = curPage;
+            document.PdfInfoForm.submit();
+        }
+
+        function setEntryMode() {
+            document.PdfInfoForm.entryMode.value = document.getElementById('entryModeList').options[document.getElementById('entryModeList').selectedIndex].value;
+            document.PdfInfoForm.pdfPageNumber.value = curPage;
+            document.PdfInfoForm.submit();
+        }
+
+        function setQueue() {
+            document.PdfInfoForm.defaultQueue.value = document.getElementById('queueList').options[document.getElementById('queueList').selectedIndex].value;
+            document.PdfInfoForm.submit();
+        }
+
+        function rotatePdf(pdfNo, pdfDir, pdfName, degrees) {
+            if (totalPage == 0) {
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+            } else {
+                document.PdfInfoForm.pdfNo.value = pdfNo;
+                document.PdfInfoForm.pdfDir.value = pdfDir;
+                document.PdfInfoForm.pdfName.value = pdfName;
+                document.PdfInfoForm.pdfAction.value = "Rotate" + degrees;
+                document.PdfInfoForm.pdfPageNumber.value = curPage;
+                document.PdfInfoForm.submit();
+            }
+        }
+
+        function rotateAllPagePdf(pdfNo, pdfDir, pdfName, degrees) {
+            if (totalPage == 0) {
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+            } else {
+                document.PdfInfoForm.pdfNo.value = pdfNo;
+                document.PdfInfoForm.pdfDir.value = pdfDir;
+                document.PdfInfoForm.pdfName.value = pdfName;
+                document.PdfInfoForm.pdfAction.value = "RotateAll" + degrees;
+                document.PdfInfoForm.pdfPageNumber.value = curPage;
+                document.PdfInfoForm.submit();
+            }
+
+        }
+
+        function deletePdf(pdfNo, pdfDir, pdfName) {
+            if (pdfNo <= 0) {
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+            } else {
+                var answer = confirm("<fmt:message key="dms.incomingDocs.areYouSureToDelete"/>" + pdfName + " ?");
+                if (answer) {
+                    document.PdfInfoForm.pdfNo.value = pdfNo;
+                    document.PdfInfoForm.pdfDir.value = pdfDir;
+                    document.PdfInfoForm.pdfName.value = pdfName;
+                    document.PdfInfoForm.pdfAction.value = "DeletePDF";
+                    document.PdfInfoForm.submit();
+                }
+            }
+        }
+
+        function deletePagePdf(pdfNo, pdfDir, pdfName) {
+            if (totalPage == 0) {
+                alert("<fmt:message key="dms.incomingDocs.nothingToDelete"/>");
+            } else if (totalPage == 1) {
+                alert("<fmt:message key="dms.incomingDocs.onlyOneToDeleteUseDeletePDF"/>");
+            } else {
+                var answer = confirm("<fmt:message key="dms.incomingDocs.areYouSureToDeletePage"/>" + curPage);
+                if (answer) {
+                    document.PdfInfoForm.pdfNo.value = pdfNo;
+                    document.PdfInfoForm.pdfDir.value = pdfDir;
+                    document.PdfInfoForm.pdfName.value = pdfName;
+                    document.PdfInfoForm.pdfAction.value = "DeletePage";
+                    document.PdfInfoForm.pdfPageNumber.value = curPage;
+                    document.PdfInfoForm.submit();
+                }
+            }
+        }
+
+        function extractPagePdf(pdfNo, pdfDir, pdfName) {
+            var validPages = true;
+            if (totalPage <= 1) {
+                alert("<fmt:message key="dms.incomingDocs.nothingToExtract"/>");
+            } else {
+                var range = prompt("<fmt:message key="dms.incomingDocs.enterPagesToExtract"/> ", "1-" + curPage);
+                var rangestr = "";
+                if (range == null || range == "") {
+                    validPages = false;
+                }
+                range = trim(range);
+
+                var numbers = [];
+                var ranges = range.split(',');
+
+                for (var i = 0; i < ranges.length; i++) {
+                    if (ranges[i].length == 0) {
+                        validPages = false;
+                    }
+                    if (ranges[i]) {
+                        var ranges1 = ranges[i].split('-');
+                        if (ranges1.length > 2) {
+                            validPages = false;
+                        }
+                        for (var j = 0; j < ranges1.length; j++) {
+                            var re = /^[0-9]+$/;
+                            if (!re.test(ranges1[j])) {
+                                validPages = false;
+                            }
+                        }
+                        if (validPages) {
+                            var range3 = ranges[i].concat('-' + ranges[i]).split('-');
+                            for (var k = parseInt(range3[0], 10); k <= parseInt(range3[1], 10); k++) {
+                                if (k ><%=numOfPage%>) {
+                                    validPages = false;
+                                }
+                                if (k == 0) {
+                                    validPages = false;
+                                }
+                                numbers[k] = k;
+                            }
+                        }
+                    }
+                }
+
+                if (validPages) {
+                    var notwholedoc = false;
+                    for (var m = 1; m < numbers.length; m++) {
+                        if (numbers[m] == null) {
+                            notwholedoc = true;
+                        }
+                    }
+                    if (!notwholedoc) {
+                        if ((numbers.length - 1) ==<%=numOfPage%>) {
+                            validPages = false;
+                        }
+                    }
+                }
+
+                if (validPages) {
+                    document.PdfInfoForm.pdfNo.value = pdfNo;
+                    document.PdfInfoForm.pdfDir.value = pdfDir;
+                    document.PdfInfoForm.pdfName.value = pdfName;
+                    document.PdfInfoForm.pdfAction.value = "ExtractPagePDF";
+                    document.PdfInfoForm.pdfPageNumber.value = curPage;
+                    document.PdfInfoForm.pdfExtractPageNumber.value = range;
+                    document.PdfInfoForm.submit();
+                } else {
+                    alert("<fmt:message key="dms.incomingDocs.invalidPages"/>");
+                }
+            }
+        }
+
+        function printPdf(queueId, pdfDir, pdfName) {
+            if (totalPage == 0) {
+                alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
+            } else {
+                var url = '${e:forJavaScript(ctx)}/documentManager/ManageDocument?method=displayIncomingDocs'
+                    + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
+                popupPage(700, 960, url);
+            }
+        }
+
+        function loadRecentDemo(thisdemoid, thisDemoName) {
+            var demogObj = document.getElementById('demofind');
+            var autodemoObj = document.getElementById('autocompletedemo');
+            var saveObj = document.getElementById('save');
+
+            demogObj.value = thisdemoid;
+            autodemoObj.value = thisDemoName;
+            saveObj.disabled = false;
+
+        }
+
+        function getWidth() {
+            var myWidth = 0;
+            if (typeof (window.innerWidth) == 'number') {
+                //Non-IE
+                myWidth = window.innerWidth;
+            } else if (document.documentElement && document.documentElement.clientWidth) {
+                //IE 6+ in 'standards compliant mode'
+                myWidth = document.documentElement.clientWidth;
+            } else if (document.body && document.body.clientHeight) {
+                //IE 4 compatible
+                myWidth = document.body.clientWidth;
+            }
+            return myWidth;
+        }
+
+
+        function getHeight() {
+            var myHeight = 0;
+            if (typeof (window.innerHeight) == 'number') {
+                //Non-IE
+                myHeight = window.innerHeight;
+            } else if (document.documentElement && document.documentElement.clientHeight) {
+                //IE 6+ in 'standards compliant mode'
+                myHeight = document.documentElement.clientHeight;
+            } else if (document.body && (document.body.clientHeight)) {
+                //IE 4 compatible
+                myHeight = document.body.clientHeight;
+            }
+            return myHeight;
+        }
+
+        function showPageImg(queueId, pdfDir, pdfName, pn) {
+            var url = "";
+            var height = 700;
+            if (getHeight() > 750) {
+                height = getHeight() - 50;
+            }
+
+            var width = 800;
+            if (getWidth() > 1250) {
+                width = getWidth() - 450;
+            }
+            console.log("pdfName " + pdfName);
+            if (pdfName.length === 0) {
+                document.getElementById('pgnum') ? document.getElementById('pgnum').innerHTML = '' : '';
+                document.getElementById('docdisp') ? document.getElementById('docdisp').innerHTML = '<iframe	src=""  width="800" height="900" ></iframe>' : '';
+            } else {
+                document.getElementById('pgnum').innerHTML = pn + ' of <span class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">' + totalPage + '</span>';
+
+                if (document.PdfInfoForm.imageType.value === "Pdf") {
+                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewIncomingDocPageAsPdf'
+                        + '&curPage=' + pn + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName) + "#view=fitV";
+                } else {
+                    url = '<%=request.getContextPath()%>' + '/documentManager/ManageDocument?method=viewIncomingDocPageAsImage'
+                        + '&curPage=' + pn + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
+                }
+                document.getElementById('docdisp').innerHTML = '<iframe	src="' + url + '"  width="' + (width) + '" height="' + (height) + '" ></iframe>';
+            }
+        }
+
+        function nextPage(queueId, pdfDir, pdfName) {
+            curPage++;
+            if (curPage >= totalPage) {
+                curPage = totalPage;
+            }
+            showPageImg(queueId, pdfDir, pdfName, curPage);
+        }
+
+        function prevPage(queueId, pdfDir, pdfName) {
+            curPage--;
+            if (curPage < 1) {
+                curPage = 1;
+            }
+            showPageImg(queueId, pdfDir, pdfName, curPage);
+        }
+
+        function firstPage(queueId, pdfDir, pdfName) {
+            if (totalPage > 0) {
+                curPage = 1;
+            } else {
+                curPage = 0;
+            }
+            showPageImg(queueId, pdfDir, pdfName, curPage);
+        }
+
+        function lastPage(queueId, pdfDir, pdfName) {
+            curPage = totalPage;
+            showPageImg(queueId, pdfDir, pdfName, curPage);
+        }
+
+        function selectDocDesc(desc) {
+            var docDescObj = document.getElementById('documentDescription');
+            docDescObj.value = desc;
+        }
+
+        function selectDocType(num) {
+            var selObj = document.getElementById('docType');
+            selObj.selectedIndex = num;
+            addDocumentDescriptionTemplateButton();
+        }
+
+
+        function trim(stringToTrim) {
+            return stringToTrim.replace(/^\s+|\s+$/g, "");
+        }
+
+        function checkDocument() {
+            var n = "<e:forJavaScriptBlock value='<%= pdfName %>' />";
+            if (n.length == 0) {
+                alert("<fmt:message key="dms.incomingDocs.nothingToSave"/>");
+                return false;
+            }
+
+
+            if (totalPage == 0) {
+                alert("<fmt:message key="dms.incomingDocs.nothingToSave"/>");
+                return false;
+            }
+
+            var selObj = document.getElementById('docType');
+            var selIndex = selObj.selectedIndex;
+            if (selIndex == 0) {
+                alert("<fmt:message key="dms.incomingDocs.missingDocumentType"/>");
+                return false;
+            }
+
+            var docDescObj = document.getElementById('documentDescription');
+
+            var a = trim(docDescObj.value);
+            if (a.length == 0) {
+                alert("<fmt:message key="dms.incomingDocs.missingDocumentDescription"/>");
+                return false;
+            }
+
+
+            if (!validDate("observationDate")) {
+                alert("<fmt:message key="dms.incomingDocs.invalidDate"/>");
+                return false;
+            }
+
+            if (document.PdfInfoForm.pdfDir.value != "File") {
+                var flagproviderObj = document.getElementsByName('flagproviders');
+                if (flagproviderObj.length == 0) {
+                    if (!confirm("<fmt:message key="dms.incomingDocs.saveWithoutFlagging"/>")) {
+                        return false;
+                    }
+                }
+            }
+
+
+            document.getElementById('lastdemographic_no').value = document.getElementById('demofind').value;
+            return true;
+        }
+
+        function removeThisProv(th) {
+            var parent = th.parentNode;
+            var parent1 = parent.parentNode;
+            parent1.removeChild(parent);
+        }
+
+        function loadMaster() {
+            var demogObj = document.getElementById('demofind');
+            var demo = demogObj.value;
+            if (demo == "-1") {
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+            } else {
+                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicEdit?demographic_no=' + demo + '');
+            }
+        }
+
+        function loadApptHistory() {
+            var demogObj = document.getElementById('demofind');
+            var demo = demogObj.value;
+
+            if (demo == "-1") {
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+            } else {
+                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
+            }
+        }
+
+        function setDescriptionIfEmpty() {
+            var docDescObj = document.getElementById('documentDescription');
+
+            var a = trim(docDescObj.value);
+            if (a.length == 0) {
+                docDescObj.value = document.getElementById('docSubClass').value;
+            }
+
+        }
+
+        window.onload = function () {
+            // Vanilla autocomplete replacing Autocompleter.Local
+            (function() {
+                var input = document.getElementById('docSubClass');
+                var dropdown = document.getElementById('docSubClass_list');
+                if (!input || !dropdown) return;
+                input.addEventListener('input', function() {
+                    var val = input.value.toLowerCase();
+                    while (dropdown.firstChild) { dropdown.removeChild(dropdown.firstChild); }
+                    if (val.length === 0) { dropdown.style.display = 'none'; return; }
+                    var matches = docSubClassList.filter(function(item) {
+                        return item.toLowerCase().indexOf(val) !== -1;
+                    });
+                    if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+                    var ul = document.createElement('ul');
+                    matches.forEach(function(match) {
+                        var li = document.createElement('li');
+                        li.textContent = match;
+                        li.style.cursor = 'pointer';
+                        li.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            input.value = match;
+                            dropdown.style.display = 'none';
+                        });
+                        li.addEventListener('mouseover', function() { li.classList.add('selected'); });
+                        li.addEventListener('mouseout', function() { li.classList.remove('selected'); });
+                        ul.appendChild(li);
+                    });
+                    dropdown.appendChild(ul);
+                    dropdown.style.display = 'block';
+                });
+                input.addEventListener('blur', function() {
+                    setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+                });
+            })();
+            setupDocDescriptionTypeahead(null);
+        }
+
+        var docSubClassList = [
+            <% for (int i = 0; i < subClasses.size(); i++) {%>
+            "<e:forJavaScriptBlock value='<%= subClasses.get(i) %>' />"<%=(i < subClasses.size() - 1) ? "," : ""%>
+            <% }%>
+        ];
+
+        if (typeof (window.external) != 'undefined') {
+            //yes, this is evil browser sniffing, but only IE has this bug
+            document.getElementsByName = function (name, tag) {
+                if (!tag) {
+                    tag = '*';
+                }
+
+                var elems = document.getElementsByTagName(tag);
+                var res = [];
+                var att = "";
+                //alert("len:"+elems.length+" "+name);
+                for (var i = 0; i < elems.length; i++) {
+                    att = elems[i].getAttribute('name');
+                    //alert(att);
+                    if (att == name) {
+                        //      alert("att"+att);
+                        res.push(elems[i]);
+                        //    alert("elem"+elems[i]);
+                    }
+                }
+                return res;
+            }
+
+        }
+
+        renderCalendar = function (id, inputFieldId) {
+            Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
+        }
+
+
+        function addMRP() {
+            var MRPName = document.getElementById('MRPName').value;
+            var MRPNo = document.getElementById('MRPNo').value;
+            var demo = document.getElementById('demofind').value;
+            if (demo == "-1") {
+                alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
+            } else {
+                if (MRPNo != null && MRPNo.length > 0) {
+                    addflagprovider(MRPName, "(<fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
+                } else {
+                    alert("<fmt:message key="dms.incomingDocs.noMRP"/>");
+                }
+            }
+        }
+
+        function addDocumentDescriptionTemplateButton() {
+            if (document.PdfInfoForm.entryMode.value == "Fast") {
+                var bdoc;
+                var docDescriptionList;
+                var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
+
+                docDescriptionList = document.getElementById('docDescriptionList');
+                while (docDescriptionList.hasChildNodes()) {
+                    docDescriptionList.removeChild(docDescriptionList.lastChild);
+                }
+
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
+                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<e:forJavaScript value='<%= StringUtils.noNull(user_no) %>' />&useDocumentDescriptionTemplateType=<e:forJavaScript value='<%= useDocumentDescriptionTemplateType %>' />";
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                var csrfToken = csrfEl ? csrfEl.value : '';
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'CSRF-TOKEN': csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: data
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(json) {
+                    if (json != null) {
+                        for (var i = 0; i < json.documentDescriptionTemplate.length; i++) {
+                            bdoc = document.createElement('input');
+                            bdoc.setAttribute("type", "button");
+                            bdoc.setAttribute("value", json.documentDescriptionTemplate[i].descriptionShortcut);
+                            var description = json.documentDescriptionTemplate[i].description;
+                            bdoc.setAttribute("title", description);
+                            bdoc.onclick = (function(desc) {
+                                return function() { selectDocDesc(desc); };
+                            })(description);
+                            document.getElementById('docDescriptionList').appendChild(bdoc);
+                        }
+                    }
+                });
+            }
+        }
+    </script>
+</head>
+<body>
+<div class="page-header-bar">
+    <h4 class="page-header-title"><fmt:message key="inboxmanager.document.incomingDocs"/></h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
+<div id="incoming-docs-wrapper" class="container-fluid">
+    <table>
+        <tr style="display: flex;">
+            <td align="left" valign="top">
+                <form method="post" name="PdfInfoForm" action="<%= request.getContextPath() %>/documentManager/ViewIncomingDocs">
+                    <input type="hidden" name="pdfNo" value="<e:forHtmlAttribute value='<%= pdfNo %>' />">
+                    <input type="hidden" name="pdfDir" value="<e:forHtmlAttribute value='<%= pdfDir %>' />">
+                    <input type="hidden" name="pdfName" value="<e:forHtmlAttribute value='<%= pdfName %>' />">
+                    <input type="hidden" name="pdfAction" value="">
+                    <input type="hidden" name="pdfPageNumber" value="1">
+                    <input type="hidden" name="pdfExtractPageNumber" value="">
+                    <input type="hidden" name="imageType" value="<e:forHtmlAttribute value='<%= imageType %>' />">
+                    <input type="hidden" name="defaultQueue" value="<e:forHtmlAttribute value='<%= queueIdStr %>' />">
+                    <input type="hidden" name="entryMode" value="<e:forHtmlAttribute value='<%= entryMode %>' />">
+                    <table width="350">
+                        <%if (errorMessage.length() > 0) {%>
+                        <tr>
+                            <td><div class="alert alert-danger py-1 px-2 mb-1" role="alert"><e:forHtmlContent value='<%= errorMessage %>' /></div></td>
+                        </tr>
+                        <%}%>
+                        <tr>
+                            <td><fmt:message key="dms.incomingDocs.queue"/>:
+                                <select id="queueList" name="queueList" onchange="setQueue();" class="form-select form-select-sm" style="display:inline-block;width:auto;">
+                                    <%
+                                        for (Hashtable ht : queues) {
+                                            int id = (Integer) ht.get("id");
+                                            String qName = (String) ht.get("queue");
+                                    %>
+                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= qName %>' />
+                                    </option>
+                                    <%}%>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Fax');"><fmt:message key="dms.incomingDocs.fax"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Mail');"><fmt:message key="dms.incomingDocs.mail"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','File');"><fmt:message key="dms.incomingDocs.file"/></button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','Refile');"><fmt:message key="dms.incomingDocs.refile"/></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <fieldset>
+                                    <legend>[<e:forHtmlContent value='<%= pdfDir %>' />]: <% if (pdfNoInt <= 0) {%><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <e:forHtmlContent value='<%= pdfNo %>' />/ <%=pdfList.size()%>
+                                        <b><e:forHtmlContent value='<%= String.valueOf(pdfList.get(pdfNoInt - 1)) %>' />
+                                        </b> <%}%></legend>
+                                    <table>
+                                        <tr>
+                                            <td>
+                                                <select tabIndex="<%=tabIndex++%>" name="SelectPdfList"
+                                                        id="SelectPdfList" onchange="loadSelectedPdf('<e:forJavaScriptAttribute value='<%= pdfDir %>' />');">
+                                                    <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
+                                                    <%
+                                                        for (int p = 0; p < pdfList.size(); p++) {
+                                                            String docName = (String) pdfList.get(p);
+                                                            String docModifiedDate = (String) pdfListModifiedDate.get(p);
+                                                    %>
+                                                    <option value="<e:forHtmlAttribute value='<%= docName %>' />" title="<e:forHtmlAttribute value='<%= docName %>' />"><%=p + 1%>
+                                                        ) <e:forHtmlContent value='<%= docModifiedDate %>' />
+                                                    </option>
+                                                    <%}%>
+                                                </select></td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=pdfList.size()%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="printPdf('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="global.btnPrint"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.deletePDF"/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </fieldset>
+                                <fieldset>
+                                    <legend><fmt:message key="dms.incomingDocs.page"/></legend>
+                                    <table>
+                                        <tr>
+                                            <td>
+                                                <select tabIndex="<%=tabIndex++%>" name="SelectPageList"
+                                                        id="SelectPageList"
+                                                        onchange="loadSelectedPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');">
+                                                    <option value=""><fmt:message key="dms.incomingDocs.selectPage"/></option>
+                                                    <%
+                                                        for (int p = 1; p <= numOfPage; p++) {
+                                                    %>
+                                                    <option value="<%=p%>"><%=p%>
+                                                    </option>
+                                                    <%}%>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" id="firstP" class="btn btn-outline-secondary btn-sm" onclick="firstPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="prevPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="nextPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="lastPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.last"/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <small class="text-muted"><fmt:message key="dms.incomingDocs.rotateThisPage"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','M90');">-90</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <small class="text-muted"><fmt:message key="dms.incomingDocs.rotateAllPages"/>:</small>
+                                                <div class="d-flex gap-1 flex-wrap mb-1">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','M90');">-90</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex gap-1 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="extractPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.extractPage"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.deletePage"/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </fieldset>
+                            </td>
+                        </tr>
+                    </table>
+                </form>
+                <fieldset>
+                    <legend><fmt:message key="dms.incomingDocs.dataEntryMode"/>:
+                        <select tabIndex="<%=tabIndex++%>" name="entryModeList" id="entryModeList"
+                                onchange="setEntryMode();">
+                            <option value="Normal" <%=entryMode.equals("Normal") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.normal"/></option>
+                            <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
+                        </select>
+                    </legend>
+                    <form id="forms_" method="post" action="ManageDocument">
+                        <input type="hidden" name="method" value="addIncomingDocument"/>
+                        <input type="hidden" name="pdfDir" value="<e:forHtmlAttribute value='<%= pdfDir %>' />">
+                        <input type="hidden" name="pdfName" value="<e:forHtmlAttribute value='<%= pdfName %>' />">
+                        <input type="hidden" name="queueId" value="<e:forHtmlAttribute value='<%= queueIdStr %>' />">
+                        <input type="hidden" name="pdfNo" value="<e:forHtmlAttribute value='<%= pdfNo %>' />">
+                        <input type="hidden" name="queue" value="1">
+                        <input type="hidden" name="pdfAction" value="">
+                        <input type="hidden" name="lastdemographic_no" id="lastdemographic_no" value="">
+                        <input type="hidden" name="entryMode" value="<e:forHtmlAttribute value='<%= entryMode %>' />">
+                        <table border="0" width="350">
+                            <% if (entryMode.equals("Fast")) {%>
+                            <tr>
+                                <td colspan="2" width="350">
+                                    <%
+                                        for (int j = 0; j < docTypes.size(); j++) {
+                                            String docType = (String) docTypes.get(j);
+                                    %>
+                                    <input type="button" value="<e:forHtmlAttribute value='<%= docType.length()<3?docType:docType.substring(0, 3) %>' />"
+                                           title="<e:forHtmlAttribute value='<%= docType %>' />" onclick="selectDocType(<%=j%>+1);"> <%}%>
+                                </td>
+                            </tr>
+                            <%}%>
+                            <tr>
+                                <td><fmt:message key="dms.incomingDocs.type"/>:</td>
+                                <td>
+                                    <select tabIndex="<%=tabIndex++%>" name="docType" id="docType"
+                                            onchange="addDocumentDescriptionTemplateButton()">
+                                        <option value=""><fmt:message key="dms.incomingDocs.selectType"/></option>
+                                        <%
+                                            for (int j = 0; j < docTypes.size(); j++) {
+                                                String docType = (String) docTypes.get(j);
+                                        %>
+                                        <option value="<e:forHtmlAttribute value='<%= docType %>' />"><e:forHtmlContent value='<%= docType %>' />
+                                        </option>
+                                        <%}%>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="dms.incomingDocs.class"/>:</td>
+                                <td><select name="docClass" id="docClass">
+                                    <option value=""><fmt:message key="dms.incomingDocs.selectClass"/></option>
+                                    <% boolean consultShown = false;
+                                        for (String reportClass : reportClasses) {
+                                            if (reportClass.startsWith("Consultant Report")) {
+                                                if (consultShown) {
+                                                    continue;
+                                                }
+                                                reportClass = "Consultant Report";
+                                                consultShown = true;
+                                            }
+                                    %>
+                                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
+                                    </option>
+                                    <% }%>
+                                </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.docSubClass"/>:
+                                    <input type="text" name="docSubClass" id="docSubClass" style="width:100%;">
+                                    <div class="autocomplete_style" id="docSubClass_list"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <div id="docDescriptionList"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.description"/>:</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><input tabIndex="<%=tabIndex++%>" type="text" style="width:100%;"
+                                                       id="documentDescription" name="documentDescription" value=""
+                                                       onfocus="setDescriptionIfEmpty();"/></td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="dms.incomingDocs.obsDate"/>:
+                                    <a id="obsdate" onmouseover="renderCalendar(this.id,'observationDate' );"
+                                       href="javascript:void(0);"><img title="Calendar"
+                                                                       src="<%=request.getContextPath()%>/images/cal.gif"
+                                                                       alt="Calendar" border="0"/></a></td>
+                                <td>
+                                    <input tabIndex="<%=tabIndex++%>" id="observationDate" name="observationDate"
+                                           type="text" maxlength="10" size="10" value="<%=todayDate%>">
+                                </td>
+                            </tr>
+                            <% if (entryMode.equals("Fast")) {%>
+                            <tr>
+                                <td><fmt:message key="dms.incomingDocs.lastPatients"/>:</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><%
+                                    String valueid = "";
+                                    if (!LastPatientsBean.isEmpty()) {
+                                        for (int counter = (LastPatientsBean.size() - 1); counter >= 0; counter--) {
+                                            valueid = LastPatientsBean.get(counter).toString();
+                                            Demographic demo = demographicDao.getDemographic(valueid);
+                                            if (demo != null) {
+                                %>
+                                    <input type="button"
+                                           value="<e:forHtmlAttribute value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' />"
+                                           id="demvalueid<e:forHtmlAttribute value='<%= valueid %>' />"
+                                           onclick="loadRecentDemo('<e:forJavaScriptAttribute value='<%= valueid %>' />','<e:forJavaScriptAttribute value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' />')"/>
+                                    <%
+
+                                                }
+                                            }
+                                        }%>
+                                </td>
+                            </tr>
+                            <%}%>
+                            <tr>
+                                <td colspan="2"><fmt:message key="dms.incomingDocs.demographic"/>: <input type="button"
+                                                                                                           value="M"
+                                                                                                           onclick="loadMaster()">
+                                    <input type="button" value="H" onclick="loadApptHistory();">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <input id="saved" type="hidden" name="saved" value="false"/>
+                                    <input type="hidden" name="demog" value="-1" id="demofind"/>
+                                    <input tabIndex="<%=tabIndex++%>" type="text" id="autocompletedemo"
+                                           onchange="checkSave('')" name="demographicKeyword" style="width:100%;"/>
+                                    <div id="autocomplete_choices" class="autocomplete"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><input type="button" id="createNewDemo"
+                                                       value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
+                                                       onclick="popupPage(700,960,'<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm','demographic')"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td valign="top" colspan="2"><fmt:message key="dms.incomingDocs.flagProvider"/>:</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <input type="hidden" name="provi" id="provfind"/>
+                                    <input type="hidden" name="MRPNo" id="MRPNo"/>
+                                    <input type="hidden" name="MRPName" id="MRPName"/>
+                                    <input type="button" value="MRP" onclick="addMRP();">
+                                    <% if (entryMode.equals("Fast")) {
+                                        int i = 0;
+                                        SortedMap<String, Provider> sm = new TreeMap<String, Provider>();
+                                        String pname = "";
+                                        for (i = 0; (i < routingIdList.size() && i < 10); i++) {
+
+                                            Integer p1 = routingIdList.get(i);
+                                            List<Object[]> searchResult;
+                                            searchResult = providerLabRoutingDao.findProviderAndLabRoutingById(p1);
+
+                                            for (Object[] o : searchResult) {
+                                                Provider provider = (Provider) o[0];
+
+                                                if (provider != null) {
+                                                    pname = provider.getLastName() + " " + provider.getFirstName();
+                                                    sm.put(pname, provider);
+                                                }
+                                            }
+                                        }
+                                        Set s = sm.entrySet();
+                                        Iterator it = s.iterator();
+
+                                        while (it.hasNext()) {
+                                            Map.Entry m = (Map.Entry) it.next();
+
+                                            Provider sortedprovider = (Provider) m.getValue();
+                                            if (sortedprovider != null) {
+                                                pname = (sortedprovider.getLastName() + " " + sortedprovider.getFirstName()).trim();
+                                                StringBuilder sbInitials = new StringBuilder();
+                                                String[] nameParts = pname.split(" ");
+                                                for (String part : nameParts) {
+                                                    sbInitials.append(part.charAt(0));
+                                                }
+                                                String initials = sbInitials.toString();
+                                    %>
+                                    <input type="button" value="<e:forHtmlAttribute value='<%= initials %>' />"
+                                           title="<e:forHtmlAttribute value='<%= sortedprovider.getFirstName() + " " + sortedprovider.getLastName() %>' />"
+                                           onclick="addflagprovider('<e:forJavaScriptAttribute value='<%= sortedprovider.getFirstName() %>' />','<e:forJavaScriptAttribute value='<%= sortedprovider.getLastName() %>' />','<e:forJavaScriptAttribute value='<%= sortedprovider.getProviderNo() %>' />');">
+                                    <% }
+                                    }
+
+                                    }%>
+
+                                    <input tabIndex="<%=tabIndex++%>" type="text" id="autocompleteprov"
+                                           name="ProvKeyword" style="width:100%;"/>
+                                    <div id="autocomplete_choicesprov" class="autocomplete"></div>
+                                    <div id="providerList"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" align="left"><p>
+                                    <p><button type="submit" onclick="return checkDocument();" name="save"
+                                              tabIndex="<%=tabIndex++%>" id="save" disabled class="btn btn-primary btn-sm">Save & Next</button></td>
+                            </tr>
+                        </table>
+                    </form>
+                </fieldset>
+            </td>
+            <td class="topalign">
+                <div>
+                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><e:forHtmlContent value='<%= pdfPageNumber %>' /> <fmt:message key="dms.incomingDocs.of"/><span
+                        class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"> <%=numOfPage%> <%}%></span></b>
+                    <fmt:message key="dms.incomingDocs.viewAs"/>:
+                    <select tabIndex="<%=tabIndex++%>" name="imageTypeList" id="imageTypeList"
+                            onchange="setImageType();">
+                        <option value="Pdf" <%=imageType.equals("Pdf") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.PDF"/></option>
+                        <option value="Image" <%=imageType.equals("Image") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.image"/></option>
+                    </select>
+                </div>
+                <div id="docdisp"></div>
+            </td>
+        </tr>
+        <script type="text/javascript">
+            initProviderAutocomplete("#autocompleteprov", "<%= request.getContextPath()%>",
+                function (providerNo, firstName, lastName) {
+                    document.getElementById('provfind').value = providerNo;
+                    addflagprovider(firstName, lastName, providerNo);
+                    document.getElementById('autocompleteprov').value = '';
+                });
+
+            function addflagprovider(pfirstname, plastname, provider_no) {
+                var link = document.createElement('a');
+                link.id = "removeProv";
+                link.onclick = function () { removeThisProv(this); };
+                link.appendChild(document.createTextNode(" -remove- "));
+
+                var wrapper = document.createElement('div');
+                wrapper.appendChild(document.createTextNode(pfirstname + " " + plastname));
+
+                var hidden = document.createElement('input');
+                hidden.type = "hidden";
+                hidden.name = "flagproviders";
+                hidden.value = provider_no;
+
+                wrapper.appendChild(hidden);
+                wrapper.appendChild(link);
+                document.getElementById('providerList').appendChild(wrapper);
+            }
+
+            if (document.getElementById("autocompletedemo") && document.getElementById("autocomplete_choices")) {
+                initDemographicAutocomplete("#autocompletedemo", "<%=request.getContextPath()%>",
+                    function (demographicNo, formattedName, formattedDob, status, item) {
+                        document.getElementById('demofind').value = demographicNo;
+                        document.getElementById('MRPNo').value = item.providerNo || '';
+                        document.getElementById('MRPName').value = item.providerName || '';
+
+                        document.getElementById('autocompletedemo').value = formattedName + " (" + formattedDob + ")";
+                        selectedDemos.push(document.getElementById('autocompletedemo').value);
+
+                        document.getElementById('save').disabled = false;
+
+                        if (document.PdfInfoForm.pdfDir.value != "File") {
+                            var MRPName = document.getElementById('MRPName').value;
+                            var MRPNo = document.getElementById('MRPNo').value;
+                            if (MRPNo != null && MRPNo.length > 0) {
+                                addflagprovider(MRPName, "(<fmt:message key="dms.incomingDocs.MRP"/>)", MRPNo);
+                            }
+                        }
+                    });
+            }
+        </script>
+    </table>
+</div>
+<script type="text/javascript">
+    showPageImg('<e:forJavaScriptBlock value='<%= queueIdStr %>' />', '<e:forJavaScriptBlock value='<%= pdfDir %>' />', '<e:forJavaScriptBlock value='<%= pdfName %>' />', '<e:forJavaScriptBlock value='<%= pdfPageNumber %>' />');
+</script>
+
+</body>
+</html>

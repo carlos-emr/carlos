@@ -1,0 +1,218 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="java.util.List" %>
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="java.util.Date" %>
+<%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%
+    Hl7LinkDao dao = SpringUtils.getBean(Hl7LinkDao.class);
+
+    Date start = ConversionUtils.fromDateString(Misc.check(request.getParameter("start"), ""));
+    Date end = ConversionUtils.fromDateString(Misc.check(request.getParameter("end"), ""));
+
+    String provider_no = Misc.check(request.getParameter("provider_no"), "");
+    String orderby = Misc.check(request.getParameter("orderby"), "pid_id");
+
+    String command = Misc.check(request.getParameter("cmd_search"), "");
+
+    String url = "/lab/CA/BC/ViewSearchReports?cmd_search=search&provider_no=" + provider_no;
+%>
+<html>
+<head>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <title>CARLOS PathNET - Search Lab Reports</title>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
+    <script language="JavaScript">
+        var labReport;
+
+        function PopupLab(pid) {
+            labReport = window.opener.open('<%= request.getContextPath() %>/lab/CA/BC/ViewReport?pid=' + pid, 'LabSearchReport', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
+            labReport.focus();
+        }
+    </script>
+</head>
+<body>
+<form action="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports" method="post">
+    <table width="100%" class="DarkBG">
+        <tr>
+            <td height="40" width="25"></td>
+            <td width="50%" align="left"><font color="#4D4D4D"><b><font
+                    size="4">oscar<font size="3">PathNET - Search Lab
+                Reports</font></font></b></font></td>
+            <td class="Text" align="right"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewIndex">Patient
+                Linking</a>&nbsp;
+            </td>
+        </tr>
+    </table>
+    <table width="100%">
+        <tr bgcolor="E6E6E6">
+            <td class="Text">Provider No</td>
+            <td class="Text">Start Date</td>
+            <td class="Text">End Date</td>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td class="Text"><select name="provider_no" id="provider_no"
+                                     size=1>
+                <option value="-APL"
+                        <%=(provider_no.equals("-APL") ? "selected" : "")%>>Linked
+                    Labs
+                </option>
+                <option value="-ULL"
+                        <%=(provider_no.equals("-ULL") ? "selected" : "")%>>Unlinked
+                    Labs
+                </option>
+                <option value="-UAP"
+                        <%=(provider_no.equals("-UAP") ? "selected" : "")%>>Unassigned
+                    Patients
+                </option>
+
+                <%
+
+                    for (Object[] o : dao.findReports(start, end, provider_no, orderby, command)) {
+                        String providerNo = String.valueOf(o[0]);
+                        String lastName = String.valueOf(o[1]);
+                        String firstName = String.valueOf(o[2]);
+
+                        out.println("<option value='" + Encode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + Encode.forHtml(lastName) + ", " + Encode.forHtml(firstName) + "</option>");
+                    }
+                %>
+            </select></td>
+            <td class="Text"><input name="start" value="<e:forHtmlAttribute value='<%= String.valueOf(start) %>' />"/></td>
+            <td class="Text"><input name="end" value="<e:forHtmlAttribute value='<%= String.valueOf(end) %>' />"/></td>
+            <td class="Text"><input type="submit" name="cmd_search"
+                                    value="Search"/></td>
+        </tr>
+    </table>
+</form>
+<table width="100%">
+    <tr>
+        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url %>' />">Lab Id</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=patient_name" %>' />">Patient Name</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=ordering_provider" %>' />">Ordering Provider</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=result_copies_to" %>' />">Result Copies To</a></td>
+        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url + "&orderby=status" %>' />">Status</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=signed_on" %>' />">Signed</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=last_name" %>' />">Signing Provider</a></td>
+        <td class="Header" nowrap><a
+                href="<e:forHtmlAttribute value='<%= url + "&orderby=date_time" %>' />">Date Received</a></td>
+    </tr>
+    <%
+        if (command != null) {
+            List<Object[]> reports = dao.findReports(start, end, provider_no, orderby, command);
+
+            boolean other = true;
+            for (Object[] o : reports) {
+                String pid_id = String.valueOf(o[0]);
+                String patient_name = String.valueOf(o[1]);
+                String ordering_provider = String.valueOf(o[2]);
+                String result_copies_to = String.valueOf(o[3]);
+                String status = String.valueOf(o[4]);
+                String signed_on = String.valueOf(o[5]);
+                String last_name = String.valueOf(o[6]);
+                String first_name = String.valueOf(o[7]);
+                String date_time = String.valueOf(o[8]);
+    %>
+    <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
+        <td class="Text"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports"
+                            onclick="PopupLab('<e:forJavaScriptAttribute value='<%= pid_id %>' />'); return false;"><e:forHtmlContent value='<%= pid_id %>' />
+        </a></td>
+        <td class="Text" nowrap><e:forHtmlContent value='<%= Misc.check(patient_name, "") %>' />
+        </td>
+        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
+        </td>
+        <td class="Text"><%=Encode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
+        </td>
+        <td class="Text" nowrap>
+            <%
+                if (status != null) {
+                    switch (status.toCharArray()[0]) {
+                        case 'S':
+                            out.print("Signed");
+                            break;
+                        case 'P':
+                            out.print("Pending");
+                            break;
+                        case 'A':
+                            out.print("Assigned");
+                            break;
+                        case 'N':
+                            out.print("New");
+                            break;
+                    }
+                }
+            %>
+        </td>
+        <td class="Text" nowrap>
+            <%
+                String signed = Misc.check(signed_on, "");
+                out.print(Encode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
+            %>
+        </td>
+        <td class="Text"
+            nowrap><%=((last_name != null && !last_name.equals("")) ? Encode.forHtml(Misc.check(last_name, "")) + ", " + Encode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
+        </td>
+        <td class="Text" nowrap><e:forHtmlContent value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' />
+        </td>
+    </tr>
+    <%
+                other = !other;
+            }
+        }
+    %>
+</table>
+</body>
+</html>

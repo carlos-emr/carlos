@@ -60,8 +60,8 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
-            // https://127.0.0.1:8443/oscar/eform/efmshowform_data.jsp?fdid=2&parentAjaxId=eforms
-            RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data.jsp");
+            // https://127.0.0.1:8443/oscar/eform/efmshowform_data?fdid=2&parentAjaxId=eforms
+            RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data");
             requestDispatcher.forward(request, response);
         } catch (ServletException | IOException e) {
             throw e;

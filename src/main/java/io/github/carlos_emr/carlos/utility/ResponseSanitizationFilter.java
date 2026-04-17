@@ -63,7 +63,8 @@ import java.util.regex.Pattern;
  * <p>Captures responses written via {@link PrintWriter} (text content). Binary responses
  * written via {@link ServletOutputStream} pass through unmodified. Responses committed
  * by {@code sendError()} or {@code sendRedirect()} before the chain returns also pass through —
- * those trigger Tomcat's error-page mechanism which forwards to {@code /errorpage.jsp}.</p>
+ * those trigger Tomcat's error-page mechanism which forwards to
+ * {@code /WEB-INF/jsp/error/errorpage.jsp}.</p>
  *
  * <h3>Configuration</h3>
  * <p>The filter can be disabled in {@code carlos.properties} for development environments
@@ -213,7 +214,8 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         // Response was committed by sendError() or sendRedirect() inside the chain.
-        // Tomcat's error-page mechanism will forward to /errorpage.jsp, which is already safe.
+        // Tomcat's error-page mechanism will forward to /WEB-INF/jsp/error/errorpage.jsp,
+        // which is already safe.
         if (wrapper.isResponseCommitted()) {
             return;
         }
@@ -467,7 +469,8 @@ public class ResponseSanitizationFilter implements Filter {
 
         /**
          * Delegates {@code sendError} to the real response and marks this wrapper as committed.
-         * Tomcat's error-page mechanism will forward to {@code /errorpage.jsp}.
+         * Tomcat's error-page mechanism will forward to
+         * {@code /WEB-INF/jsp/error/errorpage.jsp}.
          *
          * @param sc int the HTTP error status code
          * @throws IOException if an I/O error occurs

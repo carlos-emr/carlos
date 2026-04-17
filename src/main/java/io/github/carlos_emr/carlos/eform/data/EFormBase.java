@@ -95,7 +95,7 @@ public class EFormBase {
     }
 
     public void setImagePath(String contextPath) {
-        String output = contextPath + "/eform/displayImage.do?imagefile=";
+        String output = contextPath + "/eform/displayImage?imagefile=";
         StringBuilder html = new StringBuilder(formHtml);
         int pointer = StringBuilderUtils.indexOfIgnoreCase(html, imageMarker, 0);
         while (pointer >= 0) {

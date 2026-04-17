@@ -41,8 +41,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RBTAddGroup2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -50,8 +53,11 @@ public class RBTAddGroup2Action extends ActionSupport {
     private RBTGroupManager rbtGroupManager = SpringUtils.getBean(RBTGroupManager.class);
 
     public String execute() {
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
 
         String groupName = request.getParameter("groupName");
         rbtGroupManager.addTemplateToGroup(loggedInInfo, groupName, 0);  //marker for group

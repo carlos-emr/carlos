@@ -37,6 +37,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -81,7 +82,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             // Use PathValidationUtils for validation
             File docDir = new File(documentDir).getCanonicalFile();
             if (!docDir.exists() || !docDir.isDirectory()) {
-                logger.error("Document directory does not exist or is not a directory: " + documentDir);
+                logger.error("Document directory does not exist or is not a directory: {}", LogSanitizer.sanitize(documentDir)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
@@ -90,24 +91,24 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             try {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             } catch (SecurityException e) {
-                logger.error("Attempted path traversal detected - file outside document directory: " + fileName);
-                throw new SecurityException("Access denied: file outside permitted directory");
+                logger.error("Attempted path traversal detected - file outside document directory: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                return null;
             }
 
             // Now safe to check if file exists and is a regular file
             if (!file.exists()) {
-                logger.error("File does not exist: " + fileName);
+                logger.error("File does not exist: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
             if (!file.isFile()) {
-                logger.error("Path is not a regular file: " + fileName);
+                logger.error("Path is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
             // Ensure file is readable
             if (!file.canRead()) {
-                logger.error("File is not readable: " + fileName);
+                logger.error("File is not readable: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
             
@@ -115,9 +116,6 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
             // Use the validated file object - safe after all validation checks
             doc = docBuilder.parse(file);
-        } catch (SecurityException e) {
-            logger.error("Security violation in Excelleris ON message handling", e);
-            throw e; // Re-throw security exceptions
         } catch (ParserConfigurationException e) {
             logger.error("XML parser configuration error", e);
         } catch (Exception e) {

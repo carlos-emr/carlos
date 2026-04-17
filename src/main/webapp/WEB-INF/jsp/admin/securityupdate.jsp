@@ -28,13 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -43,7 +42,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -52,7 +51,7 @@
 %>
 
 
-<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -133,12 +132,12 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=Encode.forHtml(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>
+        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_no"))) %>.</h1>
+        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />.</h1>
         <%
             }
         %>

@@ -34,13 +34,15 @@
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.text.ParseException" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.auditLogPurge" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.auditLogPurge");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.auditLogPurge");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -64,7 +66,7 @@
 
 <html>
     <head>
-        <title>Audit Log Purge Tool</title>
+        <title><fmt:message key="admin.auditLogPurge.title"/></title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
@@ -82,10 +84,10 @@
             function submitForm() {
 
                 if (document.getElementById('dateBegin').value.length == 0) {
-                    alert('Please fill in a date');
+                    alert('<fmt:message key="admin.auditLogPurge.alertDate"/>');
                     return false;
                 }
-                return confirm("Are you sure you want to continue?");
+                return confirm("<fmt:message key='admin.auditLogPurge.confirmContinue'/>");
             }
 
             function resetForm() {
@@ -106,7 +108,7 @@
     <body>
 
     <div class="container-fluid card card-body bg-body-tertiary">
-        <h3>Audit Log Purge Tool</h3>
+        <h3><fmt:message key="admin.auditLogPurge.heading"/></h3>
 
         <div class="row">
         <div class="col-md-2">
@@ -139,27 +141,22 @@
             <%
                 if (msg == null) {
             %>
-            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" method="post" onsubmit="return submitForm();">
+            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge" method="post" onsubmit="return submitForm();">
 
-                <p>Welcome to the Audit Log Purge Tool.</p>
+                <p><fmt:message key="admin.auditLogPurge.welcome"/></p>
                 <p>
-                    When run, this tool will backup all the log entries set to be purged using mysqldump onto the OSCAR
-                    server.
-                    The file can be found in <%=outputDirectory %>.
+                    <fmt:message key="admin.auditLogPurge.backupHelp"/> <%=outputDirectory %>.
                 </p>
-                <p>The admin of this system has set log.purge.minDays to <%=minDays%> meaning that you must choose a
-                    date below
-                    that is before <%=minDate%>.</p>
+                <p><fmt:message key="admin.auditLogPurge.minDaysHelp"/> <%=minDays%> <fmt:message key="admin.auditLogPurge.beforeDate"/> <%=minDate%>.</p>
                 <p>
-                    Please note that after this tool is run, you will have DELETED all audit log recorded prior to your
-                    chosen date.
+                    <fmt:message key="admin.auditLogPurge.warning"/>
                 </p>
 
-                Most Recent Day to purge: <input class="form-control" type="text" id="dateBegin" name="dateBegin" value=""/>
+                <fmt:message key="admin.auditLogPurge.mostRecentDay"/>: <input class="form-control" type="text" id="dateBegin" name="dateBegin" value=""/>
 
                 <br/>
 
-                <input type="submit" value="Purge"/>&nbsp;&nbsp;<input type="button" value="Reset"
+                <input type="submit" value="<fmt:message key='admin.auditLogPurge.purge'/>"/>&nbsp;&nbsp;<input type="button" value="<fmt:message key='global.reset'/>"
                                                                        onclick="return resetForm();"/>
 
             </form>

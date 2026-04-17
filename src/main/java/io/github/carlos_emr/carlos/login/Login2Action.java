@@ -67,6 +67,8 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
@@ -252,7 +254,7 @@ public final class Login2Action extends ActionSupport {
         // SECURITY: Reject GET requests to prevent credential exposure in URLs/logs
         if (!"POST".equals(request.getMethod())) {
             MiscUtils.getLogger().error("Someone is trying to login with a GET request.", new Exception());
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Application Error. See Log.";
+            String newURL = request.getContextPath() + "/loginfailed?errormsg=Application Error. See Log.";
             response.sendRedirect(newURL);
             return NONE;
         }
@@ -363,7 +365,7 @@ public final class Login2Action extends ActionSupport {
             userName = (String) request.getSession().getAttribute("userName");
 
             // Username is only letters and numbers
-            if (!Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
                 userName = "Invalid Username";
             }
 
@@ -372,7 +374,7 @@ public final class Login2Action extends ActionSupport {
             pin = (String) request.getSession().getAttribute("pin");
 
             // pins are integers only
-            if (!Pattern.matches("[0-9]{4}", pin)) {
+            if (pin == null || !Pattern.matches("[0-9]{4}", pin)) {
                 pin = "";
             }
             nextPage = (String) request.getSession().getAttribute("nextPage");
@@ -393,7 +395,7 @@ public final class Login2Action extends ActionSupport {
 
                 // Error Handling
                 if (errorStr != null && !errorStr.isEmpty()) {
-                    String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                    String newURL = request.getContextPath() + "/forcepasswordreset";
                     newURL = newURL + errorStr;
                     response.sendRedirect(newURL);
                     return NONE;
@@ -407,7 +409,7 @@ public final class Login2Action extends ActionSupport {
                 removeAttributesFromSession(request);
             } catch (Exception e) {
                 logger.error("Error", e);
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
 
                 // Remove the attributes from session
                 removeAttributesFromSession(request);
@@ -424,14 +426,14 @@ public final class Login2Action extends ActionSupport {
             userName = this.getUsername();
 
             // Username is only letters and numbers
-            if (!Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
+            if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
                 userName = "Invalid Username";
             }
             password = this.getPassword();
             pin = this.getPin();
 
             // pins are integers only
-            if (!Pattern.matches("[0-9]{4}", pin)) {
+            if (pin == null || !Pattern.matches("[0-9]{4}", pin)) {
                 pin = "";
             }
             nextPage = request.getParameter("nextPage");
@@ -440,7 +442,7 @@ public final class Login2Action extends ActionSupport {
             if (nextPage != null) {
                 if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                     logger.warn("Rejected redirect URL: {}", LogSanitizer.sanitize(nextPage));
-                    response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                    response.sendRedirect(request.getContextPath() + "/loginfailed");
                     return NONE;
                 } else {
                     // set current facility - validate format and verify the authenticated user has access
@@ -448,7 +450,7 @@ public final class Login2Action extends ActionSupport {
                     // Validate format: must be non-null positive integer (max 9 digits to stay within Integer range)
                     if (facilityIdString == null || !facilityIdString.matches("\\d{1,9}")) {
                         logger.warn("Invalid or missing facility ID in facility selection request");
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
                         return NONE;
                     }
                     int facilityId = Integer.parseInt(facilityIdString);
@@ -457,19 +459,24 @@ public final class Login2Action extends ActionSupport {
                     List<Integer> allowedFacilityIds = providerDao.getFacilityIds(username);
                     if (!allowedFacilityIds.contains(facilityId)) {
                         logger.warn("Provider {} attempted unauthorized facility selection: {}", LogSanitizer.sanitize(username), facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
                         return NONE;
                     }
                     Facility facility = facilityDao.find(facilityId);
                     if (facility == null) {
                         logger.warn("Selected facility not found: {}", facilityId);
-                        response.sendRedirect(request.getContextPath() + "/loginfailed.jsp");
+                        response.sendRedirect(request.getContextPath() + "/loginfailed");
                         return NONE;
                     }
                     // facilityId validated via Integer.parseInt() and facilityDao.find() above
                     request.getSession().setAttribute(SessionConstants.CURRENT_FACILITY, facility); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                     LogAction.addLog(username, LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityId, ip);
-                    response.sendRedirect(nextPage);
+                    // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection #5909):
+                    // nextPage is validated by RedirectValidationUtils.isValidRelativeRedirect()
+                    // immediately above before entering this branch; it rejects absolute URIs,
+                    // protocol-relative URLs, backslash bypasses, control characters, and
+                    // path-traversal sequences — only safe relative paths reach here.
+                    response.sendRedirect(nextPage); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
                     return NONE;
                 }
             }
@@ -478,7 +485,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Blocked: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 // return mapping.findForward(where); //go to block page
                 // change to block page
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
 
                 if (ajaxResponse) {
                     ObjectNode json = objectMapper.createObjectNode();
@@ -505,7 +512,7 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed.jsp"
+            String newURL = request.getContextPath() + "/loginfailed"
                     + "?errormsg=Unable to process login at this time. Please try again.";
 
             if (ajaxResponse) {
@@ -533,7 +540,7 @@ public final class Login2Action extends ActionSupport {
                 logger.info("{} Inactive: {}", LOG_PRE, LogSanitizer.sanitize(userName));
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
-                String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is inactive. Please contact your administrator to activate.";
+                String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is inactive. Please contact your administrator to activate.";
 
                 response.sendRedirect(newURL);
                 return NONE;
@@ -547,13 +554,13 @@ public final class Login2Action extends ActionSupport {
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
-                String newURL = request.getContextPath() + "/forcepasswordreset.jsp";
+                String newURL = request.getContextPath() + "/forcepasswordreset";
 
                 try {
                     setUserInfoToSession(request, userName, password, pin, nextPage);
                 } catch (Exception e) {
                     logger.error("Error", e);
-                    newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Setting values to the session.";
+                    newURL = request.getContextPath() + "/loginfailed?errormsg=Setting values to the session.";
                 }
 
                 response.sendRedirect(newURL);
@@ -698,17 +705,16 @@ public final class Login2Action extends ActionSupport {
 
             String username = (String) session.getAttribute("user");
             Provider provider = providerManager.getProvider(username);
+            session.setAttribute("provider", provider); // nosemgrep: tainted-session-from-http-request
             session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider); // nosemgrep: tainted-session-from-http-request
             session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, cl.getSecurity()); // nosemgrep: tainted-session-from-http-request
-
-            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
 
             if (where.equals("provider")) {
             }
 
             List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
             if (facilityIds.size() > 1) {
-                String facilityPath = "/select_facility.jsp?nextPage=";
+                String facilityPath = "/select_facility?nextPage=";
                 String newURL = request.getContextPath() + facilityPath + Encode.forUriComponent(where);
 
                 response.sendRedirect(newURL);
@@ -731,8 +737,16 @@ public final class Login2Action extends ActionSupport {
                 }
             }
 
+            LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
+            LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+
             if (UserRoleUtils.hasRole(request, "Patient Intake")) {
                 return "patientIntake";
+            }
+
+            if ("provider".equals(where)) {
+                response.sendRedirect(buildDefaultProviderSchedulePath());
+                return NONE;
             }
 
         }
@@ -741,7 +755,7 @@ public final class Login2Action extends ActionSupport {
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
             logger.warn("Expired password");
             cl.updateLoginList(ip, userName);
-            String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Your account is expired. Please contact your administrator.";
+            String newURL = request.getContextPath() + "/loginfailed?errormsg=Your account is expired. Please contact your administrator.";
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -769,7 +783,7 @@ public final class Login2Action extends ActionSupport {
             }
 
             String oneIdKey = request.getParameter("nameId");
-            String newURL = request.getContextPath() + "/logout.do?login=failed";
+            String newURL = request.getContextPath() + "/logout?login=failed";
             if (oneIdKey != null && !oneIdKey.equals("")) {
                 newURL += "&nameId=" + Encode.forUriComponent(oneIdKey);
             }
@@ -800,6 +814,11 @@ public final class Login2Action extends ActionSupport {
         }
 
         logger.debug("rendering standard response : {}", where);
+        if ("provider".equals(where)) {
+            response.sendRedirect(buildDefaultProviderSchedulePath());
+            return NONE;
+        }
+
         return where;
     }
 
@@ -859,6 +878,29 @@ public final class Login2Action extends ActionSupport {
         }
 
         return where;
+    }
+
+    /**
+     * Builds the canonical post-login schedule landing path.
+     *
+     * <p>This bypasses the legacy {@code provider/providercontrol} dispatcher
+     * and sends authenticated users directly to the day-view schedule action
+     * with today's date and the configured default {@code viewall} mode.</p>
+     *
+     * @return internal application path for the default provider schedule view
+     */
+    private String buildDefaultProviderSchedulePath() {
+        GregorianCalendar now = new GregorianCalendar();
+        String viewAll = "1";
+        if (CarlosProperties.getInstance().getProperty("default_schedule_viewall", "").startsWith("false")) {
+            viewAll = "0";
+        }
+
+        return request.getContextPath()
+                + "/provider/ViewAppointmentAdminDay?year=" + now.get(Calendar.YEAR)
+                + "&month=" + (now.get(Calendar.MONTH) + 1)
+                + "&day=" + now.get(Calendar.DAY_OF_MONTH)
+                + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewAll;
     }
 
     /**

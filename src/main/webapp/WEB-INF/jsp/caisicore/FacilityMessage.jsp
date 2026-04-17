@@ -25,7 +25,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <c:if test="${not empty FacilityMessages}">
     <table width="100%">

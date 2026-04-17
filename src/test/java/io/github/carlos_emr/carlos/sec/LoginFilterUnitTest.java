@@ -57,15 +57,15 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should match exact exempt URL")
         void shouldMatchExactExemptUrl() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/login.do", CONTEXT_PATH, exemptUrls)).isTrue();
+                    CONTEXT_PATH + "/login", CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
         @DisplayName("should not match URL with extra characters appended")
         void shouldNotMatchUrl_withExtraCharactersAppended() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/login.doEvil", CONTEXT_PATH, exemptUrls)).isFalse();
         }
@@ -73,9 +73,9 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should not match unrelated URL")
         void shouldNotMatchUnrelatedUrl() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/admin/settings.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/admin/settings", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
 
@@ -117,7 +117,7 @@ class LoginFilterUnitTest {
         void shouldNotMatchCraftedUrl_appendingToCssBootstrapPrefix() {
             String[] exemptUrls = {"/css/bootstrap"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/css/bootstrapEvil.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/css/bootstrapEvil", CONTEXT_PATH, exemptUrls)).isFalse();
         }
 
         @Test
@@ -137,11 +137,11 @@ class LoginFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should not match crafted URL appending to images/Oscar.ico")
-        void shouldNotMatchCraftedUrl_appendingToImagePath() {
+        @DisplayName("should match images/Oscar.ico exactly")
+        void shouldMatchImagePathExactly() {
             String[] exemptUrls = {"/images/Oscar.ico"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/images/Oscar.ico.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/images/Oscar.ico", CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
@@ -149,7 +149,7 @@ class LoginFilterUnitTest {
         void shouldNotMatchCraftedUrl_appendingToJsBootstrapPrefix() {
             String[] exemptUrls = {"/js/bootstrap"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/js/bootstrapAdmin.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/js/bootstrapAdmin", CONTEXT_PATH, exemptUrls)).isFalse();
         }
 
         @Test
@@ -165,7 +165,7 @@ class LoginFilterUnitTest {
         void shouldNotMatchCraftedUrl_appendingToCsrfguard() {
             String[] exemptUrls = {"/csrfguard"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/csrfguardEvil.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/csrfguardEvil", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
 
@@ -174,20 +174,21 @@ class LoginFilterUnitTest {
     class ContextRootHandling {
 
         @Test
-        @DisplayName("should treat context root as index.jsp")
-        void shouldTreatContextRoot_asIndexJsp() {
-            String[] exemptUrls = {"/index.jsp"};
+        @DisplayName("should treat context root as index")
+        void shouldTreatContextRoot_asIndexDo() {
+            String[] exemptUrls = {"/index"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH, CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
-        @DisplayName("should treat context root with trailing slash as index.jsp")
-        void shouldTreatContextRootWithTrailingSlash_asIndexJsp() {
-            String[] exemptUrls = {"/index.jsp"};
+        @DisplayName("should treat context root with trailing slash as index")
+        void shouldTreatContextRootWithTrailingSlash_asIndexDo() {
+            String[] exemptUrls = {"/index"};
             assertThat(filter.inListOfExemptions(
                     CONTEXT_PATH + "/", CONTEXT_PATH, exemptUrls)).isTrue();
         }
+
     }
 
     @Nested
@@ -197,9 +198,9 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should match with empty context path")
         void shouldMatch_withEmptyContextPath() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    "/login.do", "", exemptUrls)).isTrue();
+                    "/login", "", exemptUrls)).isTrue();
         }
 
         @Test
@@ -207,7 +208,7 @@ class LoginFilterUnitTest {
         void shouldNotMatchCraftedUrl_withEmptyContextPath() {
             String[] exemptUrls = {"/css/bootstrap"};
             assertThat(filter.inListOfExemptions(
-                    "/css/bootstrapEvil.do", "", exemptUrls)).isFalse();
+                    "/css/bootstrapEvil", "", exemptUrls)).isFalse();
         }
     }
 
@@ -220,15 +221,15 @@ class LoginFilterUnitTest {
         void shouldReturnFalse_forEmptyExemptionList() {
             String[] exemptUrls = {};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/login.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/login", CONTEXT_PATH, exemptUrls)).isFalse();
         }
 
         @Test
         @DisplayName("should return false for completely unrelated URL")
         void shouldReturnFalse_forCompletelyUnrelatedUrl() {
-            String[] exemptUrls = {"/login.do", "/logout.jsp"};
+            String[] exemptUrls = {"/login", "/logoutPage"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/provider/dashboard.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/provider/dashboard", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
 
@@ -239,17 +240,17 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should match exempt URL when path parameter is appended")
         void shouldMatchExemptUrl_whenPathParameterAppended() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/login.do;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isTrue();
+                    CONTEXT_PATH + "/login;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
         @DisplayName("should not match non-exempt URL when path parameter is stripped")
         void shouldNotMatchNonExemptUrl_whenPathParameterStripped() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/admin/settings.do;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/admin/settings;jsessionid=abc123", CONTEXT_PATH, exemptUrls)).isFalse();
         }
 
         @Test
@@ -276,17 +277,17 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should match exempt URL with double slashes collapsed")
         void shouldMatchExemptUrl_withDoubleSlashesCollapsed() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "//login.do", CONTEXT_PATH, exemptUrls)).isTrue();
+                    CONTEXT_PATH + "//login", CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
         @DisplayName("should not match non-exempt URL after slash collapsing")
         void shouldNotMatchNonExemptUrl_afterSlashCollapsing() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "//admin//settings.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "//admin//settings", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
 
@@ -299,15 +300,15 @@ class LoginFilterUnitTest {
         void shouldNotMatchNonExemptUrl_disguisedWithDotDotTraversal() {
             String[] exemptUrls = {"/ws/"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/ws/../admin/settings.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/ws/../admin/settings", CONTEXT_PATH, exemptUrls)).isFalse();
         }
 
         @Test
         @DisplayName("should match exempt URL with redundant dot segment")
         void shouldMatchExemptUrl_withRedundantDotSegment() {
-            String[] exemptUrls = {"/login.do"};
+            String[] exemptUrls = {"/login"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/./login.do", CONTEXT_PATH, exemptUrls)).isTrue();
+                    CONTEXT_PATH + "/./login", CONTEXT_PATH, exemptUrls)).isTrue();
         }
 
         @Test
@@ -315,7 +316,7 @@ class LoginFilterUnitTest {
         void shouldNotMatchNonExemptUrl_viaDotDotIntoExemptDirectory() {
             String[] exemptUrls = {"/css/bootstrap"};
             assertThat(filter.inListOfExemptions(
-                    CONTEXT_PATH + "/css/bootstrap/../../admin/secret.do", CONTEXT_PATH, exemptUrls)).isFalse();
+                    CONTEXT_PATH + "/css/bootstrap/../../admin/secret", CONTEXT_PATH, exemptUrls)).isFalse();
         }
     }
 
@@ -326,8 +327,8 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should strip path parameters")
         void shouldStripPathParameters() {
-            assertThat(LoginFilter.normalizeUri("/carlos/login.do;jsessionid=abc"))
-                    .isEqualTo("/carlos/login.do");
+            assertThat(LoginFilter.normalizeUri("/carlos/login;jsessionid=abc"))
+                    .isEqualTo("/carlos/login");
         }
 
         @Test
@@ -340,22 +341,22 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should collapse repeated slashes")
         void shouldCollapseRepeatedSlashes() {
-            assertThat(LoginFilter.normalizeUri("//carlos///login.do"))
-                    .isEqualTo("/carlos/login.do");
+            assertThat(LoginFilter.normalizeUri("//carlos///login"))
+                    .isEqualTo("/carlos/login");
         }
 
         @Test
         @DisplayName("should resolve dot-dot segments")
         void shouldResolveDotDotSegments() {
-            assertThat(LoginFilter.normalizeUri("/carlos/ws/../admin/secret.do"))
-                    .isEqualTo("/carlos/admin/secret.do");
+            assertThat(LoginFilter.normalizeUri("/carlos/ws/../admin/secret"))
+                    .isEqualTo("/carlos/admin/secret");
         }
 
         @Test
         @DisplayName("should resolve single dot segments")
         void shouldResolveSingleDotSegments() {
-            assertThat(LoginFilter.normalizeUri("/carlos/./login.do"))
-                    .isEqualTo("/carlos/login.do");
+            assertThat(LoginFilter.normalizeUri("/carlos/./login"))
+                    .isEqualTo("/carlos/login");
         }
 
         @Test
@@ -380,8 +381,8 @@ class LoginFilterUnitTest {
         @Test
         @DisplayName("should handle combined normalization")
         void shouldHandleCombinedNormalization() {
-            assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret.do;jsessionid=x"))
-                    .isEqualTo("/carlos/admin/secret.do");
+            assertThat(LoginFilter.normalizeUri("//carlos/./ws/../admin///secret;jsessionid=x"))
+                    .isEqualTo("/carlos/admin/secret");
         }
     }
 }

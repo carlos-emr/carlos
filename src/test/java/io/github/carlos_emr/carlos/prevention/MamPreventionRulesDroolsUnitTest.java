@@ -91,7 +91,7 @@ class MamPreventionRulesDroolsUnitTest {
     @BeforeAll
     static void loadPreventionDrl() throws DroolsCompilationException {
         URL url = MamPreventionRulesDroolsUnitTest.class
-                .getResource("/oscar/oscarPrevention/prevention.drl");
+                .getResource("/oscar/prevention/prevention.drl");
         assertThat(url).as("prevention.drl must be on the classpath").isNotNull();
         kieBase = DroolsHelper.loadFromUrl(url);
     }

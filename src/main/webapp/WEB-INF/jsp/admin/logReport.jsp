@@ -34,10 +34,12 @@
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,7 +47,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -88,7 +90,7 @@
 
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-        <title>Log Report</title>
+        <title><fmt:message key="admin.logReport.title"/></title>
         <script language="JavaScript">
 
             <!--
@@ -99,7 +101,7 @@
 
             function onSub() {
                 if (document.myform.startDate.value == "" || document.myform.endDate.value == "") {
-                    alert("Please set Start and End Dates.");
+                    alert("<fmt:message key='admin.logReport.alertDates'/>");
                     return false;
                 } else {
                     return true;
@@ -119,24 +121,24 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport" method="POST" onSubmit="return(onSub());">
         <fieldset>
-            <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
+            <h3><fmt:message key="admin.logReport.heading"/> <small><fmt:message key="admin.logReport.subheading"/></small></h3>
 
             <div class="row">
             <div class="col-md-4">
-                <label>Provider: </label>
+                <label><fmt:message key="admin.logReport.provider"/>:</label>
 
                 <select name="providerNo">
-                    <option value="*">All</option>
+                    <option value="*"><fmt:message key="admin.logReport.all"/></option>
                     <%
                         for (int i = 0; i < vecProvider.size(); i++) {
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
+                    <option value="<e:forHtmlAttribute value='<%= prov %>' />"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
-                            <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
+                            <% } %>><e:forHtmlContent value='<%= ((Properties) vecProvider.get(i)).getProperty("name", "") %>' />
                     </option>
                     <%
                         }
@@ -145,26 +147,26 @@
             </div>
 
             <div class="col-md-4">
-                <label>Content Type:</label>
+                <label><fmt:message key="admin.logReport.contentType"/>:</label>
                 <select name="content">
-                    <option value="admin">Admin</option>
-                    <option value="login">Log in</option>
+                    <option value="admin"><fmt:message key="admin.logReport.content.admin"/></option>
+                    <option value="login"><fmt:message key="admin.logReport.content.login"/></option>
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label>Start Date: </label>
+                <label><fmt:message key="admin.logReport.startDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
+                    <input type="text" name="startDate" id="startDate1" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-4">
-                <label>End Date: </label>
+                <label><fmt:message key="admin.logReport.endDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
+                    <input type="text" name="endDate" id="endDate1" value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -172,7 +174,7 @@
 
 
             <div class="col-md-8" style="padding-top:10px;">
-                <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
+                <input class="btn btn-primary" type="submit" name="submit" value="<fmt:message key='admin.logReport.runReport'/>">
             </div>
 
             </div><!--row-->
@@ -182,7 +184,7 @@
         String dateError = (String) request.getAttribute("dateError");
         if (dateError != null && !dateError.isEmpty()) {
     %>
-    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <div class="alert alert-danger" role="alert"><e:forHtmlContent value='<%= dateError %>' /></div>
     <%
         }
         out.flush();
@@ -195,32 +197,36 @@
         if (providerNo == null) providerNo = "";
         if (vec == null) vec = new Vector<Properties>();
     %>
+    <fmt:message var="allProviderLabel" key="admin.logReport.all"/>
+    <%
+        String allProviderLabel = (String) pageContext.findAttribute("allProviderLabel");
+    %>
     <h4><%
         if (propName.getProperty(providerNo, "").equals("")) {
-            out.print("All");
+            out.print(allProviderLabel);
         } else {
             out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
         }
-    %> - Log Report</h4>
+    %> - <fmt:message key="admin.logReport.title"/></h4>
 
     <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
-        <i class="fa-solid fa-print"></i> Print
+        <i class="fa-solid fa-print"></i> <fmt:message key="admin.logReport.print"/>
     </button>
 
 
-    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
+    <p><fmt:message key="admin.logReport.period"/> ( <e:forHtmlContent value='<%= startDate == null ? "" : startDate %>' /> ~ <e:forHtmlContent value='<%= endDate == null ? "" : endDate %>' />)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
-            <TH>Time</TH>
-            <TH>Action</TH>
-            <TH>Content</TH>
-            <TH>Keyword</TH>
-            <TH>IP</TH>
+            <TH><fmt:message key="admin.logReport.table.time"/></TH>
+            <TH><fmt:message key="admin.logReport.table.action"/></TH>
+            <TH><fmt:message key="admin.logReport.table.content"/></TH>
+            <TH><fmt:message key="admin.logReport.table.keyword"/></TH>
+            <TH><fmt:message key="admin.logReport.table.ip"/></TH>
             <% if (bAll) { %>
-            <TH>Provider</TH>
+            <TH><fmt:message key="admin.logReport.table.provider"/></TH>
             <% } %>
-            <TH>Demo</TH>
-            <TH>Data</TH>
+            <TH><fmt:message key="admin.logReport.table.demo"/></TH>
+            <TH><fmt:message key="admin.logReport.table.data"/></TH>
         </tr>
                 <%
 String catName = "";
@@ -232,16 +238,16 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><c:out value='<%=prop.getProperty("dateTime")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("action")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("content")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("contentId")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("ip")%>'/></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("dateTime", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("action", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("content", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("contentId", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("ip", "") %>' /></td>
             <% if (bAll) { %>
-            <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
+            <td><e:forHtmlContent value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' /></td>
             <% } %>
-            <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
-            <td><%=prop.getProperty("data") %></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("demographic_no", "") %>' /></td>
+            <td><e:forHtmlContent value='<%= prop.getProperty("data", "") %>' /></td>
         </tr>
 
                 <% } %>

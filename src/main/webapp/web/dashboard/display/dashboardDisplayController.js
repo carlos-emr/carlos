@@ -31,7 +31,7 @@ $(document).ready(function () {
     // get the drill down page
     $(".indicatorWrapper").on('click', ".indicatorDrilldownBtn", function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/display/DrilldownDisplay.do";
+        var url = "/web/dashboard/display/DrilldownDisplay";
         var data = new Object();
         data.indicatorTemplateId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -41,7 +41,7 @@ $(document).ready(function () {
 
     $(".indicatorWrapper").on("click", ".indicatorGraph", function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/display/DrilldownDisplay.do";
+        var url = "/web/dashboard/display/DrilldownDisplay";
         var data = new Object();
         data.indicatorTemplateId = (this.id).split("_")[1];
         data.method = "getDrilldown";
@@ -52,7 +52,7 @@ $(document).ready(function () {
     // get the dashboard manager page
     $(".dashboardManagerBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/admin/DashboardManager.do";
+        var url = "/web/dashboard/admin/DashboardManager";
         var data = "dashboardId=" + this.id;
         sendData(url, data, null);
     });
@@ -60,7 +60,7 @@ $(document).ready(function () {
     // reload this dashboard with fresh data.
     $(".reloadDashboardBtn").on('click', function (event) {
         event.preventDefault();
-        var url = "/web/dashboard/display/DashboardDisplay.do";
+        var url = "/web/dashboard/display/DashboardDisplay";
         var data = new Object();
         data.dashboardId = (this.id).split("_")[1];
         data.method = (this.id).split("_")[0];
@@ -73,7 +73,7 @@ $(document).ready(function () {
         data.method = "getIndicator";
         data.indicatorId = this.id.split("_")[1];
 
-        sendData("/web/dashboard/display/DisplayIndicator.do", data, this.id.split("_")[0]);
+        sendData("/web/dashboard/display/DisplayIndicator", data, this.id.split("_")[0]);
     })
 
     placeHolderCount = $(".indicatorWrapper").length;

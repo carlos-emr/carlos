@@ -30,8 +30,9 @@
 --%>
 
 <!DOCTYPE html>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
@@ -49,7 +50,7 @@
 
 <html>
     <head>
-        <jsp:include page="/mcedt/mailbox/head-includes.jsp"/>
+        <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/head-includes.jsp"/>
         <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 
         <style type="text/css">
@@ -135,7 +136,7 @@
             <h1>MCEDT Documents to Download</h1>
 
             <div>
-                <form action="${pageContext.request.contextPath}/mcedt/kaiautodl.do" method="post" id="form">
+                <form action="${pageContext.request.contextPath}/mcedt/kaiautodl" method="post" id="form">
 
                     <input id="method" name="method" type="hidden" value=""/>
 
@@ -166,16 +167,16 @@
                     </thead>
                     <c:forEach var="r" items="${resourceList}" varStatus="loopStatus">
                         <tr bgcolor="${loopStatus.index % 2 == 0 ? '#FFF' : '#EEE'}">
-                            <td><c:out value="${r.resourceID}"/></td>
+                            <td>${e:forHtml(r.resourceID)}</td>
                             <td>
                                     <%-- <fmt:formatDate value="${i:toDate(r.createTimestamp)}"/> --%>
                                 <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
                             </td>
-                            <td><c:out value="${r.resourceType}"/></td>
-                                <%-- <td><c:out value="${r.result.code}" /> - <c:out	value="${r.result.msg}" /></td>
-                                <td><c:out value="${r.status}" /></td> --%>
-                            <td><c:out value="${r.description}"/></td>
-                            <td><c:out value="${r.downloadStatus}"/></td>
+                            <td>${e:forHtml(r.resourceType)}</td>
+                                <%-- <td>${e:forHtml(r.result.code)} - ${e:forHtml(r.result.msg)}</td>
+                                <td>${e:forHtml(r.status)}</td> --%>
+                            <td>${e:forHtml(r.description)}</td>
+                            <td>${e:forHtml(r.downloadStatus)}</td>
                         </tr>
                     </c:forEach>
                 </table>

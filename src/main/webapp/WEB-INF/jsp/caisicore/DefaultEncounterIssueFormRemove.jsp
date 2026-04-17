@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,7 +67,7 @@
 </table>
 
 <br/>
-<form action="<%=request.getContextPath()%>/DefaultEncounterIssue.do" method="post">
+<form action="<%=request.getContextPath()%>/DefaultEncounterIssue" method="post">
     <input type="hidden" name="method" value="remove"/>
     <table width="100%" border="0" cellpadding="0" cellspacing="1"
            bgcolor="#C0C0C0">
@@ -81,7 +81,7 @@
             <td class="filedValue" colspan="3"><input type="text" name="issueNames"/></td>
             <td class="fieldValue" width="80%">
                 <input type="submit" name="submit" value="Remove" />
-                <input type="button" value="Cancel" onclick="location.href='DefaultEncounterIssue.do'"/>
+                <input type="button" value="Cancel" onclick="location.href='DefaultEncounterIssue'"/>
             </td>
         </tr>
         <tr>

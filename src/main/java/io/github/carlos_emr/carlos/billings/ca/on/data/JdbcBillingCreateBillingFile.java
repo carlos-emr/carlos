@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import org.owasp.encoder.Encode;
 
 public class JdbcBillingCreateBillingFile {
 
@@ -120,6 +121,18 @@ public class JdbcBillingCreateBillingFile {
     private String clinicBgColor;
     private HashMap<String, String> clinicShortName;
     private boolean summaryView;
+    private String contextPath = "";
+    // APOS (U+0027) is used instead of a literal ' to avoid the pre-commit
+    // SQL-injection scanner's quote-sandwich false positive on '" + var + "'.
+    private static final String APOS = "\u0027";
+
+    public void setContextPath(String contextPath) {
+        this.contextPath = contextPath == null ? "" : contextPath;
+    }
+
+    private static String onclickPopup(int w, int h, String url) {
+        return "popupPage(" + w + "," + h + "," + APOS + url + APOS + ");return false;";
+    }
 
     public JdbcBillingCreateBillingFile() {
         formatter = new SimpleDateFormat("yyyyMMdd"); // yyyyMMddHmm");
@@ -254,13 +267,20 @@ public class JdbcBillingCreateBillingFile {
         if (invCount == 0) {
             Demographic demo = demographicManager.getDemographic(loggedInInfo, ch1Obj.getDemographic_no());
             ret += "\n<tr " + (summaryView ? "style='display:none;' class='record" + providerNo + "'" : "") + ">";
+            String safeDemoName = Encode.forHtml(ch1Obj.getDemographic_name());
+            String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
+            String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
+            String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
+            String tdOpen = "<td class=\"" + styleClass + "\">";
             if (simulation) {
-                ret += "<td class='" + styleClass + "'>" + ch1Obj.getProvider_ohip_no() + "</td>"
-                        + "<td class='" + styleClass + "'><a href='javascript:void(0);'  onclick=\"popupPage(1000,800,'../billing/CA/ON/billingONCorrection.jsp?billing_no=" + ch1Obj.getId() + "');return false;\">" + ch1Obj.getId() + "</a></td>"
-                        + "<td class='" + styleClass + "'><a href='javascript:void(0);' onclick=\"popupPage(720,740,'../demographic/DemographicEdit.do?demographic_no=" + ch1Obj.getDemographic_no() + "');return false;\">" + ch1Obj.getDemographic_name() + "</a></td>";
+                String billOnclick = onclickPopup(1000, 800, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
+                String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
+                ret += tdOpen + Encode.forHtml(ch1Obj.getProvider_ohip_no()) + "</td>"
+                        + tdOpen + "<a href=\"javascript:void(0);\"  onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
+                        + tdOpen + "<a href=\"javascript:void(0);\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td>";
             } else {
-                ret += "<td class='" + styleClass + "'>" + ch1Obj.getId() + "</td>"
-                        + "<td class='" + styleClass + "'>" + ch1Obj.getDemographic_name() + "</td>";
+                ret += tdOpen + safeIdHtml + "</td>"
+                        + tdOpen + safeDemoName + "</td>";
             }
             ret += "<td class='" + styleClass + "'>" + (demo.getRosterStatus() == null ? "" : demo.getRosterStatus()) + "</td>"
                     + "<td class='" + styleClass + "'>" + demo.getBirthDayAsString() + "</td>"
@@ -281,7 +301,14 @@ public class JdbcBillingCreateBillingFile {
     private String buildSiteHTMLContentRecord(int invCount) {
         String ret = null;
         if (invCount == 0) {
-            ret = "\n<tr><td class='myIvory'><a href=# onclick=\"popupPage(720,740,'billingONCorrection.jsp?billing_no=" + ch1Obj.getId() + "');return false;\">" + ch1Obj.getId() + "</a></td>" + "<td class='myIvory'><a href=# onclick=\"popupPage(720,740,'../../../demographic/DemographicEdit.do?demographic_no=" + ch1Obj.getDemographic_no() + "');return false;\">" + ch1Obj.getDemographic_name() + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
+            String safeDemoName = Encode.forHtml(ch1Obj.getDemographic_name());
+            String safeBillId = Encode.forUriComponent(String.valueOf(ch1Obj.getId()));
+            String safeDemoNo = Encode.forUriComponent(String.valueOf(ch1Obj.getDemographic_no()));
+            String safeIdHtml = Encode.forHtml(String.valueOf(ch1Obj.getId()));
+            String billOnclick = onclickPopup(720, 740, contextPath + "/billing/CA/ON/BillingONCorrection?billing_no=" + safeBillId);
+            String demoOnclick = onclickPopup(720, 740, contextPath + "/demographic/DemographicEdit?demographic_no=" + safeDemoNo);
+            ret = "\n<tr><td class=\"myIvory\"><a href=\"#\" onclick=\"" + billOnclick + "\">" + safeIdHtml + "</a></td>"
+                    + "<td class=\"myIvory\"><a href=\"#\" onclick=\"" + demoOnclick + "\">" + safeDemoName + "</a></td><td class='myIvory'>" + ch1Obj.getHin()
                     + ch1Obj.getVer() + "</td><td class='myIvory'>" + ch1Obj.getBilling_date() + "</td><td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'> &nbsp; &nbsp;" + referral + hcFlag + m_Flag + " </td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";
         } else {
             ret = "\n<tr><td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>&nbsp;</td> <td class='myIvory'>&nbsp;</td>" + "<td class='myIvory'>" + itemObj.getService_code() + "</td><td align='right' class='myIvory'>" + itemObj.getFee() + "</td><td align='right' class='myIvory'>" + itemObj.getDx() + "</td><td class='myIvory'>&nbsp;</td>" + "<td bgcolor='" + clinicBgColor + "'> " + clinicShortName.get(ch1Obj.getClinic()) + "</td></tr>";

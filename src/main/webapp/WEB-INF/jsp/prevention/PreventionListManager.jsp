@@ -1,0 +1,292 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" media="screen">
+
+    <style>
+        .table tbody tr:hover td, .table tbody tr:hover th {
+            background-color: #FFFFAA;
+            cursor: pointer;
+            cursor: hand;
+        }
+
+        .table tbody td.item-active {
+            background-color: #009900 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container-fluid">
+    <h1><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
+    <p class="lead"><fmt:message key="oscarprevention.preventionlistmanager.lead"/></p>
+    <p style="margin-top:-20px"><span class="badge bg-info"><fmt:message key="oscarprevention.preventionlistmanager.info"/></span> <fmt:message key="oscarprevention.preventionlistmanager.notice"/></p>
+
+    <table class="table table-striped table-hover table-bordered">
+
+        <thead>
+        <tr>
+            <th></th>
+            <th width="200px"><fmt:message key="oscarprevention.preventionlistmanager.colName"/></th>
+            <th><fmt:message key="oscarprevention.preventionlistmanager.colDescription"/></th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <%
+            PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
+
+            if (request.getParameter("formAction") != null && request.getParameter("formAction").equals("update")) {
+                preventionManager.addCustomPreventionItems(request.getParameter("prevention-bin"));
+            }
+
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            ArrayList<HashMap<String, String>> prevList = preventionManager.getPreventionTypeDescList();
+
+            String customPreventionItems = "";
+
+            boolean propertyExists = preventionManager.isHidePrevItemExist();
+
+            if (propertyExists) {
+                customPreventionItems = preventionManager.getCustomPreventionItems();
+            }
+
+            String prevId = null;
+            String prevName = null;
+            String prevDesc = null;
+            for (int e = 0; e < prevList.size(); e++) {
+                HashMap<String, String> h = prevList.get(e);
+                prevId = h.get("name").replaceAll("\\s+", "").replaceAll("\\[", "").replaceAll("\\]", "");
+                prevName = h.get("name");
+                prevDesc = h.get("desc");
+        %>
+        <tr class="prevention-item" id="<e:forHtmlAttribute value='<%= prevId %>' />" prevention-data="<e:forHtmlAttribute value='<%= prevName %>' />">
+            <td class="item-active" title="<fmt:message key='oscarprevention.preventionlistmanager.available'/>"></td>
+            <td><e:forHtmlContent value='<%= prevName %>' />
+            </td>
+            <td><e:forHtmlContent value='<%= prevDesc %>' />
+            </td>
+        </tr>
+
+        <%}%>
+        </tbody>
+    </table>
+
+    <!-- Button to trigger modal confirmation -->
+    <button id="btnVoid" class="btn btn-lg float-end" disabled><fmt:message key="oscarprevention.preventionlistmanager.btnSave"/></button>
+    <a href="#modalConfirm" id="btnConfirm" class="btn btn-lg btn-success float-end" data-bs-toggle="modal"
+       data-bs-backdrop="false" style="display:none"><fmt:message key="oscarprevention.preventionlistmanager.btnSave"/></a>
+
+</div><!-- container -->
+
+
+<form action="<%=request.getContextPath()%>/prevention/ViewPreventionListManager?formAction=update" method="post">
+    <!-- Modal -->
+    <div id="modalConfirm" class="modal fade" tabindex="-1" aria-labelledby="modalConfirmLabel"
+         aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header" style="background-color:#fbb450;">
+            <h3 id="modalConfirmLabel"><fmt:message key="oscarprevention.preventionlistmanager.modalTitle"/></h3>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <p><fmt:message key="oscarprevention.preventionlistmanager.modalPrompt"/></p>
+            <div class="card card-body bg-body-tertiary" id="modalItems"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true"><fmt:message key="oscarprevention.preventionlistmanager.modalCancel"/></button>
+            <button type="submit" class="btn btn-danger"><fmt:message key="oscarprevention.preventionlistmanager.modalConfirm"/></button>
+        </div>
+    </div></div></div>
+
+    <!-- property value to be saved: hidden-->
+    <input type="hidden" name="prevention-bin" id="prevention-bin">
+</form>
+
+
+<!-- property value from database: hidden-->
+<input type="hidden" name="property-bin" id="property-bin" style="width:1200px" value="<e:forHtmlAttribute value='<%= customPreventionItems %>' />">
+
+
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+<script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    $(".prevention-item").click(function () {
+        var id = $(this).attr("id");
+        var name = $(this).attr("prevention-data");
+        bin = $("#prevention-bin");
+        indicatorDisplay(id, name);
+    });
+
+
+    function indicatorDisplay(id, name) {
+        indicator = $('#' + id + ' td:first-child');
+
+        if (indicator.hasClass("item-active")) {
+            indicator.removeClass('item-active');
+            indicator.attr("title", "<fmt:message key='oscarprevention.preventionlistmanager.removed'/>");
+            addPreventionToBin(name);
+
+        } else {
+            indicator.addClass('item-active');
+            indicator.attr("title", "<fmt:message key='oscarprevention.preventionlistmanager.available'/>");
+            removePreventionFromBin(name);
+        }
+
+        btnSaveDisplay();
+    }
+
+    function indicatorAllDisplay(items) {
+        preventions = items.split(',');
+        n = preventions.length;
+        if (n > 1) {
+            for (i = 0; i < n; i++) {
+                id = preventions[i].replace(" ", "").replace("[", "").replace("]", "");
+                indicatorDisplay(id, preventions[i]);
+            }
+        } else {
+            id = items.replace(" ", "").replace("[", "").replace("]", "");
+            indicatorDisplay(id, items);
+        }
+    }
+
+    function addPreventionToBin(name) {
+        bin = $("#prevention-bin");
+        if (bin.val() != "") {
+            bin.val(bin.val() + "," + name);
+        } else {
+            bin.val(name);
+        }
+    }
+
+    function removePreventionFromBin(itemToBeRemoved) {
+        bin = $("#prevention-bin");
+        if (bin.val() != "") {
+            preventions = bin.val().split(',');
+            n = preventions.length;
+            if (n > 1) {
+                index = preventions.indexOf(itemToBeRemoved);
+
+                if (index > -1) {
+                    preventions.splice(index, 1);
+                    bin.val(preventions);
+                }
+
+            } else {
+                bin.val("");
+            }
+        }
+    }
+
+    function btnSaveDisplay() {
+        bin = $("#prevention-bin");
+        prop = $("#property-bin");
+
+        if (bin.val() != "" || prop.val() != "") {
+            $("#btnVoid").hide();
+            $("#btnConfirm").show();
+        } else {
+            $("#btnConfirm").hide();
+            $("#btnVoid").show();
+            $('#modalItems').html('');
+        }
+    }
+
+    function setModalItems() {
+        $('#modalItems').html('');
+        bin = $("#prevention-bin");
+        if (bin.val() != "") {
+            preventions = bin.val().split(',');
+            n = preventions.length;
+
+            $('#modalItems').html("<h5>Hide the following prevention(s):</h5>");
+            if (n > 1) {
+                for (i = 0; i < n; i++) {
+                    var item = $('<div></div>').text(preventions[i]);
+                    $('#modalItems').append(item);
+                }
+            } else {
+                var item = $('<div></div>').text(bin.val());
+                $('#modalItems').append(item);
+            }
+        } else {
+            $('#modalItems').html("Make all preventions available.");
+        }
+    }
+
+
+    $("#btnConfirm").click(function () {
+        $('html, body', window.parent.document).animate({scrollTop: 230}, 'slow');
+        setModalItems();
+    });
+
+    $(document).ready(function () {
+
+        if ($('#property-bin').val() != "") {
+            indicatorAllDisplay($('#property-bin').val());
+        }
+
+        parent.parent.resizeIframe($('html').height());
+    });
+</script>
+</body>
+</html>

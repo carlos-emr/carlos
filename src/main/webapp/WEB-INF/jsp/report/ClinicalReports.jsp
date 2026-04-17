@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
@@ -355,28 +354,28 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
                     %>
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
-                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
-                        <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport.do" style="display:inline;">
+                        <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
+                        <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
                             <input type="hidden" name="id" value="<%=i%>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                         </form>
                     </li>
                     <% }%>
                 </ul>
-                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
+                <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport"><fmt:message key="report.ClinicalReports.msgCSV"/></a>
                 <%}%>
 
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
                     <fieldset>
-                        <form action="${pageContext.request.contextPath}/RunClinicalReport.do" method="post">
+                        <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
                             <label for="asOfDate" >As Of Date:</label><input type="text" name="asOfDate" id="asOfDate" value="<%=""%>" size="9" > <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a> <br>
                             -->
@@ -452,7 +451,7 @@
 
                                 <select name="numerator<%=i %>" id="numerator<%=i %>"
                                         onchange="javascript:processExtraFieldsNumerator<%=i %>(this)">
-                                    <option value="">Select Below</option>
+                                    <option value=""><fmt:message key="report.ClinicalReports.selectBelow"/></option>
                                     <%
                                         for (Numerator n : numeratorList) {
                                             if (n.hasReplaceableValues()) {
@@ -512,7 +511,7 @@
                             <% } %>
                             <!-- end of extra numerators -->
 
-                            <input type="button" value="Add Numerator" onClick="showNextNumerator()"
+                            <input type="button" value="<fmt:message key='report.ClinicalReports.btnAddNumerator'/>" onClick="showNextNumerator()"
                                    id="addNumeratorBtn"/>
                             <br/>
                             <br/>
@@ -693,7 +692,7 @@
                          <%for(String heading:headings){
                              csvp.print(commonRow(heading,demoHash, demoObj));
                         %>
-                           <td><%=Encode.forHtmlContent(commonRow(heading,demoHash, demoObj))%></td>
+                           <td><e:forHtmlContent value='<%= commonRow(heading,demoHash, demoObj) %>' /></td>
                         <%}%>
 
                         <%
@@ -713,7 +712,7 @@
                         session.setAttribute("clinicalReportCSV", swr.toString());
                     }
                 %>
-                <form target="_new" action="<%= request.getContextPath() %>/report/ClinicalExport.jsp">
+                <form target="_new" action="<%= request.getContextPath() %>/report/ViewClinicalExport">
                     <input type="submit" name="getCSV"
                            value="<fmt:message key="report.ClinicalReports.msgExporttoCSV"/>">
                     <input type="submit" name="getXLS"

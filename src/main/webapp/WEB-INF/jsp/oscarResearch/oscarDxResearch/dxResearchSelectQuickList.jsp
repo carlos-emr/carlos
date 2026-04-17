@@ -33,7 +33,7 @@
 
     Purpose:
     Popup that displays a dropdown of all available quick lists. On submit,
-    posts to dxResearchLoadQuickListItems.do which loads the selected list's
+    posts to dxResearchLoadQuickListItems which loads the selected list's
     items and opens dxResearchEditQuickList.jsp.
 
     Opened from dxResearchCustomization.jsp "Edit Quick List" button.
@@ -47,12 +47,12 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.selectQuickList"/></title>
         <script type="text/javascript">
             function setfocus() {
@@ -75,7 +75,7 @@
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchLoadQuickListItems" method="post">
             <input type="hidden" name="forward" value="error"/>
 
             <div class="mt-3">

@@ -70,7 +70,7 @@ import java.util.function.LongSupplier;
  *   <li>{@code WAF_RATE_LIMIT_DEFAULT_REQUESTS} — global requests per window (default: 100)</li>
  *   <li>{@code WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS} — global window duration (default: 60)</li>
  *   <li>{@code WAF_RATE_LIMIT_PATHS} — comma-separated path-specific tiers, format:
- *       {@code /login.do=10/60,/ws/=200/60} (prefix matching)</li>
+ *       {@code /login=10/60,/ws/=200/60} (prefix matching)</li>
  *   <li>{@code WAF_RATE_LIMIT_EXEMPT_IPS} — comma-separated IPs exempt from limiting
  *       (default: loopback addresses)</li>
  *   <li>{@code WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS} — stale counter eviction interval
@@ -396,7 +396,7 @@ public final class RateLimitFilter implements Filter {
     /**
      * Parses a comma-separated list of path rate configurations.
      *
-     * <p>Format: {@code /path=requests/windowSeconds} (e.g. {@code /login.do=10/60}).</p>
+     * <p>Format: {@code /path=requests/windowSeconds} (e.g. {@code /login=10/60}).</p>
      * Invalid entries are skipped with a warning log.
      *
      * @param config the raw configuration string from {@code carlos.properties}
@@ -419,7 +419,7 @@ public final class RateLimitFilter implements Filter {
             }
             String pathPrefix = entry.substring(0, eqIdx).trim();
             // Warn if prefix lacks a path terminator — startsWith matching can hit unintended paths
-            // (e.g. /login also matches /loginRedirect.do, /login-recovery)
+            // (e.g. /login also matches /loginRedirect, /login-recovery)
             if (!pathPrefix.endsWith("/") && !pathPrefix.contains(".")) {
                 logger.warn("Rate limit: path prefix '{}' does not end with '/' or a file extension; " +
                         "it will match all paths starting with this prefix (e.g., '{}foo', '{}bar'). " +
