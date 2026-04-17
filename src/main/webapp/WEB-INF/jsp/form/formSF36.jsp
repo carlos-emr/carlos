@@ -910,7 +910,7 @@
                                     <tr bgcolor="white">
                                         <td></td>
                                         <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
-                                                                         class="textbox" size="80" name="Q6Cmt"
+                                                                         size="80" name="Q6Cmt"
                                                                          value="<%= props.getProperty("Q6Cmt", "") %>"/>
                                         </td>
                                     </tr>
