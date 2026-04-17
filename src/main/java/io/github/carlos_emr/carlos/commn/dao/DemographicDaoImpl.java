@@ -43,9 +43,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import jakarta.persistence.PersistenceException;
-
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
@@ -107,7 +104,6 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
      * @return Returns the list of merged (child ids) or empty list if the record is
      * not merged to any other record
      */
-    @SuppressWarnings("unchecked")
     @NativeSql("demographic_merged")
     @Override
     public List<Integer> getMergedDemographics(Integer demographicNo) {
@@ -115,7 +111,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         Query sqlQuery = session.createNativeQuery(
             "select demographic_no from demographic_merged where merged_to = :parentId and deleted = 0");
         sqlQuery.setParameter("parentId", demographicNo);
-        return sqlQuery.getResultList();
+        // Native queries return driver-dependent numeric types (Integer / Long / BigInteger).
+        // Normalise via Number.intValue() so callers reliably receive List<Integer>.
+        @SuppressWarnings("unchecked")
+        List<Number> rawResults = sqlQuery.getResultList();
+        List<Integer> results = new ArrayList<>(rawResults.size());
+        for (Number row : rawResults) {
+            results.add(row.intValue());
+        }
+        return results;
     }
 
     @Override
@@ -2019,7 +2023,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             params.put("gender", gender);
         }
 
-        jakarta.persistence.TypedQuery<Demographic> nativeQuery = session.createNativeQuery(sql, Demographic.class);
+        @SuppressWarnings("unchecked")
+        NativeQuery<Demographic> nativeQuery = session.createNativeQuery(sql, Demographic.class)
+            .unwrap(NativeQuery.class);
         for (Map.Entry<String, Object> entry : params.entrySet()) {
             // Hibernate's JPA mode accepts Collection values via setParameter for IN clauses,
             // so we no longer need the Hibernate-specific setParameterList.
@@ -2135,7 +2141,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(0);
-            calendar.set(Calendar.YEAR, Integer.parseInt(String.valueOf(row[1])));
+            calendar.set(Calendar.YEAR, ((Number) row[1]).intValue());
             calendar.set(Calendar.MONTH, ((Number) row[2]).intValue() - 1);
             calendar.set(Calendar.DAY_OF_MONTH, ((Number) row[3]).intValue());
             r.dateOfBirth = calendar;
@@ -2641,22 +2647,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-            NativeQuery<?> sqlQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
+        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
 
-            for (String key : params.keySet()) {
-                sqlQuery.setParameter(key, params.get(key));
-            }
+        for (String key : params.keySet()) {
+            baseQuery.setParameter(key, params.get(key));
+        }
 
-            sqlQuery.setFirstResult(startIndex);
-            // Replace the Hibernate 5 setResultTransformer(ResultTransformer) API —
-            // removed in Hibernate 6 — with setTupleTransformer() backed by the
-            // existing DemographicSearchResultTransformer.transformTuple() logic.
-            DemographicSearchResultTransformer transformer = new DemographicSearchResultTransformer();
-            transformer.setDemographicDao(this);
-            sqlQuery.setTupleTransformer((tuple, aliases) -> transformer.transformTuple(tuple, aliases));
-            setLimit(sqlQuery, itemsToReturn);
+        baseQuery.setFirstResult(startIndex);
+        // Replace the Hibernate 5 setResultTransformer(ResultTransformer) API —
+        // removed in Hibernate 6 — with setTupleTransformer() backed by the
+        // existing DemographicSearchResultTransformer.transformTuple() logic.
+        // setTupleTransformer returns a typed NativeQuery<R> that the compiler can
+        // use to track the row element type through getResultList().
+        DemographicSearchResultTransformer transformer = new DemographicSearchResultTransformer();
+        transformer.setDemographicDao(this);
+        NativeQuery<DemographicSearchResult> sqlQuery = baseQuery.setTupleTransformer(
+            (tuple, aliases) -> (DemographicSearchResult) transformer.transformTuple(tuple, aliases));
+        setLimit(sqlQuery, itemsToReturn);
 
-            return sqlQuery.getResultList();
+        return sqlQuery.getResultList();
     }
 
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,

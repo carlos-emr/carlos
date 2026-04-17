@@ -49,6 +49,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+// @Transactional at class level so both entry points are covered: subclasses that
+// override the public execute() route through super.execute() → self-invoked
+// execute(String), which would bypass a method-level Spring transactional proxy.
+@Transactional(readOnly = true)
 public abstract class AbstractQueryHandler extends AbstractJpaDao {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -76,7 +80,6 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
         return execute(getQuery());
     }
 
-    @Transactional(readOnly = true)
     protected List<?> execute(String query) {
 
         setResultList(null);
@@ -103,7 +106,7 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
             setResultList(results);
             return results;
         } catch (Exception e) {
-            logger.error("Query execution failed");
+            logger.error("Query execution failed", e);
             throw new RuntimeException("Error executing query", e);
         }
     }

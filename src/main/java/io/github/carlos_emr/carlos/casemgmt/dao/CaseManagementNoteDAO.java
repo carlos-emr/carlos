@@ -243,11 +243,17 @@ public interface CaseManagementNoteDAO {
     /**
      * Get the count of demographic Id's based on the providerId and encounterType,
      * 2 numbers will be provided, the unique count and the non unique count (which
-     * just represents the
-     * number of encounters in general) All encounter types are represented in the
-     * resulting hashMap, even ones with 0 counts.
+     * just represents the number of encounters in general). All encounter types are
+     * represented in the resulting hashMap, even ones with 0 counts.
      *
-     * @param programId can be null at which point it's across the entire agency
+     * @param programId Integer the program number, or {@code null} to span all programs
+     * @param roleId int the {@code reporter_caisi_role} to match
+     * @param startDate Date inclusive lower bound on {@code observation_date}
+     * @param endDate Date exclusive upper bound on {@code observation_date}
+     * @return EncounterCounts non-null aggregate; maps are zero-initialised for
+     *         {@link EncounterUtil.EncounterType} values that had no matching rows
+     * @throws org.springframework.dao.DataAccessException if the underlying query fails
+     * @since 2026-04-12
      */
     EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
                                                                     Date startDate, Date endDate);

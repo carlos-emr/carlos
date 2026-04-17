@@ -199,8 +199,11 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             lv.setPrefix(tableId);
             lv.setCode(asString(row[0]));
             lv.setDescription(asString(row[1]));
-            lv.setActive(Integer.valueOf("0" + asString(row[2])).intValue() == 1);
-            lv.setOrderByIndex(Integer.valueOf("0" + asString(row[3])).intValue());
+            // Misc.getString(ResultSet,...) used by the pre-JPA code returned "" for SQL NULL,
+            // yielding "00" → 0. asString() preserves null, which would produce "0null" → NFE,
+            // so route these flag columns through a null-safe helper instead.
+            lv.setActive(parseIntWithZeroPrefix(row[2]) == 1);
+            lv.setOrderByIndex(parseIntWithZeroPrefix(row[3]));
             lv.setParentCode(asString(row[4]));
             lv.setBuf1(asString(row[5]));
             lv.setCodeTree(asString(row[6]));
@@ -841,6 +844,18 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      */
     private static String asString(Object value) {
         return value == null ? null : value.toString();
+    }
+
+    /**
+     * Parses a numeric-flag column into an int, matching the pre-JPA behaviour of
+     * {@code Integer.valueOf("0" + Misc.getString(rs, col)).intValue()} where
+     * {@code Misc.getString} coerced SQL NULL to an empty string (giving "00" → 0).
+     * A plain {@link #asString(Object)} call returns {@code null} for NULL, which would
+     * concatenate to {@code "0null"} and throw {@link NumberFormatException}.
+     */
+    private static int parseIntWithZeroPrefix(Object value) {
+        String s = value == null ? "" : value.toString();
+        return Integer.parseInt("0" + s);
     }
 
     /**
