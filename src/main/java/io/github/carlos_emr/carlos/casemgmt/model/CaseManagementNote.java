@@ -475,6 +475,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     public void setPassword(String password) {
+        // Null is a valid state for notes that are not password-locked.
         if (password == null || PasswordHashHelper.isBcryptHash(password)) {
             this.password = password;
             return;
