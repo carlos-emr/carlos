@@ -2141,9 +2141,13 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(0);
-            calendar.set(Calendar.YEAR, ((Number) row[1]).intValue());
-            calendar.set(Calendar.MONTH, ((Number) row[2]).intValue() - 1);
-            calendar.set(Calendar.DAY_OF_MONTH, ((Number) row[3]).intValue());
+            // year_of_birth / month_of_birth / date_of_birth are all VARCHAR columns
+            // per Demographic.hbm.xml, so the JDBC driver returns String here (not a
+            // Number as admission.am_id / demographic_no / program.id on the surrounding
+            // rows do). Parse the numeric text explicitly — casting to Number would CCE.
+            calendar.set(Calendar.YEAR, Integer.parseInt((String) row[1]));
+            calendar.set(Calendar.MONTH, Integer.parseInt((String) row[2]) - 1);
+            calendar.set(Calendar.DAY_OF_MONTH, Integer.parseInt((String) row[3]));
             r.dateOfBirth = calendar;
 
             r.demographicId = ((Number) row[4]).intValue();

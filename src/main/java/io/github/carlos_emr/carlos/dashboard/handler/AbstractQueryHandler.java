@@ -49,9 +49,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-// @Transactional at class level so both entry points are covered: subclasses that
-// override the public execute() route through super.execute() → self-invoked
-// execute(String), which would bypass a method-level Spring transactional proxy.
+// @Transactional at class level so the protected execute() / execute(String)
+// entry points are both covered when subclasses (DrilldownQueryHandler,
+// ExportQueryHandler, IndicatorQueryHandler) invoke them via super.execute(...).
+// A method-level annotation is not enough here: the no-arg execute() delegates
+// to execute(getQuery()) through this.execute(...), a self-invocation that
+// would bypass Spring's transactional proxy.
 @Transactional(readOnly = true)
 public abstract class AbstractQueryHandler extends AbstractJpaDao {
 
