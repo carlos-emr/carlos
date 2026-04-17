@@ -3073,7 +3073,7 @@
                                 <span class="small9"><fmt:message key="form.bcar.hospitalAdmission"/></span>
                             </td>
                             <td>
-                                <input type="checkbox" name="ar2_top<fmt:message key="form.bcar.doula"/>" <%= props.getProperty("ar2_top<fmt:message key="form.bcar.doula"/>", "")%>
+                                <input type="checkbox" name="ar2_topDoula" <%= props.getProperty("ar2_topDoula", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
@@ -3116,7 +3116,7 @@
                                 <span class="small9"><fmt:message key="form.bcar.birthPlan"/></span>
                             </td>
                             <td>
-                                <input type="checkbox" name="ar2_top<fmt:message key="form.bcar.vbac"/>" <%= props.getProperty("ar2_top<fmt:message key="form.bcar.vbac"/>", "")%>
+                                <input type="checkbox" name="ar2_topVbac" <%= props.getProperty("ar2_topVbac", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>

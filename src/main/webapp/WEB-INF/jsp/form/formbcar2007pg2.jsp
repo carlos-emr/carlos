@@ -1511,9 +1511,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     <tr>
                                         <td><span class="small8"><fmt:message key="form.bcar.tsh"/></span></td>
                                         <td>
-                                            <input type="text" name="ar2_labOther<fmt:message key="form.bcar.tsh"/>" style="width:100%" size="10"
+                                            <input type="text" name="ar2_labOtherTSH" style="width:100%" size="10"
                                                    maxlength="255"
-                                                   value="<%= props.getProperty("ar2_labOther<fmt:message key="form.bcar.tsh"/>", "") %>"
+                                                   value="<%= props.getProperty("ar2_labOtherTSH", "") %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>

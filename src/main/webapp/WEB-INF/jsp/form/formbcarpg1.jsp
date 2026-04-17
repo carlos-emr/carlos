@@ -2020,8 +2020,8 @@
                                     dbType="tinyint(1)"/>yes <input type="checkbox" name="pg1_disBfN"
                                     <%= props.getProperty("pg1_disBfN", "") %> @oscar.formDB
                                                                     dbType="tinyint(1)"/>no</font></td>
-                            <td><input type="checkbox" name="pg1_dis<fmt:message key="form.bcar.vbac"/>"
-                                    <%= props.getProperty("pg1_dis<fmt:message key="form.bcar.vbac"/>", "") %> @oscar.formDB
+                            <td><input type="checkbox" name="pg1_disVbac"
+                                    <%= props.getProperty("pg1_disVbac", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
                             <td><span class="small8"><fmt:message key="form.bcar.vbac"/></font></td>
                             <td><input type="checkbox" name="pg1_disBabyCare"
