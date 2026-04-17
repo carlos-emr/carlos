@@ -911,6 +911,7 @@
                                         <td></td>
                                         <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          size="80" name="Q6Cmt"
+                                                                         size="80" name="Q6Cmt"
                                                                          value="<%= props.getProperty("Q6Cmt", "") %>"/>
                                         </td>
                                     </tr>
@@ -992,6 +993,7 @@
                                     <tr bgcolor="white">
                                         <td></td>
                                         <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
+                                                                         size="80" name="Q8Cmt"
                                                                          size="80" name="Q8Cmt"
                                                                          value="<%= props.getProperty("Q8Cmt", "") %>"/>
                                         </td>
