@@ -30,6 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -37,7 +38,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc,_admin.flowsheet" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc&type=_admin.flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -55,15 +56,13 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%-- Enable/disable mutations are handled by ManageFlowsheets2Action (PRG pattern). --%>
 
 
 <html>
     <head>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Manage Flowsheets</title>
+        <title><fmt:message key="admin.manageFlowsheets.title"/></title>
 
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.14.2.min.css">
@@ -100,26 +99,26 @@
 
     <body>
 
-<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets.do" style="display:none;">
+<form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets" style="display:none;">
 	<input type="hidden" name="method" value=""/>
 	<input type="hidden" name="name" value=""/>
 </form>
 
 <div class="container-fluid">
 <div class="navbar" id="demoHeader"><div class="container-fluid">
-	<a class="navbar-brand" href="javascript:void(0)">Flowsheets</a>
+	<a class="navbar-brand" href="javascript:void(0)"><fmt:message key="admin.manageFlowsheets.brand"/></a>
 </div></div>
 
 			<table class="table table-striped table-sm table-hover">
         <thead>
         <tr>
-            <td><b>Name</b></td>
-            <td><b>Universal</B></td>
-            <td><b>Dx Triggers</B></td>
-            <td><b>Program Triggers</B></td>
-            <td><b>Type</b></td>
-            <td><b>Enabled</b></td>
-            <td><b>Actions</b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.name"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.universal"/></B></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.dxTriggers"/></B></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.programTriggers"/></B></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.type"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.enabled"/></b></td>
+            <td><b><fmt:message key="admin.manageFlowsheets.table.actions"/></b></td>
         </tr>
         </thead>
         <tbody>
@@ -142,18 +141,18 @@
         %>
 
 						<tr>
-							<td><%=Encode.forHtmlContent(flowSheet.getDisplayName())%></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getDisplayName() %>' /></td>
 							<td><%=flowSheet.isUniversal() %></td>
-							<td><%=Encode.forHtmlContent(flowSheet.getDxTriggersString()) %></td>
-							<td><%=Encode.forHtmlContent(flowSheet.getProgramTriggersString()) %></td>
-							<td><%=Encode.forHtmlContent(type) %></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getDxTriggersString() %>' /></td>
+							<td><e:forHtmlContent value='<%= flowSheet.getProgramTriggersString() %>' /></td>
+							<td><e:forHtmlContent value='<%= type %>' /></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>">Edit</a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowSheet.getName() %>' />&displayName=<e:forUriComponent value='<%= flowSheet.getDisplayName() %>' />"><fmt:message key="admin.manageFlowsheets.edit"/></a>&nbsp;
 								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');"><fmt:message key="admin.manageFlowsheets.disable"/></a>
 								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Enable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');"><fmt:message key="admin.manageFlowsheets.enable"/></a>
 								<% } %>
 							</td>
 						</tr>
@@ -165,13 +164,13 @@
 
 		<div class="card">
 			<div class="card-header">
-				<h4>Upload Custom Flowsheet</h4>
+				<h4><fmt:message key="admin.manageFlowsheets.uploadCustom"/></h4>
 			</div>
 		<div class="card-body">
-			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload.do">
+			<form enctype="multipart/form-data" method="POST" action="${pageContext.request.contextPath}/admin/ManageFlowsheetsUpload">
         <input type="file" name="flowsheet_file">
 				<span title="<fmt:message key="global.uploadWarningBody"/>" style="vertical-align:middle;cursor:pointer"><img alt="alert" src="<%=request.getContextPath()%>/images/icon_alertsml.gif"/></span>
-        <input type="submit" value="Upload" class="btn btn-primary">
+        <input type="submit" value="<fmt:message key='admin.manageFlowsheets.upload'/>" class="btn btn-primary">
     </form>
 		</div>
 		</div>

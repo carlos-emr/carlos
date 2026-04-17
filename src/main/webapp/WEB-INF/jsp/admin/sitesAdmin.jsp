@@ -26,7 +26,9 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin page --%>
 <%@ include file="/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -35,7 +37,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,7 +50,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Clinic</title>
+        <title><fmt:message key="admin.admin.sitesAdmin"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
@@ -61,11 +63,11 @@
 
     <table class="MainTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">admin</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="global.admin"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar" style="width: 100%;">
                     <tr>
-                        <td>Manage Satellite Site Details</td>
+                        <td><fmt:message key="admin.admin.sitesAdmin"/></td>
                     </tr>
                 </table>
             </td>
@@ -76,28 +78,28 @@
             </td>
             <td class="MainTableRightColumn" valign="top">
 
-                <form action="<%= request.getContextPath() %>/admin/ManageSites.do" method="post">
+                <form action="<%= request.getContextPath() %>/admin/ManageSites" method="post">
                     <input type="hidden" name="method" value="add"/>
-                    <input type="submit" style="border:1px solid #666666;" value="Add New Site" />
+                    <input type="submit" style="border:1px solid #666666;" value="<fmt:message key='admin.sitesAdmin.btnAddNewSite'/>" />
                 </form>
 
                 <display-el:table name="sites" id="site" class="its"
                                   style="border:1px solid #666666; width:99%;margin-top:2px;">
-                    <display-el:column title="Active"><c:choose><c:when
-                            test="${site.status==0}">No</c:when><c:otherwise>Yes</c:otherwise></c:choose></display-el:column>
-                    <display-el:column title="Site Name">
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites.do?method=update&siteId=${e:forHtmlAttribute(site.siteId)}">${e:forHtml(site.name)}</a></display-el:column>
-                    <display-el:column property="shortName" title="Short Name"/>
-                    <display-el:column property="bgColor" title="Color" style="background-color:${site.bgColor}"/>
-                    <display-el:column property="phone" title="Telephone"/>
-                    <display-el:column property="fax" title="FAX"/>
-                    <display-el:column property="address" title="Address" style="width: 200px;"/>
-                    <display-el:column property="city" title="City"/>
-                    <display-el:column property="province" title="Province"/>
-                    <display-el:column property="postal" title="Postal Code"/>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.active'/>"><c:choose><c:when
+                            test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></display-el:column>
+                    <display-el:column title="<fmt:message key='admin.sitesAdmin.col.siteName'/>">
+                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=update&siteId=${e:forHtmlAttribute(site.siteId)}">${e:forHtml(site.name)}</a></display-el:column>
+                    <display-el:column property="shortName" title="<fmt:message key='admin.sitesAdmin.col.shortName'/>"/>
+                    <display-el:column property="bgColor" title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.bgColor}"/>
+                    <display-el:column property="phone" title="<fmt:message key='admin.sitesAdmin.col.telephone'/>"/>
+                    <display-el:column property="fax" title="<fmt:message key='admin.sitesAdmin.col.fax'/>"/>
+                    <display-el:column property="address" title="<fmt:message key='admin.sitesAdmin.col.address'/>" style="width: 200px;"/>
+                    <display-el:column property="city" title="<fmt:message key='admin.sitesAdmin.col.city'/>"/>
+                    <display-el:column property="province" title="<fmt:message key='admin.sitesAdmin.col.province'/>"/>
+                    <display-el:column property="postal" title="<fmt:message key='admin.sitesAdmin.col.postalCode'/>"/>
                     <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
-                    <display-el:column property="providerIdFrom" title="ProviderID From"/>
-                    <display-el:column property="providerIdTo" title="ProviderID To"/>
+                    <display-el:column property="providerIdFrom" title="<fmt:message key='admin.sitesAdmin.col.providerIdFrom'/>"/>
+                    <display-el:column property="providerIdTo" title="<fmt:message key='admin.sitesAdmin.col.providerIdTo'/>"/>
                     <% } %>
                 </display-el:table>
 

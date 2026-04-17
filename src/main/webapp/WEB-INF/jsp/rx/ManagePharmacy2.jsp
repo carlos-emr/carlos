@@ -1,5 +1,4 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%--
 
@@ -44,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -69,11 +68,11 @@
 <%
  if (request.getParameter("ID") != null && type != null && type.equals("Edit")){ %>
 	$(function() {
-		var data = "pharmacyId=<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>";
-		$.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=getPharmacyInfo",
+		var data = "pharmacyId=<e:forJavaScript value='<%= StringUtils.noNull(request.getParameter("ID")) %>' />";
+		$.post("<%=request.getContextPath()%>/rx/managePharmacy?method=getPharmacyInfo",
 				  data, function( data ) {
 			if(data.name) {
-			  $('#pharmacyId').val('<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("ID")))%>');
+			  $('#pharmacyId').val('<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("ID")) %>' />');
 			  $('#pharmacyName').val(data.name);
 			  $('#pharmacyAddress').val(data.address);
 			  $('#pharmacyCity').val(data.city);
@@ -108,7 +107,7 @@
                 if ($("#pharmacyId").val() != null && $("#pharmacyId").val() != "") {
 
                     var data = $("#pharmacyForm").serialize();
-                    $.post("<%=request.getContextPath() + "/rx/managePharmacy.do?method=save"%>",
+                    $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=save"%>",
                         data, function (data) {
                             if (data.id) {
                                 window.top.location.reload();
@@ -131,7 +130,7 @@
                 }
 
                 var data = $("#pharmacyForm").serialize();
-                $.post("<%=request.getContextPath() + "/rx/managePharmacy.do?method=add"%>",
+                $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=add"%>",
                     data, function (data) {
                         if (data.success) {
                             window.top.location.reload();

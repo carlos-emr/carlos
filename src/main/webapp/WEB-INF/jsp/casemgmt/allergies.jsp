@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -58,8 +58,8 @@
         <tr>
             <td bgcolor="white"><fmt:formatDate pattern="MM/dd/yy"
                                                 value="${allergy.entry_date}"/></td>
-            <td bgcolor="white"><c:out value="${allergy.description}"/></td>
-            <td bgcolor="white"><c:out value="${allergy.reaction}"/></td>
+            <td bgcolor="white">${e:forHtml(allergy.description)}</td>
+            <td bgcolor="white">${e:forHtml(allergy.reaction)}</td>
         </tr>
     </c:forEach>
 </table>

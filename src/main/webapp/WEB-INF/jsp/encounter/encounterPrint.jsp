@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,6 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
@@ -65,7 +64,7 @@
 
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
 %>
@@ -210,7 +209,7 @@
                                 <tr>
                                     <td class="TableWithBorder" valign="top" style="text-align: left">
                                         <pre name='enTextarea'
-                                             style="font-size: 8pt;"><%=Encode.forHtml(bean.encounter)%></pre>
+                                             style="font-size: 8pt;"><e:forHtmlContent value='<%= bean.encounter %>' /></pre>
                                     </td>
                                 </tr>
                             </table>

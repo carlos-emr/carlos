@@ -34,7 +34,7 @@
 
 
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
@@ -104,9 +104,9 @@
     %>
 
 
-    <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do" class="btn btn-primary">View Group List</a>
+    <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnViewGroupList"/></a>
 
-    <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+    <a href="${pageContext.request.contextPath}/admin/AdminNewGroup" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>

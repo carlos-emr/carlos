@@ -200,7 +200,7 @@ public class EForm extends EFormBase {
             return;
         }
         index += 5;
-        StringBuilder action = new StringBuilder("action=\"../eform/addEForm.do?efmfid=" + Encode.forUriComponent(this.fid) + "&efmdemographic_no=" + Encode.forUriComponent(this.demographicNo) + "&efmprovider_no=" + Encode.forUriComponent(this.providerNo));
+        StringBuilder action = new StringBuilder("action=\"../eform/addEForm?efmfid=" + Encode.forUriComponent(this.fid) + "&efmdemographic_no=" + Encode.forUriComponent(this.demographicNo) + "&efmprovider_no=" + Encode.forUriComponent(this.providerNo));
         if (this.eform_link != null) action.append("&eform_link=" + Encode.forUriComponent(this.eform_link));
         if (this.parentAjaxId != null) action.append("&parentAjaxId=" + Encode.forUriComponent(this.parentAjaxId));
 

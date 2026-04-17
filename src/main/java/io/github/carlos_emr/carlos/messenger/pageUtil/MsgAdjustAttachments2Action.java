@@ -97,7 +97,7 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
         if (bean == null || !bean.isValid()) {
             logger.warn("MsgAdjustAttachments2Action: missing/invalid msgSessionBean for provider={}; redirecting to DisplayMessages",
                     providerNoOf(loggedInInfo));
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -155,10 +155,10 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
         bean.setAttachment(sXML);
         bean.setMessageId(messageId);
 
-        // DemographicLinkMsg.do forwards to the relocated msgSearchDemo view;
+        // DemographicLinkMsg forwards to the relocated msgSearchDemo view;
         // the previous redirect to Transfer/DemographicSearch.jsp 404s because
         // that JSP does not exist in the webapp.
-        response.sendRedirect(request.getContextPath() + "/demographic/DemographicLinkMsg.do");
+        response.sendRedirect(request.getContextPath() + "/demographic/DemographicLinkMsg");
         return NONE;
     }
 

@@ -38,6 +38,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.BillingreferralDao;
 import io.github.carlos_emr.carlos.commn.model.Billingreferral;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * @author Jay Gallagher
@@ -47,6 +49,8 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AddReferralDoc2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -54,6 +58,11 @@ public class AddReferralDoc2Action extends ActionSupport {
     private BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         String af = SUCCESS;
         
         String id = request.getParameter("id");

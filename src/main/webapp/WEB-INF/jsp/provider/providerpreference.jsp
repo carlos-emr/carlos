@@ -31,7 +31,7 @@
     clinical styling). Uses FontAwesome icons for visual clarity.
 
     Previously, most settings required navigating to many separate sub-pages via
-    setProviderStaleDate.do. Now they are all inlined with a single Save button.
+    setProviderStaleDate. Now they are all inlined with a single Save button.
     Only items that truly require a separate page (password change, signature edit,
     printer setup, etc.) remain as external links.
 
@@ -49,8 +49,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
 
@@ -67,7 +67,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
@@ -77,7 +76,7 @@
     // ── Authentication & provider context ──────────────────────────────────
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     if (loggedInInfo == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
     String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -217,7 +216,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title><fmt:message key="provider.providerpreference.pageTitle"/></title>
 
@@ -506,9 +505,9 @@
     </style>
 </head>
 <body>
-<form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference.do" onsubmit="return checkTypeInAll()">
+<form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
-<input type="hidden" name="ticklerforproviderno" value="<%=Encode.forHtmlAttribute(props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, ""))%>">
+<input type="hidden" name="ticklerforproviderno" value="<e:forHtmlAttribute value='<%= props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, "") %>' />">
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      HEADER BAR - Sticky navy header matching the schedule page top bar
@@ -539,21 +538,21 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.startHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="start_hour" value="<%=Encode.forHtmlAttribute(startHour)%>"
+                    <input type="text" name="start_hour" value="<e:forHtmlAttribute value='<%= startHour %>' />"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.endHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="end_hour" value="<%=Encode.forHtmlAttribute(endHour)%>"
+                    <input type="text" name="end_hour" value="<e:forHtmlAttribute value='<%= endHour %>' />"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.period"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.minPerSlot"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="every_min" value="<%=Encode.forHtmlAttribute(everyMin)%>"
+                    <input type="text" name="every_min" value="<e:forHtmlAttribute value='<%= everyMin %>' />"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
@@ -562,9 +561,9 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.groupNo"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
-                    <input type="text" name="mygroup_no" value="<%=Encode.forHtmlAttribute(myGroupNo != null ? myGroupNo : "")%>"
+                    <input type="text" name="mygroup_no" value="<e:forHtmlAttribute value='<%= myGroupNo != null ? myGroupNo : "" %>' />"
                            class="pref-input form-select-sm" maxlength="10">
-                    <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                    <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> <fmt:message key="provider.providerpreference.link.viewGroups"/>
                     </a>
                 </div>
@@ -585,7 +584,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.linkNameDisplayLength"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentScreenFormsNameDisplayLength"
-                           value="<%=Encode.forHtmlAttribute(String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()))%>"
+                           value="<e:forHtmlAttribute value='<%= String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()) %>' />"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -601,7 +600,7 @@
                         for (EncounterForm ef : encounterForms) {
                             String chk = checkedEncounterFormNames.contains(ef.getFormName()) ? "checked" : "";
                     %><label><input type="checkbox" name="encounterFormName"
-                                    value="<%=Encode.forHtmlAttribute(ef.getFormName())%>" <%=chk%>> <%=Encode.forHtml(ef.getFormName())%></label><%
+                                    value="<e:forHtmlAttribute value='<%= ef.getFormName() %>' />" <%=chk%>> <e:forHtmlContent value='<%= ef.getFormName() %>' /></label><%
                         }
                     %></div>
                 </div>
@@ -627,8 +626,8 @@
                                 }
                             }
                     %><label><input type="checkbox" name="eformId"
-                                    value="<%=Encode.forHtmlAttribute(String.valueOf(eform.getId()))%>" <%=chk%>>
-                        <%=Encode.forHtml(eform.getFormName())%></label><%
+                                    value="<e:forHtmlAttribute value='<%= String.valueOf(eform.getId()) %>' />" <%=chk%>>
+                        <e:forHtmlContent value='<%= eform.getFormName() %>' /></label><%
                         }
                     %></div>
                 </div>
@@ -645,12 +644,12 @@
                         String qlRemoveLabel = (String) pageContext.getAttribute("_qlRemoveLabel");
                         for (ProviderPreference.QuickLink ql : quickLinks) {
                     %><div style="padding:2px 0">
-                        <input type="button" value="<%=Encode.forHtmlAttribute(qlRemoveLabel)%>"
+                        <input type="button" value="<e:forHtmlAttribute value='<%= qlRemoveLabel %>' />"
                                class="btn btn-sm btn-outline-danger"
                                style="font-size:10px; padding:1px 6px"
-                               onclick="submitQuickLinkAction('remove','<%=Encode.forJavaScriptAttribute(ql.getName())%>','')">
-                        <strong><%=Encode.forHtml(ql.getName())%></strong>:
-                        <%=Encode.forHtml(ql.getUrl())%>
+                               onclick="submitQuickLinkAction('remove','<e:forJavaScriptAttribute value='<%= ql.getName() %>' />','')">
+                        <strong><e:forHtmlContent value='<%= ql.getName() %>' /></strong>:
+                        <e:forHtmlContent value='<%= ql.getUrl() %>' />
                     </div><%
                         }
                     %></div>
@@ -705,42 +704,42 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.address"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxAddress" class="pref-input"
-                           value="<%=Encode.forHtmlAttribute(rxAddress)%>">
+                           value="<e:forHtmlAttribute value='<%= rxAddress %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.city"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxCity" class="pref-input"
-                           value="<%=Encode.forHtmlAttribute(rxCity)%>">
+                           value="<e:forHtmlAttribute value='<%= rxCity %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.province"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxProvince" class="pref-input form-select-sm"
-                           value="<%=Encode.forHtmlAttribute(rxProvince)%>">
+                           value="<e:forHtmlAttribute value='<%= rxProvince %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.postalCode"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxPostal" class="pref-input form-select-sm"
-                           value="<%=Encode.forHtmlAttribute(rxPostal)%>">
+                           value="<e:forHtmlAttribute value='<%= rxPostal %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="rxPhone" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(rxPhone)%>">
+                           value="<e:forHtmlAttribute value='<%= rxPhone %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="faxnumber" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(faxNum)%>">
+                           value="<e:forHtmlAttribute value='<%= faxNum %>' />">
                 </div>
             </div>
         </div>
@@ -788,7 +787,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultRxQty"/></div>
                 <div class="pref-value">
                     <input type="text" name="rx_default_quantity"
-                           value="<%=Encode.forHtmlAttribute(rxDefaultQty)%>"
+                           value="<e:forHtmlAttribute value='<%= rxDefaultQty %>' />"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -861,7 +860,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultBillingDxCode"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="dxCode" id="dxCode"
-                           value="<%=Encode.forHtmlAttribute(providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "")%>"
+                           value="<e:forHtmlAttribute value='<%= providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "" %>' />"
                            class="pref-input input-xs" maxlength="5">
                     <button type="button" class="pref-link" data-bs-toggle="modal" data-bs-target="#dxSearchModal">
                         <i class="fas fa-search"></i> <fmt:message key="provider.providerpreference.btn.search"/>
@@ -888,7 +887,7 @@
                         <option value="A" <%="A".equals(staleNoteDate)?"selected":""%>><fmt:message key="provider.providerpreference.staleDate.all"/></option><%
                         String staleDateMonthsWord = (String) pageContext.getAttribute("_staleDateMonthsWord");
                         for (int i = 0; i <= 36; i++) {
-                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> <%=Encode.forHtml(staleDateMonthsWord)%></option><%
+                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> <e:forHtmlContent value='<%= staleDateMonthsWord %>' /></option><%
                         }
                     %></select>
                 </div>
@@ -923,7 +922,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.days"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_time_period_warning"
-                           value="<%=Encode.forHtmlAttribute(consultCutoff)%>"
+                           value="<e:forHtmlAttribute value='<%= consultCutoff %>' />"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -931,7 +930,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultTeamWarning"/></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_team_warning"
-                           value="<%=Encode.forHtmlAttribute(consultTeam)%>"
+                           value="<e:forHtmlAttribute value='<%= consultTeam %>' />"
                            class="pref-input input-md">
                 </div>
             </div>
@@ -939,7 +938,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.workloadMgmt"/></div>
                 <div class="pref-value">
                     <input type="text" name="workload_management"
-                           value="<%=Encode.forHtmlAttribute(workloadMgmt)%>"
+                           value="<e:forHtmlAttribute value='<%= workloadMgmt %>' />"
                            class="pref-input input-md">
                 </div>
             </div>
@@ -976,7 +975,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinWidth"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowWidth"
-                           value="<%=Encode.forHtmlAttribute(encWinWidth)%>"
+                           value="<e:forHtmlAttribute value='<%= encWinWidth %>' />"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -984,7 +983,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinHeight"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowHeight"
-                           value="<%=Encode.forHtmlAttribute(encWinHeight)%>"
+                           value="<e:forHtmlAttribute value='<%= encWinHeight %>' />"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -1006,7 +1005,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.quickChartSize"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="quickChartSize"
-                           value="<%=Encode.forHtmlAttribute(quickChartSize)%>"
+                           value="<e:forHtmlAttribute value='<%= quickChartSize %>' />"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -1014,7 +1013,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.maxPatientNameLen"/></div>
                 <div class="pref-value">
                     <input type="text" name="patient_name_length"
-                           value="<%=Encode.forHtmlAttribute(patientNameLen)%>"
+                           value="<e:forHtmlAttribute value='<%= patientNameLen %>' />"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -1110,7 +1109,7 @@
                         for (HashMap<String, String> grp : eformGroups) {
                             String gName = grp.get("groupName") != null ? grp.get("groupName") : "";
                             String sel = gName.equals(eformGroup) ? "selected" : "";
-                    %><option value="<%=Encode.forHtmlAttribute(gName)%>" <%=sel%>><%=Encode.forHtml(gName)%></option><%
+                    %><option value="<e:forHtmlAttribute value='<%= gName %>' />" <%=sel%>><e:forHtmlContent value='<%= gName %>' /></option><%
                         }
                     %></select>
                 </div>
@@ -1120,11 +1119,11 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.labRecallMacros"/></div>
                 <div class="pref-value pref-links">
-                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabRecall"
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewLabRecall"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-redo"></i> <fmt:message key="provider.providerpreference.link.labRecallSettings"/>
                     </a>
-                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewLabMacroPrefs"
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewLabMacroPrefs"
                        class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-code"></i> <fmt:message key="provider.providerpreference.link.labMacros"/>
                     </a>
@@ -1155,21 +1154,21 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.clinicName"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardName" class="pref-input"
-                           value="<%=Encode.forHtmlAttribute(apptCardName)%>">
+                           value="<e:forHtmlAttribute value='<%= apptCardName %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardPhone" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(apptCardPhone)%>">
+                           value="<e:forHtmlAttribute value='<%= apptCardPhone %>' />">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardFax" class="pref-input input-md"
-                           value="<%=Encode.forHtmlAttribute(apptCardFax)%>">
+                           value="<e:forHtmlAttribute value='<%= apptCardFax %>' />">
                 </div>
             </div>
         </div>
@@ -1202,8 +1201,8 @@
                         <option value="no"><fmt:message key="provider.providerpreference.billing.noneOption"/></option><%
                         String def = providerPreference.getDefaultServiceType();
                         for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-                    %><option value="<%=Encode.forHtmlAttribute((String)result[0])%>"
-                              <%=((String)result[0]).equals(def)?"selected":""%>><%=Encode.forHtml((String)result[1])%></option><%
+                    %><option value="<e:forHtmlAttribute value='<%= (String)result[0] %>' />"
+                              <%=((String)result[0]).equals(def)?"selected":""%>><e:forHtmlContent value='<%= (String)result[1] %>' /></option><%
                         }
                     %></select>
                 </div>
@@ -1214,7 +1213,7 @@
                 <div class="pref-value pref-links"><%
                     String br = CarlosProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
-                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction.do?providerNo=<%=Encode.forUriComponent(providerNo)%>"
+                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction?providerNo=<e:forUriComponent value='<%= providerNo %>' />"
                      class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-external-link-alt"></i> <fmt:message key="provider.providerpreference.link.bcBillingPrefs"/>
                 </a><%
@@ -1251,11 +1250,11 @@
                 <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelCurrentSig"/></label>
                 <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
                     <% if (hasConsultSignature) { %>
-                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage.do"
-                             alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px;"/>
+                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
+                             alt="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' />" style="max-width:100%; max-height:120px;"/>
                     <% } else { %>
                         <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
-                        <img id="sigPreviewImg" src="" alt="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("altCurrentSig"))%>" style="max-width:100%; max-height:120px; display:none;"/>
+                        <img id="sigPreviewImg" src="" alt="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' />" style="max-width:100%; max-height:120px; display:none;"/>
                     <% } %>
                 </div>
             </div>
@@ -1322,26 +1321,26 @@
                 <fmt:message key="provider.providerpreference.account.sectionNote"/>
             </div>
             <div class="pref-links">
-                <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="${pageContext.request.contextPath}/EnterSignature.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/EnterSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/EditPrinter.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/provider/CppPreferences.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%=request.getContextPath()%>/provider/CppPreferences" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-columns"></i> <fmt:message key="provider.providerpreference.link.configureEChartCpp"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/admin/ViewApiClients.do" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="<%= request.getContextPath() %>/admin/ViewApiClients" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-plug"></i> <fmt:message key="provider.providerpreference.link.manageApiClients"/>
                 </a>
-                <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate.do"
+                <a href="<%= request.getContextPath() %>/admin/DisplayDocumentDescriptionTemplate"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>
@@ -1383,7 +1382,7 @@
             </div>
             <div class="modal-body" style="padding:0;height:450px">
                 <fmt:message key="provider.providerpreference.modal.dxSearch.iframeTitle" var="_dxSearchIframeTitle"/>
-                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("_dxSearchIframeTitle"))%>"></iframe>
+                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("_dxSearchIframeTitle") %>' />"></iframe>
             </div>
         </div>
     </div>
@@ -1402,15 +1401,15 @@
 <fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.retry" var="_jsRxWarnRetry"/>
 <script>
 var _i18n = {
-    schedInvalidNumbers: '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsSchedInvalidNumbers"))%>',
-    endHourRange:        '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsEndHourRange"))%>',
-    startBeforeEnd:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsStartBeforeEnd"))%>',
-    periodInvalid:       '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsPeriodInvalid"))%>',
-    periodMax120:        '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsPeriodMax120"))%>',
-    quickLinkRequired:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkRequired"))%>',
-    quickLinkNavigate:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsQuickLinkNavigate"))%>',
-    rxWarnSession:       '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnSession"))%>',
-    rxWarnRetry:         '<%=Encode.forJavaScript((String)pageContext.getAttribute("_jsRxWarnRetry"))%>'
+    schedInvalidNumbers: '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsSchedInvalidNumbers") %>' />',
+    endHourRange:        '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsEndHourRange") %>' />',
+    startBeforeEnd:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsStartBeforeEnd") %>' />',
+    periodInvalid:       '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsPeriodInvalid") %>' />',
+    periodMax120:        '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsPeriodMax120") %>' />',
+    quickLinkRequired:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsQuickLinkRequired") %>' />',
+    quickLinkNavigate:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsQuickLinkNavigate") %>' />',
+    rxWarnSession:       '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsRxWarnSession") %>' />',
+    rxWarnRetry:         '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsRxWarnRetry") %>' />'
 };
 
 /**
@@ -1476,7 +1475,7 @@ function checkTypeInAll() {
 function submitQuickLinkAction(action, name, url) {
     var form = document.createElement('form');
     form.method = 'post';
-    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks.do';
+    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks';
     var fields = {action: action, name: name};
     if (url) { fields.url = url; }
     for (var key in fields) {
@@ -1518,7 +1517,7 @@ function closePreferences() {
             if (history.length > 1) {
                 history.back();
             } else {
-                location.href = '<%= request.getContextPath() %>/provider/providercontrol.do';
+                location.href = '<%= request.getContextPath() %>/provider/providercontrol';
             }
         }
     }, 150);
@@ -1557,7 +1556,7 @@ function isValidAutoSaveResponse(status, body) {
         var self = this;
         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
         var csrfToken = csrfEl ? csrfEl.value : '';
-        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel.do', {
+        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -1595,7 +1594,7 @@ function isValidAutoSaveResponse(status, body) {
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
     var code = document.getElementById('dxCode').value;
     var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name='
+    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
         + encodeURIComponent(code) + '&search=';
     frame.onload = function() {
         try {
@@ -1644,23 +1643,23 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 <fmt:message key="provider.providerpreference.signatureStamp.btnDelete" var="_sigBtnDelete"/>
 <script>
 (function() {
-    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
+    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp';
 
     var _msg = {
-        selectFirst:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSelectFirst"))%>',
-        uploadSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadSuccess"))%>',
-        uploadFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadFailed"))%>',
-        uploadError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigUploadError"))%>',
-        drawFirst:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDrawFirst"))%>',
-        saveSuccess:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveSuccess"))%>',
-        saveFailed:     '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveFailed"))%>',
-        saveError:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigSaveError"))%>',
-        deleteConfirm:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteConfirm"))%>',
-        deleteSuccess:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteSuccess"))%>',
-        deleteFailed:   '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteFailed"))%>',
-        deleteError:    '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigDeleteError"))%>',
-        noSigUploaded:  '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigNoSigUploaded"))%>',
-        btnDelete:      '<%=Encode.forJavaScript((String)pageContext.getAttribute("_sigBtnDelete"))%>'
+        selectFirst:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSelectFirst") %>' />',
+        uploadSuccess:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadSuccess") %>' />',
+        uploadFailed:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadFailed") %>' />',
+        uploadError:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadError") %>' />',
+        drawFirst:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDrawFirst") %>' />',
+        saveSuccess:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveSuccess") %>' />',
+        saveFailed:     '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveFailed") %>' />',
+        saveError:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveError") %>' />',
+        deleteConfirm:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteConfirm") %>' />',
+        deleteSuccess:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteSuccess") %>' />',
+        deleteFailed:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteFailed") %>' />',
+        deleteError:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteError") %>' />',
+        noSigUploaded:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigNoSigUploaded") %>' />',
+        btnDelete:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigBtnDelete") %>' />'
     };
 
     // ── Canvas drawing ──

@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -158,7 +158,7 @@
                     resultDiv.append(warningsList);
                 }
 
-                resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload.do?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
+                resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
                 resultDiv.append($('<hr>'));
 
                 $('#result').append(resultDiv);
@@ -197,7 +197,7 @@
     <div class="container-fluid card card-body bg-body-tertiary">
         <h3><fmt:message key="admin.admin.DemoImport"/></h3>
 
-        <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload.do" method="POST"
+        <form name="ImportDemographicDataForm" action="${pageContext.request.contextPath}/form/importUpload" method="POST"
                    enctype="multipart/form-data">
         <p><input type="file" name="importFile" id="importFile" multiple="multiple"/>
             <span id="uploadWarn" title="<fmt:message key="global.uploadWarningBody"/>"

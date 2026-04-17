@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,8 +54,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
@@ -80,7 +78,8 @@
             });
 
             function loadIndicators() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getIndicators&flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>", {},
+                <c:set var="__enc_1"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getIndicators&flowsheetId=<e:forJavaScript value='${__enc_1}' />", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.indicators instanceof Array) {
@@ -101,10 +100,12 @@
 
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItemTarget',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItemTarget',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
+                                                <c:set var="__enc_2"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
+                        <c:set var="__enc_3"><e:forUriComponent value='<%= measurementType %>' /></c:set>
+location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<e:forJavaScript value='${__enc_2}' />&measurementType=<e:forJavaScript value='${__enc_3}' />';
                     });
             }
 
@@ -121,8 +122,8 @@
     <h2>Flowsheet Target Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<%= Encode.forHtmlAttribute(flowsheetId) %>"/>
-        <input type="hidden" name="measurementType" value="<%= Encode.forHtmlAttribute(measurementType) %>"/>
+        <input type="hidden" name="flowsheetId" value="<e:forHtmlAttribute value='<%= flowsheetId %>' />"/>
+        <input type="hidden" name="measurementType" value="<e:forHtmlAttribute value='<%= measurementType %>' />"/>
 
         <table style="width:20%">
             <tr>

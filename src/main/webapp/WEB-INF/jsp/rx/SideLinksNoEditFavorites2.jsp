@@ -90,7 +90,7 @@
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug.do?usefav=true&favid=" + favoriteId;
+        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId;
     }
 
 </script>

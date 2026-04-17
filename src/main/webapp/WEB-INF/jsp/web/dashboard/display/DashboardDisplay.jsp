@@ -1,0 +1,177 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+
+<security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
+                   objectName="_dashboardDisplay">
+    <c:redirect url="/securityError?type=_dashboardDisplay"/>
+</security:oscarSec>
+
+<!DOCTYPE html >
+<html lang="">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>
+        ${e:forHtml(dashboard.name)}
+    </title>
+    <link rel="stylesheet" type="text/css"
+          href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/fontawesome-all.min.css"/>
+    <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/web/css/Dashboard.css"/>
+    <script>var ctx = "${pageContext.request.contextPath}"</script>
+    <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
+    <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
+            <script src="${ pageContext.request.contextPath }/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/chartjs/chart.umd.min.js"></script>
+    <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/web/dashboard/display/dashboardDisplayController.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+    <div class="row" id="dashboardPanel">
+        <div class="col-md-12">
+
+            <!-- Dashboard Heading -->
+            <div class="row dashboardHeading">
+                <h2>
+                    ${e:forHtml(dashboard.name)}
+                </h2>
+                <hr/>
+            </div>
+            <center>
+                <c:if test="${fn:length(providers) eq 0}">
+                    <b>${e:forHtml(preferredProvider.fullName)}</b>
+                </c:if>
+                <c:if test="${fn:length(providers) gt 0}">
+                    <div class="dropdown">
+                        <form action="<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }"
+                              method="post">
+                            <select id="providerNo" name="providerNo">
+                                <option value="${ preferredProvider.providerNo }">${e:forHtml(preferredProvider.fullName)}</option>
+                                <c:forEach items="${ providers }" var="provider">
+                                    <option value="${ provider.providerNo }">
+                                        ${e:forHtml(provider.formattedName)}
+                                    </option>
+                                </c:forEach>
+                            </select>
+                            <input type="submit" value="Change Dashboard Provider">
+                        </form>
+                    </div>
+                </c:if>
+                <br>
+            </center>
+            <div class="row dashboardSubHeading">
+                <div class="col-md-6">
+                    Last loaded:
+                    ${e:forHtml(dashboard.lastChecked)}
+                    <a href="javascript:void(0)" title="refresh" class="reloadDashboardBtn"
+                       id="getDashboard_${ dashboard.id }">
+                        <span class="fa-solid fa-arrows-rotate"></span>
+                    </a>
+                </div>
+                <div class="col-md-6">
+                    <a href="javascript:void(0)" title="Dashboard Manager" class="float-end dashboardManagerBtn"
+                       id="${ dashboard.id }">
+                        <span class="fa-solid fa-gear"></span>
+                    </a>
+                </div>
+            </div>
+            <!-- end Dashboard Heading -->
+
+            <div class="row dashboardBody">
+
+                <!-- dashboardPanels - by category.  -->
+                <c:forEach items="${ dashboard.panelBeans }" var="panelBean">
+
+                    <div class="card border-primary categoryPanel">
+
+                        <div class="card-header">
+                            <strong>${e:forHtml(panelBean.category)}</strong>
+                        </div>
+
+                        <div class="card-body">
+
+                            <c:forEach items="${ panelBean.indicatorPanelBeans }" var="indicatorPanel">
+
+                                <!-- Begin display of Indicator Panel -->
+                                <div class="card indicatorPanel">
+
+                                    <!-- Indicator panel heading - by sub category -->
+                                    <div class="card-header">
+                                        ${e:forHtml(indicatorPanel.category)}
+                                    </div>
+
+                                    <div class="card-body">
+                                        <c:forEach items="${ indicatorPanel.indicatorIdList }" var="indicatorId">
+                                            <div class="col-md-3 indicatorWrapper" id="indicatorId_${ indicatorId }">
+                                                <div>
+                                                    <span class="fa-solid fa-arrows-rotate fa-spin"></span>
+                                                    Loading...
+                                                </div>
+                                            </div>
+                                        </c:forEach>
+                                        <!-- end indicator loop -->
+                                    </div>
+                                    <!-- end indicatorPanel body -->
+                                </div>
+                                <!-- end indicatorPanel -->
+
+                            </c:forEach>
+                            <!-- end indicatorPanel loop -->
+                        </div>
+                    </div>
+                    <!-- end dashboardPanels -->
+                </c:forEach>
+                <!-- end Dashboard Panel loop -->
+
+            </div>
+            <!-- End dashboard body -->
+
+        </div>
+    </div>
+</div>
+<!-- end container -->
+
+</body>
+</html>

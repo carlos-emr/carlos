@@ -28,33 +28,52 @@
 <struts>
     <package name="integration" namespace="/" extends="struts-default">
 
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="web/dashboard/OutcomesDashboard" class="io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action"/>
         <action name="demographic/ValidateSwipeCard" class="io.github.carlos_emr.carlos.integration.mchcv.ValidateSwipeCard2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicswipe.jsp</result>
         </action>
+        <!--
+            MCEDT (Ontario MOH Electronic Data Transfer). All JSPs live under
+            /WEB-INF/jsp/mcedt/ so the container blocks direct GETs; entry
+            only through these action routes, which enforce _admin r/w via
+            McedtSecurity and require POST for state-changing dispatch
+            methods (upload, delete, submit, download, change-password,
+            resubmit).
+        -->
         <action name="mcedt/mcedt" class="io.github.carlos_emr.carlos.integration.mcedt.Resource2Action">
-            <result name="success">/mcedt/index.jsp</result>
+            <result name="success">/WEB-INF/jsp/mcedt/index.jsp</result>
         </action>
         <action name="mcedt/uploads" class="io.github.carlos_emr.carlos.integration.mcedt.Upload2Action">
-            <result name="success">/mcedt/uploads.jsp</result>
-            <result name="addNew">/mcedt/addUpload.jsp</result>
-            <result name="cancel">/mcedt/mcedt.do</result>
-            <result name="done">/mcedt/mcedt.do</result>
+            <result name="success">/WEB-INF/jsp/mcedt/uploads.jsp</result>
+            <result name="addNew">/WEB-INF/jsp/mcedt/addUpload.jsp</result>
+            <result name="cancel">/mcedt/mcedt</result>
+            <result name="done">/mcedt/mcedt</result>
         </action>
         <action name="mcedt/update" class="io.github.carlos_emr.carlos.integration.mcedt.Update2Action">
-            <result name="cancel">/mcedt/mcedt.do</result>
-            <result name="add">/mcedt/update.do</result>
-            <result name="success">/mcedt/mcedt.do</result>
-            <result name="initial">/mcedt/update.jsp</result>
+            <result name="cancel">/mcedt/mcedt</result>
+            <result name="add">/mcedt/update</result>
+            <result name="success">/mcedt/mcedt</result>
+            <result name="initial">/WEB-INF/jsp/mcedt/update.jsp</result>
+        </action>
+        <action name="mcedt/openUpdateUpload" class="io.github.carlos_emr.carlos.integration.mcedt.gate.ViewMcedtForm2Action">
+            <result name="success">/WEB-INF/jsp/mcedt/updateUpload.jsp</result>
         </action>
         <action name="mcedt/info" class="io.github.carlos_emr.carlos.integration.mcedt.Info2Action">
             <result name="info">/WEB-INF/jsp/mcedt/info.jsp</result>
         </action>
         <action name="mcedt/kaimcedt" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Resource2Action">
-            <result name="success">/mcedt/mailbox/index.jsp</result>
-            <result name="successUserDownload">/mcedt/mailbox/index.jsp?tab=download</result>
-            <result name="failUserDownload">/mcedt/mailbox/index.jsp?tab=download</result>
-            <result name="successUserSent">/mcedt/mailbox/index.jsp?tab=sent</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp</result>
+            <result name="successUserDownload">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="failUserDownload">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="successUserSent">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="mcedt/openAutoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Resource2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
@@ -62,35 +81,38 @@
         <action name="mcedt/autoUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp</result>
             <result name="failure">/WEB-INF/jsp/mcedt/mailbox/autoUpload.jsp?connection=failed</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/upload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
-            <result name="success">/mcedt/mailbox/index.jsp?tab=upload</result>
-            <result name="failure">/mcedt/mailbox/index.jsp?tab=upload</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="failure">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/addUpload" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2Action">
-            <result name="success">/mcedt/mailbox/index.jsp?tab=upload</result>
-            <result name="failure">/mcedt/mailbox/addUpload.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=upload</result>
+            <result name="failure">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
+        </action>
+        <action name="mcedt/openAddUploadMailbox" class="io.github.carlos_emr.carlos.integration.mcedt.gate.ViewMcedtForm2Action">
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/addUpload.jsp</result>
         </action>
         <action name="mcedt/kaichpass" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.User2Action">
-            <result name="success">/mcedt/mailbox/changepass.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/changepass.jsp</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/kaiautodl" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
             <result name="success">/WEB-INF/jsp/mcedt/mailbox/autoDownload.jsp</result>
-            <result name="cancel">/mcedt/kaimcedt.do</result>
+            <result name="cancel">/mcedt/kaimcedt</result>
         </action>
         <action name="mcedt/download" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Download2Action">
-            <result name="success">/mcedt/mailbox/index.jsp?tab=download</result>
-            <result name="error">/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=download</result>
+            <result name="error">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=download</result>
         </action>
         <action name="mcedt/resourceInfo" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.Info2Action">
-            <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="mcedt/reSubmit" class="io.github.carlos_emr.carlos.integration.mcedt.mailbox.ReSubmit2Action">
-            <result name="success">/mcedt/mailbox/index.jsp?tab=sent</result>
+            <result name="success">/WEB-INF/jsp/mcedt/mailbox/index.jsp?tab=sent</result>
         </action>
         <action name="dhir/submit" class="io.github.carlos_emr.carlos.integration.dhir.SubmitImmunization2Action">
             <interceptor-ref name="httpMethod">
@@ -98,6 +120,47 @@
             </interceptor-ref>
             <result name="success">/WEB-INF/jsp/prevention/dhirSubmission.jsp</result>
             <result name="testresult">/WEB-INF/jsp/prevention/test_case.jsp</result>
+        </action>
+
+        <!--
+            ===== Tail-interactive view gates + signature mutation ==========
+            Short-tail JSPs relocated behind /WEB-INF/jsp/ (administration,
+            common, share, calendar, oscarWorkflow, signature_pad,
+            library/eforms). Each view gate enforces the per-page privilege
+            and is GET/HEAD only. The signature save endpoint is POST-only
+            and enforces _con w — replaces the scriptlet in the deleted
+            uploadSignature.jsp which previously ran FileOutputStream writes
+            and DB persistence under only an in-JSP <security:oscarSec>
+            check.
+        -->
+        <action name="administration/index" class="io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action">
+            <result name="success">/WEB-INF/jsp/administration/index.jsp</result>
+        </action>
+        <action name="common/OntarioMDRedirect" class="io.github.carlos_emr.carlos.common.gate.ViewOntarioMDRedirect2Action">
+            <result name="success">/WEB-INF/jsp/common/OntarioMDRedirect.jsp</result>
+        </action>
+        <action name="common/omdDiseaseList" class="io.github.carlos_emr.carlos.common.gate.ViewOmdDiseaseList2Action">
+            <result name="success">/WEB-INF/jsp/common/omdDiseaseList.jsp</result>
+        </action>
+        <action name="share/CalendarPopup" class="io.github.carlos_emr.carlos.share.gate.ViewShareCalendarPopup2Action">
+            <result name="success">/WEB-INF/jsp/share/CalendarPopup.jsp</result>
+        </action>
+        <action name="calendar/oscarCalendarPopup" class="io.github.carlos_emr.carlos.calendar.gate.ViewOscarCalendarPopup2Action">
+            <result name="success">/WEB-INF/jsp/calendar/oscarCalendarPopup.jsp</result>
+        </action>
+        <action name="oscarWorkflow/WorkFlowList" class="io.github.carlos_emr.carlos.oscarWorkflow.gate.ViewWorkFlowList2Action">
+            <result name="success">/WEB-INF/jsp/oscarWorkflow/WorkFlowList.jsp</result>
+        </action>
+        <action name="signature_pad/tabletSignature" class="io.github.carlos_emr.carlos.signature.gate.ViewTabletSignature2Action">
+            <result name="success">/WEB-INF/jsp/signature_pad/tabletSignature.jsp</result>
+        </action>
+        <action name="library/eforms/signatureControl" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
+            <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
+        </action>
+        <action name="signature_pad/SaveSignatureUpload" class="io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
         </action>
 
     </package>

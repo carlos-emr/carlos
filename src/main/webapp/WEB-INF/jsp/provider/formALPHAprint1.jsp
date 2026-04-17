@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no = (String) session.getAttribute("user");
 
     //if bNewForm is false (0), then it should be able to display xml data.
@@ -39,7 +39,7 @@
         bNew = false;
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <HTML>
 <head>
@@ -56,7 +56,7 @@
                 <tr>
                     <td ALIGN="CENTER"><FONT FACE="Arial, Helvetica"><B>ANTENATAL
                         PSYCHOSOCIAL HEALTH ASSESSMENT (ALPHA)</B></FONT></TD>
-                    <td align="right"><a href="<%= request.getContextPath() %>/provider/ViewFormALPHAprint.do"> prev page </a>
+                    <td align="right"><a href="<%= request.getContextPath() %>/provider/ViewFormALPHAprint"> prev page </a>
                         | <a href=# onClick="window.print();">PRINT</a></td>
                 </tr>
             </table>

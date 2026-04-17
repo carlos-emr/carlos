@@ -52,5 +52,5 @@
     if (!CarlosProperties.getInstance().isTorontoRFQ() && tab.equals("oscar_scratch")) {
 %>
 <img src='<oscar:filledScratch providerNo="<%=curUser_no%>"></oscar:filledScratch>' border='0' align="absbottom"
-     title='Scratch Pad'>
+     title="<fmt:message key='ScratchPad.title'/>">
 <% } %>

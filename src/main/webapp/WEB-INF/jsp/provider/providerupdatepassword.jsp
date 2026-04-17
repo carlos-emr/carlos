@@ -31,14 +31,14 @@
 
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String curUser_no = (String) session.getAttribute("user");
   MessageDigest md = MessageDigest.getInstance("SHA");
 %>
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.security.*, io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
@@ -51,6 +51,7 @@
 %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
@@ -127,22 +128,24 @@
             if (pinUpdateRequired) {
                 errorMsg = "PIN Update Sucsessfull However, " + errorMsg;
             }
-            response.sendRedirect(request.getContextPath() + "/provider/ViewProviderChangePassword.do?errormsg=" + errorMsg);
+            response.sendRedirect(request.getContextPath() + "/provider/ViewProviderChangePassword?errormsg=" + Encode.forUriComponent(errorMsg));
         }
 
         out.println("<script language='javascript'>self.close();</script>");
 
     }
 %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title>Password/PIN Changed</title>
+    <title><fmt:message key='provider.updatePassword.title'/></title>
     <script language='javascript'>self.close();</script>
 </head>
 <body>
-<h3>Changes saved.</h3>
+<h3><fmt:message key='provider.updatePassword.msgSaved'/></h3>
 <br/>
-<input type="button" value="Close Window" onClick="self.close();"/>
+<input type="button" value="<fmt:message key='provider.updatePassword.btnClose'/>" onClick="self.close();"/>
 </body>
 <body>
 

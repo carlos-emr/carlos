@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_flowsheet" rights="w" reverse="<%=true%>">
     <%authed2 = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_flowsheet");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_flowsheet");%>
 </security:oscarSec>
 <%
     if (!authed2) {
@@ -69,9 +69,9 @@
 
 <%
     long startTimeToGetP = System.currentTimeMillis();
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     //TODO: MOVE THIS TO AN ACTION
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     FlowSheetCustomizationDao flowSheetCustomizationDao = (FlowSheetCustomizationDao) ctx.getBean(FlowSheetCustomizationDao.class);
@@ -123,7 +123,7 @@ if(scope != null && "clinic".equals(scope)) {
 <html>
 
     <head>
-        <title>Update Flowsheet <%=Encode.forHtml(flowsheet)%> <oscar:nameage demographicNo="<%=demographic%>"/></title><!--I18n-->
+        <title>Update Flowsheet <e:forHtmlContent value='<%= flowsheet %>' /> <oscar:nameage demographicNo="<%=demographic%>"/></title><!--I18n-->
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
@@ -160,10 +160,10 @@ display:inline-block;
         if (request.getParameter("demographic") == null) { %>
 <div class="navbar" id="demoHeader"><div class="container-fluid">
     <a class="navbar-brand" href="javascript:void(0)">Update Flowsheet Measurement</a>
-    <em>for <strong><%=Encode.forHtml(flowsheet)%></strong> flowsheet </em>
+    <em>for <strong><e:forHtmlContent value='<%= flowsheet %>' /></strong> flowsheet </em>
 </div></div>
     <%} else { %>
-    <%@ include file="/share/templates/patient.jspf" %>
+    <%@ include file="/WEB-INF/jsp/share/templates/patient.jspf" %>
     <div style="height:60px;"></div>
     <%
         }
@@ -172,33 +172,33 @@ display:inline-block;
 <div class="container-fluid" id="container-main">
 
         <div class="col-md-8">
-<form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
+<form action="FlowSheetCustomAction" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
-                <input type="hidden" name="flowsheet" value="<%= Encode.forHtmlAttribute(flowsheet) %>"/>
-                <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
+                <input type="hidden" name="flowsheet" value="<e:forHtmlAttribute value='<%= flowsheet %>' />"/>
+                <input type="hidden" name="measurement" value="<e:forHtmlAttribute value='<%= measurement %>' />"/>
 
                 <%if (request.getParameter("demographic") != null) { %>
-                <input type="hidden" name="demographic" value="<%= Encode.forHtmlAttribute(demographic) %>"/>
+                <input type="hidden" name="demographic" value="<e:forHtmlAttribute value='<%= demographic %>' />"/>
                 <%} %>
                 <%if (request.getParameter("scope") != null) { %>
-                <input type="hidden" name="scope" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("scope"))) %>"/>
+                <input type="hidden" name="scope" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("scope")) %>' />"/>
                 <%} %>
                 <fieldset width="300px">
                     <input type="hidden" name="updater" value="yes"/>
-                    <input type="hidden" name="prevention_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("prevention_type")))%>"/>
-                    <input type="hidden" name="measurement_type" value="<%=Encode.forHtmlAttribute(String.valueOf(h2.get("measurement_type")))%>"/>
+                    <input type="hidden" name="prevention_type" value="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("prevention_type")) %>' />"/>
+                    <input type="hidden" name="measurement_type" value="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("measurement_type")) %>' />"/>
 
                     <div class="card card-body bg-body-tertiary">
                         <h4>Measurement Details</h4>
 
                         <div class="mtype-details">
                             Display Name: <br/>
-                            <input type="text" name="display_name" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("display_name")))%>"/>
+                            <input type="text" name="display_name" value="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("display_name")) %>' />"/>
                         </div>
 
                         <div class="mtype-details">
                             Guideline: <br/>
-                            <input type="text" name="guideline" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("guideline")))%>"/>
+                            <input type="text" name="guideline" value="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("guideline")) %>' />"/>
                         </div>
 
                         <div class="mtype-details">
@@ -211,7 +211,7 @@ display:inline-block;
 
                         <div class="mtype-details">
                             Value Name:<br/>
-                            <input type="text" name="value_name" value="<%= Encode.forHtmlAttribute(String.valueOf(h2.get("value_name")))%>"/>
+                            <input type="text" name="value_name" value="<e:forHtmlAttribute value='<%= String.valueOf(h2.get("value_name")) %>' />"/>
                         </div>
                     </div>
 
@@ -239,7 +239,7 @@ display:inline-block;
 
                                     <div class="mtype-details">
                                         Text: <br/><input type="text" name="text<%=count%>" length="100"
-                                                          value="<%=Encode.forHtmlAttribute(e.getText())%>"/>
+                                                          value="<e:forHtmlAttribute value='<%= e.getText() %>' />"/>
                                     </div>
 
                                <%
@@ -256,11 +256,11 @@ display:inline-block;
 							</div>
 
 							<div class="mtype-details">
-                                   Param: <br /><input type="text" name="param<%=count%>c<%=condCount%>" value="<%=Encode.forHtmlAttribute(s(cond.getParam()))%>" />
+                                   Param: <br /><input type="text" name="param<%=count%>c<%=condCount%>" value="<e:forHtmlAttribute value='<%= s(cond.getParam()) %>' />" />
                             </div>
 
                             <div class="mtype-details">
-                                   Value: <br /><input type="text" class="ruleValue" name="value<%=count%>c<%=condCount%>" value="<%=Encode.forHtmlAttribute(cond.getValue())%>" placeholder="e.g. 5-10, >5, <10, 7"/>
+                                   Value: <br /><input type="text" class="ruleValue" name="value<%=count%>c<%=condCount%>" value="<e:forHtmlAttribute value='<%= cond.getValue() %>' />" placeholder="e.g. 5-10, >5, <10, 7"/>
                                    <br><div class="errorRuleValue"></div>
                              </div>
 
@@ -377,12 +377,12 @@ display:inline-block;
 
                                     <div class="mtype-details">
                                         Param:<br/> <input type="text" name="targetparam<%=targetCount%>c<%=condCount%>"
-                                                           value="<%=Encode.forHtmlAttribute(s(cond.getParam()))%>"/>
+                                                           value="<e:forHtmlAttribute value='<%= s(cond.getParam()) %>' />"/>
                                     </div>
 
                                     <div class="mtype-details">
                                         Value: <br/><input type="text" name="targetvalue<%=targetCount%>c<%=condCount%>"
-                                                           value="<%=Encode.forHtmlAttribute(cond.getValue())%>"/>
+                                                           value="<e:forHtmlAttribute value='<%= cond.getValue() %>' />"/>
                                     </div>
                                     <br/>
 
@@ -428,7 +428,7 @@ display:inline-block;
                                             String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
                                         %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=Encode.forHtmlAttribute(colour)%>" <%=s(colour, tc.getIndicationColor())%> ><%=Encode.forHtml(colour)%>
+                                                   value="<e:forHtmlAttribute value='<%= colour %>' />" <%=s(colour, tc.getIndicationColor())%> ><e:forHtmlContent value='<%= colour %>' />
                                             </input>
                                         </li>
                                         <%}%>
@@ -480,7 +480,7 @@ display:inline-block;
                                             String safeCol = (colVal != null && colVal.matches("^(#[0-9a-fA-F]{3,6}|[a-zA-Z]{3,20})$")) ? colVal : "#FFFFFF";
                                         %><li style="display:inline;background-color:<%=safeCol%>;">
                                             <input type="radio" name="col<%=targetCount%>"
-                                                   value="<%=Encode.forHtmlAttribute(colour)%>"><%=Encode.forHtml(colour)%>
+                                                   value="<e:forHtmlAttribute value='<%= colour %>' />"><e:forHtmlContent value='<%= colour %>' />
                                             </input>
                                         </li>
                                         <%}%>
@@ -493,9 +493,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%= Encode.forUriComponent(flowsheet) %><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' /><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet.do?flowsheet=<%= Encode.forUriComponent(flowsheet) %>&demographic=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic))%><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowsheet %>' />&demographic=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic) %>' /><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
                            class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

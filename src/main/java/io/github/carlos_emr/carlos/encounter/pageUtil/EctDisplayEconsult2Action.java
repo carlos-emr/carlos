@@ -70,7 +70,7 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
 
             //set left hand module heading and link 
             Dao.setLeftHeading(cmd);
-            StringBuilder eConsultDisplayUrl = new StringBuilder(String.format("..%1$s%2$s", File.separator, "econsult.do"));
+            StringBuilder eConsultDisplayUrl = new StringBuilder(String.format("..%1$s%2$s", File.separator, "econsult"));
             eConsultDisplayUrl.append(String.format("?%1$s=%2$s", "demographicNo", demographicNo));
             eConsultDisplayUrl.append(String.format("&%1$s=%2$s", "method", "frontend"));
             StringBuilder createNewEconsultUrl = new StringBuilder(eConsultDisplayUrl.toString());
@@ -108,7 +108,7 @@ public class EctDisplayEconsult2Action extends EctDisplayAction {
 
                 // set the href path to the actual document.
                 eConsultDocumentUrl = new StringBuilder(request.getContextPath());
-                eConsultDocumentUrl.append(String.format("%1$s%2$s%3$s%4$s", File.separator, "documentManager", File.separator, "ManageDocument.do"));
+                eConsultDocumentUrl.append(String.format("%1$s%2$s%3$s%4$s", File.separator, "documentManager", File.separator, "ManageDocument"));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "?", "method", "display"));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "&", "doc_no", documentId));
                 eConsultDocumentUrl.append(String.format("%1$s%2$s=%3$s", "&", "providerNo", user));

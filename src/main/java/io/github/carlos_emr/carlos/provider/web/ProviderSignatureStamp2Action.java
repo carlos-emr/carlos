@@ -309,7 +309,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
                 sigFile = PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                 if (sigFile.exists()) {
                     exists = true;
-                    imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
+                    imageUrl = request.getContextPath() + "/provider/providerSignatureImage";
                 }
             } catch (SecurityException e) {
                 MiscUtils.getLogger().warn("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
@@ -326,7 +326,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     }
 
     private static String buildSuccessJson(HttpServletRequest req) {
-        String imageUrl = req.getContextPath() + "/provider/providerSignatureImage.do";
+        String imageUrl = req.getContextPath() + "/provider/providerSignatureImage";
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 

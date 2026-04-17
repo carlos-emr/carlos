@@ -30,16 +30,16 @@
 --%>
 
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.ResourceBundle" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
 %>
 <html>
@@ -66,7 +66,7 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                ENCOUNTER HISTORY</font></th>
+                <%= bundle.getString("provider.providerencounterhistory.title") %></font></th>
         </tr>
     </table>
     <table width="90%" border="0">
@@ -79,7 +79,7 @@
                 %>
                 &nbsp;<%=ConversionUtils.toDateString(enc.getEncounterDate())%> <%=ConversionUtils.toTimeString(enc.getEncounterTime())%><font
                     color="yellow"><%
-                String historysubject = enc.getSubject() == null ? "NULL" : (enc.getSubject()).equals("") ? "Unknown" : enc.getSubject();
+                String historysubject = enc.getSubject() == null ? bundle.getString("provider.providerencounterhistory.nullSubject") : (enc.getSubject()).equals("") ? bundle.getString("provider.providerencounterhistory.unknown") : enc.getSubject();
                 StringTokenizer st = new StringTokenizer(historysubject, ":");
                 String strForm = "", strTemplateURL = "";
                 while (st.hasMoreTokens()) {
@@ -90,12 +90,12 @@
                 if (strForm.toLowerCase().compareTo("form") == 0 && st.hasMoreTokens()) {
                     strTemplateURL = "template" + (new String(st.nextToken())).trim().toLowerCase() + ".jsp";
             %> <a href=#
-                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol.do?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&dboperation=search_encountersingle&displaymodevariable=<%=Encode.forUriComponent(strTemplateURL)%>&displaymode=vary&bNewForm=0')"><%=Encode.forHtml(historysubject)%>
+                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&dboperation=search_encountersingle&displaymodevariable=<e:forUriComponent value='<%= strTemplateURL %>' />&displaymode=vary&bNewForm=0')"><e:forHtmlContent value='<%= historysubject %>' />
             </a></font><br>
                 <%
                 } else if (strForm.compareTo("") != 0) {
                 %> <a href=#
-                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol.do?encounter_no=<%=enc.getId()%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&template=<%=Encode.forUriComponent(strForm)%>&dboperation=search_encountersingle&displaymode=encountersingle')"><%=Encode.forHtml(historysubject)%>
+                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&template=<e:forUriComponent value='<%= strForm %>' />&dboperation=search_encountersingle&displaymode=encountersingle')"><e:forHtmlContent value='<%= historysubject %>' />
             </a></font><br>
                 <%
                         }
@@ -104,7 +104,7 @@
             </td>
         </tr>
     </table>
-    <form><input type="button" value="Close this window"
+    <form><input type="button" value="<%= bundle.getString("provider.providerencounterhistory.closeWindow") %>"
                  onClick="closeit()"></form>
 </center>
 </body>

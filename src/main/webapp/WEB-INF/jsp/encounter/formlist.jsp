@@ -30,6 +30,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -39,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -160,18 +162,18 @@
                         }
             %>
             <tr bgcolor='<%= yellow ? "yellow" : j%2 == 0 ? (i%2 == 0 ?weakcolor:deepcolor) : (i%2 == 0 ?"white":"#eeeeee")%>'>
-                <td><a href=# onClick="popupPageK('<%=Encode.forJavaScriptAttribute(hash + "started")%>','<%=Encode.forJavaScriptAttribute(request.getContextPath()
-									+ "/form/forwardshortcutname.do?formname=" + Encode.forUriComponent(frm.getFormName())
-									+ "&demographic_no=" + Encode.forUriComponent(demoNo)
-									+ "&formId=" + pfrm.getFormId()
-									+ "&provNo=" + Encode.forUriComponent(provNo))
-									%>'); return false;">
+                <c:set var="__encFormListFormName"><e:forUriComponent value='<%= frm.getFormName() %>' /></c:set>
+                <c:set var="__encFormListDemoNo"><e:forUriComponent value='<%= demoNo %>' /></c:set>
+                <c:set var="__encFormListProvNo"><e:forUriComponent value='<%= provNo %>' /></c:set>
+                <c:set var="__encFormListFormId" value="<%= String.valueOf(pfrm.getFormId()) %>" />
+                <c:set var="__encFormListUrl" value="${pageContext.request.contextPath}/form/forwardshortcutname?formname=${__encFormListFormName}&demographic_no=${__encFormListDemoNo}&formId=${__encFormListFormId}&provNo=${__encFormListProvNo}" />
+                <td><a href=# onClick="popupPageK('<e:forJavaScriptAttribute value='<%= hash + \"started\" %>' />','<e:forJavaScriptAttribute value='${__encFormListUrl}' />'); return false;">
 
-                    <%=Encode.forHtml(frm.getFormName() + (yellow ? " (current)" : ""))%>
+                    <e:forHtmlContent value='<%= frm.getFormName() + (yellow ? " (current)" : "") %>' />
                 </a></td>
-                <td align='center'><%=Encode.forHtml(pfrm.getCreated())%>
+                <td align='center'><e:forHtmlContent value='<%= pfrm.getCreated() %>' />
                 </td>
-                <td align='center'><%=Encode.forHtml(pfrm.getEdited())%>
+                <td align='center'><e:forHtmlContent value='<%= pfrm.getEdited() %>' />
                 </td>
             </tr>
             <%
@@ -188,14 +190,14 @@
                     if (nLastPage >= 0) {
             %>
             <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
+                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<e:forUriComponent value='<%= demoNo %>' />&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="encounter.formlist.formLastpage"/></a>
             |
             <%
                 }
                 if (nItems == intLimit2) {
             %>
             <a
-                    href="<%= request.getContextPath() %>/encounter/ViewFormlist.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+                    href="<%= request.getContextPath() %>/encounter/ViewFormlist?demographic_no=<e:forUriComponent value='<%= demoNo %>' />&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
                 <fmt:message key="encounter.formlist.formNextPage"/></a>
             </td>
             </tr>

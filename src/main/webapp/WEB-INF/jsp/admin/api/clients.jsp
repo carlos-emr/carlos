@@ -32,6 +32,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the first page you see when you enter 'report by template' --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -39,7 +40,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,15 +48,14 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Manage REST Clients (OAuth)</title>
+        <title><fmt:message key="admin.api.clients.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
@@ -72,6 +72,10 @@
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
 
         <script>
+            const apiClientsDeleteTitle = "<fmt:message key='admin.api.clients.deleteTitle'/>";
+            const apiClientsAddClient = "<fmt:message key='admin.api.clients.addClient'/>";
+            const apiClientsCancel = "<fmt:message key='admin.api.clients.cancel'/>";
+
             function addNewClient() {
                 $('#new-form').dialog('open');
             }
@@ -95,7 +99,7 @@
                             $row.append($('<td>').text(lifetime));
                             var $delLink = $('<a>').attr('href', 'javascript:void(0);')
                                 .on('click', (function(delId) { return function() { deleteClient(delId); }; })(id))
-                                .append($('<img>').attr({border: '0', title: 'delete', src: '<%= request.getContextPath() %>/images/Delete16.gif'}));
+                                .append($('<img>').attr({border: '0', title: apiClientsDeleteTitle, src: '<%= request.getContextPath() %>/images/Delete16.gif'}));
                             $row.append($('<td>').append($delLink));
                             $('#clientTable > tbody:last').append($row);
                         }
@@ -156,7 +160,7 @@
                     width: 450,
                     modal: true,
                     buttons: {
-                        "Add Client": function () {
+                        [apiClientsAddClient]: function () {
                             $(this).dialog("close");
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
@@ -180,7 +184,7 @@
                                 }, "json");
 
                         },
-                        Cancel: function () {
+                        [apiClientsCancel]: function () {
                             $(this).dialog("close");
                         }
                     },
@@ -194,36 +198,36 @@
     </head>
 
     <body vlink="#0000FF" class="BodyStyle">
-    <h4>Manage Clients</h4>
+    <h4><fmt:message key="admin.api.clients.heading"/></h4>
     <table id="clientTable" name="clientTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Client Key</th>
-            <th>Client Secret</th>
-            <th>URI</td>
-            <th>Token TTL</td>
-            <th>Actions</th>
+            <th><fmt:message key="admin.api.clients.table.name"/></th>
+            <th><fmt:message key="admin.api.clients.table.clientKey"/></th>
+            <th><fmt:message key="admin.api.clients.table.clientSecret"/></th>
+            <th><fmt:message key="admin.api.clients.table.uri"/></td>
+            <th><fmt:message key="admin.api.clients.table.tokenTtl"/></td>
+            <th><fmt:message key="admin.api.clients.table.actions"/></th>
         </tr>
         </thead>
         <tbody></tbody>
     </table>
-    <input type="button" class="btn btn-primary" value="Add New" onClick="addNewClient()"/>
+    <input type="button" class="btn btn-primary" value="<fmt:message key='admin.api.clients.addNew'/>" onClick="addNewClient()"/>
     <%
         String thisUrl = request.getRequestURL().toString();
         String contextPath = request.getContextPath();
         String here = thisUrl.substring(0, thisUrl.indexOf(contextPath) + contextPath.length());
     %>
     <hr/>
-    <h4>Tokens</h4>
+    <h4><fmt:message key="admin.api.clients.tokensHeading"/></h4>
     <table id="tokenTable" name="tokenTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>ID</th>
-            <th>TTL (seconds)</th>
-            <th>Issued</th>
-            <th>Provider</td>
-            <th>Actions</th>
+            <th><fmt:message key="admin.api.clients.table.id"/></th>
+            <th><fmt:message key="admin.api.clients.table.ttlSeconds"/></th>
+            <th><fmt:message key="admin.api.clients.table.issued"/></th>
+            <th><fmt:message key="admin.api.clients.table.provider"/></td>
+            <th><fmt:message key="admin.api.clients.table.actions"/></th>
         </tr>
         </thead>
         <tbody></tbody>
@@ -232,37 +236,37 @@
     <hr/>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
-            <td>Temporary Credential Request:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/initiate</td>
+            <td><fmt:message key="admin.api.clients.tempCredentialRequest"/></td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/initiate</td>
         </tr>
         <tr>
-            <td>Resource Owner Authorization URI:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/authorize</td>
+            <td><fmt:message key="admin.api.clients.resourceOwnerAuthorizationUri"/></td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/authorize</td>
         </tr>
         <tr>
-            <td>Token Request URI:</td>
-            <td><%=Encode.forHtml(here)%>/ws/oauth/token</td>
+            <td><fmt:message key="admin.api.clients.tokenRequestUri"/></td>
+            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/token</td>
         </tr>
     </table>
 
-    <div id="new-form" title="Create Client">
+    <div id="new-form" title="<fmt:message key='admin.api.clients.createClient'/>">
         <p class="validateTips"></p>
         <form>
             <fieldset>
                 <div class="mb-3">
-                    <label class="form-label" for="clientName">Name:</label>
+                    <label class="form-label" for="clientName"><fmt:message key="admin.api.clients.name"/>:</label>
                     <div>
                         <input type="text" name="clientName" id="clientName"/>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="clientURI">URI:</label>
+                    <label class="form-label" for="clientURI"><fmt:message key="admin.api.clients.uri"/>:</label>
                     <div>
                         <input type="text" name="clientURI" id="clientURI"/>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="lifetime">Token Lifetime (seconds):</label>
+                    <label class="form-label" for="lifetime"><fmt:message key="admin.api.clients.tokenLifetime"/>:</label>
                     <div>
                         <input type="text" name="lifetime" id="lifetime"/>
                     </div>

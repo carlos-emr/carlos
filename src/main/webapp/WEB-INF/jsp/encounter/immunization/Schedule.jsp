@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,7 +84,7 @@
         sDoc = new EctImmImmunizationData().getImmunizations(demoNo);
     }
     if (sDoc == null) {
-        String redirect = "loadConfig.do";
+        String redirect = "loadConfig";
 
         if (demoNo != null)
             redirect += "?demographic_no=" + demoNo;
@@ -119,7 +119,7 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {
@@ -208,7 +208,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
+                        <e:forHtmlContent value='<%= last_name %>' />, <e:forHtmlContent value='<%= first_name %>' /> <e:forHtmlContent value='<%= sex %>' /> <e:forHtmlContent value='<%= age %>' />
                     </td>
                     <td>
                     </td>
@@ -224,8 +224,8 @@
 
         </td>
         <td class="MainTableRightColumn">
-            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule" method="post">
+                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demoNo %>' />">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
                         <td>
@@ -279,25 +279,25 @@
                                        id="chkSet<%=i%>"/>
                                 <a href=#
                                    onclick="javascript:showSetName('tblSet<%=i%>', 'chkSet<%=i%>');" <%=fontStyle%> >
-                                    <%=Encode.forHtml(set.getAttribute("name"))%>
+                                    <e:forHtmlContent value='<%= set.getAttribute("name") %>' />
                                 </a>
                                 &nbsp;&nbsp;
 
                                 <% if (!status.equals("deleted")) { %>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to delete this record ?')){document.getElementById('scheduleForm_<%=i%>').submit()}">del</a>
-                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
+                                    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
                                 </form>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to restore this record ?')){document.getElementById('restoreForm_<%=i%>').submit()}">restore</a>
-                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
+                                    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
                                 </form>
                                 <%}%>
 
@@ -317,7 +317,7 @@
                                     <%
                                         for (int j = 0; j < columns.getLength(); j++) {
                                             Element column = (Element) columns.item(j);%>
-                                    <td class="head"><%=Encode.forHtml(column.getAttribute("name"))%>&nbsp;</td>
+                                    <td class="head"><e:forHtmlContent value='<%= column.getAttribute("name") %>' />&nbsp;</td>
                                     <%
                                             colCount = j + 2;
                                         }
@@ -342,7 +342,7 @@
                                             <%   }else{%>
 
                                 <tr>
-                                    <td class="head"><%=Encode.forHtml(sName)%>
+                                    <td class="head"><e:forHtmlContent value='<%= sName %>' />
                                     </td>
                                     <% }
 

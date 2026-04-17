@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -87,8 +87,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -148,7 +146,7 @@
 
                 //is there an existing note?
                 jQuery.ajax({
-                    url: '<%=request.getContextPath()%>/CaseManagementEntry.do',
+                    url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {method: "ticklerGetNote", ticklerNo: document.getElementById('tickler_note_ticklerNo').value},
                     async: false,
                     dataType: 'json',
@@ -157,7 +155,7 @@
                             document.getElementById('tickler_note_noteId').value = data.noteId;
                             document.getElementById('tickler_note').value = data.note;
                             document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute('onclick', 'window.open(\'<%=request.getContextPath()%>/CaseManagementEntry.do?method=notehistory&noteId=' + data.noteId + '\');return false;');
+                            document.getElementById('tickler_note_revision_url').setAttribute('onclick', 'window.open(\'<%=request.getContextPath()%>/CaseManagementEntry?method=notehistory&noteId=' + data.noteId + '\');return false;');
                             document.getElementById('tickler_note_editor').textContent = data.editor;
                             document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
@@ -177,7 +175,7 @@
             function saveNoteDialog() {
                 //alert('not yet implemented');
                 jQuery.ajax({
-                    url: '<%=request.getContextPath()%>/CaseManagementEntry.do',
+                    url: '<%=request.getContextPath()%>/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
                         noteId: document.getElementById('tickler_note_noteId').value,
@@ -364,9 +362,9 @@
 
             function setup() {
 
-                var parentId = "<%=Encode.forJavaScript(parentAjaxId)%>";
+                var parentId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
                 var Url = window.opener.URLs;
-                var update = "<%=Encode.forJavaScript(updateParent)%>";
+                var update = "<e:forJavaScriptBlock value='<%= updateParent %>' />";
 
                 if (update == "true" && parentId != "" && !window.opener.closed) {
                     window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;
@@ -744,7 +742,7 @@
             </td>
         </tr>
     </table>
-    <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain.do">
+    <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerDemoMain">
         <table width="100%" border="0" bgcolor="#EEEEFF">
             <tr class="noprint">
                 <td width="20%">
@@ -758,22 +756,22 @@
                 </td>
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
-                                               value="<%= Encode.forHtmlAttribute(xml_vdate) %>"> <font size="1"
+                                               value="<e:forHtmlAttribute value='<%= xml_vdate %>' />"> <font size="1"
                                                                              face="Arial, Helvetica, sans-serif"> <a
                             href="#"
-                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
-                                       value="<%= Encode.forHtmlAttribute(xml_appointment_date) %>"> <font size="1"
+                                       value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"> <font size="1"
                                                                                 face="Arial, Helvetica, sans-serif"><a
                         href="#"
-                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
-                                              value="<%= Encode.forHtmlAttribute(demoview) %>"> <input type="hidden" name="Submit"
+                                              value="<e:forHtmlAttribute value='<%= demoview %>' />"> <input type="hidden" name="Submit"
                                                                             value=""> <input type="hidden"
                                                                                              name="parentAjaxId"
-                                                                                             value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
+                                                                                             value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
                         <input type="submit"
                                value="<fmt:message key="tickler.ticklerDemoMain.btnCreateReport"/>"
                                class="mbttn"
@@ -784,12 +782,12 @@
         </table>
     </form>
 
-    <form name="ticklerform" method="post" action="DbTicklerDemoMain.do">
+    <form name="ticklerform" method="post" action="DbTicklerDemoMain">
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>
-                <td><input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoview) %>">
-                    <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
+                <td><input type="hidden" name="demoview" value="<e:forHtmlAttribute value='<%= demoview %>' />">
+                    <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
                     <input type="hidden" name="updateParent" value="true">
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                         <TR bgcolor=#666699>
@@ -893,12 +891,12 @@
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#
-                                   onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ViewTicklerEdit.do?tickler_no=<%=t.getId()%>')"><fmt:message key="tickler.ticklerMain.editTickler"/></a>
+                                   onClick="popupPage(600,800, '<%= request.getContextPath() %>/tickler/ViewTicklerEdit?tickler_no=<%=t.getId()%>')"><fmt:message key="tickler.ticklerMain.editTickler"/></a>
                                 <% } %>
                             </TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><a
                                     href=#
-                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=t.getDemographicNo()%>')"><%=d.getLastName()%>
+                                    onClick="popupPage(600,800,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=t.getDemographicNo()%>')"><%=d.getLastName()%>
                                 ,<%=d.getFirstName()%>
                             </a></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>"><%=provider%>
@@ -942,23 +940,23 @@
                                 <%
                                 } else if (LabResultData.isCML(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay.do?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isHL7TEXT(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isDocument(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument.do?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                 } else if (LabResultData.isHRM(type)) {
                                 %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display.do?id=<%=tl.getTableId()%>')">ATT</a>
+                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=tl.getTableId()%>')">ATT</a>
                                 <%
                                 } else {
                                 %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay.do?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
+                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
                                 <%
                                     }
                                 %>
@@ -1021,8 +1019,12 @@
                                                               href="javascript:CheckAll();"><fmt:message key="tickler.ticklerDemoMain.btnCheckAll"/></a> - <a
                                     href="javascript:ClearAll();"><fmt:message key="tickler.ticklerDemoMain.btnClearAll"/></a> &nbsp; &nbsp; &nbsp;
                                 &nbsp; &nbsp; <input type="button" name="button"
-                                                     value="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
-                                                     onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler.do?updateParent=true&parentAjaxId=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(parentAjaxId))%>&bFirstDisp=false&messageID=null&demographic_no=<%=Encode.forJavaScriptAttribute(String.valueOf(d.getDemographicNo()))%>&chart_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getChartNo()))%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(d.getDisplayName()))%>')"
+                                                     <c:set var="__enc_1"><e:forUriComponent value='<%= parentAjaxId %>' /></c:set>
+                                                     <c:set var="__enc_2"><e:forUriComponent value='<%= d.getChartNo() %>' /></c:set>
+                                                     <c:set var="__enc_3"><e:forUriComponent value='<%= d.getDisplayName() %>' /></c:set>
+                                                     v                                                     
+alue="<fmt:message key="tickler.ticklerDemoMain.btnAddTickler"/>"
+                                                     onClick="popupPage('400','600', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<e:forJavaScriptAttribute value='${__enc_1}' />&bFirstDisp=false&messageID=null&demographic_no=<e:forJavaScriptAttribute value='<%= String.valueOf(d.getDemographicNo()) %>' />&chart_no=<e:forJavaScriptAttribute value='${__enc_2}' />&name=<e:forJavaScriptAttribute value='${__enc_3}' />')"
                                                      class="sbttn"> <input type="hidden" name="submit_form"
                                                                            value=""> <% if (ticklerview.compareTo("D") == 0) {%>
                                 <input

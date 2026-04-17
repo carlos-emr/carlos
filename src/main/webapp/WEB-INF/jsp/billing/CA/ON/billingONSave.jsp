@@ -12,7 +12,6 @@
     Rendered by BillingONSave2Action on successful save.
     @since 2026
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html;charset=UTF-8" %>
 <!DOCTYPE html>
 <html>
@@ -32,7 +31,7 @@
 <script type="text/javascript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     <% if (!safeUrlBack.isEmpty()) { %>
-    self.location.href = "<%= Encode.forJavaScript(safeUrlBack) %>";
+    self.location.href = "<e:forJavaScriptBlock value='<%= safeUrlBack %>' />";
     <% } else { %>
     self.close();
     <% } %>

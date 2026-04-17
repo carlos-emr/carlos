@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.issues" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.issues");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.issues");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -59,18 +59,18 @@
 <head>
     <title>Issue Search</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-    <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css" type="text/css">
+    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
 </head>
 
 <body>
-<form action="<%= request.getContextPath() %>/CaseManagementEntry.do" method="post">
-    <c:url value="/casemgmt/ViewCaseManagementEntry.do?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
+<form action="<%= request.getContextPath() %>/CaseManagementEntry" method="post">
+    <c:url value="/casemgmt/ViewCaseManagementEntry?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
            var="url"/>
     <script type="text/javascript">
         function backToNote(from) {
 
-            if (from == null) location.href = "<c:out value='${url}' escapeXml='false'/>";
-            else location.href = "<c:out value='${url}' escapeXml='false'/>" + "&from=" + from;
+            if (from == null) location.href = "${e:forJavaScript(url)}";
+            else location.href = "${e:forJavaScript(url)}" + "&from=" + from;
             return false;
         }
 
@@ -88,14 +88,14 @@
     <input type="hidden" name="providerNo" id="providerNo"/>
     <input type="hidden" name="method" value="issueSearch"/>
     <input type="hidden" name="lastPage" value="true"/>
-    <input type="hidden" name="change_diagnosis" value="<c:out value="${change_diagnosis}"/>"/>
-    <input type="hidden" name="change_diagnosis_id" value="<c:out value="${change_diagnosis_id}"/>"/>
+    <input type="hidden" name="change_diagnosis" value="${e:forHtmlAttribute(change_diagnosis)}"/>
+    <input type="hidden" name="change_diagnosis_id" value="${e:forHtmlAttribute(change_diagnosis_id)}"/>
 
     <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
         <input type="hidden" name="from" value="casemgmt"/>
     </c:if>
 
-    <b>Client name: <I><c:out value="${requestScope.demoName}"/></I></b>
+    <b>Client name: <I>${e:forHtml(requestScope.demoName)}</I></b>
     <br><br>
 
     <P><b>Search the Issue </b></P>

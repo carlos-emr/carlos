@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -73,7 +73,7 @@
                     chgRefused(false);
                     setCurrent(frm.givenYear, frm.givenMonth, frm.givenDay);
                     if (frm.provider.value < 1) {
-                        frm.provider.value = "<%=Encode.forJavaScript(bean.providerNo)%>";
+                        frm.provider.value = "<e:forJavaScriptBlock value='<%= bean.providerNo %>' />";
                     }
 
                     frm.lot.focus();
@@ -181,11 +181,11 @@
 
         function loadPage() {
             var frm = window.opener.document.forms[0];
-            var vGivenDate = frm['<%=Encode.forJavaScript(node + "_givenDate")%>'].value;
-            var vLot = frm['<%=Encode.forJavaScript(node + "_lot")%>'].value;
-            var vProvider = frm['<%=Encode.forJavaScript(node + "_provider")%>'].value;
-            var vRefusedDate = frm['<%=Encode.forJavaScript(node + "_refusedDate")%>'].value;
-            var vComments = frm['<%=Encode.forJavaScript(node + "_comments")%>'].value;
+            var vGivenDate = frm['<e:forJavaScriptBlock value='<%= node + "_givenDate" %>' />'].value;
+            var vLot = frm['<e:forJavaScriptBlock value='<%= node + "_lot" %>' />'].value;
+            var vProvider = frm['<e:forJavaScriptBlock value='<%= node + "_provider" %>' />'].value;
+            var vRefusedDate = frm['<e:forJavaScriptBlock value='<%= node + "_refusedDate" %>' />'].value;
+            var vComments = frm['<e:forJavaScriptBlock value='<%= node + "_comments" %>' />'].value;
             var editFrm = document.forms[0];
 
             if (vGivenDate.length > 0) {
@@ -214,7 +214,7 @@
         }
 
         function saveClose() {
-            var node = '<%= Encode.forJavaScript(node) %>';
+            var node = '<e:forJavaScriptBlock value='<%= node %>' />';
             var frm = document.forms[0];
             var vGivenDate = '';
             var vRefusedDate = '';
@@ -265,8 +265,8 @@
                 <tr>
                     <td class="Header"
                         style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
-                        NOWRAP><%=Encode.forHtml(bean.patientLastName)%>, <%=Encode.forHtml(bean.patientFirstName)%>
-                        <%=Encode.forHtml(bean.patientSex)%> <%=Encode.forHtml(bean.patientAge)%>
+                        NOWRAP><e:forHtmlContent value='<%= bean.patientLastName %>' />, <e:forHtmlContent value='<%= bean.patientFirstName %>' />
+                        <e:forHtmlContent value='<%= bean.patientSex %>' /> <e:forHtmlContent value='<%= bean.patientAge %>' />
                     </td>
                     <td></td>
                     <td style="text-align: right" NOWRAP> |</td>
@@ -277,10 +277,10 @@
     <tr>
         <td class="MainTableLeftColumn"></td>
         <td class="MainTableRightColumn">
-            <form name="<%=request.getContextPath() %>/encounter/scheduleEdit.do">
+            <form name="<%=request.getContextPath() %>/encounter/scheduleEdit">
                 <table>
                     <tr>
-                        <td style="font-weight: bold">&nbsp;<%=Encode.forHtml(immName)%>
+                        <td style="font-weight: bold">&nbsp;<e:forHtmlContent value='<%= immName %>' />
                         </td>
                     </tr>
                     <tr>

@@ -34,7 +34,7 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Demographic Merge Record admin page.
  *
  * <p>Enforces {@code _demographic w} privilege before forwarding to the JSP.
- * The JSP handles search, display, and initiates merge/unmerge operations via a downstream {@code MergeRecords.do} action endpoint.</p>
+ * The JSP handles search, display, and initiates merge/unmerge operations via a downstream {@code MergeRecords} action endpoint.</p>
  *
  * @since 2026-04-05
  */

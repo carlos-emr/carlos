@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
@@ -325,6 +324,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         String ffwd = "fail";
+        boolean fileStreamed = false;
         String tmpDir = oscarProperties.getProperty("TMP_DIR") + File.separator + RandomStringUtils.random(8, true, false);
 
 
@@ -2669,14 +2669,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                         PGPEncrypt pgp = new PGPEncrypt();
                         if (pgp.encrypt(zipName, tmpDir)) {
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName + ".pgp", tmpDir, response);
                             Util.cleanFile(zipName + ".pgp", tmpDir);
                             ffwd = "success";
+                            fileStreamed = true;
 
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
                             // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
@@ -2686,12 +2687,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (!"true".equals(CarlosProperties.getInstance().getProperty("demographic.export.encryptedOnly", "false"))) {
                             logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
 
-                            // Set success cookie before download so JS knows export completed
-                            setExportStatusCookie(response, "success");
+                            // Set export status header so client-side JS knows export completed
+                            setExportStatusHeader(response, "success");
                             Util.downloadFile(zipName, tmpDir, response);
                             ffwd = "success";
+                            fileStreamed = true;
                         } else {
-                            setExportStatusCookie(response, "error");
+                            setExportStatusHeader(response, "error");
                             // nosemgrep: tainted-session-from-http-request -- value is hardcoded literal "No", not user input
                             request.getSession().setAttribute("pgp_ready", "No");
                             ffwd = "fail";
@@ -2873,7 +2875,9 @@ public class DemographicExportAction42Action extends ActionSupport {
             exportAuditLog.setData(dataBuilder.toString());
             LogAction.addLogSynchronous(exportAuditLog);
         }
-        return ffwd;
+        // When a file was streamed to the response, return null to prevent Struts
+        // from rendering a JSP result into the already-committed response.
+        return fileStreamed ? null : ffwd;
     }
 
     File makeReadMe(ArrayList<String> dirs, ArrayList<File> fs) throws IOException {
@@ -3957,21 +3961,18 @@ public class DemographicExportAction42Action extends ActionSupport {
     }
 
     /**
-     * Sets a cookie to signal export status to the client-side JavaScript.
+     * Sets a response header to signal export status to the client-side JavaScript.
      * This allows the UI to know when the export has completed or failed.
      *
-     * <p>The Secure flag is set based on the request protocol - only set for HTTPS
-     * to ensure the cookie works in both development (HTTP) and production (HTTPS).</p>
+     * <p>Replaces the previous cookie-based approach to eliminate code-scanning alerts
+     * for missing HttpOnly/SameSite attributes. The client reads this header from the
+     * {@code fetch()} response instead of polling {@code document.cookie}.</p>
      *
-     * @param response the HTTP response to add the cookie to
+     * @param response the HTTP response to add the header to
      * @param status the export status ("success" or "error")
      */
-    private void setExportStatusCookie(HttpServletResponse response, String status) {
-        Cookie cookie = new Cookie("exportStatus", status);
-        cookie.setPath("/");
-        cookie.setMaxAge(60);
-        cookie.setSecure(request.isSecure());
-        response.addCookie(cookie);
+    private void setExportStatusHeader(HttpServletResponse response, String status) {
+        response.setHeader("X-Export-Status", status);
     }
 }
 

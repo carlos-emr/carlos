@@ -30,20 +30,19 @@
 --%>
 <!DOCTYPE html>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBeanHandler, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasuringInstructionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MeasurementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demo = request.getParameter("demographicNo"); //bean.getDemographicNo();
     request.setAttribute("demo", demo);
@@ -140,7 +139,7 @@
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
-                    fetch('<%=request.getContextPath()%>/encounter/Measurements.do?ajax=true&skipCreateNote=true', {
+                    fetch('<%=request.getContextPath()%>/encounter/Measurements?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -189,7 +188,7 @@
         </script>
     </head>
     <body class="BodyStyle" onload="window.focus();">
-    <form action="${pageContext.request.contextPath}/encounter/Measurements.do" method="post" id="theForm" name="theForm">
+    <form action="${pageContext.request.contextPath}/encounter/Measurements" method="post" id="theForm" name="theForm">
         <c:if test="${not empty css}">
             <link rel="stylesheet" type="text/css" href="${css}">
         </c:if>
@@ -218,7 +217,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators.do?demo=<%=Encode.forUriComponent(demo)%>'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
+                                    onClick="popupPage(150,200,'<%=request.getContextPath()%>/encounter/ViewCalculators?demo=<e:forUriComponent value='<%= demo %>' />'); return false;"><fmt:message key="encounter.Index.calculators"/></a></td>
                         </tr>
                     </table>
                 </td>
@@ -246,7 +245,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%=Encode.forHtml(error)%></li>
+                <li><e:forHtmlContent value='<%= error %>' /></li>
             <% } %>
         </ul>
     </div>
@@ -317,7 +316,7 @@
                                                                 <td>&nbsp;${measurementType.lastComments}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory.do?type=${measurementType.type}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${measurementType.type}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>

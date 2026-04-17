@@ -66,7 +66,7 @@
 <%@page import="org.apache.hc.core5.http.io.entity.EntityUtils" %>
 <%@page import="javax.net.ssl.TrustManager" %>
 <%@page import="java.security.SecureRandom" %>
-<%@page import="io.github.carlos_emr.carlos.utility.CxfClientUtils" %>
+
 <%@page import="javax.net.ssl.SSLContext" %>
 <%@page import="java.security.KeyManagementException" %>
 <%@page import="java.security.NoSuchAlgorithmException" %>

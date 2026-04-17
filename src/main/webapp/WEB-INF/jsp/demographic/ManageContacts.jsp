@@ -32,8 +32,6 @@
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -41,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -60,19 +58,22 @@
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="global.btnAdd" var="manageContactsAdd"/>
+<fmt:message key="global.btnSubmit" var="manageContactsSubmit"/>
+<fmt:message key="global.btnCancel" var="manageContactsCancel"/>
 
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Demographic Contact Manager</title>
+        <title><fmt:message key="demographic.manageContacts.title"/></title>
         <!--I18n-->
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
-        <script src="<c:out value="../library/jquery/jquery-3.7.1.min.js"/>"></script>
-        <script src="<c:out value="../library/jquery/jquery-compat.js"/>"></script>
+        <script src="${e:forHtmlAttribute('../library/jquery/jquery-3.7.1.min.js')}"></script>
+        <script src="${e:forHtmlAttribute('../library/jquery/jquery-compat.js')}"></script>
         <script>
             jQuery.noConflict();
         </script>
@@ -95,7 +96,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -106,7 +107,7 @@
                 total++;
                 jQuery("#contact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewContact?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#contact_container").append(data);
                     }
                 });
@@ -125,7 +126,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=Search&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact?search=Search&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -136,7 +137,7 @@
                 total++;
                 jQuery("#procontact_num").val(total);
                 jQuery.ajax({
-                    url: '<%= request.getContextPath() %>/demographic/ViewProContact.do?search=&id=' + total, async: false, success: function (data) {
+                    url: '<%= request.getContextPath() %>/demographic/ViewProContact?search=&id=' + total, async: false, success: function (data) {
                         jQuery("#procontact_container").append(data);
                     }
                 });
@@ -181,7 +182,7 @@
                 // ticklerPlus removed - demographic search functionality disabled
                 alert('Demographic search is currently unavailable');
                 return;
-                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch.do?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 // var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -195,7 +196,7 @@
             }
 
             function search_provider(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider.do?custom=true&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider?custom=true&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -209,7 +210,7 @@
             }
 
             function search_contact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -223,7 +224,7 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -237,7 +238,7 @@
             }
 
             function search_professionalSpecialist(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -295,14 +296,14 @@
                             %>
                 addContactExisting();
                 var num = jQuery("#contact_num").val();
-                setInput(num, 'contact', 'id', '<%=Encode.forJavaScript(String.valueOf(dc.getId()))%>');
-                setSelect(num, 'contact', 'role', '<%=Encode.forJavaScript(dc.getRole() != null ? dc.getRole() : "")%>');
-                setSelectExisting(num, 'contact', 'type', '<%=Encode.forJavaScript(String.valueOf(dc.getType()))%>');
+                setInput(num, 'contact', 'id', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getId()) %>' />');
+                setSelect(num, 'contact', 'role', '<e:forJavaScriptBlock value='<%= dc.getRole() != null ? dc.getRole() : "" %>' />');
+                setSelectExisting(num, 'contact', 'type', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getType()) %>' />');
                 setSelect(num, 'contact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'contact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setInput(num, 'contact', 'contactId', '<%=Encode.forJavaScript(String.valueOf(dc.getContactId()))%>');
-                setInput(num, 'contact', 'contactName', '<%=Encode.forJavaScript(dc.getContactName() != null ? dc.getContactName() : "")%>');
-                setTextarea(num, 'contact', 'note', '<%=Encode.forJavaScript(dc.getNote()!=null?dc.getNote():"")%>');
+                setInput(num, 'contact', 'contactId', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getContactId()) %>' />');
+                setInput(num, 'contact', 'contactName', '<e:forJavaScriptBlock value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' />');
+                setTextarea(num, 'contact', 'note', '<e:forJavaScriptBlock value='<%= dc.getNote()!=null?dc.getNote():"" %>' />');
 
                 <%if(dc.getSdm() != null && dc.getSdm().equals("true")) {%>setChecked(num, 'contact', 'sdm');
                 <%}%>
@@ -319,13 +320,13 @@
                 %>
                 addProContactExisting();
                 var num = jQuery("#procontact_num").val();
-                setInput(num, 'procontact', 'id', '<%=Encode.forJavaScript(String.valueOf(dc.getId()))%>');
-                setSelect(num, 'procontact', 'role', '<%=Encode.forJavaScript(dc.getRole() != null ? dc.getRole() : "")%>');
+                setInput(num, 'procontact', 'id', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getId()) %>' />');
+                setSelect(num, 'procontact', 'role', '<e:forJavaScriptBlock value='<%= dc.getRole() != null ? dc.getRole() : "" %>' />');
                 setSelect(num, 'procontact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'procontact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setSelectExisting(num, 'procontact', 'type', '<%=Encode.forJavaScript(String.valueOf(dc.getType()))%>');
-                setInput(num, 'procontact', 'contactId', '<%=Encode.forJavaScript(String.valueOf(dc.getContactId()))%>');
-                setInput(num, 'procontact', 'contactName', '<%=Encode.forJavaScript(dc.getContactName() != null ? dc.getContactName() : "")%>');
+                setSelectExisting(num, 'procontact', 'type', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getType()) %>' />');
+                setInput(num, 'procontact', 'contactId', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getContactId()) %>' />');
+                setInput(num, 'procontact', 'contactName', '<e:forJavaScriptBlock value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' />');
                 <%
             }
         }
@@ -341,11 +342,11 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Manage Contacts</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="demographic.manageContacts.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><oscar:nameage demographicNo='<%=Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "")%>'/></td>
+                        <td><c:set var="__enc_1"><e:forHtmlAttribute value='<%= demographic_no != null ? demographic_no : "" %>' /></c:set><oscar:nameage demographicNo="${__enc_1}"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
@@ -356,31 +357,31 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; <a
-                    href="javascript:window.close();">Close Window</a></td>
+                    href="javascript:window.close();"><fmt:message key="demographic.manageContacts.closeWindow"/></a></td>
             <td valign="top" class="MainTableRightColumn">
 
-                <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact.do">
+                <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact">
                     <input type="hidden" name="method" value="saveManage"/>
-                    <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
 
-                    <b>Personal Contacts:</b>
+                    <b><fmt:message key="demographic.manageContacts.personalContacts"/></b>
                     <br/>
                     <div id="contact_container"></div>
                     <input type="hidden" id="contact_num" name="contact_num" value="0"/>
-                    <a href="#" onclick="addContact();">[ADD]</a>
+                    <a href="#" onclick="addContact();">[${manageContactsAdd}]</a>
 
                     <br/><br/>
-                    <b>Professional Contacts:</b>
+                    <b><fmt:message key="demographic.manageContacts.professionalContacts"/></b>
                     <br/>
                     <div id="procontact_container"></div>
                     <input type="hidden" id="procontact_num" name="procontact_num" value="0"/>
-                    <a href="#" onclick="addProContact();">[ADD]</a>
+                    <a href="#" onclick="addProContact();">[${manageContactsAdd}]</a>
 
                     <br/>
 
-                    <input type="submit" value="Submit"/>
+                    <input type="submit" value="${manageContactsSubmit}"/>
                     &nbsp;&nbsp;
-                    <input type="button" name="cancel" value="Cancel" onclick="window.close()"/>
+                    <input type="button" name="cancel" value="${manageContactsCancel}" onclick="window.close()"/>
 
                 </form>
 

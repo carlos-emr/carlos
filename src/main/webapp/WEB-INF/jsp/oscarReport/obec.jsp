@@ -38,7 +38,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_billing" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,10 +57,9 @@
 
 <%@ page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
 %>
@@ -115,7 +114,7 @@
 </div>
 </s:if>
 
-<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
+<form action="${ctx}/oscarReport/obec" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>
@@ -128,7 +127,7 @@
                 <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
-                           value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="Service Begin Date">
+                           value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" placeholder="Service Begin Date">
                 </div>
             </div>
             <div class="mb-3" id="providerDiv">
@@ -136,7 +135,7 @@
 
                 <div>
 
-                    <input type="text" id="numDays" name="numDays" value="<%= Encode.forHtmlAttribute(numDays) %>"
+                    <input type="text" id="numDays" name="numDays" value="<e:forHtmlAttribute value='<%= numDays %>' />"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>

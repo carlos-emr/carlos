@@ -35,7 +35,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
@@ -52,10 +52,10 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     MyGroupAccessRestrictionDao myGroupAccessRestrictionDao = SpringUtils.getBean(MyGroupAccessRestrictionDao.class);
 
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String curProvider_no = (String) session.getAttribute("user");
 
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     List<String> groups = myGroupDao.getGroups();
@@ -112,7 +112,7 @@
 
     <body topmargin="0" leftmargin="0" rightmargin="0">
 
-    <FORM id="myform" NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/GroupNoAcl.do">
+    <FORM id="myform" NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/GroupNoAcl">
         <input type="hidden" id="method" name="method"/>
 
         <table border=0 cellspacing=0 cellpadding=0 width="100%">

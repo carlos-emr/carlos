@@ -55,9 +55,9 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><%=bundle.getString(providertitle)%></title>
 
-        <script src="<c:out value="${ctx}"/>/js/global.js"></script>
-        <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
-        <link href="<c:out value="${ctx}"/>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"><!-- Bootstrap -->
+        <script src="${e:forHtmlAttribute(ctx)}/js/global.js"></script>
+        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
+        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"><!-- Bootstrap -->
 
     </head>
 
@@ -72,11 +72,11 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <!--c:out value="${rxDefaultQuantityProperty.value}" /-->
-                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
-                    <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="<c:out value='${quantity.value}'/>" />
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="${e:forHtmlAttribute(quantity.value)}" />
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
-                        Invalid input.
+                        <fmt:message key="provider.setGenRxDefaultQuantityProperty.msgInvalidInput"/>
                     </p>
                     <br>
                     <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>

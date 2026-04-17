@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -133,24 +133,24 @@
                                                        width="50%">
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <%=Encode.forHtml(demographic.getLastName())%>
+                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <e:forHtmlContent value='<%= demographic.getLastName() %>' />
                                                                 ,
-                                                                <%=Encode.forHtml(demographic.getFirstName())%>
+                                                                <e:forHtmlContent value='<%= demographic.getFirstName() %>' />
                                                             </div>
 
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(demographic.getSex())%>
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><e:forHtmlContent value='<%= demographic.getSex() %>' />
                                                             </div>
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=Encode.forHtml(DemographicData.getDob(demographic, "-"))%>
+                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <e:forHtmlContent value='<%= DemographicData.getDob(demographic, "-") %>' />
                                                             </div>
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(String.valueOf(demographic.getAge()))%>
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><e:forHtmlContent value='<%= String.valueOf(demographic.getAge()) %>' />
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -206,7 +206,7 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements.do?method=actualLab&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%=Encode.forUriComponent(identifier)%>&testName=<%=Encode.forUriComponent(testName)%><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<e:forUriComponent value='<%= demographicNo %>' />&labType=<e:forUriComponent value='<%= labType %>' />&identifier=<e:forUriComponent value='<%= identifier %>' />&testName=<e:forUriComponent value='<%= testName %>' /><%=drugForGraph%>"/>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"
@@ -221,11 +221,11 @@
                     </td>
                 </tr>
             </table>
-            <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph.do">
-                <input type="hidden" name="labType" value="<%= Encode.forHtmlAttribute(labType) %>"/>
-                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
-                <input type="hidden" name="testName" value="<%= Encode.forHtmlAttribute(testName) %>"/>
-                <input type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"/>
+            <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph">
+                <input type="hidden" name="labType" value="<e:forHtmlAttribute value='<%= labType %>' />"/>
+                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+                <input type="hidden" name="testName" value="<e:forHtmlAttribute value='<%= testName %>' />"/>
+                <input type="hidden" name="identifier" value="<e:forHtmlAttribute value='<%= identifier %>' />"/>
                 <ul>
                     <%
                         RxPrescriptionData prescriptData = new RxPrescriptionData();
@@ -252,7 +252,7 @@
                             }
                     %>
                     <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                               value="<%=Encode.forHtmlAttribute(drug.getRegionalIdentifier())%>"/> <%=Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
+                               value="<e:forHtmlAttribute value='<%= drug.getRegionalIdentifier() %>' />"/> <e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
                     </li>
                     <%
                         }

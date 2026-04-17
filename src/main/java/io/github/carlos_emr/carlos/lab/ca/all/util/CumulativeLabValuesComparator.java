@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  * A custom comparator used to compare the Hashtables within an array by the
  * date value.
  * <p>
- * Used by /oscar/lab/ViewCumulativeLabValues3.do
+ * Used by /oscar/lab/ViewCumulativeLabValues3
  *
  * @author wrighd
  */

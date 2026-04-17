@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
             + (String) session.getAttribute("user");
@@ -36,19 +37,18 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.KeyManagerUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PublicKey" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 
-<%@include file="/layouts/html_top.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/html_top.jspf" %>
 
 <h2 class="oscarBlueHeader">
     Key Manager
@@ -56,7 +56,7 @@
 
 <br/>
 
-<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey.do'"/>
+<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey'"/>
 
 <br/>
 <hr/>
@@ -66,9 +66,9 @@
     String requestUrl = request.getRequestURL().toString();
     String servletPath = request.getServletPath();
     String uploadUrl = requestUrl.substring(0, requestUrl.length() - servletPath.length());
-    uploadUrl = uploadUrl + "/lab/newLabUpload.do";
+    uploadUrl = uploadUrl + "/lab/newLabUpload";
 %>
-<div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><%=Encode.forHtml(uploadUrl)%>
+<div style="border:solid grey 1px;word-wrap:break-word;font-size:12px; width:95%"><e:forHtmlContent value='<%= uploadUrl %>' />
 </div>
 <div style="font-size:12px">
     (You may need to change the server name / port to the externally accessible name / port of your server.)
@@ -108,7 +108,7 @@
     function updateMatchingProcessionalSpecialist() {
         var selectKeyList = document.getElementById("selectKeyList");
         var selectProfessionalSpecialistList = document.getElementById("selectProfessionalSpecialistList");
-        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist.do", {
+        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist", {
                 serviceName: getSelectListValue(selectKeyList),
                 professionalSpecialistId: getSelectListValue(selectProfessionalSpecialistList)
             },
@@ -150,7 +150,7 @@
                 <%
                     for (ProfessionalSpecialist professionalSpecialist : KeyManagerUIBean.getProfessionalSpecialists()) {
                 %>
-                <option value="<%=Encode.forHtmlAttribute(String.valueOf(professionalSpecialist.getId()))%>"><%=KeyManagerUIBean.getProfessionalSpecialistDisplayString(professionalSpecialist)%>
+                <option value="<e:forHtmlAttribute value='<%= String.valueOf(professionalSpecialist.getId()) %>' />"><%=KeyManagerUIBean.getProfessionalSpecialistDisplayString(professionalSpecialist)%>
                 </option>
                 <%
                     }
@@ -163,4 +163,4 @@
 </table>
 
 
-<%@include file="/layouts/html_bottom.jspf" %>
+<%@include file="/WEB-INF/jsp/layouts/html_bottom.jspf" %>

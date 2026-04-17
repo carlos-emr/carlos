@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,7 +51,10 @@ public class User2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {

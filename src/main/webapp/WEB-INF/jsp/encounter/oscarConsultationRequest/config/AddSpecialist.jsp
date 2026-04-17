@@ -31,15 +31,14 @@
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -107,7 +106,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><%=transactionType%></title>
 
         <script>
@@ -124,7 +123,7 @@
                         Department d = departmentDao.find(deptId);
                         if(d != null) {
                         %>
-                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<%= Encode.forJavaScript(d.getName()) %>'));
+                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<e:forJavaScriptBlock value='<%= d.getName() %>' />'));
                     <%
                 } }
                 %>
@@ -198,7 +197,7 @@
                     $('#cpsoSpinner').show();
 
                     currentCpsoRequest = $.ajax({
-                        url: '${pageContext.request.contextPath}/encounter/CpsoSearch.do',
+                        url: '${pageContext.request.contextPath}/encounter/CpsoSearch',
                         method: 'GET',
                         data: { lastName: lastName, firstName: firstName },
                         dataType: 'json',
@@ -338,7 +337,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -364,7 +363,7 @@
                 </div>
                 <% } %>
 
-                <form action="${pageContext.request.contextPath}/encounter/AddSpecialist.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/AddSpecialist" method="post">
                     <%
                         EctConAddSpecialistForm thisForm;
                         thisForm = (EctConAddSpecialistForm) request.getAttribute("EctConAddSpecialistForm");
@@ -397,9 +396,9 @@
                     %>
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            document.getElementById('institution').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("institution"))) %>';
+                            document.getElementById('institution').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("institution")) %>' />';
                             changeInstitution();
-                            document.getElementById('department').value = '<%= Encode.forJavaScript(String.valueOf(request.getAttribute("department"))) %>';
+                            document.getElementById('department').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("department")) %>' />';
                         });
                     </script>
                     <% } %>
@@ -554,7 +553,7 @@
                                     for (Institution institution : institutionDao.findAll()) {
                                         String instSelected = String.valueOf(institution.getId()).equals(selectedInst) ? " selected" : "";
                                 %>
-                                <option value="<%=institution.getId()%>"<%=instSelected%>><%= Encode.forHtml(institution.getName()) %></option>
+                                <option value="<%=institution.getId()%>"<%=instSelected%>><e:forHtmlContent value='<%= institution.getName() %>' /></option>
                                 <% } %>
                             </select>
                         </div>

@@ -32,18 +32,19 @@
 <!DOCTYPE HTML>
 
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,7 +55,7 @@
 
 <html lang="en">
 <head>
-    <title>Add New Inbox Queue</title>
+    <title><fmt:message key="admin.addQueue.title"/></title>
 
     <style type="text/css">
         .input-queue {
@@ -74,14 +75,14 @@
 
 <body>
 
-<h3>Add New Inbox Queue</h3>
+<h3><fmt:message key="admin.addQueue.heading"/></h3>
 
 <div class="card card-body bg-body-tertiary">
 
 
     <form class="d-flex flex-wrap align-items-center gap-2" id="addQueueForm">
-        <input type="text" id="newQueueName" class="form-control input-queue" placeholder="Type queue name" value=""/>
-        <input type="button" class="btn btn-primary" value="Add" id="add-btn"/>
+        <input type="text" id="newQueueName" class="form-control input-queue" placeholder="<fmt:message key='admin.addQueue.placeholder'/>" value=""/>
+        <input type="button" class="btn btn-primary" value="<fmt:message key='admin.addQueue.btnAdd'/>" id="add-btn"/>
 
         <i class="fa-solid fa-circle-question" style="margin-left:20px;"></i>
     </form>
@@ -91,12 +92,12 @@
 <div class="alert">
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     <div id="addQueueSuccessMsg">
-        <strong>Warning!</strong> Best check yo self, you're not looking too good.
+        <strong><fmt:message key="admin.addQueue.msgWarning"/></strong> <fmt:message key="admin.addQueue.msgWarningBox"/>
     </div>
 </div>
 
 
-<h4>Existing Queues:</h4>
+<h4><fmt:message key="admin.addQueue.existingQueues"/></h4>
 
 					   <ol>
                        <%
@@ -104,7 +105,7 @@
                         List<Hashtable> queues=queueDao.getQueues();
                         for(Hashtable qht:queues){
                         %>                            
-                                <li><%= Encode.forHtml((String) qht.get("queue")) %></li>
+                                <li><e:forHtmlContent value='<%= (String) qht.get("queue") %>' /></li>
                         <%}%>
                         </ol>
  
@@ -113,7 +114,7 @@
 <script type="text/javascript">
 
     var pageTitle = document.title;
-    document.title = 'Administration Panel | Add New Inbox Queue';
+    document.title = '<fmt:message key="admin.addQueue.documentTitle"/>';
 
     $(document).ready(function ($) {
 
@@ -129,12 +130,12 @@
                 $('.alert').addClass('alert-danger');
                 $('.alert').show();
 
-                $('#addQueueSuccessMsg').html("<strong>Error!</strong> You can not overwrite the <em>default</em> queue.");
+                $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgError'/></strong> <fmt:message key='admin.addQueue.msgDefaultQueueError'/>");
             } else {
 
                 if (qn.length > 0) {
                     var data = "method=addNewQueue&newQueueName=" + qn;
-                    var url = "${ctx}/documentManager/inboxManage.do";
+                    var url = "${ctx}/documentManager/inboxManage";
 
                     $.ajax({
                         url: url,
@@ -145,7 +146,7 @@
                             $('.alert').addClass('alert-success');
                             $('.alert').show();
 
-                            $('#addQueueSuccessMsg').html("<strong>Success!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has been added.");
+                            $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgSuccess'/></strong> <fmt:message key='admin.addQueue.msgQueueAddedPrefix'/> <em>" + $('<div/>').text(qn).html() + "</em> <fmt:message key='admin.addQueue.msgQueueAddedSuffix'/>");
                             $('#newQueueName').val("");
 
                             var json = data.addNewQueue;
@@ -155,14 +156,14 @@
                                     $('.alert').addClass('alert-success');
                                     $('.alert').show();
 
-                                    $('#addQueueSuccessMsg').html("<strong>Success!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has been added.");
+                                    $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgSuccess'/></strong> <fmt:message key='admin.addQueue.msgQueueAddedPrefix'/> <em>" + $('<div/>').text(qn).html() + "</em> <fmt:message key='admin.addQueue.msgQueueAddedSuffix'/>");
                                     $('#newQueueName').val("");
                                 } else {
                                     $('.alert').removeClass('alert-success');
                                     $('.alert').addClass('alert-danger');
                                     $('.alert').show();
 
-                                    $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added which is probably because it already exists.");
+                                    $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgError'/></strong> <fmt:message key='admin.addQueue.msgQueueNotAddedPrefix'/> <em>" + $('<div/>').text(qn).html() + "</em> <fmt:message key='admin.addQueue.msgQueueNotAddedSuffix'/>");
                                 }
                             }
 
@@ -172,7 +173,7 @@
                             $('.alert').addClass('alert-danger');
                             $('.alert').show();
 
-                            $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name <em>" + $('<div/>').text(qn).html() + "</em> has NOT been added, please contact support.");
+                            $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgError'/></strong> <fmt:message key='admin.addQueue.msgQueueContactPrefix'/> <em>" + $('<div/>').text(qn).html() + "</em> <fmt:message key='admin.addQueue.msgQueueContactSuffix'/>");
                         }
 
 
@@ -184,7 +185,7 @@
                     $('.alert').addClass('alert-danger');
                     $('.alert').show();
 
-                    $('#addQueueSuccessMsg').html("<strong>Error!</strong> Queue Name can not be empty.");
+                    $('#addQueueSuccessMsg').html("<strong><fmt:message key='admin.addQueue.msgError'/></strong> <fmt:message key='admin.addQueue.msgEmptyQueue'/>");
                 }
 
             }//=default

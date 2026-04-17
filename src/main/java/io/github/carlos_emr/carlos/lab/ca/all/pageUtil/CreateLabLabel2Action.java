@@ -33,7 +33,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
  * Struts2 action that creates or updates a lab label for an HL7 lab result.
  *
- * <p>Mapped to {@code /lab/CA/ALL/createLabLabel.do}. Requires {@code _lab}
+ * <p>Mapped to {@code /lab/CA/ALL/createLabLabel}. Requires {@code _lab}
  * write privilege via {@link SecurityInfoManager}.</p>
  *
  * @since 2008-01-01

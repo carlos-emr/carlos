@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,11 +50,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -87,7 +86,7 @@
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoLabelAction.do?demographic_no=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demographic_no"))) %>&appointment_no=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("appointment_no"))) %>"
+            data="printDemoLabelAction?demographic_no=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' />&appointment_no=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' />"
             height="80%" width="100%"></object>
     </body>
 </html>

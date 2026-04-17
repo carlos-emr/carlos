@@ -1,13 +1,13 @@
-<%-- This page is included by "<%= request.getContextPath() %>/provider/ViewAppointmentAdminDay.do".
+<%-- This page is included by "<%= request.getContextPath() %>/provider/ViewAppointmentAdminDay".
      User defined JavaScript functions here can be found in the above file. --%>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
 <%@ page import="io.github.carlos_emr.carlos.utility.*"%>
 <%@ page import="io.github.carlos_emr.carlos.caisi.CaisiUtil" %>
-
 <%
 String questr=(String)session.getAttribute("infirmaryView_OscarQue"); 
 
@@ -18,7 +18,7 @@ questr= CaisiUtil.removeAttr(questr,"infirmaryView_clientStatusId=");
 questr= CaisiUtil.removeAttr(questr,"viewall");
 questr += "&viewall=1";
 
-String providerurlString=request.getContextPath() + "/provider/providercontrol.do?"+questr;
+String providerurlString=request.getContextPath() + "/provider/providercontrol?"+questr;
 
 //remove "infirmaryView_isOscar" from querystring
 questr= CaisiUtil.removeAttr(questr,"infirmaryView_isOscar=");
@@ -32,13 +32,13 @@ session.setAttribute("infirmaryView_OscarQue",questr);
 
 <script>
 function submitProgram(ctrl,isOscar) {
-	var url = "<%=providerurlString%>"+"&infirmaryView_programId="+ctrl.value+"&GoToCaisiViewFromOscarView=true";
+	var url = "<e:forJavaScriptBlock value='<%= providerurlString %>' />"+"&infirmaryView_programId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
 	url = url.replace('infirmaryView_isOscar='+(!isOscar),'infirmaryView_isOscar='+isOscar);
 	document.location.href = url;
 }
 function submitStatus(ctrl) {// only place other than infirmaction.java to set infirmaryView_clientStatusId
 	var programCtrl = document.getElementById("bedprogram_no");
-	document.location.href = "<%=providerurlString%>"+"&infirmaryView_programId="+programCtrl.value+"&infirmaryView_clientStatusId="+ctrl.value+"&GoToCaisiViewFromOscarView=true";
+	document.location.href = "<e:forJavaScriptBlock value='<%= providerurlString %>' />"+"&infirmaryView_programId="+encodeURIComponent(programCtrl.value)+"&infirmaryView_clientStatusId="+encodeURIComponent(ctrl.value)+"&GoToCaisiViewFromOscarView=true";
 }
 </script>
 
@@ -102,12 +102,10 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 		<c:forEach var="status" items="${program_client_statuses}">
 			<c:choose>
 				<c:when test="${infirmaryView_clientStatusId == status.id}">
-					<option selected value="<c:out value="${status.id}"/>"><c:out
-						value="${status.name}" /></option>
+					<option selected value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
 				</c:when>
 				<c:otherwise>
-					<option value="<c:out value="${status.id}"/>"><c:out
-						value="${status.name}" /></option>
+					<option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
 				</c:otherwise>
 			</c:choose>
 
@@ -115,7 +113,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 	</select>
 	<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 		<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
-			<a href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			<a href='<%= request.getContextPath() %>/provider/providercontrol?infirmaryView_isOscar=true&GoToCaisiViewFromOscarView=false&<e:forHtmlAttribute value='<%= (String) session.getAttribute("infirmaryView_OscarQue") %>' />'>|
 			Oscar View</a>
 		</caisi:ProgramExclusiveView>
 	</caisi:isModuleLoad>
@@ -124,7 +122,7 @@ function submitStatus(ctrl) {// only place other than infirmaction.java to set i
 <c:if test="${infirmaryView_isOscar == 'true'}">
 	<caisi:ProgramExclusiveView providerNo="<%=((LoggedInInfo)LoggedInInfo.getLoggedInInfoFromSession(request)).getLoggedInProviderNo()%>" value="no">
 		<div align="right"><a
-			href='<%= request.getContextPath() %>/provider/providercontrol.do?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<%=session.getAttribute("infirmaryView_OscarQue") %>'>|
+			href='<%= request.getContextPath() %>/provider/providercontrol?infirmaryView_isOscar=false&GoToCaisiViewFromOscarView=true&<e:forHtmlAttribute value='<%= (String) session.getAttribute("infirmaryView_OscarQue") %>' />'>|
 		Case Management View</a></div>
 	</caisi:ProgramExclusiveView>
 </c:if>

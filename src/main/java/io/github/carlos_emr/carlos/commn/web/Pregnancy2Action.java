@@ -603,7 +603,7 @@ public class Pregnancy2Action extends ActionSupport {
 
         String url;
         if (eform != null) {
-            url = "/eform/efmformadd_data.jsp?fid=" + eform.getId() + "&demographic_no=" + demographicNo + "&appointment=" + apptNo;
+            url = "/eform/efmformadd_data?fid=" + eform.getId() + "&demographic_no=" + demographicNo + "&appointment=" + apptNo;
         } else {
             url = "/pregnancy/eform_not_found.jsp";
         }

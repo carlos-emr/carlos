@@ -30,14 +30,13 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,38 +56,38 @@
     <title>Note History</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css"
+    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 
 </head>
 <body bgcolor="#eeeeff">
-<form action="<%= request.getContextPath() %>/CaseManagementEntry.do">
+<form action="<%= request.getContextPath() %>/CaseManagementEntry">
 <br>
 <b>Archived Note Update History</b>
 <br>
 <br>
 Client name:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoName}"/>
+    ${e:forHtml(requestScope.demoName)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoName}"/>
+    ${e:forHtml(param.demoName)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Age:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoAge}"/>
+    ${e:forHtml(requestScope.demoAge)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoAge}"/>
+    ${e:forHtml(param.demoAge)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; DOB:
 <I> <c:if test="${not empty requestScope.demoName}">
-    <c:out value="${requestScope.demoDOB}"/>
+    ${e:forHtml(requestScope.demoDOB)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    <c:out value="${param.demoDOB}"/>
+    ${e:forHtml(param.demoDOB)}
 </c:if> </I>
 <br>
 <br>
@@ -100,7 +99,7 @@ Client name:
     <tr>
         <td class="fieldValue">
             <textarea name="caseNote_history" cols="107" rows="29" wrap="soft">
-                <%= Encode.forHtml(caseNote_history) %>                       
+                <e:forHtmlContent value='<%= caseNote_history %>' />                       
             </textarea>
         </td>
     </tr>

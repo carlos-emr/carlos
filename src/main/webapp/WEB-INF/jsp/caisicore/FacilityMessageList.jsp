@@ -33,7 +33,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -62,7 +62,7 @@
 
 <br/>
 
-<%@ include file="/caisicore/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
@@ -93,13 +93,13 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="FacilityMessage.do?method=edit&id=<c:out value="${msg.id}"/>"><img
+                    href="FacilityMessage?method=edit&id=${e:forHtmlAttribute(msg.id)}"><img
                     border="0" src="images/edit.jpg"/></a></td>
-            <td><c:out value="${msg.facilityName}"/></td>
-            <td><c:out value="${msg.programName}"/></td>
-            <td><c:out value="${msg.formattedCreationDate}"/></td>
-            <td><c:out value="${msg.formattedExpiryDate}"/></td>
-            <td><c:out value="${msg.message}"/></td>
+            <td>${e:forHtml(msg.facilityName)}</td>
+            <td>${e:forHtml(msg.programName)}</td>
+            <td>${e:forHtml(msg.formattedCreationDate)}</td>
+            <td>${e:forHtml(msg.formattedExpiryDate)}</td>
+            <td>${e:forHtml(msg.message)}</td>
         </tr>
     </c:forEach>
 </table>
@@ -109,9 +109,9 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin.do'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin'"/></td>
         <td><input type="button" value="Create New Message"
-                   onclick="location.href='FacilityMessage.do?method=edit'"/></td>
+                   onclick="location.href='FacilityMessage?method=edit'"/></td>
     </tr>
 </table>
 

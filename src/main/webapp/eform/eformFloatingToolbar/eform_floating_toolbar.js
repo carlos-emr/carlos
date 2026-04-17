@@ -52,7 +52,7 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     eform.formId = document.getElementById("fid").value;
     eform.error = message;
     let context = document.getElementById("context").value;
-    jQuery.post(context + "/eform/logEformError.do", eform);
+    jQuery.post(context + "/eform/logEformError", eform);
 }
 
 function getEForm() {
@@ -60,7 +60,7 @@ function getEForm() {
 	if (!ef) {
 		ef = Array.prototype.find.call(
 			document.forms,
-			f => f.action && f.action.includes('addEForm.do')
+			f => f.action && f.action.includes('addEForm')
 		);
 	}
 	return ef;
@@ -142,7 +142,7 @@ jQuery(document).on('click', '*[data-poload]', function () {
     const fdid = document.getElementById("fdid").value;
     const context = document.getElementById("context").value;
     let trigger = jQuery(this);
-    trigger.data('poload', context + '/previewDocs.do?method=fetchEFormDocuments&demographicNo=' + demographicNo + '&fdid=' + fdid);
+    trigger.data('poload', context + '/previewDocs?method=fetchEFormDocuments&demographicNo=' + demographicNo + '&fdid=' + fdid);
     trigger.off('click');
     let title = trigger.attr("title");
     jQuery("#attachDocumentDisplay").load(trigger.data('poload'), function (response, status, xhr) {
@@ -682,7 +682,7 @@ function hideElements() {
  * @returns
  */
 function includeHTML(elmnt) {
-    const file = "../eform/eformFloatingToolbar/eform_floating_toolbar.jspf";
+    const file = "../eform/eformFloatingToolbar/eform_floating_toolbar";
     const xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function () {
         if (this.readyState === 4) {
@@ -691,7 +691,7 @@ function includeHTML(elmnt) {
                 let toolbarWrapper = document.createElement("div");
                 toolbarWrapper.setAttribute("id", "toolbarWrapper");
                 toolbarWrapper.setAttribute("class", "hidden-print DoNotPrint no-print");
-                // Same-origin JSP fragment (eform_floating_toolbar.jspf) with server-defined
+                // Same-origin JSP fragment (eform_floating_toolbar) with server-defined
                 // event handlers — innerHTML is required for toolbar functionality.
                 toolbarWrapper.innerHTML = this.responseText; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
                 elmnt.append(toolbarWrapper);

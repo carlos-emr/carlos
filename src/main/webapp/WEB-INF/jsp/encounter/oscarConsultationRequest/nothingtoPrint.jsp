@@ -32,61 +32,51 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-
-
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <meta charset="UTF-8">
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
+        <script type="text/javascript">
+            function BackToOscar() {
+                window.history.back();
+            }
 
+            function finishPage(secs) {
+                setTimeout(function() { BackToOscar(); }, secs * 500);
+            }
+        </script>
     </head>
-    <script language="javascript">
-        function BackToOscar() {
-            window.history.back();
-        }
 
-        function finishPage(secs) {
-            setTimeout("BackToOscar()", secs * 500);
-        }
+    <body onload="finishPage(15);">
 
-    </script>
+    <div class="container">
 
+        <div id="jsAlertBanner"
+             class="alert alert-danger alert-dismissible"
+             style="display:none"
+             role="alert">
+            <span id="jsAlertText"></span>
+            <button type="button"
+                    class="btn-close"
+                    onclick="this.closest('.alert').style.display='none'"
+                    aria-label="Close"></button>
+        </div>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
-    <body topmargin="0" leftmargin="0" vlink="#0000FF"
-          onload="finishPage(15);">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn"></td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn" width="10%">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <table width="100%" height="100%">
-                    <tr>
-                        <td><fmt:message key="encounter.oscarConsultationRequest.msgNothingPrinted"/>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="javascript: BackToOscar();"> <fmt:message key="global.btnClose"/> </a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+        <div class="page-header-bar d-flex align-items-center justify-content-between
+                    py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-semibold"><fmt:message key="encounter.oscarConsultationRequest.nothingtoPrint.title"/></span>
+            </div>
+        </div>
+
+        <div class="bg-light border rounded p-2">
+            <p><fmt:message key="encounter.oscarConsultationRequest.msgNothingPrinted"/></p>
+            <p><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/></p>
+            <p><a href="javascript: BackToOscar();"><fmt:message key="global.btnClose"/></a></p>
+        </div>
+
+    </div>
     </body>
 </html>

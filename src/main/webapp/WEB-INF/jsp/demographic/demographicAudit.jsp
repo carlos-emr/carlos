@@ -43,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -111,11 +111,11 @@
     <tr bgcolor="<%=(index%2==0)?"ivory":"white"%>">
         <td><%=fmt.format(log.getCreated()) %>
         </td>
-        <td><%= Encode.forHtml(providerDao.getProviderName(log.getProviderNo())) %>
+        <td><e:forHtmlContent value='<%= providerDao.getProviderName(log.getProviderNo()) %>' />
         </td>
-        <td><%= Encode.forHtml(log.getAction()) %>
+        <td><e:forHtmlContent value='<%= log.getAction() %>' />
         </td>
-        <td><%= Encode.forHtml(log.getContent()) %>
+        <td><e:forHtmlContent value='<%= log.getContent() %>' />
         </td>
         <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? Encode.forHtml(log.getContentId()) : "" %>
         </td>

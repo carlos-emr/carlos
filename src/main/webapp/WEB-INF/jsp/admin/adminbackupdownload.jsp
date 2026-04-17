@@ -30,7 +30,7 @@
 
 --%>
 
-<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/errorpage.jsp" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="
       java.util.*,
       java.io.*,
@@ -65,7 +65,7 @@
     reverse="true">
   <%
     authed = false;
-    response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.backup");
+    response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.backup");
   %>
 </security:oscarSec>
 <%
@@ -77,6 +77,7 @@
 <%
     // Load backup_path
     Properties oscarVars = CarlosProperties.getInstance();
+    ResourceBundle backupBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
     String backuppath = oscarVars.getProperty("backup_path");
     session.setAttribute("backupfilepath", backuppath);
 
@@ -91,7 +92,7 @@
 
 <html>
   <head>
-    <title>Admin Backup Download</title>
+    <title><fmt:message key="admin.adminbackupdownload.title"/></title>
     <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"/>
     <script type="text/javascript"
@@ -107,15 +108,15 @@
       <div class="card card-body bg-body-tertiary">
         <table class="table table-striped table-sm">
           <thead>
-            <tr><th>File Name</th><th>Size</th></tr>
+            <tr><th><fmt:message key="admin.adminbackupdownload.header.fileName"/></th><th><fmt:message key="admin.adminbackupdownload.header.size"/></th></tr>
           </thead>
           <tbody>
           <%
               // missing or empty path → forward to error
               if (backuppath == null || backuppath.isEmpty()) {
                   request.setAttribute("errorMessage",
-                    "backup_path missing in properties; please configure.");
-                  request.getRequestDispatcher("/errorpage.jsp")
+                    backupBundle.getString("admin.adminbackupdownload.msgMissingPath"));
+                  request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp")
                          .forward(request, response);
                   return;
               }
@@ -123,8 +124,8 @@
               File[] contents = dir.listFiles();
               if (contents == null || contents.length == 0) {
                   throw new Exception(
-                    "No files found in " + backuppath +
-                    ". Please correct backup_path."
+                    backupBundle.getString("admin.adminbackupdownload.msgNoFilesPrefix") + " " + backuppath +
+                    backupBundle.getString("admin.adminbackupdownload.msgNoFilesSuffix")
                   );
               }
               Arrays.sort(contents, new FileSortByDate());
@@ -162,8 +163,8 @@
       </div>
     <% } else { %>
       <div class="alert alert-danger">
-        <strong>Warning!</strong>
-        Backup directory not found—check <i>backup_path</i> in your properties.
+        <strong><fmt:message key="admin.adminbackupdownload.msgWarning"/></strong>
+        <fmt:message key="admin.adminbackupdownload.msgNoBackupDir"/>
       </div>
     <% } %>
   </body>

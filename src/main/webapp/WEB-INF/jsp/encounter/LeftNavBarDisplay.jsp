@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -77,15 +77,15 @@
 %>
 <script type="text/javascript">
 <% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
-itemColours['<%= Encode.forJavaScript(acItem.key()) %>'] = '<%= Encode.forJavaScript(acItem.bgColour()) %>';
-autoCompList.push('<%= Encode.forJavaScript(acItem.key()) %>');
-autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJavaScript(acItem.jsExpression()) %>";
+itemColours['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = '<e:forJavaScriptBlock value='<%= acItem.bgColour() %>' />';
+autoCompList.push('<e:forJavaScriptBlock value='<%= acItem.key() %>' />');
+autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJavaScriptBlock value='<%= acItem.jsExpression() %>' />";
 <% } %>
 </script>
 <%
     }
 %>
-<input type=hidden name="reloadUrl" value="<%=Encode.forHtmlAttribute(dao.getReloadUrl())%>"/>
+<input type=hidden name="reloadUrl" value="<e:forHtmlAttribute value='<%= dao.getReloadUrl() %>' />"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
     String rh = dao.getRightHeadingID();
@@ -99,9 +99,9 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<%=Encode.forJavaScriptAttribute(rightCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(rightCfg.url())%>'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<e:forJavaScriptAttribute value='<%= rightCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= rightCfg.url() %>' />'); return false;">&#43;</a></h3>
 <%      } else { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="<%=Encode.forHtmlAttribute(dao.getRightURL())%>">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<e:forHtmlAttribute value='<%= dao.getRightURL() %>' />">&#43;</a></h3>
 <%      } %>
     </div>
     <%
@@ -118,7 +118,7 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
     %>
     <div id='menu<%=rh%>' class='menu' style='width: <%=menuWidth%>px;'
          onclick='event.cancelBubble = true;'>
-        <h3 style='text-align: center'><%=Encode.forHtml(dao.getMenuHeader())%>
+        <h3 style='text-align: center'><e:forHtmlContent value='<%= dao.getMenuHeader() %>' />
         </h3>
         <%
             String menuCallback = dao.getMenuCallback();
@@ -142,9 +142,9 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
                }
                popupOnclick += " return false;";
 %>
-           onclick="<%=popupOnclick%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+           onclick="<%=popupOnclick%>"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
 <%         } else { %>
-           onclick="<%=Encode.forHtmlAttribute(dao.getPopUpUrl(idx) + "; return false;")%>"><%=Encode.forHtml(dao.getPopUpText(idx))%>
+           onclick="<e:forHtmlContent value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' />"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
 <%         } %>
         </a>
         <%
@@ -177,10 +177,10 @@ autoCompleted['<%= Encode.forJavaScript(acItem.key()) %>'] = "<%= Encode.forJava
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<%=Encode.forJavaScriptAttribute(leftCfg.windowName())%>','<%=Encode.forJavaScriptAttribute(leftCfg.url())%>'); return false;"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<e:forJavaScriptAttribute value='<%= leftCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= leftCfg.url() %>' />'); return false;"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
         </a></h3>
 <%      } else { %>
-        <h3 onclick="<%=Encode.forHtmlAttribute(dao.getLeftURL() + "; return false;")%>"><a href="javascript:void(0)"><%=Encode.forHtml(dao.getLeftHeading())%>
+        <h3 onclick="<e:forJavaScriptAttribute value='<%= dao.getLeftURL() + "; return false;" %>' />"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
         </a></h3>
 <%      } %>
     </div>

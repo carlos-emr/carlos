@@ -125,6 +125,11 @@ public class RptFormQuery {
         // Collect all parameters for the sub-query
         List<Object> subQueryParams = new ArrayList<>();
 
+        // Security note (CodeQL java/Sqli #1240 false positive):
+        // combinedWhere joins whereClause (ParameterizedSql with '?' placeholders and
+        // bound params) with joinClause (table join conditions built from the
+        // regex-validated tableName). All user-supplied values are in subQueryParams
+        // as bind parameters — no user input is concatenated into the SQL string.
         // Build WHERE clause safely by joining non-empty predicates
         String joinClause = reportCreator.getWhereJoinClause(tableName, bDemo);
         String combinedWhere = RptReportCreator.joinPredicates(whereClause.getSql(), joinClause);

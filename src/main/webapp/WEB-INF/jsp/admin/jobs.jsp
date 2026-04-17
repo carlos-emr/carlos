@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,6 +53,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.jobs.OscarJobExecutingManager" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -61,7 +63,7 @@
 <html>
     <head>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>CARLOS Jobs</title>
+        <title><fmt:message key="admin.jobs.title"/></title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
@@ -209,16 +211,18 @@
                                 var html = '<tr>';
                                 html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
                                 html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
-                                html += '<td><a onclick="cancelJob(' + job.id + ');">Cancel</a></td>';
-                                html += '<td>' + ((job.enabled == true) ? "Enabled (<a onclick='updateJobStatus(" + job.id + ",false)'>Disable</a>)" : "<span color='red'>Disabled</span> (<a onclick='updateJobStatus(" + job.id + ",true)'>Enable</a>)") + '</td>';
-                                html += '<td>N/A</td>';
-                                html += '<td>' + ((job.nextPlannedExecutionDate == null) ? 'N/A' : new Date(job.nextPlannedExecutionDate)) + '</td>';
+                                html += '<td><a onclick="cancelJob(' + job.id + ');"><fmt:message key="admin.jobs.cancel"/></a></td>';
+                                html += '<td>' + ((job.enabled == true)
+                                    ? '<fmt:message key="admin.jobs.enabledStatus"/> (<a onclick="updateJobStatus(' + job.id + ',false)"><fmt:message key="admin.jobs.disable"/></a>)'
+                                    : '<span color="red"><fmt:message key="admin.jobs.disabledStatus"/></span> (<a onclick="updateJobStatus(' + job.id + ',true)"><fmt:message key="admin.jobs.enable"/></a>)') + '</td>';
+                                html += '<td><fmt:message key="admin.jobs.notAvailable"/></td>';
+                                html += '<td>' + ((job.nextPlannedExecutionDate == null) ? '<fmt:message key="admin.jobs.notAvailable"/>' : new Date(job.nextPlannedExecutionDate)) + '</td>';
                                 html += '</tr>';
 
                                 jQuery('#jobTable tbody').append(html);
                             }
                         } else {
-                            alert('error retrieving jobs');
+                            alert('<fmt:message key="admin.jobs.errorRetrievingJobs"/>');
                         }
                     });
             }
@@ -237,7 +241,7 @@
                             for (var i = 0; i < arr.length; i++) {
                                 $('#jobType').append($('<option>', {
                                     value: arr[i].id,
-                                    text: arr[i].name + ((arr[i].currentlyValid == true) ? '' : '(Not currently available)')
+                                    text: arr[i].name + ((arr[i].currentlyValid == true) ? '' : ' (<fmt:message key="admin.jobs.notAvailable"/>)')
                                 }));
                             }
 
@@ -271,8 +275,8 @@
                     width: 620,
                     modal: true,
                     buttons: {
-                        "Save Job": {
-                            class: "btn btn-primary", text: "Save Job", click: function () {
+                        "<fmt:message key="admin.jobs.saveJob"/>": {
+                            class: "btn btn-primary", text: "<fmt:message key="admin.jobs.saveJob"/>", click: function () {
                                 if (validateSaveJob()) {
                                     $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveJob', $('#jobForm').serialize(), function (data) {
                                         listJobs();
@@ -282,8 +286,8 @@
 
                             }
                         },
-                        Cancel: {
-                            class: "btn", text: "Cancel", click: function () {
+                        "<fmt:message key="admin.jobs.cancel"/>": {
+                            class: "btn", text: "<fmt:message key="admin.jobs.cancel"/>", click: function () {
                                 $(this).dialog("close");
                             }
                         }
@@ -299,8 +303,8 @@
                     width: 780,
                     modal: true,
                     buttons: {
-                        "Save": {
-                            class: "btn btn-primary", text: "Save", click: function () {
+                        "<fmt:message key="admin.jobs.save"/>": {
+                            class: "btn btn-primary", text: "<fmt:message key="admin.jobs.save"/>", click: function () {
                                 //TODO: validate the fields.
                                 //submit the crontab-form , close the dialog.
                                 $.post('<%= request.getContextPath() %>/ws/rs/jobs/saveCrontabExpression', $('#crontab-form').serialize(), function (data) {
@@ -310,8 +314,8 @@
 
                             }
                         },
-                        Cancel: {
-                            class: "btn", text: "Cancel", click: function () {
+                        "<fmt:message key="admin.jobs.cancel"/>": {
+                            class: "btn", text: "<fmt:message key="admin.jobs.cancel"/>", click: function () {
                                 $(this).dialog("close");
                             }
                         }
@@ -339,13 +343,13 @@
                 var errorMsg = '';
 
                 if ($('#jobName').val().length == 0) {
-                    errorMsg += 'Please provide a name for the job\n';
+                    errorMsg += '<fmt:message key="admin.jobs.msgProvideName"/>\n';
                 }
                 if ($('#jobType').val().length == 0 || $('#jobType').val() == '0') {
-                    errorMsg += 'Please provide a valid job type\n';
+                    errorMsg += '<fmt:message key="admin.jobs.msgProvideType"/>\n';
                 }
                 if ($('#jobProvider').val().length == 0 || $('#jobProvider').val() == '0') {
-                    errorMsg += 'Please provide a valid job providers\n';
+                    errorMsg += '<fmt:message key="admin.jobs.msgProvideProvider"/>\n';
                 }
 
                 if (errorMsg.length > 0) {
@@ -359,38 +363,38 @@
     </head>
 
     <body class="BodyStyle">
-    <h4>Manage Jobs</h4>
+    <h4><fmt:message key="admin.jobs.manageJobs"/></h4>
     <table id="jobTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
             <th></th>
-            <th>Name</th>
-            <th>Execution Status</th>
-            <th>Job Status</th>
-            <th>Last Run</th>
-            <th>Next Planned Run</th>
+            <th><fmt:message key="admin.jobs.name"/></th>
+            <th><fmt:message key="admin.jobs.executionStatus"/></th>
+            <th><fmt:message key="admin.jobs.jobStatus"/></th>
+            <th><fmt:message key="admin.jobs.lastRun"/></th>
+            <th><fmt:message key="admin.jobs.nextPlannedRun"/></th>
         </tr>
         </thead>
         <tbody>
         </tbody>
     </table>
-    <input type="button" class="btn btn-primary" value="Add New" onClick="addNewJob()"/>
+    <input type="button" class="btn btn-primary" value="<fmt:message key="admin.jobs.addNew"/>" onClick="addNewJob()"/>
 
 
-    <div id="new-job" title="CARLOS Job Editor">
+    <div id="new-job" title="<fmt:message key="admin.jobs.editorTitle"/>">
         <p class="validateTips"></p>
 
         <form id="jobForm">
             <input type="hidden" name="job.id" id="jobId" value="0"/>
             <fieldset>
                 <div class="mb-3">
-                    <label class="form-label" for="jobName">Name:*</label>
+                    <label class="form-label" for="jobName"><fmt:message key="admin.jobs.name"/>:*</label>
                     <div>
                         <input type="text" name="job.name" id="jobName" value=""/>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobType">Type:*</label>
+                    <label class="form-label" for="jobType"><fmt:message key="admin.jobs.type"/>:*</label>
                     <div>
                         <select name="job.oscarJobTypeId" id="jobType">
                             <option value="">&nbsp;</option>
@@ -398,13 +402,13 @@
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobDescription">Description:</label>
+                    <label class="form-label" for="jobDescription"><fmt:message key="admin.jobs.description"/>:</label>
                     <div>
                         <textarea rows="5" name="job.description" id="jobDescription"></textarea>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobEnabled">Enabled: <input type="checkbox" name="job.enabled"
+                    <label class="form-label" for="jobEnabled"><fmt:message key="admin.jobs.enabled"/> <input type="checkbox" name="job.enabled"
                                                                                   id="jobEnabled"/></label>
                     <div>
 
@@ -412,7 +416,7 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="jobProvider">Run As Provider:</label>
+                    <label class="form-label" for="jobProvider"><fmt:message key="admin.jobs.runAsProvider"/>:</label>
                     <div>
                         <select name="job.provider" id="jobProvider">
                             <option value="">&nbsp;</option>
@@ -426,7 +430,7 @@
     </div>
 
 
-    <div id="scheduleDialog" title="Schedule Job">
+    <div id="scheduleDialog" title="<fmt:message key="admin.jobs.scheduleJob"/>">
         <p class="validateTips"></p>
 
         <form id="crontab-form">
@@ -435,12 +439,12 @@
             <table>
                 <tr>
                     <td>
-                        <h4>Minute</h4>
+                        <h4><fmt:message key="admin.jobs.minute"/></h4>
 
-                        Every Minute
+                        <fmt:message key="admin.jobs.everyMinute"/>
                         <input type="radio" name="minute_chooser" id="minute_chooser_every" value="0"
                                checked="checked"/><br/>
-                        Choose
+                        <fmt:message key="admin.jobs.choose"/>
                         <input type="radio" name="minute_chooser" id="minute_chooser_choose" value="1"/><br/>
 
                         <select name="minute" id="minute" multiple="multiple" disabled="disabled" style="width:120px">
@@ -453,48 +457,48 @@
                         </select>
                     </td>
                     <td>
-                        <h4>Hour</h4>
-                        Every Hour
+                        <h4><fmt:message key="admin.jobs.hour"/></h4>
+                        <fmt:message key="admin.jobs.everyHour"/>
                         <input type="radio" name="hour_chooser" id="hour_chooser_every" value="0"
                                checked="checked"/><br/>
 
-                        Choose
+                        <fmt:message key="admin.jobs.choose"/>
                         <input type="radio" name="hour_chooser" id="hour_chooser_choose" value="1"/><br/>
 
                         <select name="hour" id="hour" multiple="multiple" disabled="disabled" style="width:120px">
-                            <option value="0">12 Midnight</option>
-                            <option value="1">1 AM</option>
-                            <option value="2">2 AM</option>
-                            <option value="3">3 AM</option>
-                            <option value="4">4 AM</option>
-                            <option value="5">5 AM</option>
-                            <option value="6">6 AM</option>
-                            <option value="7">7 AM</option>
-                            <option value="8">8 AM</option>
-                            <option value="9">9 AM</option>
-                            <option value="10">10 AM</option>
-                            <option value="11">11 AM</option>
-                            <option value="12">12 Noon</option>
-                            <option value="13">1 PM</option>
-                            <option value="14">2 PM</option>
-                            <option value="15">3 PM</option>
-                            <option value="16">4 PM</option>
-                            <option value="17">5 PM</option>
-                            <option value="18">6 PM</option>
-                            <option value="19">7 PM</option>
-                            <option value="20">8 PM</option>
-                            <option value="21">9 PM</option>
-                            <option value="22">10 PM</option>
-                            <option value="23">11 PM</option>
+                            <option value="0"><fmt:message key="admin.jobs.midnight"/></option>
+                            <option value="1"><fmt:message key="admin.jobs.hour1am"/></option>
+                            <option value="2"><fmt:message key="admin.jobs.hour2am"/></option>
+                            <option value="3"><fmt:message key="admin.jobs.hour3am"/></option>
+                            <option value="4"><fmt:message key="admin.jobs.hour4am"/></option>
+                            <option value="5"><fmt:message key="admin.jobs.hour5am"/></option>
+                            <option value="6"><fmt:message key="admin.jobs.hour6am"/></option>
+                            <option value="7"><fmt:message key="admin.jobs.hour7am"/></option>
+                            <option value="8"><fmt:message key="admin.jobs.hour8am"/></option>
+                            <option value="9"><fmt:message key="admin.jobs.hour9am"/></option>
+                            <option value="10"><fmt:message key="admin.jobs.hour10am"/></option>
+                            <option value="11"><fmt:message key="admin.jobs.hour11am"/></option>
+                            <option value="12"><fmt:message key="admin.jobs.noon"/></option>
+                            <option value="13"><fmt:message key="admin.jobs.hour1pm"/></option>
+                            <option value="14"><fmt:message key="admin.jobs.hour2pm"/></option>
+                            <option value="15"><fmt:message key="admin.jobs.hour3pm"/></option>
+                            <option value="16"><fmt:message key="admin.jobs.hour4pm"/></option>
+                            <option value="17"><fmt:message key="admin.jobs.hour5pm"/></option>
+                            <option value="18"><fmt:message key="admin.jobs.hour6pm"/></option>
+                            <option value="19"><fmt:message key="admin.jobs.hour7pm"/></option>
+                            <option value="20"><fmt:message key="admin.jobs.hour8pm"/></option>
+                            <option value="21"><fmt:message key="admin.jobs.hour9pm"/></option>
+                            <option value="22"><fmt:message key="admin.jobs.hour10pm"/></option>
+                            <option value="23"><fmt:message key="admin.jobs.hour11pm"/></option>
                         </select>
                     </td>
 
                     <td>
-                        <h4>Day</h4>
-                        Every Day
+                        <h4><fmt:message key="admin.jobs.day"/></h4>
+                        <fmt:message key="admin.jobs.everyDay"/>
                         <input type="radio" name="day_chooser" id="day_chooser_every" value="0" checked="checked"/><br/>
 
-                        Choose
+                        <fmt:message key="admin.jobs.choose"/>
                         <input type="radio" name="day_chooser" id="day_chooser_choose" value="1"/><br/>
 
                         <select name="day" id="day" multiple="multiple" disabled="disabled" style="width:120px">
@@ -507,46 +511,46 @@
                         </select>
                     </td>
                     <td>
-                        <h4>Month</h4>
-                        Every Month
+                        <h4><fmt:message key="admin.jobs.month"/></h4>
+                        <fmt:message key="admin.jobs.everyMonth"/>
                         <input type="radio" name="month_chooser" id="month_chooser_every" value="0"
                                checked="checked"/><br/>
 
-                        Choose
+                        <fmt:message key="admin.jobs.choose"/>
                         <input type="radio" name="month_chooser" id="month_chooser_choose" value="1"/><br/>
 
                         <select name="month" id="month" multiple="multiple" disabled="disabled" style="width:120px">
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">Augest</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
+                            <option value="1"><fmt:message key="admin.jobs.january"/></option>
+                            <option value="2"><fmt:message key="admin.jobs.february"/></option>
+                            <option value="3"><fmt:message key="admin.jobs.march"/></option>
+                            <option value="4"><fmt:message key="admin.jobs.april"/></option>
+                            <option value="5"><fmt:message key="admin.jobs.may"/></option>
+                            <option value="6"><fmt:message key="admin.jobs.june"/></option>
+                            <option value="7"><fmt:message key="admin.jobs.july"/></option>
+                            <option value="8"><fmt:message key="admin.jobs.august"/></option>
+                            <option value="9"><fmt:message key="admin.jobs.september"/></option>
+                            <option value="10"><fmt:message key="admin.jobs.october"/></option>
+                            <option value="11"><fmt:message key="admin.jobs.november"/></option>
+                            <option value="12"><fmt:message key="admin.jobs.december"/></option>
                         </select>
                     </td>
                     <td>
-                        <h4>Weekday</h4>
-                        Every Weekday
+                        <h4><fmt:message key="admin.jobs.weekday"/></h4>
+                        <fmt:message key="admin.jobs.everyWeekday"/>
                         <input type="radio" name="weekday_chooser" id="weekday_chooser_every" value="0"
                                checked="checked"/><br/>
 
-                        Choose
+                        <fmt:message key="admin.jobs.choose"/>
                         <input type="radio" name="weekday_chooser" id="weekday_chooser_choose" value="1"/><br/>
 
                         <select name="weekday" id="weekday" multiple="multiple" disabled="disabled" style="width:120px">
-                            <option value="0">Sunday</option>
-                            <option value="1">Monday</option>
-                            <option value="2">Tuesday</option>
-                            <option value="3">Wednesday</option>
-                            <option value="4">Thursday</option>
-                            <option value="5">Friday</option>
-                            <option value="6">Saturday</option>
+                            <option value="0"><fmt:message key="admin.jobs.sunday"/></option>
+                            <option value="1"><fmt:message key="admin.jobs.monday"/></option>
+                            <option value="2"><fmt:message key="admin.jobs.tuesday"/></option>
+                            <option value="3"><fmt:message key="admin.jobs.wednesday"/></option>
+                            <option value="4"><fmt:message key="admin.jobs.thursday"/></option>
+                            <option value="5"><fmt:message key="admin.jobs.friday"/></option>
+                            <option value="6"><fmt:message key="admin.jobs.saturday"/></option>
                         </select>
                     </td>
                 </tr>

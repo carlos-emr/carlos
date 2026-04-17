@@ -65,7 +65,7 @@ public class DbReportAgeSex2Action extends ActionSupport {
     /**
      * Deletes and repopulates age/sex report data, then forwards to the report view.
      *
-     * @return {@code "success"} mapped to {@code /oscarReport/oscarReportAgeSex.jsp}
+     * @return {@code "success"} mapped to {@code /WEB-INF/jsp/oscarReport/oscarReportAgeSex.jsp}
      * @throws Exception if an unexpected error occurs during data population
      */
     @Override

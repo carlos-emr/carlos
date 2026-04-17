@@ -57,7 +57,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -90,7 +90,7 @@
 
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
@@ -161,17 +161,17 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
-                &nbsp;Prevention Reporting
+                &nbsp;<fmt:message key="prevention.reporting.title"/>
             </h4>
         </div>
 
-        <form action="${pageContext.request.contextPath}/prevention/PreventionReport.do" method="get">
+        <form action="${pageContext.request.contextPath}/prevention/PreventionReport" method="get">
             <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
-                    <td style="width:180px;">Patient Demographic Query</td>
+                    <td style="width:180px;"><fmt:message key="prevention.reporting.patientDemographicQuery"/></td>
                     <td>
                         <select name="patientSet" id="patientSet" class="form-select form-select-sm" style="width:auto;display:inline-block">
-                            <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
+                            <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>><fmt:message key="prevention.reporting.selectQuery"/></option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
                                     RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -179,34 +179,34 @@
                                     String qName = sc.queryName;
                                     String selected = (patientSet != null && patientSet.equals(qId)) ? "selected" : "";
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(qId)%>" <%=selected%>><%=Encode.forHtmlContent(qName)%></option>
+                            <option value="<e:forHtmlAttribute value='<%= qId %>' />" <%=selected%>><e:forHtmlContent value='<%= qName %>' /></option>
                             <%}%>
                         </select>
                     </td>
                 </tr>
                 <tr>
-                    <td>Prevention</td>
+                    <td><fmt:message key="prevention.reporting.prevention"/></td>
                     <td>
                         <select name="prevention" id="prevention" class="form-select form-select-sm" style="width:auto;display:inline-block">
-                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
-                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
-                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
-                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>>Child Immunizations</option>
-                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>>Colorectal</option>
-                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>>Flu</option>
+                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>><fmt:message key="prevention.reporting.selectPrevention"/></option>
+                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.breast"/></option>
+                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.cervical"/></option>
+                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.childImmunizations"/></option>
+                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.colorectal"/></option>
+                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.flu"/></option>
                         </select>
                     </td>
                 </tr>
                 <tr>
-                    <td>As of</td>
+                    <td><fmt:message key="prevention.reporting.asOf"/></td>
                     <td>
-                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
-                        <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<e:forHtmlAttribute value='<%= asofDate %>' />"/>
+                        <a id="date"><img title="<fmt:message key='prevention.reporting.calendar'/>" src="<%= request.getContextPath() %>/images/cal.gif" alt="<fmt:message key='prevention.reporting.calendar'/>" border="0"/></a>
                     </td>
                 </tr>
             </table>
             <div style="padding:0 0 10px 0;">
-                <input type="submit" value="Run Report" class="btn btn-sm btn-primary"/>
+                <input type="submit" value="<fmt:message key='prevention.reporting.runReport'/>" class="btn btn-sm btn-primary"/>
             </div>
         </form>
 
@@ -233,30 +233,30 @@
             <input type="hidden" name="clinic_view" value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
-                <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>
-                <span style="margin-right:15px;">Ineligible: <strong><%=Encode.forHtml(StringUtils.defaultString(ineligible, "0"))%></strong></span>
-                <span style="margin-right:15px;">Up to Date: <strong><%=Encode.forHtml(StringUtils.defaultString(done, "0"))%> = <%=Encode.forHtml(StringUtils.defaultString(percentage, "0"))%>%</strong></span>
-                <span style="margin-right:15px;"><%=Encode.forHtml(String.valueOf(request.getAttribute("patientSet")))%></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.totalPatients"/>: <strong><%=list.size()%></strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.ineligible"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(ineligible, "0") %>' /></strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.upToDate"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(done, "0") %>' /> = <e:forHtmlContent value='<%= StringUtils.defaultString(percentage, "0") %>' />%</strong></span>
+                <span style="margin-right:15px;"><e:forHtmlContent value='<%= String.valueOf(request.getAttribute("patientSet")) %>' /></span>
             </div>
 
             <table id="preventionTable" class="sortable table table-sm table-bordered" style="font-size:12px;">
                 <thead>
                 <tr>
                     <th class="unsortable">#</th>
-                    <th>DemoNo</th>
-                    <th>DOB</th>
-                    <th>Age as of<br/><%=UtilDateUtilities.DateToString(asDate)%></th>
-                    <th>Sex</th>
-                    <th>Lastname</th>
-                    <th>Firstname</th>
+                    <th><fmt:message key="prevention.reporting.demoNo"/></th>
+                    <th><fmt:message key="prevention.reporting.dob"/></th>
+                    <th><fmt:message key="prevention.reporting.ageAsOf"/><br/><%=UtilDateUtilities.DateToString(asDate)%></th>
+                    <th><fmt:message key="prevention.reporting.sex"/></th>
+                    <th><fmt:message key="prevention.reporting.lastname"/></th>
+                    <th><fmt:message key="prevention.reporting.firstname"/></th>
                     <%if (type != null) { %>
-                    <th>Guardian</th>
+                    <th><fmt:message key="prevention.reporting.guardian"/></th>
                     <%}%>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Address</th>
-                    <th>Next Appt.</th>
-                    <th>Status</th>
+                    <th><fmt:message key="prevention.reporting.phone"/></th>
+                    <th><fmt:message key="prevention.reporting.email"/></th>
+                    <th><fmt:message key="prevention.reporting.address"/></th>
+                    <th><fmt:message key="prevention.reporting.nextAppt"/></th>
+                    <th><fmt:message key="prevention.reporting.status"/></th>
                     <%if (type != null) { %>
                     <th>Shot #</th>
                     <%}%>
@@ -287,26 +287,26 @@
                 <tr>
                     <td><%=i+1%></td>
                     <td>
-                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/DemographicEdit.do?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
+                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forHtmlAttribute value='<%= dis.demographicNo.toString() %>' />','MasterDemographic')"><e:forHtmlContent value='<%= dis.demographicNo.toString() %>' /></a>
                     </td>
                     <td><%=DemographicData.getDob(demo,"-")%></td>
 
                     <%if (type == null) { %>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("sex", "") %>' /></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("lastName", "") %>' /></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("firstName", "") %>' /></td>
                     <td><%
                         String hExt = demo.getExtraValue(DemographicExt.DemographicProperty.hPhoneExt);
                         String wExt = demo.getExtraValue(DemographicExt.DemographicProperty.wPhoneExt);
-                        if (!demo.getPhone().isEmpty()) { %>H: <%=Encode.forHtmlContent(demo.getPhone())%><%= !hExt.isEmpty() ? " x" + Encode.forHtmlContent(hExt) : "" %><%
+                        if (!demo.getPhone().isEmpty()) { %>H: <e:forHtmlContent value='<%= demo.getPhone() %>' /><%= !hExt.isEmpty() ? " x" + Encode.forHtmlContent(hExt) : "" %><%
                         }
-                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <%=Encode.forHtmlContent(demo.getPhone2())%><%= !wExt.isEmpty() ? " x" + Encode.forHtmlContent(wExt) : "" %><%
+                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <e:forHtmlContent value='<%= demo.getPhone2() %>' /><%= !wExt.isEmpty() ? " x" + Encode.forHtmlContent(wExt) : "" %><%
                         }
-                        if (!demo.getCellPhone().isEmpty()) { %><br/>C: <%=Encode.forHtmlContent(demo.getCellPhone())%><%
+                        if (!demo.getCellPhone().isEmpty()) { %><br/>C: <e:forHtmlContent value='<%= demo.getCellPhone() %>' /><%
                         }
                     %></td>
-                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getEmail()))%></td>
+                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(demo.getEmail()) %>' /></td>
                     <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
@@ -318,16 +318,16 @@ else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
-                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
-                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
+%><span class="badge <%=labelClass%>"><e:forHtmlContent value='<%= StringUtils.defaultString(dis.state) %>' /></span></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(dis.numMonths) %>' /></td>
+                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(dis.lastDate) %>' /></td>
 
                     <% } else {
                         Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
-                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("sex", "") %>' /></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("lastName", "") %>' /></td>
+                    <td><e:forHtmlContent value='<%= h.getOrDefault("firstName", "") %>' /></td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
@@ -342,17 +342,17 @@ else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
-                    <td><%=Encode.forHtml(String.valueOf(dis.numShots))%></td>
-                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
-                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
+%><span class="badge <%=labelClass%>"><e:forHtmlContent value='<%= StringUtils.defaultString(dis.state) %>' /></span></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(dis.numShots) %>' /></td>
+                    <td><e:forHtmlContent value='<%= String.valueOf(dis.numMonths) %>' /></td>
+                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(dis.lastDate) %>' /></td>
 
                     <%}%>
                     <%
                         String providerName=providerBean.getProperty(StringUtils.defaultString(demo.getProviderNo()), "");
                         providerName=StringUtils.trimToEmpty(providerName);
                     %>
-                    <td><%=Encode.forHtml(providerName)%></td>
+                    <td><e:forHtmlContent value='<%= providerName %>' /></td>
                 </tr>
                 <%}%>
                 </tbody>
@@ -377,4 +377,3 @@ else labelClass = "bg-secondary";
     </script>
     </body>
 </html>
-

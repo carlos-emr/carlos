@@ -29,9 +29,9 @@
     <package name="demographic" namespace="/" extends="struts-default">
 
         <global-results>
-            <result name="securityError">/securityError.jsp</result>
-            <result name="logout" type="redirect">/logout.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+            <result name="logout" type="redirect">/logoutPage</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </global-results>
 
         <global-exception-mappings>
@@ -44,7 +44,7 @@
             <result name="failure">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=failure</result>
             <result name="successUnMerge">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=successUnMerge</result>
             <result name="failureUnMerge">/WEB-INF/jsp/admin/demographicmergerecord.jsp?outcome=failureUnMerge</result>
-            <result name="caisiSearch">/PMmodule/ClientSearch2.do</result>
+            <result name="caisiSearch">/PMmodule/ClientSearch2</result>
         </action>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
@@ -52,7 +52,7 @@
         <action name="demographic/printClientLabLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintClientLabLabel2Action"/>
         <action name="demographic/AddRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action">
             <result name="success">/WEB-INF/jsp/demographic/AddAlternateContact.jsp</result>
-            <result name="pmmClient">/PMmodule/ClientManager.do</result>
+            <result name="pmmClient">/PMmodule/ClientManager</result>
         </action>
         <action name="demographic/DeleteRelation" class="io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action">
             <result name="success">/WEB-INF/jsp/demographic/AddAlternateContact.jsp</result>
@@ -63,7 +63,7 @@
         </action>
         <action name="form/importLogDownload" class="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicImport.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="demographic/DemographicExport" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action">
             <result name="success">/WEB-INF/jsp/demographic/demographicExport.jsp</result>

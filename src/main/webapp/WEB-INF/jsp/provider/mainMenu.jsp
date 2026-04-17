@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -49,7 +50,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.AppManager" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -98,7 +98,7 @@
                     </li>
                     <% } else { %>
                     <li>
-                        <a href='<%= request.getContextPath() %>/provider/providercontrol.do?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
+                        <a href='<%= request.getContextPath() %>/provider/providercontrol?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>
                             <fmt:message key="provider.appointmentProviderAdminDay.schedView"/>
                         </a>
                     </li>
@@ -132,20 +132,20 @@
                                         String caisiSearch = oscarVariables.getProperty("caisi.search.workflow", "true");
                                         if ("true".equalsIgnoreCase(caisiSearch)) {
                                     %>
-                                    <a href="<%= request.getContextPath() %>/PMmodule/ClientSearch2.do"
+                                    <a href="<%= request.getContextPath() %>/PMmodule/ClientSearch2"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
 
                                     <%
                                     } else {
                                     %>
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                     <% } %>
                                 </caisi:isModuleLoad>
                                 <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch.do');return false;"
+                                    <a HREF="#" ONCLICK="popupPage2('<%= request.getContextPath() %>/demographic/ViewSearch');return false;"
                                        TITLE='<fmt:message key="global.searchPatientRecords"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.searchPatientRecords"/>' ; return true"><fmt:message key="provider.appointmentProviderAdminDay.search"/></a>
                                 </caisi:isModuleLoad>
@@ -156,7 +156,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/report/ViewReportindex','reportPage');return false;"
                                        TITLE='<fmt:message key="global.genReport"/>'
                                        OnMouseOver="window.status='<fmt:message key="global.genReport"/>' ; return true"><fmt:message key="global.report"/></a>
                                 </li>
@@ -191,7 +191,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                       ONCLICK="popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
                                        title="<fmt:message key="global.messenger"/>">
                                         <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                 </li>
@@ -201,7 +201,7 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                 <li id="con">
                                     <a HREF="#"
-                                       ONCLICK="popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
+                                       ONCLICK="popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(loggedInInfo.getLoggedInProvider().getFirstName()+" "+loggedInInfo.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>')"
                                        title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
                                         <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                 </li>
@@ -212,16 +212,16 @@
                             if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
                         %>
                         <li id="econ">
-                            <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult.do')"
+                            <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult')"
                                title="eConsult">
-                                <span>eConsult</span></a>
+                                <span><fmt:message key="provider.mainMenu.eConsult"/></span></a>
                         </li>
                         <% } %>
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');"
+                                       onclick="popup('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');"
                                        TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                 </li>
                             </security:oscarSec>
@@ -229,7 +229,7 @@
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                             <li>
                                 <a HREF="#"
-                                   ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain.do','<fmt:message key="global.tickler"/>');return false;"
+                                   ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','<fmt:message key="global.tickler"/>');return false;"
                                    TITLE='<fmt:message key="global.tickler"/>'>
                                     <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                             </li>
@@ -239,14 +239,14 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
                                 <li id="ref">
                                     <a href="#"
-                                       onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral.do');return false;"><fmt:message key="global.manageReferrals"/></a>
+                                       onclick="popupPage(550,800,'<%=request.getContextPath()%>/admin/ManageBillingReferral');return false;"><fmt:message key="global.manageReferrals"/></a>
                                 </li>
                             </security:oscarSec>
                         </oscar:oscarPropertiesCheck>
 
                         <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                             <li><a href="javascript:void(0)"
-                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList.jsp','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
+                                   onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList','<fmt:message key="global.workflow"/>')"><fmt:message key="global.btnworkflow"/>
                             </a></li>
                         </oscar:oscarPropertiesCheck>
 
@@ -257,8 +257,8 @@
                                                rights="r">
 
                                 <li id="admin2">
-                                    <a href="javascript:void(0)" id="admin-panel" TITLE='Administration Panel'
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
+                                    <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
+                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
                                 </li>
 
                             </security:oscarSec>
@@ -273,14 +273,14 @@
 
                             <li id="dashboardList">
                                 <div class="dropdown">
-                                    <a href="#" class="dashboardBtn">Dashboard</a>
+                                    <a href="#" class="dashboardBtn"><fmt:message key="provider.mainMenu.dashboard"/></a>
                                     <div class="dashboardDropdown">
                                         <ul>
                                             <c:forEach items="${ dashboards }" var="dashboard">
                                                 <li>
                                                     <a href="javascript:void(0)"
-                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay.do?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
-                                                        <c:out value="${ dashboard.name }"/>
+                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
+                                                        ${e:forHtml(dashboard.name)}
                                                     </a>
                                                 </li>
                                             </c:forEach>
@@ -288,8 +288,8 @@
                                                                objectName="_dashboardCommonLink" rights="r">
                                                 <li>
                                                     <a href="javascript:void(0)"
-                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard.jsp','shared_dashboard')">
-                                                        Common Provider Dashboard
+                                                       onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard','shared_dashboard')">
+                                                        <fmt:message key="provider.mainMenu.commonDashboard"/>
                                                     </a>
                                                 </li>
                                             </security:oscarSec>
@@ -310,7 +310,7 @@
                                    onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:message key="global.help"/></a>
 
                                 <div id="helpHtml">
-                                    <div class="help-title">Help</div>
+                                    <div class="help-title"><fmt:message key="provider.mainMenu.helpTitle"/></div>
 
                                     <div class="help-body">
 
@@ -336,21 +336,21 @@
         <td id="userSettings">
             <ul id="userSettingsMenu">
                 <li>
-                    <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
-                       onClick="popup(700,1024,'<%= request.getContextPath() %>/scratch/index.jsp','scratch')"><span
+                    <a title="<fmt:message key='ScratchPad.title'/>" href="javascript: function myFunction() {return false; }"
+                       onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch','scratch')"><span
                             class="fa-solid fa-rectangle-list"></span></a>
                 </li>
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference.do?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
+                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<e:forUriComponent value='<%= curUser_no %>' />')"
                        title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
                         <span class="fa-solid fa-user"></span>
 
                         <span>
-                                <c:out value='<%= userfirstname + " " + userlastname %>'/>
+                                <e:forHtmlContent value='<%= userfirstname + " " + userlastname %>' />
                             </span>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     </a>
@@ -359,7 +359,7 @@
             </ul>
         </td>
         <td>
-            <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logout.jsp">
+            <a id="logoutButton" title="<fmt:message key="global.btnLogout"/>" href="<%= request.getContextPath() %>/logoutPage">
                 <span class="fa-solid fa-power-off"></span>
             </a>
         </td>
@@ -374,8 +374,8 @@
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
-    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
+    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm', 800);return false;";
+    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1', 800);return false;";
 
     const inboxLink = document.getElementById("inboxLink");
     if (inboxLink) {
@@ -392,7 +392,7 @@
         const data = {
             "provider_no": providerNumber
         };
-        const url = "<%= request.getContextPath() %>/provider/ViewProviderPreference.do";
+        const url = "<%= request.getContextPath() %>/provider/ViewProviderPreference";
         const dialog = dialogContainer.load(url, data).dialog({
             modal: true,
             width: 685,
@@ -402,4 +402,3 @@
         }).dialog("open");
     }
 </script>
-

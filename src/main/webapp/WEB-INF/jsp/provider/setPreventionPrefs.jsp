@@ -31,7 +31,7 @@
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -67,23 +67,23 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="preventionSSOWarningProperty.checked" <c:if test="${preventionSSOWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when not logged into OneID Single Sign On.
+                        <fmt:message key="provider.preventionPrefs.ssoWarning"/>
                     <br/>
                     <input type="checkbox" name="preventionISPAWarningProperty.checked" <c:if test="${preventionISPAWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when Patient has not consented to send ISPA data to DHIR.
+                        <fmt:message key="provider.preventionPrefs.ispaWarning"/>
                     <br/>
                     <input type="checkbox" name="preventionNonISPAWarningProperty.checked" <c:if test="${preventionNonISPAWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when Patient has not consented to send Non-ISPA data to DHIR.
+                        <fmt:message key="provider.preventionPrefs.nonIspaWarning"/>
                     <br/><br/>
                     <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
                     <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
                            onclick="window.close();"/>
                 </form>
                 <%} else {%>
-                Configuration has been saved.
+                <fmt:message key="provider.preventionPrefs.msgSuccess"/>
                 <br/><br/>
                 <input type="button" value="<%=bundle.getString(providerbtnClose)%>" onclick="window.close();"/>
                 <%}%>

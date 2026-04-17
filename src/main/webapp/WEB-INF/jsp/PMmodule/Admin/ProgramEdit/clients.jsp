@@ -1,0 +1,114 @@
+<%--
+
+
+    Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for
+    Centre for Research on Inner City Health, St. Michael's Hospital,
+    Toronto, Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+
+<%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
+    <c:param name="method" value="edit"/>
+    <c:param name="id" value="${requestScope.id}"/>
+    <c:param name="view.tab" value="Clients"/>
+</c:url>
+<script>
+    function assignTeam(id, selectBox) {
+        var team_id = selectBox.options[selectBox.selectedIndex].value;
+        document.programManagerForm.elements['admission.teamId'].value = team_id;
+        document.programManagerForm.elements['admission.id'].value = id;
+        document.programManagerForm.elements['method'].value = 'assign_team_client';
+        document.programManagerForm.submit();
+    }
+
+    function assignStatus(id, selectBox) {
+        var status_id = selectBox.options[selectBox.selectedIndex].value;
+        document.programManagerForm.elements['admission.clientStatusId'].value = status_id;
+        document.programManagerForm.elements['admission.id'].value = id;
+        document.programManagerForm.elements['method'].value = 'assign_status_client';
+        document.programManagerForm.submit();
+    }
+</script>
+<input type="hidden" name="view.tab" value="Clients"/>
+<input type="hidden" name="admission.id" id="admissionId"/>
+<input type="hidden" name="admission.teamId" id="teamId"/>
+<input type="hidden" name="admission.clientStatusId" id="clientStatusId"/>
+<div class="tabs">
+    <table cellpadding="3" cellspacing="0" border="0">
+        <tr>
+            <th title="Programs">Clients</th>
+        </tr>
+    </table>
+</div>
+<!-- show current clients -->
+<display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
+               pagesize="0" requestURI="${programManagerClientsUri}">
+    <display:setProperty name="paging.banner.placement" value="bottom"/>
+    <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
+
+    <display:column sortable="false" title="">
+        <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');">
+            Discharge </a>
+    </display:column>
+    <display:column property="client.formattedName" sortable="true" title="Name"/>
+    <display:column property="admissionDate" sortable="true" title="Admission Date"/>
+    <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
+        <display:column property="temporaryAdmission" sortable="true" title="Temporary Admission"/>
+    </caisi:isModuleLoad>
+    <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
+    <display:column property="teamName" sortable="true" title="Team"/>
+    <display:column sortable="false" title="">
+        <select name="x" onchange="assignTeam('${e:forJavaScript(admission.id)}',this);">
+            <option value="0">&nbsp;</option>
+            <c:forEach var="team" items="${teams}">
+                <c:choose>
+                    <c:when test="${team.id == admission.teamId}">
+                        <option value="${e:forHtmlAttribute(team.id)}" selected>${e:forHtml(team.name)}</option>
+                    </c:when>
+                    <c:otherwise>
+                        <option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+        </select>
+    </display:column>
+    <display:column sortable="false" title="Status">
+        <select name="y" onchange="assignStatus('${e:forJavaScript(admission.id)}',this);">
+            <option value="0">&nbsp;</option>
+            <c:forEach var="status" items="${client_statuses}">
+                <c:choose>
+                    <c:when test="${status.id == admission.clientStatusId}">
+                        <option value="${e:forHtmlAttribute(status.id)}" selected>${e:forHtml(status.name)}</option>
+                    </c:when>
+                    <c:otherwise>
+                        <option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
+                    </c:otherwise>
+                </c:choose>
+            </c:forEach>
+        </select>
+    </display:column>
+</display:table>

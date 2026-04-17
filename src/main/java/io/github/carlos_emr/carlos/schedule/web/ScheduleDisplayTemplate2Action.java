@@ -32,7 +32,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Gate action for the schedule template display preview popup.
- * Invoked via async fetch from TemplateApplying.do (guarded by _admin.schedule w),
+ * Invoked via async fetch from TemplateApplying (guarded by _admin.schedule w),
  * so either _admin.schedule w or _appointment r is accepted to avoid breaking
  * schedule admins who lack direct appointment privileges.
  *

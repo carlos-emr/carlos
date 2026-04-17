@@ -40,8 +40,8 @@
     - Bootstrap 5 / HTML5 compliant layout
     - OWASP encoding for all user-supplied values
     - i18n via oscarResources bundle
-    - Links to query history (RptViewAllQueryByExamples.do) and favorites editor
-      (RptByExamplesAllFavorites.do)
+    - Links to query history (RptViewAllQueryByExamples) and favorites editor
+      (RptByExamplesAllFavorites)
     - Favourite queries loaded from the request scope via ${favorites} attribute
 
     Parameters (set by backing Action):
@@ -62,14 +62,14 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,7 +84,7 @@
     <meta charset="UTF-8">
     <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
 
@@ -136,11 +136,11 @@
             <div class="col-12 col-md-2">
                 <nav class="d-flex flex-column gap-2 pt-1">
                     <a href="#"
-                       onclick="window.open('RptViewAllQueryByExamples.do'); return false;">
+                       onclick="window.open('RptViewAllQueryByExamples'); return false;">
                         <fmt:message key="oscarReport.RptByExample.MsgViewQueryHistory"/>
                     </a>
                     <a href="#"
-                       onclick="window.open('RptByExamplesAllFavorites.do'); return false;">
+                       onclick="window.open('RptByExamplesAllFavorites'); return false;">
                         <fmt:message key="oscarReport.RptByExample.MsgEditMyFavorite"/>
                     </a>
                 </nav>
@@ -150,7 +150,7 @@
             <div class="col-12 col-md-10">
 
                 <form id="queryForm"
-                      action="${pageContext.request.contextPath}/oscarReport/RptByExample.do"
+                      action="${pageContext.request.contextPath}/oscarReport/RptByExample"
                       method="post">
 
                     <!-- SQL textarea -->

@@ -76,16 +76,16 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <br/>
-                    Name: <input type="text" name="appointmentCardName.value" value="<c:out value='${name.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelName"/> <input type="text" name="appointmentCardName.value" value="${e:forHtmlAttribute(name.value)}" size="50" />
                     <br/>
-                    Phone: <input type="text" name="appointmentCardPhone.value" value="<c:out value='${phone.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelPhone"/> <input type="text" name="appointmentCardPhone.value" value="${e:forHtmlAttribute(phone.value)}" size="50" />
                     <br/>
-                    Fax: <input type="text" name="appointmentCardFax.value" value="<c:out value='${fax.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelFax"/> <input type="text" name="appointmentCardFax.value" value="${e:forHtmlAttribute(fax.value)}" size="50" />
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form>
 
                 <%} else {%>

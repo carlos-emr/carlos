@@ -36,9 +36,6 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -46,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -194,7 +191,7 @@
             <option value="Wipe">Wipe</option>
 
         </select>
-        <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
+        <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= id %>' />"/>
         <input type="hidden" name="action" value="update"/>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>

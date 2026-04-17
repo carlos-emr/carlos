@@ -39,6 +39,7 @@
 <%@page import="java.util.Map" %>
 <%@page import="java.util.Date" %>
 <%@page import="java.util.List" %>
+<%@page import="org.owasp.encoder.Encode" %>
 
 <%
     HashMap<String, String[]> parameters = new HashMap(request.getParameterMap());
@@ -48,5 +49,5 @@
     ProviderPreferenceDao preferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
     ProviderPreference preference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
 
-    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDefaultDxCode.do?provider_no=" + providerNo);
+    response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDefaultDxCode?provider_no=" + Encode.forUriComponent(providerNo));
 %>

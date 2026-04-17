@@ -39,7 +39,7 @@
     - Bootstrap 5 / HTML5 compliant layout
     - OWASP encoding for all server-supplied values
     - i18n via oscarResources bundle
-    - Edit and Delete actions submitted to RptByExamplesFavorite.do
+    - Edit and Delete actions submitted to RptByExamplesFavorite
     - Close button reloads the opener window and closes this popup
 
     Parameters (set by backing Action):
@@ -63,7 +63,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,7 +74,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%
     Locale requestLocale = request.getLocale();
@@ -88,7 +88,7 @@
         <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
     </title>
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
     <fmt:message key="oscarReport.RptByExample.MsgConfirmDelete" var="msgConfirmDelete"/>
@@ -162,7 +162,7 @@
 
     <!-- Favourites management form -->
     <form id="favoritesForm"
-          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite"
           method="post">
 
         <input type="hidden" name="newName"/>

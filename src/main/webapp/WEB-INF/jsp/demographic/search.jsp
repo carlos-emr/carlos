@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_search" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_search");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_search");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,7 +53,7 @@
 
 <html>
 <head>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <title><fmt:message key="demographic.search.title"/></title>
 
     <script type="text/javascript">
@@ -73,13 +73,13 @@
 
         <!-- <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic.addnew" rights="r">  -->
         <div class="createNew">
-            <a class="action-link" href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do"><fmt:message key="demographic.search.btnCreateNew"/></a>
+            <a class="action-link" href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm"><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <!-- </security:oscarSec> -->
 
         <oscar:oscarPropertiesCheck
                 property="SHOW_FILE_IMPORT_SEARCH" value="yes">
-            &nbsp;&nbsp;&nbsp;<a class="action-link" href="<%= request.getContextPath() %>/form/importUpload.do"><fmt:message key="demographic.search.importNewDemographic"/></a>
+            &nbsp;&nbsp;&nbsp;<a class="action-link" href="<%= request.getContextPath() %>/form/importUpload"><fmt:message key="demographic.search.importNewDemographic"/></a>
         </oscar:oscarPropertiesCheck>
     </div>
     </body>

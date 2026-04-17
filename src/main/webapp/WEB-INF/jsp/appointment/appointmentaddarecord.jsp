@@ -46,7 +46,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -63,7 +63,7 @@
         <%-- Waiting list removal prompt --%>
         <c:if test="${not empty waitingListName}">
             <form name="updateWLFrm" method="post"
-                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList.jsp">
+                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList">
                 <input type="hidden" name="listId" value="${e:forHtmlAttribute(waitingListId)}"/>
                 <input type="hidden" name="demographicNo" value="${e:forHtmlAttribute(waitingListDemographicNo)}"/>
                 <script language="JavaScript">

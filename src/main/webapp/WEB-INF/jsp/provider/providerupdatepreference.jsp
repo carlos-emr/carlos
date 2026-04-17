@@ -54,7 +54,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -89,7 +89,7 @@
         <%
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             if (loggedInInfo == null) {
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
                 return;
             }
 
@@ -186,7 +186,7 @@
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
             <p><fmt:message key="provider.providerupdatepreference.error"/></p>
             <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
-            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <%= org.owasp.encoder.Encode.forHtml(errorDetails) %></p>
+            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <e:forHtmlContent value='<%= errorDetails %>' /></p>
             <% } %>
             <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
         </div>

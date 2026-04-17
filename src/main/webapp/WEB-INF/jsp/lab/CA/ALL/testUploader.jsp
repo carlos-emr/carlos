@@ -1,5 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.LabType" %>
-<%@ page import="org.owasp.encoder.Encode" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -274,7 +274,7 @@
     </div>
 
     <form method='POST' name="UPLOAD" id="uploadForm" enctype="multipart/form-data" onsubmit="return validateForm()"
-          action='${ctx}/lab/CA/ALL/insideLabUpload.do'>
+          action='${ctx}/lab/CA/ALL/insideLabUpload'>
 
         <fmt:message key="lab.ca.all.testUploader.pleaseSelectTheLabfile"/>: <i class="fa-solid fa-circle-question"></i>
         
@@ -291,7 +291,7 @@
         </div>
         <span title="<fmt:message key="global.uploadWarningBody"/>"
               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                alt="alert" src="<%= Encode.forHtmlAttribute(request.getContextPath()) %>/images/icon_alertsml.gif"/></span>
+                alt="alert" src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/icon_alertsml.gif"/></span>
 
         <br><br>
         <label for="type"><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>

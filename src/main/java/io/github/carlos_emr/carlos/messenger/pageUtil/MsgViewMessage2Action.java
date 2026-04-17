@@ -142,7 +142,7 @@ public class MsgViewMessage2Action extends ActionSupport {
      * @return {@link #SUCCESS} on the happy path (forwards to the ViewMessage JSP
      *         via the Struts result mapping); {@link #NONE} when an invalid
      *         {@code messageID} or a not-found message triggers an early redirect
-     *         to {@code DisplayMessages.do}
+     *         to {@code DisplayMessages}
      * @throws IOException if the early-return redirect cannot be written
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the session is missing or the user lacks
@@ -208,7 +208,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
         if (parsedMessageNo <= 0) {
             MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -218,7 +218,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         // Early return if message not found
         if (msgDisplayMessage == null) {
             MiscUtils.getLogger().warn("Message not found: ID=" + parsedMessageNo);
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -276,8 +276,8 @@ public class MsgViewMessage2Action extends ActionSupport {
         request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated formatted date from system clock
 
         // Forward to the secured JSP via the Struts "success" result mapping;
-        // a self-redirect to ViewMessage.do would drop messageID and bounce the
-        // user back to DisplayMessages.do. Request params (messageID, boxType,
+        // a self-redirect to ViewMessage would drop messageID and bounce the
+        // user back to DisplayMessages. Request params (messageID, boxType,
         // linkMsgDemo) remain available to the JSP on the forwarded request.
         return SUCCESS;
     }

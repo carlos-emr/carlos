@@ -160,6 +160,50 @@ class StrutsClinicalConfigTest {
         }
     }
 
+    @Test
+    @DisplayName("dxresearch migration routes should stay gated and inside WEB-INF")
+    void shouldKeepDxresearchMigrationRoutesInsideWebInf() throws Exception {
+        Document doc = parse(CLINICAL_CONFIG);
+        NodeList actions = doc.getElementsByTagName("action");
+
+        List<String> offenders = new ArrayList<>();
+
+        for (int i = 0; i < actions.getLength(); i++) {
+            Element action = (Element) actions.item(i);
+            String actionName = action.getAttribute("name");
+            String actionClass = action.getAttribute("class");
+
+            if ("io.github.carlos_emr.carlos.dxresearch.gate.ViewDxResearch2Action".equals(actionClass)) {
+                NodeList results = action.getElementsByTagName("result");
+                for (int r = 0; r < results.getLength(); r++) {
+                    String path = extractResultPath((Element) results.item(r));
+                    if (path == null || path.isEmpty() || !path.startsWith("/WEB-INF/")) {
+                        offenders.add(actionName + " -- result=" + path);
+                    }
+                }
+            }
+
+            if ("oscarResearch/oscarDxResearch/dxResearch".equals(actionName)) {
+                String failurePath = null;
+                NodeList results = action.getElementsByTagName("result");
+                for (int r = 0; r < results.getLength(); r++) {
+                    Element result = (Element) results.item(r);
+                    if ("failure".equals(result.getAttribute("name"))) {
+                        failurePath = extractResultPath(result);
+                    }
+                }
+                assertThat(failurePath)
+                        .as("dxResearch action should keep a failure result that re-renders the migrated JSP "
+                                + "inside /WEB-INF so invalid-code submissions do not redirect into setupDxResearch")
+                        .isEqualTo("/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxResearch.jsp");
+            }
+        }
+
+        assertThat(offenders)
+                .as("every ViewDxResearch2Action mapping must forward inside /WEB-INF/jsp/")
+                .isEmpty();
+    }
+
     private String extractResultPath(Element result) {
         // Results may specify their location either as element text or via
         // <param name="location">. Prefer the param form when present since

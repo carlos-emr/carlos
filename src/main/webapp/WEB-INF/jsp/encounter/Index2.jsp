@@ -56,14 +56,14 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%-- Security validation --%>
 <%
     long startTime = System.currentTimeMillis();
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String demographic$ = request.getParameter("demographicNo");
     boolean bPrincipalControl = false;
@@ -78,7 +78,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -121,7 +121,7 @@
 <%
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/encounter/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
     // Make bean available for EL access as ${bean}
@@ -140,7 +140,7 @@
         session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward.do?action=view" +
+        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view" +
         "&demographicNo=" + bean.demographicNo +
         "&providerNo=" + bean.providerNo +
         "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
@@ -172,7 +172,7 @@
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         session.setAttribute("casemgmt_oscar_bean", bean);
         session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward.do?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
+        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
         if (request.getParameter("casetoEncounter") == null) {
             if (!response.isCommitted())
                 response.sendRedirect(hrefurl);
@@ -210,7 +210,7 @@
                 <div id="leftNavbar" style="height: 100%; width: 100%;">
                     <caisi:isModuleLoad moduleName="caisi">
                         <%
-                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward.do?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
+                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
                         %>
                         <a href="<%=hrefurl2%>">Case Management Encounter</a>
                     </caisi:isModuleLoad>
@@ -219,7 +219,7 @@
 
             <%-- Right content: encounter form --%>
             <div class="col" style="background-color: #CCCCFF;">
-                <form name="encForm" action="SaveEncounter2.do" method="POST">
+                <form name="encForm" action="SaveEncounter2" method="POST">
                     <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
                            onchange="updateDiv();">
                     <caisi:isModuleLoad moduleName="caisi">

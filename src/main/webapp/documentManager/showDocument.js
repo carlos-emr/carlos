@@ -57,7 +57,7 @@ function setupDemoAutoCompletion(docId, contextPath) {
             return;
         }
         var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
-        var url = contextPath + '/demographic/SearchDemographic.do';
+        var url = contextPath + '/demographic/SearchDemographic';
         var csrfToken = (document.querySelector('input[name="CSRF-TOKEN"]') || {value: ''}).value;
         var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term);
         if (abortCtrl) { abortCtrl.abort(); }

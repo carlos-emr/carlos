@@ -33,8 +33,6 @@
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -42,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,8 +65,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<%=Encode.forJavaScript(interactingDrugList != null ? interactingDrugList : "")%>';
-    var randomIds = '<%=Encode.forJavaScript(allRandomIdInStash != null ? allRandomIdInStash.toString() : "")%>';
+    var interactStr = '<e:forJavaScriptBlock value='<%= interactingDrugList != null ? interactingDrugList : "" %>' />';
+    var randomIds = '<e:forJavaScriptBlock value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' />';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {
@@ -164,8 +162,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<%=Encode.forJavaScript(interactingDrugList != null ? interactingDrugList : "")%>';
-    var randomIds = '<%=Encode.forJavaScript(allRandomIdInStash != null ? allRandomIdInStash.toString() : "")%>';
+    var interactStr = '<e:forJavaScriptBlock value='<%= interactingDrugList != null ? interactingDrugList : "" %>' />';
+    var randomIds = '<e:forJavaScriptBlock value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' />';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {

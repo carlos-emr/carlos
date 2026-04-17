@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,7 +53,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.GroupNoteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.GroupNoteLink" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%
 	ProgramManager programManager = (ProgramManager)SpringUtils.getBean(ProgramManager.class);
 	AdmissionManager admissionManager = (AdmissionManager)SpringUtils.getBean(AdmissionManager.class);
@@ -102,9 +101,9 @@
     <!-- current links? -->
 
     <tr>
-        <td><%=Encode.forHtml(demographic.getFormattedName()) %>
+        <td><e:forHtmlContent value='<%= demographic.getFormattedName() %>' />
         </td>
-        <td><%=Encode.forHtml(String.valueOf(link.isAnonymous())) %>
+        <td><e:forHtmlContent value='<%= String.valueOf(link.isAnonymous()) %>' />
         </td>
     </tr>
 
@@ -115,8 +114,8 @@
 }%>
 
 <h5>Select clients for group note</h5>
-<form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction.do" method="post">
-    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(demographicNo)%>"/>
+<form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction" method="post">
+    <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
     <table>
 
         <%
@@ -127,8 +126,8 @@
                 }
         %>
         <tr>
-            <td><input type="checkbox" name="group_client_id" value="<%=Encode.forHtmlAttribute(String.valueOf(demographic.getDemographicNo()))%>"/></td>
-            <td><%=Encode.forHtml(demographic.getFormattedName())%>
+            <td><input type="checkbox" name="group_client_id" value="<e:forHtmlAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />"/></td>
+            <td><e:forHtmlContent value='<%= demographic.getFormattedName() %>' />
             </td>
         </tr>
         <%
@@ -154,7 +153,7 @@
     <input type="button" value="cancel" onclick="window.close();"/> &nbsp;&nbsp; <input type="submit"
                                                                                         value="Enter note into selected clients"
                                                                                         onclick="return confirmGroupNote();"/>
-    <input type="hidden" name="programId" value="<%=Encode.forHtmlAttribute(request.getParameter("programId") != null ? request.getParameter("programId") : "")%>"/>
+    <input type="hidden" name="programId" value="<e:forHtmlAttribute value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' />"/>
 </form>
 <% } %>
 </body>

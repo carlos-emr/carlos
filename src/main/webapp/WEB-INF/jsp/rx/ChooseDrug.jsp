@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,7 +54,6 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.rx.data.*,io.github.carlos_emr.carlos.rx.pageUtil.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
@@ -105,7 +104,7 @@
 
         <script type="text/javascript">
             function ShowDrugInfoBN(drug) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo.do?BN=" + encodeURIComponent(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?BN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
 
@@ -115,7 +114,7 @@
             }
 
             function ShowDrugInfoGN(drug) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo.do?GN=" + encodeURIComponent(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -190,7 +189,7 @@
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug.do">
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug">
                                     <fmt:message key="SearchDrug.title"/></a>
                                 <b><fmt:message key="ChooseDrug.title"/></b>
                             </div>
@@ -209,12 +208,12 @@
                     </tr>
                     <tr>
                         <td>
-                            <form name="RxSearchDrugForm" action="${pageContext.request.contextPath}/rx/searchDrug.do" method="post" focus="searchString" onsubmit="processData();">
+                            <form name="RxSearchDrugForm" action="${pageContext.request.contextPath}/rx/searchDrug" method="post" focus="searchString" onsubmit="processData();">
                                 <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) { %>
                                 <input type="hidden" name="rx2" value="true"/>
                                 <%}%>
 
-                                <input type="hidden" name="demographicNo" id="demographicNo" value="<%=Encode.forHtmlAttribute(demoNo)%>"/>
+                                <input type="hidden" name="demographicNo" id="demographicNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
                                 <table>
                                     <tr>
                                         <td>
@@ -288,12 +287,12 @@
                                                 %>
                                                 <tr>
                                                     <td bgcolor="<%=bgColor%>">
-                                                        <a href="<%= request.getContextPath() %>/rx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
+                                                        <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<e:forUriComponent value='<%= t.pKey %>' />&demographicNo=<e:forUriComponent value='<%= demoNo %>' />"
                                                            title="<%=t.name%>">
                                                             <%= getMaxVal(t.name)%>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="javascript:ShowDrugInfoGN('<%=Encode.forJavaScript(t.name)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="javascript:ShowDrugInfoGN('<e:forJavaScript value='<%= t.name %>' />');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -315,15 +314,15 @@
                                                     <td bgcolor="<%=bgColor%>">
                                                         <%if (request.getParameter("rx2") != null && request.getParameter("rx2").equals("true")) {%>
                                                         <a href="javascript: void(0);"
-                                                           onclick="setDrugRx2('<%=Encode.forJavaScript(t.pKey)%>','<%=Encode.forJavaScript(brandName)%>')">
+                                                           onclick="setDrugRx2('<e:forJavaScriptAttribute value='<%= t.pKey %>' />','<e:forJavaScriptAttribute value='<%= brandName %>' />')">
                                                                     <%}else{%>
-                                                            <a href="<%= request.getContextPath() %>/rx/chooseDrug.do?BN=<%=Encode.forUriComponent(brandName)%>&drugId=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>"
+                                                            <a href="<%= request.getContextPath() %>/rx/chooseDrug?BN=<e:forUriComponent value='<%= brandName %>' />&drugId=<e:forUriComponent value='<%= t.pKey %>' />&demographicNo=<e:forUriComponent value='<%= demoNo %>' />"
                                                                title="<%=brandName %>">
                                                                 <%}%>
                                                                 <%=brandName%>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="javascript:ShowDrugInfoBN('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="javascript:ShowDrugInfoBN('<e:forJavaScript value='<%= t.pKey %>' />');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -347,7 +346,7 @@
                             <script language="javascript">
                                 function customWarning() {
                                     if (confirm("<fmt:message key="ChooseDrug.msgCustomWarning"/>") == true) {
-                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug.do?demographicNo=<%= Encode.forUriComponent(demoNo) %>';
+                                        window.location.href = '<%= request.getContextPath() %>/rx/chooseDrug?demographicNo=<e:forUriComponent value='<%= demoNo %>' />';
                                     }
                                 }
                             </script>
@@ -373,11 +372,11 @@
                                     %>
                                     <tr>
                                         <td bgcolor="<%=bgColor%>">
-                                            <a href="<%= request.getContextPath() %>/rx/searchDrug.do?genericSearch=<%= Encode.forUriComponent(t.pKey) %>&demographicNo=<%= Encode.forUriComponent(demoNo) %>">
+                                            <a href="<%= request.getContextPath() %>/rx/searchDrug?genericSearch=<e:forUriComponent value='<%= t.pKey %>' />&demographicNo=<e:forUriComponent value='<%= demoNo %>' />">
                                                 <%= t.name%>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="javascript:ShowDrugInfo('<%=Encode.forJavaScript(t.pKey)%>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="javascript:ShowDrugInfo('<e:forJavaScript value='<%= t.pKey %>' />');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%

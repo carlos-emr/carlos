@@ -447,7 +447,7 @@ $(document).ready(function ($) {
     const demographicNo = $('input[name="demographicNo"]').val();
     const appointmentNo = $('input[name="appointmentNo"]').val();
 
-    $("#ticklerModal").find(".modal-body").load(contextPath + "/formeCARES.do?method=getTickler&demographicNo=" + demographicNo);
+    $("#ticklerModal").find(".modal-body").load(contextPath + "/formeCARES?method=getTickler&demographicNo=" + demographicNo);
 
     $(".tickler").on('click', function () {
         //populate tickler Encounter note field with unresolved data points.
@@ -471,7 +471,7 @@ $(document).ready(function ($) {
 
     $(".export").on('click', function () {
         console.log("Export")
-        window.open(contextPath + "/formeCARES.do?method=export&demographicNo=" + demographicNo + "&formId=" + formId)
+        window.open(contextPath + "/formeCARES?method=export&demographicNo=" + demographicNo + "&formId=" + formId)
     })
 
     flatpickr('.date', {
@@ -558,11 +558,11 @@ $(document).ready(function ($) {
 });
 
 function getTickler(contextPath) {
-    return $.get(contextPath + "/formeCARES.do?method=getTickler&demographicNo=" + demographicNo);
+    return $.get(contextPath + "/formeCARES?method=getTickler&demographicNo=" + demographicNo);
 }
 
 function createTickler(contextPath) {
-    return $.post(contextPath + "/formeCARES.do", { method: "createTickler" })
+    return $.post(contextPath + "/formeCARES", { method: "createTickler" })
 }
 
 function saveTickler($form) {
@@ -573,7 +573,7 @@ function saveTickler($form) {
     }
     return $.ajax({
         type: 'POST',
-        url: contextPath + "/formeCARES.do?method=createTickler",
+        url: contextPath + "/formeCARES?method=createTickler",
         dataType: "json",
         data: request,
     })
@@ -595,7 +595,7 @@ function validateTickler($tickler) {
 }
 
 function getSavedData(contextPath, demographicNo, appointmentNo, formId) {
-    return $.getJSON(contextPath + "/formeCARES.do?method=get&demographicNo=" + demographicNo + "&appointmentNo=" + appointmentNo + "&formId=" + formId)
+    return $.getJSON(contextPath + "/formeCARES?method=get&demographicNo=" + demographicNo + "&appointmentNo=" + appointmentNo + "&formId=" + formId)
 }
 
 function handleFallsNumber() {

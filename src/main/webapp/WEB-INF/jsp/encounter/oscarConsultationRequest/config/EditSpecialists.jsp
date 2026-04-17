@@ -1,4 +1,4 @@
-<%@ page import="org.owasp.encoder.Encode" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,7 +54,7 @@
         displayServiceUtil.estSpecialistVector();
     %>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.title"/></title>
     </head>
 
@@ -73,7 +73,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -90,7 +90,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/EditSpecialists.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/EditSpecialists" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"
                            onclick="return confirm('Are you sure you want to delete the selected specialists?');"/>
@@ -115,14 +115,14 @@
                                     String phone = displayServiceUtil.phoneVec.elementAt(i);
                                     String fax = displayServiceUtil.faxVec.elementAt(i);
                                     String contextPath = request.getContextPath();
-                                    String url = contextPath + "/encounter/EditSpecialists.do?specId=" + specId;
+                                    String url = contextPath + "/encounter/EditSpecialists?specId=" + specId;
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>
-                                <td><a href="<%= url %>"><%= Encode.forHtmlContent(lName + " " + fName + " " + (proLetters == null ? "" : proLetters)) %></a></td>
-                                <td><%= Encode.forHtmlContent(address) %></td>
-                                <td><%= Encode.forHtmlContent(phone) %></td>
-                                <td><%= Encode.forHtmlContent(fax) %></td>
+                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= lName + " " + fName + " " + (proLetters == null ? "" : proLetters) %>' /></a></td>
+                                <td><e:forHtmlContent value='<%= address %>' /></td>
+                                <td><e:forHtmlContent value='<%= phone %>' /></td>
+                                <td><e:forHtmlContent value='<%= fax %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

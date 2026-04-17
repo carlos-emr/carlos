@@ -37,8 +37,6 @@
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
     MeasurementMapConfig mmc = new MeasurementMapConfig();
@@ -67,7 +65,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap';
             return true;
         }
 
@@ -94,7 +92,7 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="AddMeasurementMap.do">
+<form method="post" name="CONFIG" action="AddMeasurementMap">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">
@@ -104,8 +102,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -144,7 +142,7 @@
                                         searchstring = "";
                                 %>
                                 <input type="text" size="30" name="searchstring"
-                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
+                                       value="<e:forHtmlAttribute value='<%= searchstring %>' />"/> <input type="submit" value="Search"
                                                                             onclick="return reloadPage()"/></td>
                         <tr>
                             <td class="Cell" width="20%">Select code to map to:</td>
@@ -161,7 +159,7 @@
                             <td colspan="2" class="Cell" align="center"><input
                                     type="submit" value=" Update Measurement Mapping "> <input
                                     type="button" value=" Add New Loinc Code "
-                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap.do','Add_New_Loinc_Code')">
+                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap','Add_New_Loinc_Code')">
                             </td>
                         </tr>
                         <tr>

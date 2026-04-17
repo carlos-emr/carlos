@@ -36,7 +36,7 @@
 %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -126,7 +126,7 @@
                                 <td bgcolor="#CCFFCC">
                                     <div align="right"><input type="button" name="Button"
                                                               value='<fmt:message key="schedule.scheduledatefinal.btnDoAgain"/>'
-                                                              onclick="self.location.href='${pageContext.request.contextPath}/schedule/TemplateSetting.do'">
+                                                              onclick="self.location.href='${pageContext.request.contextPath}/schedule/TemplateSetting'">
                                     </div>
                                 </td>
                             </tr>

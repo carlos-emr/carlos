@@ -12,7 +12,8 @@ import java.net.URLDecoder;
 import java.util.Collection;
 
 import org.apache.cxf.message.Attachment;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCachingInterceptor;
 
 /**
@@ -26,7 +27,7 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
 
     private static final String ATTACHMENT_PREFIX = "cid:";
 
-    private static Logger logger = Logger.getLogger(CidPrefixResourceResolver.class);
+    private static final Logger logger = LoggerFactory.getLogger(CidPrefixResourceResolver.class);
 
     private Collection<Attachment> attachments;
 

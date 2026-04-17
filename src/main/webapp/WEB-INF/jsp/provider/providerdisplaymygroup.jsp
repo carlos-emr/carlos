@@ -36,24 +36,22 @@
     }
 %>
 <%@ page import="java.util.*,java.sql.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
@@ -69,7 +67,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do">
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol">
         <input type="hidden" name="submit_form" value="">
         <input type="hidden" name="displaymode" value="newgroup">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
@@ -98,11 +96,11 @@
             <tr class="<%=bNewNo?"":"table-light"%>">
                 <td style="width:10%" class="text-center">
                     <input type="checkbox" class="form-check-input"
-                           name="<%=Encode.forHtmlAttribute(groupNo+myGroup.getId().getProviderNo())%>"
-                           value="<%=Encode.forHtmlAttribute(groupNo)%>">
+                           name="<e:forHtmlAttribute value='<%= groupNo+myGroup.getId().getProviderNo() %>' />"
+                           value="<e:forHtmlAttribute value='<%= groupNo %>' />">
                 </td>
-                <td class="text-center"><%=Encode.forHtml(groupNo)%></td>
-                <td class="text-center"><%=Encode.forHtml(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
+                <td class="text-center"><e:forHtmlContent value='<%= groupNo %>' /></td>
+                <td class="text-center"><e:forHtmlContent value='<%= myGroup.getLastName() + ", " + myGroup.getFirstName() %>' /></td>
             </tr>
             <%
                 }

@@ -37,7 +37,7 @@
     <head>
 
         <script type="text/javascript">
-            if (window.opener != null && !window.opener.closed && window.opener.location.href.includes("<%= request.getContextPath() %>/encounter/ViewFormlist.do")) {
+            if (window.opener != null && !window.opener.closed && window.opener.location.href.includes("<%= request.getContextPath() %>/encounter/ViewFormlist")) {
                 window.opener.location.reload();
             }
 

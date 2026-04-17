@@ -94,15 +94,15 @@
     String[] param = new String[3];
 
     String originalPage = request.getParameter("originalpage") != null ? request.getParameter("originalpage") : "schedule";
-    String originalPagePath = request.getContextPath() + "/provider/providercontrol.do";
+    String originalPagePath = request.getContextPath() + "/provider/providercontrol";
 
     if (originalPage.equals("waitingList")) {
-        originalPagePath = request.getContextPath() + "/waitinglist/DisplayWaitingList.jsp";
+        originalPagePath = request.getContextPath() + "/waitinglist/SetupDisplayWaitingList";
     }
 %>
 <%@ page
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="DateTimeCodeBean" class="java.util.Hashtable"
              scope="page"/>
@@ -127,12 +127,12 @@
         <script language="JavaScript">
             <!--
             function changePro(providerno) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=Encode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
                 self.location.href = a;
             }
 
             function selectprovider(s) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=Encode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
                 self.location.href = a;
             }//-->
 
@@ -140,32 +140,31 @@
             function t(s1, s2, s3, s4, s5, s6, doConfirm, allowDay, allowWeek) {
                 if (doConfirm == "Yes") {
                     if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")) {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Day") {
                     if (allowDay == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Wk") {
                     if (allowWeek == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Onc") {
                     if (allowDay == "No") {
-                        if (confirm("This is an On Call Urgent appointment.  Are you sure you want to book?")) {
-                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        if (confirm("<fmt:message key='schedule.scheduleflipview.msgOnCallUrgentConfirm'/>")) {
+                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                         }
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else {
-                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment.jsp?demographic_no=<%=Encode.forJavaScript(curDemoNo)%>&name=<%=Encode.forJavaScript(curDemoName)%>&provider_no=<%=Encode.forJavaScript(curProvider_no)%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                 }
-
             }
         </SCRIPT>
 
@@ -196,14 +195,14 @@
 
     <div style="colur: #FF0000; text-decoration: none"><a
             href="javascript:history.go(-1)"
-            style="text-decoration: none; color: #000000">Go Back</a> <a
-            href="<%= request.getContextPath() %>/provider/providercontrol.do"
-            style="text-decoration: none; color: #000000">Day Page</a></div>
+            style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnGoBack"/></a> <a
+            href="<%= request.getContextPath() %>/provider/providercontrol"
+            style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnDayPage"/></a></div>
     <table width="100%" border="1" cellspacing="0" cellpadding="0">
         <tr align="center" bgcolor="#CCCCFF">
-            <% if (bMultisites) out.print("<td>Site</td>"); %>
+            <% if (bMultisites) { %><td><fmt:message key="schedule.scheduleflipview.tableSite"/></td><% } %>
             <td width="15%" nowrap><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<e:forUriComponent value='<%= originalPage %>' />&provider_no=<e:forUriComponent value='<%= curProvider_no %>' />&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
                     title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/previous.gif"></a> <select
                     name="provider_no" onChange="selectprovider(this)">
@@ -214,7 +213,7 @@
                         Provider p = providerDao.getProvider(curProvider_no);
                         if (p != null) {
                 %>
-                <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=p.getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(p.getFormattedName(), "", 12))%>
+                <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=p.getProviderNo().equals(curProvider_no) ? "selected" : ""%>><e:forHtmlContent value='<%= Misc.getShortStr(p.getFormattedName(), "", 12) %>' />
                 </option>
                 <%
                     }
@@ -222,14 +221,14 @@
                     List<MyGroup> mgs = myGroupDao.getGroupByGroupNo(mygroupno);
                     for (MyGroup mg : mgs) {
                 %>
-                <option value="<%=Encode.forHtmlAttribute(mg.getId().getProviderNo())%>" <%=mg.getId().getProviderNo().equals(curProvider_no) ? "selected" : ""%>><%=Encode.forHtmlContent(Misc.getShortStr(mg.getLastName() + "," + mg.getFirstName(), "", 12))%>
+                <option value="<e:forHtmlAttribute value='<%= mg.getId().getProviderNo() %>' />" <%=mg.getId().getProviderNo().equals(curProvider_no) ? "selected" : ""%>><e:forHtmlContent value='<%= Misc.getShortStr(mg.getLastName() + "," + mg.getFirstName(), "", 12) %>' />
                 </option>
                 <%
                         }
                     }
                 %>
             </select><a
-                    href="${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
+                    href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<e:forUriComponent value='<%= originalPage %>' />&provider_no=<e:forUriComponent value='<%= curProvider_no %>' />&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"
                     title="<fmt:message key="schedule.scheduleflipview.msgNextmonth"/>"
                     border='0'><img src="<%= request.getContextPath() %>/images/next.gif"></a></td>
             <% for (int j = 0; j < colscode; j++) { %>
@@ -400,7 +399,7 @@
                 <table style="display:inline; font-size:x-small;">
                     <tr>
                         <td rowspan="2" style="vertical-align:middle;"><a href=#
-                                                                          onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<%=Encode.forJavaScriptAttribute(DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "")%>','<%=Encode.forJavaScriptAttribute(DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "")%>','<%=allowDay%>','<%=allowWeek%>');return false;">
+                                                                          onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<e:forJavaScriptAttribute value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' />','<e:forJavaScriptAttribute value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' />','<%=allowDay%>','<%=allowWeek%>');return false;">
                             <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : Encode.forHtml(temp.toString()) %>
                         </a></td>
                         <td title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"
@@ -409,7 +408,7 @@
                     </tr>
                     <tr>
                         <td style="vertical-align:bottom; font-size: x-small;"
-                            title="<fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><%=Encode.forHtml(bookinglimit)%>
+                            title="<fmt:message key="schedule.scheduleflipview.msgbookinglimit"/>"><e:forHtmlContent value='<%= bookinglimit %>' />
                         </td>
                     </tr>
                 </table>
@@ -425,9 +424,9 @@
 
     </table>
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<e:forUriComponent value='<%= originalPage %>' />&provider_no=<e:forUriComponent value='<%= curProvider_no %>' />&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnLastMonth"/> </a>
     |
     <a
-            href="${pageContext.request.contextPath}/schedule/FlipView.do?originalpage=<%=Encode.forUriComponent(originalPage)%>&provider_no=<%=Encode.forUriComponent(curProvider_no)%>&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
+            href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<e:forUriComponent value='<%= originalPage %>' />&provider_no=<e:forUriComponent value='<%= curProvider_no %>' />&startDate=<%=nextMonth.get(Calendar.YEAR)+"-"+(nextMonth.get(Calendar.MONTH)+1)+"-"+nextMonth.get(Calendar.DATE)%>"><fmt:message key="schedule.scheduleflipview.btnNextMonth"/></a>
     </body>
 </html>

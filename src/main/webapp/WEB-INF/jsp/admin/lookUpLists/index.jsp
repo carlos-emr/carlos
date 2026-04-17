@@ -79,7 +79,7 @@
         function postData(data, target) {
             $.ajax({
                 method: "POST",
-                url: "${ pageContext.request.contextPath }/lookupListManagerAction.do",
+                url: "${ pageContext.request.contextPath }/lookupListManagerAction",
                 data: data,
                 success: function (data) {
                     $(".lookupListItemLabel").val("");

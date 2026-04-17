@@ -904,9 +904,10 @@ public final class EDocUtil {
 
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
-        String sourceDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        File sourceFile = new File(sourceDocDir, d.getDocfilename());
+        File sourceFile = PathValidationUtils.validateExistingPath(
+                new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
         String destFileName = sourceFile.getName();
         if (destFileName.length() > 18) {
@@ -914,7 +915,8 @@ public final class EDocUtil {
         }
 
         String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
-        File destFile = new File(destPath, "R" + destFileName);
+        File destBaseDir = new File(destPath);
+        File destFile = PathValidationUtils.validatePath("R" + destFileName, destBaseDir);
 
         try {
             if (destFile.exists()) {

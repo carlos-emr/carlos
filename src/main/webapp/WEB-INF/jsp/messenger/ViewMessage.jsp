@@ -81,6 +81,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -95,7 +96,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -136,7 +137,7 @@ function popupViewAttach(vheight,vwidth,varpage) {
   windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
   var winName;
 
-  if( page.indexOf("IncomingEncounter.do") > -1 ) {
+  if( page.indexOf("IncomingEncounter") > -1 ) {
     winName = "encounter";
   }
   else {
@@ -199,7 +200,7 @@ function popup(demographicNo, msgId, providerNo, action) {
               win.close();
               var writeForm = document.createElement('form');
               writeForm.method = 'post';
-              writeForm.action = 'WriteToEncounter.do';
+              writeForm.action = 'WriteToEncounter';
               writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
               var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
               for (var k in writeFields) {
@@ -221,7 +222,7 @@ function popup(demographicNo, msgId, providerNo, action) {
       else if ( action == "linkToDemographic"){
           var linkForm = document.createElement('form');
           linkForm.method = 'post';
-          linkForm.action = 'ViewMessage.do';
+          linkForm.action = 'ViewMessage';
           var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
           for (var lk in linkFields) {
               var li = document.createElement('input');
@@ -315,7 +316,7 @@ function fmtOscarMsg() {
 </style>
 </head>
 <body>
-<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
+<form action="<%=request.getContextPath()%>/messenger/HandleMessages" method="post">
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
 			<td class="MainTableTopRowLeftColumn">
@@ -342,7 +343,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA >
 									<tr>
 										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do"
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages"
 									            class="btn btn-primary">
 									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
@@ -358,7 +359,7 @@ function fmtOscarMsg() {
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=1"
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1"
 									        class="btn btn-primary">
 									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>
@@ -374,7 +375,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -416,23 +417,23 @@ function fmtOscarMsg() {
 					<table valign="top" class="card card-body bg-body-tertiary"  style="width:100%"><!-- the messageblock -->
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
-							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />
+							<td colspan="2" id="sentBy" class="Printable" >${e:forHtml(viewMessageSentby)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
-							<td colspan="2" id="sentTo" class="Printable" ><c:out value="${ viewMessageSentto }" />
+							<td colspan="2" id="sentTo" class="Printable" >${e:forHtml(viewMessageSentto)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
-							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
+							<td colspan="2" id="msgSubject" class="Printable" >${e:forHtml(viewMessageSubject)}
 							</td>
 						</tr>
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
 							<td colspan="2" id="sentDate" class="Printable" >
-								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
+								${e:forHtml(viewMessageDate)} ${e:forHtml(viewMessageTime)}
 							</td>
 						</tr>
 						<%-- Display file and PDF attachments if present in session --%>
@@ -443,7 +444,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<e:forJavaScript value='<%= id %>' />')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -456,7 +457,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach?attachId=<e:forJavaScript value='<%= id %>' />')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -474,9 +475,9 @@ function fmtOscarMsg() {
 							<td colspan="2" class="Printable"><p>&nbsp;</p>
 
                             <div id="viewer" class="DoNotPrint"></div>
-								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><%=Encode.forHtml(bodyTextAsHTML)%></textarea>
+								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><e:forHtmlContent value='<%= bodyTextAsHTML %>' /></textarea>
 
-                            <div id="print_helper"><%=Encode.forHtml(bodyTextAsHTML)%></div>
+                            <div id="print_helper"><e:forHtmlContent value='<%= bodyTextAsHTML %>' /></div>
 							</td>
 						</tr>
 
@@ -502,7 +503,7 @@ function fmtOscarMsg() {
 										<td></td>
 										<td  colspan="2">
 
-											<c:out value="${ demoattached.value }" /> <br />
+											${e:forHtml(demoattached.value)} <br />
 
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
@@ -596,9 +597,9 @@ function fmtOscarMsg() {
 								name="selectedDemo" class="form-control" readonly
 								style="border: none" value="none">
                                 <script>
-                                if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
-                                    document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
-                                    document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
+                                if ( "<e:forJavaScriptBlock value='<%= demoName %>' />" != "null" && "<e:forJavaScriptBlock value='<%= demoName %>' />" != "") {
+                                    document.forms[0].selectedDemo.value = "<e:forJavaScriptBlock value='<%= demoName %>' />"
+                                    document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= demographic_no %>' />"
                                 }
                                 </script>
                             </td>
@@ -606,7 +607,7 @@ function fmtOscarMsg() {
                                 <input type="button"
 								    class="btn btn-outline-secondary" name="linkDemo"
 								    value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								    onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')">
+								    onclick="popup(document.forms[0].demographic_no.value,'<e:forJavaScript value='<%= viewMsgId %>' />','<e:forJavaScript value='<%= viewProvNo %>' />','linkToDemographic')">
 							    <input type="button" class="btn btn-outline-secondary"
 								    name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
 								    onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
@@ -635,15 +636,15 @@ function fmtOscarMsg() {
 								<%
                                     String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit.do?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
-                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>');return false;"><fmt:message key="global.E" /></a>
-                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                    <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<e:forJavaScript value='<%= (String)session.getAttribute("providerNo") %>' />');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../rx/choosePatient?providerNo=<e:forJavaScript value='<%= (String)session.getAttribute("providerNo") %>' />&demographicNo=<%=demoKeyJs%>')">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">
 								<button type="button" class="btn btn-secondary"
 									name="writeEncounter"
-                                    onclick="popup( '<%=demoKeyJs%>','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" >
+                                    onclick="popup( '<%=demoKeyJs%>','<e:forJavaScriptAttribute value='<%= (String)session.getAttribute("viewMessageId") %>' />','<e:forJavaScriptAttribute value='<%= (String)session.getAttribute("providerNo") %>' />','writeToEncounter')" >
                                     <i class="fa-solid fa-pen-to-square"></i>
                                     <fmt:message key="messenger.ViewMessage.writeToE"/>
 								</button>
@@ -652,7 +653,7 @@ function fmtOscarMsg() {
 							<tr>
 								<td></td>
 								<td><a class="DoNotPrint"
-									href="javascript:popupStart(400,850,'../demographic/DemographicApptHistory.do?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									href="javascript:popupStart(400,850,'../demographic/DemographicApptHistory?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
 									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="encounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>

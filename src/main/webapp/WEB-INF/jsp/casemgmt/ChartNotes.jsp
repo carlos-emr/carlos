@@ -90,8 +90,6 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -100,7 +98,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -146,7 +144,7 @@
         String demographicNo = request.getParameter("demographicNo");
         EctSessionBean bean = null;
         if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError.do");
+            response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
             return;
         }
 
@@ -162,22 +160,22 @@
         }
 %>
 
-<script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-3.7.1.min.js"/>"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/library/jquery/jquery-ui-1.14.2.min.js" />"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
 <script type="text/javascript">jQuery.noConflict();</script>
-<link rel="stylesheet" type="text/css" href="<c:out value="${ctx}"/>/library/jquery/jquery-ui-1.14.2.min.css">
+<link rel="stylesheet" type="text/css" href="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css">
 <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
 <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
-<script src="<c:out value="${ctx}"/>/share/javascript/prototype-compat.js" type="text/javascript"></script>
-<script src="<c:out value="${ctx}"/>/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
 <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
-<script src="<c:out value="${ctx}"/>/share/javascript/select.js" type="text/javascript"></script>
-<script type="text/javascript" src="<c:out value="${ctx}/js/newCaseManagementView.js.jsp"/>?v=<%= System.currentTimeMillis() %>"></script>
+<script src="${e:forHtmlAttribute(ctx)}/share/javascript/select.js" type="text/javascript"></script>
+<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp?v=<%= System.currentTimeMillis() %>"></script>
 <script type="text/javascript">
-    ctx = "<c:out value="${ctx}"/>";
+    ctx = "${e:forJavaScript(ctx)}";
     imgPrintgreen.src = ctx + "/encounter/graphics/printerGreen.png"; //preload green print image so firefox will update properly
     providerNo = "<%=provNo%>";
-    demographicNo = "<%= Encode.forJavaScript(demographicNo) %>";
+    demographicNo = "<e:forJavaScriptBlock value='<%= demographicNo %>' />";
     case_program_id = "<%=pId%>";
 
     <caisi:isModuleLoad moduleName="caisi">
@@ -210,13 +208,13 @@
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
-    alert("<%=Encode.forJavaScript(String.valueOf(request.getAttribute("NoteLockError")))%>");
+    alert("<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("NoteLockError")) %>' />");
     <%}%>
 
 </script>
 <div id="topContent">
-    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView.do" method="post">
-        <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+    <form name="caseManagementViewForm" action="${pageContext.request.contextPath}/CaseManagementView" method="post">
+        <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
         <input type="hidden" name="providerNo" value="<%=provNo%>"/>
         <input type="hidden" name="tab" value="Current Issues"/>
         <input type="hidden" name="hideActiveIssue" id="hideActiveIssue"/>
@@ -331,7 +329,7 @@
                                         providerNo = prov.getProviderNo();
                                 %>
                                 <li>
-                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><%=Encode.forHtml(prov.getFormattedName())%>
+                                    <input type="checkbox" name="filter_providers" value="<%= providerNo %>" onclick="filterCheckBox(this)" /><e:forHtmlContent value='<%= prov.getFormattedName() %>' />
                                 </li>
                                 <%
                                     }
@@ -354,7 +352,7 @@
                                 %>
                                 <li>
                                     <input type="checkbox" name="filter_roles" value="<%=String.valueOf(role.getId())%>" onclick="filterCheckBox(this)" />
-                                    <%=Encode.forHtml(role.getName())%>
+                                    <e:forHtmlContent value='<%= role.getName() %>' />
                                 </li>
                                 <%
                                     }
@@ -403,7 +401,7 @@
                                 <li>
                                     <input type="checkbox" name="issues" value="<%=String.valueOf(issue_checkBoxBean.getIssue().getId())%>"
                                                    onclick="filterCheckBox(this)" />
-                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <%=Encode.forHtml(issue_checkBoxBean.getIssueDisplay().getDescription())%>
+                                    <%=issue_checkBoxBean.getIssueDisplay().getResolved().equals("resolved") ? "* " : ""%> <e:forHtmlContent value='<%= issue_checkBoxBean.getIssueDisplay().getDescription() %>' />
                                 </li>
                                 <%
                                     }
@@ -428,12 +426,12 @@
                 <oscar:oscarPropertiesCheck value="true" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="studentParticipationConsentCheck"
                            id="studentParticipationConsentCheck"
-                           onClick="return doStudentParticipationCheck('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
+                           onClick="return doStudentParticipationCheck('<e:forJavaScriptAttribute value='<%= demoNo %>' />');"/>
                     <label for="studentParticipationConsentCheck"><fmt:message key="casemgmt.chartnotes.studentParticipationConsent"/></label>
                 </oscar:oscarPropertiesCheck>
                 <oscar:oscarPropertiesCheck value="false" property="STUDENT_PARTICIPATION_CONSENT">
                     <input type="checkbox" value="" name="informedConsentCheck" id="informedConsentCheck"
-                           onClick="return doInformedConsent('<%= Encode.forJavaScriptAttribute(demoNo) %>');"/>
+                           onClick="return doInformedConsent('<e:forJavaScriptAttribute value='<%= demoNo %>' />');"/>
                     <label for="informedConsentCheck"><fmt:message key="casemgmt.chartnotes.informedConsent"/></label>
                 </oscar:oscarPropertiesCheck>
             </div>
@@ -444,7 +442,7 @@
                 <legend>Template Search</legend>
 
                 <img alt="<fmt:message key="encounter.msgFind"/>"
-                     src="<c:out value="${ctx}/encounter/graphics/edit-find.png"/>">
+                     src="${e:forHtmlAttribute(ctx)}/encounter/graphics/edit-find.png">
                 <input id="enTemplate" placeholder="template name" tabindex="6" size="16" type="text" value=""
                        onkeypress="return grabEnterGetTemplate(event)">
 
@@ -465,8 +463,8 @@
     </div>
 </div>
 <%-- Insert smart note templates here --%>
-<form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry.do" method="post">
-    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographicNo) %>"/>
+<form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath()%>/CaseManagementEntry" method="post">
+    <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
     <input type="hidden" name="includeIssue" value="off"/>
     <%
         String apptNo = request.getParameter("appointmentNo");
@@ -495,20 +493,20 @@
         }
     %>
 
-    <input type="hidden" name="appointmentNo" value="<%= Encode.forHtmlAttribute(apptNo) %>"/>
-    <input type="hidden" name="appointmentDate" value="<%= Encode.forHtmlAttribute(apptDate) %>"/>
-    <input type="hidden" name="start_time" value="<%= Encode.forHtmlAttribute(startTime) %>"/>
+    <input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= apptNo %>' />"/>
+    <input type="hidden" name="appointmentDate" value="<e:forHtmlAttribute value='<%= apptDate %>' />"/>
+    <input type="hidden" name="start_time" value="<e:forHtmlAttribute value='<%= startTime %>' />"/>
     <input type="hidden" name="billRegion"
                  value="<%=(CarlosProperties.getInstance().getProperty("billregion","")).trim().toUpperCase()%>"/>
-    <input type="hidden" name="apptProvider" value="<%= Encode.forHtmlAttribute(apptProv) %>"/>
-    <input type="hidden" name="providerview" value="<%= Encode.forHtmlAttribute(provView) %>"/>
+    <input type="hidden" name="apptProvider" value="<e:forHtmlAttribute value='<%= apptProv %>' />"/>
+    <input type="hidden" name="providerview" value="<e:forHtmlAttribute value='<%= provView %>' />"/>
     <input type="hidden" name="toBill" id="toBill" value="false">
     <input type="hidden" name="deleteId" value="0">
     <input type="hidden" name="lineId" value="0">
     <input type="hidden" name="from" value="casemgmt">
     <input type="hidden" name="method" value="save">
-    <input type="hidden" name="change_diagnosis" value="<c:out value="${change_diagnosis}"/>">
-    <input type="hidden" name="change_diagnosis_id" value="<c:out value="${change_diagnosis_id}"/>">
+    <input type="hidden" name="change_diagnosis" value="${e:forHtmlAttribute(change_diagnosis)}">
+    <input type="hidden" name="change_diagnosis_id" value="${e:forHtmlAttribute(change_diagnosis_id)}">
     <input type="hidden" name="newIssueId" id="newIssueId">
     <input type="hidden" name="newIssueName" id="newIssueName">
     <input type="hidden" name="ajax" value="false">
@@ -532,7 +530,7 @@
     <input type="hidden" name="pEndDate" id="pEndDate" value="">
 
     <span id="notesLoading">
-		<img src="<c:out value="${ctx}/images/DMSLoader.gif" />">Loading Notes...
+		<img src="${e:forHtmlAttribute(ctx)}/images/DMSLoader.gif">Loading Notes...
 	</span>
 
 
@@ -573,13 +571,13 @@
                         if (facility != null && facility.isEnableGroupNotes()) {
                     %>
                     <input tabindex="16" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/group-gnote.png"/>" id="groupNoteImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/group-gnote.png" id="groupNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return selectGroup(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnGroupNote"/>'>
                     <% }
                         if (facility != null && facility.isEnablePhoneEncounter()) {
                     %>
-                    <input tabindex="25" type='image' src="<c:out value="${ctx}/encounter/graphics/attach.png"/>"
+                    <input tabindex="25" type='image' src="${e:forHtmlAttribute(ctx)}/encounter/graphics/attach.png"
                            id="attachNoteImg"
                            onclick="event.preventDefault();event.stopPropagation();return assign(document.forms['caseManagementEntryForm'].elements['caseNote.program_no'].value,document.forms['caseManagementEntryForm'].elements['demographicNo'].value);"
                            title='<fmt:message key="encounter.Index.btnAttachNote"/>'>
@@ -589,26 +587,26 @@
                         }
                     %>
                     <input tabindex="17" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/media-floppy.png"/>" id="saveImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/media-floppy.png" id="saveImg"
                            onclick="event.preventDefault();event.stopPropagation();return saveNoteAjax('save', 'list');"
                            title='<fmt:message key="encounter.Index.btnSave"/>'>
                     <input tabindex="18" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/document-new.png"/>" id="newNoteImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/document-new.png" id="newNoteImg"
                            onclick="newNote(event); return false;"
                            title='<fmt:message key="encounter.Index.btnNew"/>'>
                     <input tabindex="19" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/note-save.png"/>" id="signSaveImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png" id="signSaveImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSignSave"/>'>
                     <input tabindex="20" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/verify-sign.png"/>" id="signVerifyImg"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/verify-sign.png" id="signVerifyImg"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
                         if (bean.source == null) {
                     %>
                     <input tabindex="21" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/dollar-sign-icon.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].toBill.value='true';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnBill"/>'>
                     <%
@@ -617,10 +615,10 @@
 
 
                     <input tabindex="23" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/system-log-out.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
                            onclick='closeEnc(event);return false;' title='<fmt:message key="global.btnExit"/>'>
                     <input tabindex="24" type='image'
-                           src="<c:out value="${ctx}/encounter/graphics/document-print.png"/>"
+                           src="${e:forHtmlAttribute(ctx)}/encounter/graphics/document-print.png"
                            onclick="return printSetup(event);"
                            title='<fmt:message key="encounter.Index.btnPrint"/>' id="imgPrintEncounter">
             </div>
@@ -629,7 +627,7 @@
         <div class="row">
             <div id="note-control-panel">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser.do?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
@@ -645,7 +643,7 @@
      * enable autocomplete for Issue search menus.
      */
     jQuery(document).ready(function($) {
-        var autocompleteUrl = ctx + "/CaseManagementEntry.do?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
+        var autocompleteUrl = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
         
         $(".issueAutocomplete").autocomplete({
             source: function(request, response) {

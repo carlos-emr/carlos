@@ -30,12 +30,12 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 
 <%
     long loadPage = System.currentTimeMillis();
-    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 
@@ -44,10 +44,10 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <c:set var="ctx" value="${pageContext.request.contextPath}"
                scope="request"/>
-        <link rel="stylesheet" href="<c:out value="${ctx}"/>/css/casemgmt.css"
+        <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
               type="text/css">
         <link rel="stylesheet" type="text/css"
-              href="<c:out value="${ctx}"/>/css/print.css" media="print"/>
+              href="${e:forHtmlAttribute(ctx)}/css/print.css" media="print"/>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title>Case Management</title>
         <%! String refresh = CarlosProperties.getInstance().getProperty("refresh.encounterLayout.jsp", "-1"); %>

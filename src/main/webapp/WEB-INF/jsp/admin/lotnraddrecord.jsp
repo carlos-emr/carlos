@@ -30,6 +30,7 @@
 --%>
 <%@page import="java.net.URLEncoder" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String curProvider_no = (String) session.getAttribute("user");
@@ -38,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -48,7 +49,6 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -71,14 +71,17 @@
             String resultMsg = (String) request.getAttribute("resultMsg");
             String prevention = (String) request.getAttribute("prevention");
             if (prevention == null) prevention = "";
+            if (resultMsg == null) {
+                resultMsg = "";
+            }
         %>
-        <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
+        <e:forHtml value='<%= resultMsg %>' />
         <br/>
-        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
-            to <%=Encode.forHtml(prevention)%>
+        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>"><fmt:message key="admin.lotaddrecord.btnAddAnother"/>
+            <e:forHtmlContent value='<%= prevention %>' />
         </a> <br/>
-        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
-            Lots for <%=Encode.forHtml(prevention)%>
+        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit"><fmt:message key="admin.lotaddrecord.btnViewLots"/>
+            <e:forHtmlContent value='<%= prevention %>' />
         </a>
     </center>
     </body>

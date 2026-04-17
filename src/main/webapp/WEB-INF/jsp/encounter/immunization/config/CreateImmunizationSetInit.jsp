@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -129,7 +129,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="${pageContext.request.contextPath}/encounter/immunization/config/CreateInitImmunization.do" method="post">
+                        <td><form action="${pageContext.request.contextPath}/encounter/immunization/config/CreateInitImmunization" method="post">
                             <table cellspacing="1">
                                 <tr>
                                     <td class="cells"><fmt:message key="encounter.immunization.config.createImmunizationSetinit.formSetName"/>:

@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -41,7 +41,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -52,7 +51,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="provider.providernewgroup.title"/></title>
         <script type="text/javascript">
             function setfocus() {
@@ -63,7 +62,7 @@
 
             function checkForm() {
                 if (UPDATEPRE.mygroup_no.value == "") {
-                    alert("No Group No.!");
+                    alert("<fmt:message key='provider.providernewgroup.msgNoGroup'/>");
                     UPDATEPRE.mygroup_no.focus();
                     return false;
                 }
@@ -88,7 +87,7 @@
                 myGroupDao.deleteGroupMember(param[0], param[1]);
                 rowsAffected = 1;
             }
-            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?displaymode=displaymygroup");
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol?displaymode=displaymygroup");
             return;
         }
     %>
@@ -105,7 +104,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do"
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol"
           onSubmit="return checkForm();">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="displaymode" value="savemygroup">
@@ -122,8 +121,8 @@
             <table class="table table-sm table-bordered mb-0">
                 <thead class="table-light">
                 <tr>
-                    <th style="width: 80px;" class="text-center">Select</th>
-                    <th>Provider</th>
+                    <th style="width: 80px;" class="text-center"><fmt:message key="provider.providernewgroup.select"/></th>
+                    <th><fmt:message key="provider.providernewgroup.provider"/></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -135,11 +134,11 @@
                 <tr>
                     <td class="text-center">
                         <input type="checkbox" class="form-check-input provider-check" name="data<%=i%>" value="<%=i%>">
-                        <input type="hidden" name="provider_no<%=i%>" value="<%=Encode.forHtmlAttribute(p.getProviderNo() == null ? "" : p.getProviderNo())%>">
-                        <input type="hidden" name="last_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getLastName() == null ? "" : p.getLastName())%>">
-                        <input type="hidden" name="first_name<%=i%>" value="<%=Encode.forHtmlAttribute(p.getFirstName() == null ? "" : p.getFirstName())%>">
+                        <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= p.getProviderNo() == null ? "" : p.getProviderNo() %>' />">
+                        <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />">
+                        <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' />">
                     </td>
-                    <td><%=Encode.forHtml(p.getLastName() == null ? "" : p.getLastName())%>, <%=Encode.forHtml(p.getFirstName() == null ? "" : p.getFirstName())%></td>
+                    <td><e:forHtmlContent value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' /></td>
                 </tr>
                 <%
                     }
@@ -148,8 +147,8 @@
                 <tfoot>
                 <tr class="table-light">
                     <td class="text-center" colspan="2">
-                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;">Check All</a>
-                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;">Clear All</a>
+                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;"><fmt:message key="provider.providernewgroup.checkAll"/></a>
+                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;"><fmt:message key="provider.providernewgroup.clearAll"/></a>
                     </td>
                 </tr>
                 </tfoot>

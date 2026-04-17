@@ -29,8 +29,9 @@
 
 --%>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.ResourceBundle" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
@@ -43,12 +44,13 @@
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Single Encounter</title>
+    <title><%= bundle.getString("provider.providerencountersingle.title") %></title>
     <script LANGUAGE="JavaScript">
         <!--
         function start() {
@@ -61,7 +63,7 @@
 <body onload="start()" topmargin="0" leftmargin="0" rightmargin="0">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
-        <th align="CENTER">AN ENCOUNTER RECORD</th>
+        <th align="CENTER"><%= bundle.getString("provider.providerencountersingle.heading") %></th>
     </tr>
 </table>
 <%
@@ -78,13 +80,13 @@
         xmlContent = SxmlMisc.getXmlContent(content, "xml_content");
         xmlUsername = SxmlMisc.getXmlContent(content, "xml_username");
 %>
-<font size="-1"><%=Encode.forHtml(ConversionUtils.toDateString(enc.getEncounterDate()))%> <%=Encode.forHtml(ConversionUtils.toTimeString(enc.getEncounterTime()))%>
-    &nbsp;<font color="green"><%=Encode.forHtml(StringUtils.noNull(enc.getSubject()).isEmpty() ? "Unknown" : enc.getSubject())%>
+<font size="-1"><e:forHtmlContent value='<%= ConversionUtils.toDateString(enc.getEncounterDate()) %>' /> <e:forHtmlContent value='<%= ConversionUtils.toTimeString(enc.getEncounterTime()) %>' />
+    &nbsp;<font color="green"><e:forHtmlContent value='<%= StringUtils.noNull(enc.getSubject()).isEmpty() ? bundle.getString("provider.providerencountersingle.unknown") : enc.getSubject() %>' />
     </font></font>
 <br>
 <xml id="xml_list">
     <encounter>
-        <%=Encode.forXml(content)%>
+        <e:forXml value='<%= content %>' />
     </encounter>
 </xml>
 <%
@@ -92,20 +94,20 @@
 %>
 <table width='100%' border='0' BGCOLOR="#EEEEFF">
     <tr>
-        <td>Attachment: <%
+        <td><%= bundle.getString("provider.providerencountersingle.attachment") %>: <%
             StringTokenizer st = new StringTokenizer(encounterattachment);
             while (st.hasMoreTokens()) {
                 temp = st.nextToken(">").substring(1);
         %> <a href=#
-              onClick="popupPage(600,800, '<%=Encode.forJavaScript(st.nextToken("<").substring(1))%>')">
-            <%=Encode.forHtml(temp)%>
+              onClick="popupPage(600,800, '<e:forJavaScriptAttribute value='<%= st.nextToken("<").substring(1) %>' />')">
+            <e:forHtmlContent value='<%= temp %>' />
         </a> <%
                 st.nextToken(">");
             }
         %>
         </td>
         <td align='right' width='20%' nowrap>
-            <%=Encode.forHtml(xmlUsername)%>
+            <e:forHtmlContent value='<%= xmlUsername %>' />
         </td>
     </tr>
 </table>
@@ -121,13 +123,13 @@
 
 
     } else {
-        out.println("<table border='0'><tr><td><font color='blue'>Content:</font></td></tr><tr><td>" + Encode.forHtml(xmlContent) + "</td></tr></table>");
+        out.println("<table border='0'><tr><td><font color='blue'>" + bundle.getString("provider.providerencountersingle.content") + ":</font></td></tr><tr><td>" + Encode.forHtml(xmlContent) + "</td></tr></table>");
     }
 %>
 
-<center><input type="button" value="Print Preview"
-               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint.do?encounter_no=<%=Encode.forUriComponent(request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "")%>&demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%>&username=<%=Encode.forUriComponent(request.getParameter("username") != null ? request.getParameter("username") : "")%>')">
-    <input type="button" value="Close this window" onClick="self.close()">
+<center><input type="button" value="<%= bundle.getString("provider.providerencountersingle.printPreview") %>"
+               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<e:forUriComponent value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' />&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&username=<e:forUriComponent value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' />')">
+    <input type="button" value="<%= bundle.getString("provider.providerencountersingle.closeWindow") %>" onClick="self.close()">
 </center>
 </body>
 </html>

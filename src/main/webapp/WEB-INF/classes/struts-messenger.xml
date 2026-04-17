@@ -29,7 +29,7 @@
     <package name="messenger" namespace="/" extends="struts-default">
 
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
-            <result name="success">/messenger/ViewMessage.do</result>
+            <result name="success">/messenger/ViewMessage</result>
         </action>
 
         <action name="messenger/CreateMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action">
@@ -48,7 +48,7 @@
         </action>
         <action name="messenger/DisplayDemographicMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayDemographicMessages2Action">
             <result name="demoMsg">/WEB-INF/jsp/messenger/DisplayDemographicMessages.jsp</result>
-            <result name="error">/errorpage.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="messenger/ReDisplayMessages" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgReDisplayMessages2Action">
             <result name="success">/WEB-INF/jsp/messenger/DisplayMessages.jsp</result>
@@ -59,14 +59,23 @@
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
-            <result name="success">/messenger/ViewMessage.do</result>
+            <result name="success">/messenger/ViewMessage</result>
         </action>
         <action name="messenger/Doc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action">
-            <result name="success">/messenger/selfCloseAndRefreshOpener.jsp</result>
+            <result name="success">/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp</result>
             <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
         </action>
         <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
+        </action>
+        <!--
+            Residue view gate — attachmentFrameset.jsp is the frameset host
+            for the PDF preview popup opened from CreateMessage.jsp. Enforces
+            _msg r at the frame-host layer; the framed PreviewPDF enforces
+            its own _msg r via MsgPreviewPDF2Action.
+        -->
+        <action name="messenger/attachmentFrameset" class="io.github.carlos_emr.carlos.messenger.gate.ViewAttachmentFrameset2Action">
+            <result name="success">/WEB-INF/jsp/messenger/attachmentFrameset.jsp</result>
         </action>
 
         <action name="messenger/AdjustAttachments" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAdjustAttachments2Action"/>
@@ -100,7 +109,7 @@
             <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>
         </action>
         <action name="messenger/WriteToEncounter" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgWriteToEncounter2Action">
-            <result name="success">/encounter/IncomingEncounter.do</result>
+            <result name="success">/encounter/IncomingEncounter</result>
         </action>
 
     </package>

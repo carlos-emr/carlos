@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
@@ -36,25 +37,15 @@ import java.io.Serializable;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Random;
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.log4j.xml.DOMConfigurator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
+import org.apache.logging.log4j.core.LoggerContext;
 
 /**
  * When using the shutdown hook...
@@ -159,8 +150,18 @@ public final class MiscUtils {
             }
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
+
+            File configFile = new File(resolvedLocation);
+            if (!configFile.isFile() || !configFile.canRead()) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
+                return;
+            }
+
             getLogger().info("loading additional override logging configuration from : " + resolvedLocation);
-            DOMConfigurator.configureAndWatch(resolvedLocation);
+            // Auto-reload on file change requires monitorInterval="N" on the
+            // <Configuration> root element of the override XML.
+            LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+            ctx.setConfigLocation(configFile.toURI());
         }
 
     }
@@ -303,19 +304,6 @@ public final class MiscUtils {
         }
     }
 
-    public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
-        TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
-        SSLContext ctx = SSLContext.getInstance("TLS");
-        ctx.init((KeyManager[]) null, tam, new SecureRandom());
-        SSLSocketFactory sslSocketFactory = ctx.getSocketFactory();
-        HttpsURLConnection.setDefaultSSLSocketFactory(sslSocketFactory);
-        HostnameVerifier hostNameVerifier = new HostnameVerifier() {
-            public boolean verify(String host, SSLSession sslSession) {
-                return true;
-            }
-        };
-        HttpsURLConnection.setDefaultHostnameVerifier(hostNameVerifier);
-    }
 
     public static boolean soundex(String s1, String s2) throws EncoderException {
         return soundexScore(s1, s2) >= 4;

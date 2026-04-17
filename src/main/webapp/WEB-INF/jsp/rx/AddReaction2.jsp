@@ -35,15 +35,13 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -121,20 +119,20 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy.do"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><%=Encode.forHtml(name)%>
+                            <div class="DivContentSectionHead"><e:forHtmlContent value='<%= name %>' />
                             </div>
                         </td>
                     </tr>
                     <tr>
-                        <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2.do" method="post"
+                        <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
 
                             <script type="text/javascript">
@@ -192,21 +190,21 @@
                             <table>
                                 <tr id="addReactionSubheading">
                                     <td>
-                                        Adding Allergy: <%=Encode.forHtmlContent(name)%>
+                                        Adding Allergy: <e:forHtmlContent value='<%= name %>' />
                                     </td>
                                 </tr>
                                 <tr valign="center">
                                     <td>
                                         <label for="reactionDescription" class="label">Comment: </label>
-                                        <textarea name="reactionDescription" id="reactionDescription" cols="40" rows="3"><%=Encode.forHtml(reaction)%></textarea>
-                                        <input type="hidden" name="ID" value="<%=Encode.forHtmlAttribute(drugrefId)%>"/>
-                                        <input type="hidden" name="name" id="name" value="<%=Encode.forHtmlAttribute(name)%>"/>
-                                        <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<%=Encode.forHtmlAttribute(allergyToArchive)%>"/>
+                                        <textarea name="reactionDescription" id="reactionDescription" cols="40" rows="3"><e:forHtmlContent value='<%= reaction %>' /></textarea>
+                                        <input type="hidden" name="ID" value="<e:forHtmlAttribute value='<%= drugrefId %>' />"/>
+                                        <input type="hidden" name="name" id="name" value="<e:forHtmlAttribute value='<%= name %>' />"/>
+                                        <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<e:forHtmlAttribute value='<%= allergyToArchive %>' />"/>
                                         <%-- CSRF token auto-injected by CSRFGuard (injectIntoForms=true) --%>
                                     </td>
                                 </tr>
 
-                                <input type="hidden" name="type" id="type" value="<%=Encode.forHtmlAttribute(type)%>"/>
+                                <input type="hidden" name="type" id="type" value="<e:forHtmlAttribute value='<%= type %>' />"/>
 
                                 <tr valign="center">
                                     <td>
@@ -232,14 +230,14 @@
 
                                         <span class="label">Start Date:</span>
                                         <input type="text" name="startDate" id="startDate" size="10" maxlength="10"
-                                               value="<%=Encode.forHtmlAttribute(startDate)%>" onblur="checkStartDate();"/>
+                                               value="<e:forHtmlAttribute value='<%= startDate %>' />" onblur="checkStartDate();"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDateCal">(yyyy-mm-dd OR yyyy-mm OR yyyy)
                                     </td>
                                 </tr>
 
                                 <tr valign="center">
                                     <td><span class="label">Age Of Onset:</span> <input type="text"
-                                            name="ageOfOnset" size="4" maxlength="4" value="<%=Encode.forHtmlAttribute(ageOfOnset)%>"
+                                            name="ageOfOnset" size="4" maxlength="4" value="<e:forHtmlAttribute value='<%= ageOfOnset %>' />"
                                             onblur="checkAgeOfOnset();"/></td>
 
                                 </tr>
@@ -309,7 +307,7 @@
                                     <td>
                                         <input type="submit" name="submit" value="Add Allergy" class="ControlPushButton" onclick="return doSubmit()"/>
                                         <input type=button class="ControlPushButton" id="cancelAddReactionButton"
-                                               onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy.do?demographicNo=<%=bean.getDemographicNo() %>'"
+                                               onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo() %>'"
                                                value="Cancel"/>
                                     </td>
                                 </tr>
@@ -321,7 +319,7 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = request.getContextPath() + "/rx/showAllergy.do";
+                                String sBack = request.getContextPath() + "/rx/showAllergy";
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>

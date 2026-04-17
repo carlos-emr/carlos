@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,8 +45,6 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -59,7 +57,7 @@
     %>
 
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.DeleteServices.title"/></title>
     </head>
 
@@ -78,7 +76,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -95,7 +93,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.DeleteServices.msgCheckOff"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/DelService.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/DelService" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.DeleteServices.btnDeleteService"/>"
                            onclick="return confirm('Are you sure you want to delete the selected services?');">
@@ -114,7 +112,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="service" value="<%=serId%>"></td>
-                                <td><%= Encode.forHtml(serName) %></td>
+                                <td><e:forHtmlContent value='<%= serName %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

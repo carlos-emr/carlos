@@ -30,6 +30,7 @@
 --%>
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -46,7 +47,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -122,9 +123,9 @@
     <body onLoad="setfocus()">
 
     <h4>
-        <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
+        <i class="fa-solid fa-magnifying-glass" title="<fmt:message key='admin.providersearchresults.iconTitle'/>"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
-    <form method="post" action="/admin/ViewProviderSearchResults.do" name="searchprovider" onsubmit="return onsub()">
+    <form method="post" action="${pageContext.request.contextPath}/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr>
@@ -175,7 +176,7 @@
     <table>
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>
-                : <%=Encode.forHtml(keyword)%>
+                : <e:forHtmlContent value='<%= keyword %>' />
             </td>
         </tr>
     </table>
@@ -234,19 +235,19 @@
         <!-- getPractionerNo() getPractitionerNoType() getFormattedName() getComments() getBillingNo() getTitle() getEmail() getOhipNo() getAddress() -->
         <tr>
             <td style="text-align:center"><a
-                    href='/admin/ViewProviderUpdateProvider.do?keyword=<%=Encode.forUriComponent(provider.getId())%>'><%= Encode.forHtml(provider.getId()) %>
+                    href='${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= provider.getId() %>' />'><e:forHtmlContent value='<%= provider.getId() %>' />
             </a></td>
-            <td><%= Encode.forHtmlContent((provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName())) %>
+            <td><e:forHtmlContent value='<%= (provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName()) %>' />
             </td>
-            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getOhipNo() == null ? "" : provider.getOhipNo())%>
+            <td style="text-align:center"><e:forHtmlContent value='<%= provider.getOhipNo() == null ? "" : provider.getOhipNo() %>' />
             </td>
-            <td><%= Encode.forHtmlContent(provider.getSpecialty() == null ? "" : provider.getSpecialty()) %>
+            <td><e:forHtmlContent value='<%= provider.getSpecialty() == null ? "" : provider.getSpecialty() %>' />
             </td>
-            <td><%= Encode.forHtmlContent(provider.getTeam() == null ? "" : provider.getTeam()) %>
+            <td><e:forHtmlContent value='<%= provider.getTeam() == null ? "" : provider.getTeam() %>' />
             </td>
-            <td style="text-align:center"><%= Encode.forHtmlContent(provider.getSex() == null ? "" : provider.getSex()) %>
+            <td style="text-align:center"><e:forHtmlContent value='<%= provider.getSex() == null ? "" : provider.getSex() %>' />
             </td>
-            <td><%= Encode.forHtmlContent(provider.getPhone() == null ? "" : provider.getPhone()) %>
+            <td><e:forHtmlContent value='<%= provider.getPhone() == null ? "" : provider.getPhone() %>' />
             </td>
             <td><%= (provider.getStatus() != null) ? ("1".equals(provider.getStatus()) ? "Active" : "Inactive") : "" %>
             </td>
@@ -267,11 +268,11 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
-            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="/admin/ViewProviderSearchResults.do?keyword=<%= Encode.forUriComponent(keyword) %>&search_mode=<%= Encode.forUriComponent(searchMode) %><%= searchStatusQ %>&orderby=<%= Encode.forUriComponent(orderBy) %>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
     <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>

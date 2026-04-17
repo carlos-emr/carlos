@@ -80,7 +80,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -166,7 +166,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.provideraddrecordhtm.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderAddARecord.do" name="searchprovider" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderAddARecord" name="searchprovider" onsubmit="return onsub()">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td width="50%" align="right"><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>
@@ -243,11 +243,11 @@
                 %>
                 <tr class="supervisor" style="display:none">
                     <td align="right">
-                        Assigned Supervisor
+                        <fmt:message key="admin.providerupdateprovider.assignedSupervisor"/>
                     </td>
                     <td>
                         <select id="supervisor" name="supervisor">
-                            <option value="">Please Assign Supervisor</option>
+                            <option value=""><fmt:message key="admin.providerupdateprovider.pleaseAssignSupervisor"/></option>
                                     <%
                     for( ProviderData p : providerL ) {
                     %>
@@ -367,7 +367,7 @@
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
-                                <option value="">Select Below</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                                 <%
                                     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
@@ -394,7 +394,7 @@
                         if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                     %>
                     <tr>
-                        <td align="right">Default Clinic NBR:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.defaultClinicNbr"/></td>
                         <td colspan="3">
                             <select name="xml_p_nbr">
                                 <%
@@ -415,7 +415,7 @@
                     <%} %>
 
                     <tr>
-                        <td align="right">Bill Center:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.billCenter"/></td>
                         <td><select name="billcenter">
                             <option value=""></option>
                             <%

@@ -1,17 +1,18 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%-- Row: Allergies and Prescriptions --%>
 <div class="encounter-card card mb-1" id="presTopTable">
     <div class="card-header d-flex align-items-center">
         <div class="flex-grow-1 d-flex gap-3">
             <span>
                 <a href="#"
-                   onclick="popupPage(700,960,'allergy','${ctx}/rx/showAllergy.do?demographicNo=${bean.demographicNo}');return false;">
+                   onclick="popupPage(700,960,'allergy','${ctx}/rx/showAllergy?demographicNo=${bean.demographicNo}');return false;">
                     <fmt:message key="global.allergies"/>
                 </a>:
             </span>
             <span></span>
             <span>
                 <a href="#"
-                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient.do?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}');return false;">
+                   onclick="popupPage(700,1027,'Rx','${ctx}/rx/choosePatient?providerNo=${bean.providerNo}&amp;demographicNo=${bean.demographicNo}');return false;">
                     <fmt:message key="global.prescriptions"/>
                 </a>
             </span>
@@ -32,7 +33,7 @@
                 <div class="presBox" id="allergyBox">
                     <ul>
                         <c:forEach var="allergy" items="${allergies}">
-                            <li><e:forHtmlContent value="${allergy.description}"/></li>
+                            <li><e:forHtmlContent value='${allergy.description}'/></li>
                         </c:forEach>
                     </ul>
                 </div>
@@ -46,10 +47,10 @@
                                 <c:forEach var="rx" items="${prescriptions}">
                                     <tr>
                                         <td<c:if test="${rx.current}"> class="rx-current"</c:if> valign="top">
-                                            <c:out value="${rx.rxDate}"/>
+                                            ${e:forHtml(rx.rxDate)}
                                         </td>
                                         <td<c:if test="${rx.current}"> class="rx-current"</c:if>>
-                                            <c:out value="${fn:replace(rx.fullOutLine, ';', ' ')}"/>&nbsp;&nbsp;&nbsp;<c:out value="${rx.endDate}"/>
+                                            ${e:forHtml(fn:replace(rx.fullOutLine, ';', ' '))}&nbsp;&nbsp;&nbsp;${e:forHtml(rx.endDate)}
                                         </td>
                                     </tr>
                                 </c:forEach>

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -52,7 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -81,11 +81,11 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=Encode.forHtml(defaultPrinterName)%>
+    <e:forHtmlContent value='<%= defaultPrinterName %>' />
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoChartLabelAction.do?demographic_no=<%=Encode.forUriComponent(request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "")%><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
+            data="printDemoChartLabelAction?demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' /><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
             height="80%" width="100%"></object>
     </body>
 </html>

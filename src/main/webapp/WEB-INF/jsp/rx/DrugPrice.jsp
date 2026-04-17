@@ -52,9 +52,7 @@
 <%@page import="java.util.*" %>
 <%@page import="java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-           <%
+<%
 		    String din = request.getParameter("din");
 		    String randomId = request.getParameter("randomId");
 		    String quantity = request.getParameter("qty");
@@ -79,6 +77,6 @@
                 }
          %>
             <span style="margin-left:2px; margin-right: 2px;">
-			<%=Encode.forHtml(moneyString)%>
+			<e:forHtmlContent value='<%= moneyString %>' />
             </span>
             <%}%>

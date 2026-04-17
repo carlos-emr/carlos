@@ -31,13 +31,13 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.util.List" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
-
 <script type="text/javascript">
     var remote = null;
     var awnd = null;
@@ -52,7 +52,7 @@
         ff = eval("document.forms[0].elements['" + name2 + "']");
         f0 = ff.value;
         f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+        awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
         awnd.focus();
     }
 </script>
@@ -85,30 +85,34 @@
         defaultDxCode = "";
     }
 %>
-
-
-<form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction.do" method="post">
-    <input type="hidden" name="provider_no" id="provider_no" value="<%=Encode.forHtmlAttribute(provider_no)%>"/>
+<html>
+<head>
+    <title><fmt:message key="provider.providerDefaultDxCode.title"/></title>
+</head>
+<body>
+<form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction" method="post">
+    <input type="hidden" name="provider_no" id="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
-           value="<%=Encode.forHtmlAttribute(request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "")%>"/>
-
+           value="<e:forHtmlAttribute value='<%= request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "" %>' />"/>
     <table style="margin-left:auto;margin-right:auto;background-color:#f0f0f0;border-collapse:collapse">
 
 
         <tr>
-            <td>Dx &nbsp;&nbsp;
+            <td><fmt:message key="provider.providerDefaultDxCode.labelDxCode"/>&nbsp;&nbsp;
                 <input type="text" name="dxCode" size="5" maxlength="5" ondblClick="dxScriptAttach('dxCode')"
-                       value="<%=Encode.forHtmlAttribute(defaultDxCode)%>"/>
-                <a href=# onclick="dxScriptAttach('dxCode');">Search</a>
+                       value="<e:forHtmlAttribute value='<%= defaultDxCode %>' />"/>
+                <a href="#" onclick="dxScriptAttach('dxCode');"><fmt:message key="provider.providerDefaultDxCode.btnSearch"/></a>
             </td>
         </tr>
         <tr>
             <td>
-                <input type="submit" name="submit" value="Save"/>
+                <input type="submit" name="submit" value="<fmt:message key='provider.providerDefaultDxCode.btnSave'/>"/>
                 &nbsp;&nbsp;&nbsp;&nbsp;
-                <input type="button" name="close" value="Close" onclick="window.close()"/>
+                <input type="button" name="close" value="<fmt:message key='provider.providerDefaultDxCode.btnClose'/>" onclick="window.close()"/>
             </td>
         </tr>
     </table>
 
 </form>
+</body>
+</html>

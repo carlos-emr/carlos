@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,6 +46,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,6 +79,8 @@
 
 
         <script>
+            const jobTypesSaveLabel = "<fmt:message key='admin.jobTypes.save'/>";
+            const jobTypesCancelLabel = "<fmt:message key='admin.jobTypes.cancel'/>";
 
             function editJobType(jobTypeId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
@@ -167,8 +170,8 @@
                     width: 620,
                     modal: true,
                     buttons: {
-                        "Save Job Type": {
-                            class: "btn btn-primary", text: "Save Job Type", click: function () {
+                        saveJobType: {
+                            class: "btn btn-primary", text: jobTypesSaveLabel, click: function () {
                                 $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize(), function (data) {
                                     clearJobs();
                                     listJobs();
@@ -177,8 +180,8 @@
 
                             }
                         },
-                        Cancel: {
-                            class: "btn", text: "Cancel", click: function () {
+                        cancel: {
+                            class: "btn", text: jobTypesCancelLabel, click: function () {
                                 $(this).dialog("close");
                             }
                         }
@@ -193,46 +196,46 @@
     </head>
 
     <body class="BodyStyle">
-    <h4>Manage Job Types</h4>
+    <h4><fmt:message key="admin.jobTypes.heading"/></h4>
     <table id="jobTypeTable" class="table table-bordered table-striped table-hover table-sm">
         <thead>
         <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>JAVA Class Name</th>
-            <th>Valid Class</th>
-            <th>Enabled</th>
-            <th>Updated</th>
+            <th><fmt:message key="admin.jobTypes.table.name"/></th>
+            <th><fmt:message key="admin.jobTypes.table.description"/></th>
+            <th><fmt:message key="admin.jobTypes.table.className"/></th>
+            <th><fmt:message key="admin.jobTypes.table.validClass"/></th>
+            <th><fmt:message key="admin.jobTypes.table.enabled"/></th>
+            <th><fmt:message key="admin.jobTypes.table.updated"/></th>
         </tr>
         </thead>
         <tbody>
         </tbody>
     </table>
-    <input type="button" class="btn btn-primary" value="Add New" onClick="addNewJobType()"/>
+    <input type="button" class="btn btn-primary" value="<fmt:message key='admin.jobTypes.addNew'/>" onClick="addNewJobType()"/>
 
 
-    <div id="new-jobtype" title="CARLOS Job Type Editor">
+    <div id="new-jobtype" title="<fmt:message key='admin.jobTypes.editorTitle'/>">
         <p class="validateTips"></p>
 
         <form id="jobTypeForm">
             <input type="hidden" name="jobType.id" id="jobTypeId" value="0"/>
             <fieldset>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeName">Name:*</label>
+                    <label class="form-label" for="jobTypeName"><fmt:message key="admin.jobTypes.name"/>:*</label>
                     <input class="form-control" type="text" name="jobType.name" id="jobTypeName" value=""/>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeDescription">Description:</label>
+                    <label class="form-label" for="jobTypeDescription"><fmt:message key="admin.jobTypes.description"/>:</label>
                     <textarea class="form-control" rows="5" name="jobType.description"
                               id="jobTypeDescription"></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeClassName">JAVA Class Name:</label>
+                    <label class="form-label" for="jobTypeClassName"><fmt:message key="admin.jobTypes.className"/>:</label>
                     <input class="form-control" type="text" name="jobType.className" id="jobTypeClassName"
                            value=""/>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"
+                    <label class="form-label" for="jobTypeEnabled"><fmt:message key="admin.jobTypes.enabled"/>: <input type="checkbox"
                                                                                       name="jobType.enabled"
                                                                                       id="jobTypeEnabled"/></label>
                     <div>

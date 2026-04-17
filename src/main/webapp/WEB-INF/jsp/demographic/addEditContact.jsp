@@ -61,7 +61,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Add/Edit Contact</title>
+        <title><fmt:message key="demographic.contactForm.title"/></title>
         <script language="JavaScript">
 
             <!--
@@ -95,10 +95,10 @@
                 var b = true;
                 if (document.forms[0].last_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"Last Name\" is empty.");
+                    alert("<fmt:message key='demographic.contactForm.msgLastNameRequired'/>");
                 } else if (document.forms[0].first_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"First Name\" is empty.");
+                    alert("<fmt:message key='demographic.contactForm.msgFirstNameRequired'/>");
                 }
                 return b;
             }
@@ -130,131 +130,117 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><%=msg%>
+                <th><fmt:message key="demographic.contactForm.heading"/>
                 </th>
             </tr>
         </table>
     </center>
-    <form action="${pageContext.request.contextPath}/demographic/Contact.do" method="post">
-        <input type="hidden" name="contact.id" value="<c:out value="${contact.id}"/>"/>
+    <form action="${pageContext.request.contextPath}/demographic/Contact" method="post">
+        <input type="hidden" name="contact.id" value="${e:forHtmlAttribute(contact.id)}"/>
         <input type="hidden" name="method" value="saveContact"/>
         <table width="100%" border="0" cellspacing="2" cellpadding="2">
             <tr>
                 <td>&nbsp;</td>
             </tr>
             <tr>
-                <td align="right"><b>Last Name</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.lastName"/></b></td>
                 <td>
-                    <input type="text" name="contact.lastName" value="<c:out value="${contact.lastName}"/>" size="30">
+                    <input type="text" name="contact.lastName" value="${e:forHtmlAttribute(contact.lastName)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>First Name</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.firstName"/></b></td>
                 <td>
-                    <input type="text" name="contact.firstName" value="<c:out value="${contact.firstName}"/>" size="30">
+                    <input type="text" name="contact.firstName" value="${e:forHtmlAttribute(contact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Address</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
                 <td>
-                    <input type="text" name="contact.address" value="<c:out value="${contact.address}"/>" size="50">
+                    <input type="text" name="contact.address" value="${e:forHtmlAttribute(contact.address)}" size="50">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Address2</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.address2"/></b></td>
                 <td>
-                    <input type="text" name="contact.address2" value="<c:out value="${contact.address2}"/>" size="50">
+                    <input type="text" name="contact.address2" value="${e:forHtmlAttribute(contact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>City</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.city"/></b></td>
                 <td>
-                    <input type="text" name="contact.city" value="<c:out value="${contact.city}"/>" size="30">
+                    <input type="text" name="contact.city" value="${e:forHtmlAttribute(contact.city)}" size="30">
                 </td>
             </tr>
             <tr bgcolor="#EEEEFF">
-                <td align="right"><b>Province</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.province"/></b></td>
                 <td>
                     <% String region = prop.getProperty("province", "");
                         region = "".equals(region) ? "ON" : region;
                     %> <select name="contact.province">
-                    <option value="AB" <%=region.equals("AB") ? " selected" : ""%>>AB-Alberta</option>
-                    <option value="BC" <%=region.equals("BC") ? " selected" : ""%>>BC-British
-                        Columbia
-                    </option>
-                    <option value="MB" <%=region.equals("MB") ? " selected" : ""%>>MB-Manitoba</option>
-                    <option value="NB" <%=region.equals("NB") ? " selected" : ""%>>NB-New
-                        Brunswick
-                    </option>
-                    <option value="NL" <%=region.equals("NL") ? " selected" : ""%>>NL-Newfoundland
-                        & Labrador
-                    </option>
-                    <option value="NT" <%=region.equals("NT") ? " selected" : ""%>>NT-Northwest
-                        Territory
-                    </option>
-                    <option value="NS" <%=region.equals("NS") ? " selected" : ""%>>NS-Nova
-                        Scotia
-                    </option>
-                    <option value="NU" <%=region.equals("NU") ? " selected" : ""%>>NU-Nunavut</option>
-                    <option value="ON" <%=region.equals("ON") ? " selected" : ""%>>ON-Ontario</option>
-                    <option value="PE" <%=region.equals("PE") ? " selected" : ""%>>PE-Prince
-                        Edward Island
-                    </option>
-                    <option value="QC" <%=region.equals("QC") ? " selected" : ""%>>QC-Quebec</option>
-                    <option value="SK" <%=region.equals("SK") ? " selected" : ""%>>SK-Saskatchewan</option>
-                    <option value="YT" <%=region.equals("YT") ? " selected" : ""%>>YT-Yukon</option>
-                    <option value="US" <%=region.equals("US") ? " selected" : ""%>>US
-                        resident
-                    </option>
-                </select> Country
-                    <input type="text" name="contact.country" value="<c:out value="${contact.country}"/>" size="2"
+                    <option value="AB" <%=region.equals("AB") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
+                    <option value="BC" <%=region.equals("BC") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
+                    <option value="MB" <%=region.equals("MB") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.MB"/></option>
+                    <option value="NB" <%=region.equals("NB") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.NB"/></option>
+                    <option value="NL" <%=region.equals("NL") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.NL"/></option>
+                    <option value="NT" <%=region.equals("NT") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.NT"/></option>
+                    <option value="NS" <%=region.equals("NS") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.NS"/></option>
+                    <option value="NU" <%=region.equals("NU") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.NU"/></option>
+                    <option value="ON" <%=region.equals("ON") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.ON"/></option>
+                    <option value="PE" <%=region.equals("PE") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.PE"/></option>
+                    <option value="QC" <%=region.equals("QC") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.QC"/></option>
+                    <option value="SK" <%=region.equals("SK") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.SK"/></option>
+                    <option value="YT" <%=region.equals("YT") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.YT"/></option>
+                    <option value="US" <%=region.equals("US") ? " selected" : ""%>><fmt:message key="demographic.contactForm.usResident"/></option>
+                </select> <fmt:message key="demographic.contactForm.country"/>
+                    <input type="text" name="contact.country" value="${e:forHtmlAttribute(contact.country)}" size="2"
                            maxlength="2">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Postal</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.postal"/></b></td>
                 <td>
-                    <input type="text" name="contact.postal" value="<c:out value="${contact.postal}"/>" size="30">
+                    <input type="text" name="contact.postal" value="${e:forHtmlAttribute(contact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Res. Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.resPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.residencePhone" value="<c:out value="${contact.residencePhone}"/>"
+                    <input type="text" name="contact.residencePhone" value="${e:forHtmlAttribute(contact.residencePhone)}"
                            size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Cell Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.cellPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.cellPhone" value="<c:out value="${contact.cellPhone}"/>" size="30">
+                    <input type="text" name="contact.cellPhone" value="${e:forHtmlAttribute(contact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Work Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.workPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.workPhone" value="<c:out value="${contact.workPhone}"/>"
+                    <input type="text" name="contact.workPhone" value="${e:forHtmlAttribute(contact.workPhone)}"
                            size="15"/>
-                    Ext: <input type="text" name="contact.workPhoneExtension"
-                                value="<c:out value="${contact.workPhoneExtension}"/>" size="10"/>
+                    <fmt:message key="demographic.contactForm.ext"/> <input type="text" name="contact.workPhoneExtension"
+                                value="${e:forHtmlAttribute(contact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Fax</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.fax"/></b></td>
                 <td>
-                    <input type="text" name="contact.fax" value="<c:out value="${contact.fax}"/>" size="30">
+                    <input type="text" name="contact.fax" value="${e:forHtmlAttribute(contact.fax)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Email</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.email"/></b></td>
                 <td>
-                    <input type="text" name="contact.email" value="<c:out value="${contact.email}"/>" size="30">
+                    <input type="text" name="contact.email" value="${e:forHtmlAttribute(contact.email)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Note</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.note"/></b></td>
                 <td>
-                    <input type="text" name="contact.note" value="<c:out value="${contact.note}"/>" size="30">
+                    <input type="text" name="contact.note" value="${e:forHtmlAttribute(contact.note)}" size="30">
                 </td>
             </tr>
             <tr>

@@ -36,15 +36,13 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -61,7 +59,7 @@
         pageContext.setAttribute("serviceDesc", serviceDesc);
     %>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.title"/></title>
     </head>
 
@@ -80,7 +78,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
@@ -101,7 +99,7 @@
                     </fmt:message>
                 </p>
 
-                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists" method="post">
                     <input type="hidden" name="serviceId" value="<%=serviceId %>">
                     <input type="submit" class="btn btn-primary mb-3"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.btnUpdateServices"/>">
@@ -131,10 +129,10 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>" <%=isChecked ? "checked" : ""%>></td>
-                                <td><%= Encode.forHtmlContent(lName + " " + fName + (proLetters == null ? "" : " " + proLetters)) %></td>
-                                <td><%= Encode.forHtmlContent(address) %></td>
-                                <td><%= Encode.forHtmlContent(phone) %></td>
-                                <td><%= Encode.forHtmlContent(fax) %></td>
+                                <td><e:forHtmlContent value='<%= lName + " " + fName + (proLetters == null ? "" : " " + proLetters) %>' /></td>
+                                <td><e:forHtmlContent value='<%= address %>' /></td>
+                                <td><e:forHtmlContent value='<%= phone %>' /></td>
+                                <td><e:forHtmlContent value='<%= fax %>' /></td>
                             </tr>
                             <% } %>
                         </tbody>

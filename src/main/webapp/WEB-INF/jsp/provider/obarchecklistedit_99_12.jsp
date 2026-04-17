@@ -29,22 +29,26 @@
 
 --%>
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <%
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
+<% java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()); %>
 
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>ANTENATAL CHECK LIST</title>
+    <title><%= bundle.getString("provider.obarchecklist.title") %></title>
     <link rel="stylesheet" href="antenatalrecord.css">
     <script language="JavaScript">
         <!--
         function onExit() {
-            if (confirm("Are you sure to exit WITHOUT saving the form?")) window.close();
+            if (confirm("<%= bundle.getString("provider.obarchecklist.confirmExit") %>")) window.close();
         }
 
         //-->
@@ -52,7 +56,7 @@
 </head>
 <body onLoad="setfocus()" bgcolor="#c4e9f6" bgproperties="fixed"
       topmargin="0" leftmargin="1" rightmargin="1">
-<form name="checklistedit" action="<%= request.getContextPath() %>/provider/ViewObarChecklistEdit.do"
+<form name="checklistedit" action="<%= request.getContextPath() %>/provider/ViewObarChecklistEdit"
       method="POST">
     <%
         char sep = oscarVariables.getProperty("file_separator").toCharArray()[0];
@@ -70,13 +74,13 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align=CENTER><font face="Arial, Helvetica, sans-serif"
-                                   color="#FFFFFF">Antenatal Check List</font></th>
+                                   color="#FFFFFF"><%= bundle.getString("provider.obarchecklist.heading") %></font></th>
             <th width="25%" nowrap>
                 <div align="right"><a href=#
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
-                        color="#FFFF66">View Risk Number</font></a> <input type="button"
+                        color="#FFFF66"><%= bundle.getString("provider.obarchecklist.viewRiskNumber") %></font></a> <input type="button"
                                                                            name="Button"
-                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarchecklist.exit"):bundle.getString("provider.obarchecklist.cancel")%>&nbsp;"
                                                                            onClick="onExit();">&nbsp;
                 </div>
             </th>
