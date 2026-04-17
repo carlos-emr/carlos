@@ -83,7 +83,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
 
         @Test
         @DisplayName("should hash plaintext note passwords when set")
-        void shouldHashPassword_whenPlaintextPasswordIsSet() {
+        void shouldHashPassword_whenSettingPlaintextPassword() {
             CaseManagementNote note = new CaseManagementNote();
 
             note.setPassword(RAW_PASSWORD);
@@ -106,7 +106,7 @@ public class CaseManagementManagerUnlockNoteUnitTest extends CarlosUnitTestBase 
 
         @Test
         @DisplayName("should hash passwords that only mimic the bcrypt prefix")
-        void shouldHashPassword_whenPasswordOnlyLooksLikeBcryptPrefix() {
+        void shouldHashPassword_whenPasswordHasFakeBcryptPrefix() {
             CaseManagementNote note = new CaseManagementNote();
             String prefixedPlaintextPassword = "{bcrypt}plaintext";
 
