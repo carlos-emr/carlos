@@ -482,6 +482,15 @@ public class CaseManagementNote extends BaseObject {
         this.password = EncryptionUtils.hash(password);
     }
 
+    /**
+     * Stores a precomputed password hash without re-encoding it.
+     *
+     * @param passwordHash String the encoded password hash to store
+     */
+    public void setEncodedPassword(String passwordHash) {
+        this.password = passwordHash;
+    }
+
     public String getStatus() {
         String status = "";
         if (isSigned()) {

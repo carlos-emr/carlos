@@ -1835,8 +1835,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         boolean matched = MessageDigest.isEqual(
                 storedPassword.getBytes(StandardCharsets.UTF_8),
                 password.getBytes(StandardCharsets.UTF_8));
+        String upgradedPasswordHash = EncryptionUtils.hash(password);
         if (matched) {
-            note.setPassword(password);
+            note.setEncodedPassword(upgradedPasswordHash);
             this.caseManagementNoteDAO.updateNote(note);
         }
         return matched;
