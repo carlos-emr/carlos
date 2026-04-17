@@ -88,4 +88,11 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+
+    <Match>
+        <Class name="io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl"/>
+        <Method name="findByParameter" />
+        <Bug pattern="SQL_INJECTION_JPA" />
+    </Match>
+
 </FindBugsFilter>

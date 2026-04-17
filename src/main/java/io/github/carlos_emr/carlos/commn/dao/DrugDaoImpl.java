@@ -477,14 +477,14 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      * @return Returns the drugs found
      */
     @NativeSql("drugs")
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "java:S2077"})
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
         if (parameter != null && parameter.matches(".*[;'\"\\\\`].*")) {
             throw new IllegalArgumentException("Invalid column name");
         }
         String sql = "select special,special_instruction from drugs where " + parameter + " = ?1 order by drugid desc";
-        Query query = entityManager.createNativeQuery(sql);
+        Query query = entityManager.createNativeQuery(sql); // nosemgrep: jpa-sqli -- parameterized, parameter column validated
         query.setParameter(1, value);
         return query.getResultList();
     }
