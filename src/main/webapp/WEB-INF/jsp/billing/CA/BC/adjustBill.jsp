@@ -161,12 +161,12 @@
 %>
 <html>
 <head>
-    <title>oscarBillingBC Correction</title>
+    <title><fmt:message key='billing.billingCorrection.title'/></title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css"
           title="win2k-cold-1"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -183,7 +183,7 @@
 
         function checkTextLimit(textField, maximumlength) {
             if (textField.value.length > maximumlength + 1) {
-                alert("Maximum " + maximumlength + " characters");
+                alert("<fmt:message key='billing.billingCorrection.alert.maxCharacters'/>".replace("{0}", maximumlength));
             }
             if (textField.value.length > maximumlength) {
                 textField.value = textField.value.substring(0, maximumlength);
@@ -220,7 +220,7 @@
             var page = "" + varpage;
             windowprops = "height=700,width=800,location=no,"
                 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=0,left=0";
-            window.open(page, "<fmt:message key="encounter.Index.popupPage2Window"/>", windowprops);
+            window.open(page, "<fmt:message key='encounter.Index.popupPage2Window'/>", windowprops);
         }
 
         var awnd = null;
@@ -295,20 +295,20 @@
             var val = el.value;
             var tval = "" + val;
             if (isNaN(val)) {
-                alert("Item value must be numeric.");
+                alert("<fmt:message key='billing.billingCorrection.alert.numeric'/>");
                 el.select();
                 el.focus();
                 return false;
             }
             if (val >= 99999.99) {
-                alert("Item value must be below $100000");
+                alert("<fmt:message key='billing.billingCorrection.alert.belowMax'/>");
                 el.select();
                 el.focus();
                 return false;
             }
             decLen = tval.indexOf(".");
             if (decLen != -1 && (tval.length - decLen) > 3) {
-                alert("Item value has a maximum of 2 decimal places");
+                alert("<fmt:message key='billing.billingCorrection.alert.decimals'/>");
                 el.select();
                 el.focus();
                 return false;
@@ -324,14 +324,14 @@
             var billtype = document.getElementById('status').value;
             if (billtype == 'W') {
                 if (document.forms[0].WCBid == null || document.forms[0].WCBid.value == "") {
-                    alert("Please select a WCB form");
+                    alert("<fmt:message key='billing.billingCorrection.alert.selectWcbForm'/>");
                     return false;
                 }
             }
             //Simple validation to prevent billing unit being invalid
             var billingUnit = document.getElementById('billingUnit').value;
             if (!isNumeric(billingUnit)) {
-                alert("You must enter a valid billing unit/quantity.");
+                alert("<fmt:message key='billing.billingCorrection.alert.validBillingUnit'/>");
                 return false;
             }
         }
@@ -426,7 +426,7 @@
         <td height="40" width="10%"></td>
         <td width="90%" align="left">
             <p><font face="Verdana, Arial, Helvetica, sans-serif" color="#FFFFFF"><b><font
-                    face="Arial, Helvetica, sans-serif" size="4">oscar<font size="3">Billing - Correction</font></font></b></font>
+                    face="Arial, Helvetica, sans-serif" size="4">oscar<fmt:message key='billing.billingCorrection.msgBillingCorrection'/></font></b></font>
             </p>
         </td>
     </tr>
@@ -437,7 +437,7 @@
 %>
 <table width="100%" border="0" cellspacing="0" cellpadding="0">
     <tr>
-        <td height="40" width="10%">No Record Found</td>
+        <td height="40" width="10%"><fmt:message key="billing.billingCorrection.msgNoRecordFound"/></td>
     </tr>
 </table>
 </body>
@@ -451,17 +451,17 @@
 <table width="100%" border="0" bgcolor="#FFFFFF">
     <tr>
         <td align="left" class="bCellData">
-            Office Claim No
+            <fmt:message key='billing.billingCorrection.msgOfficeClaimNo'/>
         </td>
         <td class="bCellData">
             <e:forHtmlContent value='<%= billingmasterNo != null ? billingmasterNo : "" %>' />
         </td>
         <td align="left" class="bCellData">
-            <font color="#000000">Last update: <e:forHtmlContent value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' />
+            <font color="#000000"><fmt:message key='billing.billingCorrection.msgLastUpdate'/>: <e:forHtmlContent value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' />
             </font>
         </td>
         <td align="right" class="bCellData">
-            Creator:  <e:forHtmlContent value='<%= providerBean.getProperty(bill.getCreator(), bill.getCreator()) %>' />
+            <fmt:message key='billing.billingCorrection.msgCreator'/>:  <e:forHtmlContent value='<%= providerBean.getProperty(bill.getCreator(), bill.getCreator()) %>' />
         </td>
     </tr>
 
@@ -540,7 +540,7 @@
     <input type="hidden" name="billNumber" value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingNo", "") %>' />"/>
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
-            <td height="21" colspan="2" class="bCellData">Patient Information<input type="hidden" name="billingmasterNo"
+            <td height="21" colspan="2" class="bCellData"><fmt:message key='billing.billingCorrection.msgPatientInformation'/><input type="hidden" name="billingmasterNo"
                                                                                     value="<e:forHtmlAttribute value='<%= billingmasterNo %>' />"/>
                    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull((String) request.getAttribute("invoiceNo")) %>' /></c:set>
 
@@ -558,7 +558,7 @@
                    <c:set var="__enc_2"><e:forUriComponent value='<%= DemoNo %>' /></c:set>
                 <a href=#
                    onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_2}' />');return false;"
-                   title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>">
+                   title="<fmt:message key='provider.appointmentProviderAdminDay.msgMasterFile'/>">
                     <e:forHtmlContent value='<%= DemoName %>' />
                 </a>
                 <input type="hidden" name="demo_name" value="<e:forHtmlAttribute value='<%= DemoName %>' />">
@@ -610,7 +610,7 @@
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td colspan="2" class="bCellData">
-                Billing Information Data Center <e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' /> Payee
+                <fmt:message key='billing.billingCorrection.msgBillingInf'/> Data Center <e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' /> Payee
                 Number: <e:forHtmlContent value='<%= allFields.getProperty("payeeNo", "") %>' /> Practitioner
                 Number: <e:forHtmlContent value='<%= allFields.getProperty("practitionerNo", "") %>' />
                 Bill Type: <e:forHtmlContent value='<%= StringUtils.noNull(bill.getBillingtype()) %>' />
@@ -789,13 +789,13 @@
     %>
     <table width="100%" border=1>
         <tr bgcolor="#CCCCFF">
-            <td class="bCellData">Service Code</td>
-            <td width="50%" class="bCellData">Description</td>
-            <td class="bCellData">Unit</td>
+            <td class="bCellData"><fmt:message key="billing.billingCorrection.formServiceCode"/></td>
+            <td width="50%" class="bCellData"><fmt:message key="billing.billingCorrection.formDescription"/></td>
+            <td class="bCellData"><fmt:message key="billing.billingCorrection.formUnit"/></td>
             <td class="bCellData">
-                <div align="right">$ Fee</div>
+                <div align="right"><fmt:message key="billing.billingCorrection.formFee"/></div>
             </td>
-            <td class="bCellData">Internal Adj.</td>
+            <td class="bCellData"><fmt:message key="billing.billingCorrection.formInternalAdj"/></td>
         </tr>
 
         <tr>
@@ -805,14 +805,14 @@
                        value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingCode", "") %>' />" size="10">
                 <input type="button"
                        onClick="javascript:popFeeItemList('reprocessBilling','service_code');return false;"
-                       value="Search/Update"/>
+                       value="<fmt:message key='billing.billingCorrection.btnSearchUpdate'/>"/>
             </td>
             <td width="50%" class="bCellData">
                 <span id="description"><e:forHtmlContent value='<%= billform.getServiceDesc(allFields.getProperty("billingCode"), billRegion) %>' /></span>
                 ($<span id="valueDisplay"><e:forHtmlContent value='<%= billValue %>' /></span>)
                 <input type="hidden" value="<e:forHtmlAttribute value='<%= billValue %>' />" id="billValue"/>
                 <input type="hidden" value="<%=gstFlag%>" id="isGst"/>
-                <input type="button" value="Recalculate" onclick="calculateFee()"/>
+                <input type="button" value="<fmt:message key='billing.billingCorrection.btnRecalculate'/>" onclick="calculateFee()"/>
                 <small style="float: right; display: <%=gstFlag? "" : "none"%>"
                        id="currentGST"><%=("+ " + Encode.forHtml(gstPercent) + "% GST")%>
                 </small>
@@ -833,12 +833,12 @@
             </td>
             <td>
                 <label>
-                    Amount:
+                    <fmt:message key="billing.billingCorrection.labelAmount"/>
                     <input name="adjAmount" type="text" size="7" maxlength="7">
                 </label>
                 <label>
                     <input type="checkbox" name="adjType" value="1"/>
-                    debit
+                    <fmt:message key="billing.billingCorrection.labelDebit"/>
                 </label>
             </td>
         </tr>
@@ -850,14 +850,14 @@
                 <table width="100%">
                     <tr bgcolor="#CCCCFF">
                         <td colspan=2 class="bCellData">
-                            Diagnostic Code
+                            <fmt:message key="billing.billingCorrection.formDiagnosticCode"/>
                         </td>
 
 
                     </tr>
                     <tr>
                         <td class="bCellData">
-                            <a href="javascript:ScriptAttach('dx1')">DX 1</a><input type="text" name="dx1"
+                            <a href="javascript:ScriptAttach('dx1')"><fmt:message key="billing.billingCorrection.dx1"/></a><input type="text" name="dx1"
                                                                                     onClick="checkSubmitType()"
                                                                                     value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode1", "") %>' />"
                                                                                     size="10">
@@ -867,7 +867,7 @@
                     </tr>
                     <tr>
                         <td class="bCellData">
-                            <a href="javascript:ScriptAttach('dx2')">DX 2</a><input type="text" name="dx2"
+                            <a href="javascript:ScriptAttach('dx2')"><fmt:message key="billing.billingCorrection.dx2"/></a><input type="text" name="dx2"
                                                                                     onClick="checkSubmitType()"
                                                                                     value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode2", "") %>' />"
                                                                                     size="10">
@@ -877,7 +877,7 @@
                     </tr>
                     <tr>
                         <td class="bCellData">
-                            <a href="javascript:ScriptAttach('dx3')">DX 3</a><input type="text" name="dx3"
+                            <a href="javascript:ScriptAttach('dx3')"><fmt:message key="billing.billingCorrection.dx3"/></a><input type="text" name="dx3"
                                                                                     onClick="checkSubmitType()"
                                                                                     value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode3", "") %>' />"
                                                                                     size="10">
@@ -1013,7 +1013,7 @@
                     Select sequence number you would like to debit <input name="debitRequestSeqNum" type="text"
                                                                           maxlength="7" size="7"
                                                                           value="<e:forHtmlAttribute value='<%= getDebitRequestSeqNum(allFields.getProperty("originalClaim")) %>' />"/>
-                    </br>Select date MSP received claim (if not known, fill with zeros) (YYYYMMDD): <input
+                    </br><fmt:message key="billing.billingCorrection.msgSelectMSPReceivedDate"/> <input
                         id="debitRequestDate" name="debitRequestDate" type="text" maxlength="8" size="8"
                         value="<e:forHtmlAttribute value='<%= getDebitRequestDate(allFields.getProperty("originalClaim")) %>' />"/>
                     <a id="hlADate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
@@ -1194,10 +1194,10 @@
     %>
     <tr>
         <td colspan="4" class="bCellData">
-            <input type="submit" name="submit" value="Reprocess Bill">
-            <input type="submit" name="submit" value="Resubmit Bill">
-            <input type="submit" name="submit" id="reprocessAndReSubmitBill" value="Reprocess and Resubmit Bill">
-            <input type="submit" name="submit" value="Settle Bill">
+            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnReprocessBill'/>">
+            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnResubmitBill'/>">
+            <input type="submit" name="submit" id="reprocessAndReSubmitBill" value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
+            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnSettleBill'/>">
 
         </td>
     </tr>
@@ -1205,9 +1205,9 @@
     <tr>
         <td colspan="4" class="bCellData">
             <input type="submit" name="submit" id="submitButton" style="display:none;"
-                   value="Reprocess and Resubmit Bill">
+                   value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
             <% if (!bill.getBillingtype().equals("Pri")) { %>
-            <input type="submit" name="submit" value="Revert to PWE">
+            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnRevertToPWE'/>">
             <% } %>
         </td>
     </tr>
@@ -1217,7 +1217,7 @@
 
     </table>
 </form>
-<a href="javascript: function myFunction() {return false; }" onClick="javascript: showRecord();">View Full Record</a>
+<a href="javascript: function myFunction() {return false; }" onClick="javascript: showRecord();"><fmt:message key="billing.billingCorrection.btnViewFullRecord"/></a>
 <div style="display: none;" id="SENDRECORD">
     <table border=1>
         <tr>

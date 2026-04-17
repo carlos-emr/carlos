@@ -70,20 +70,20 @@
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="preventionSSOWarningProperty.checked" <c:if test="${preventionSSOWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when not logged into OneID Single Sign On.
+                        <fmt:message key="provider.preventionPrefs.ssoWarning"/>
                     <br/>
                     <input type="checkbox" name="preventionISPAWarningProperty.checked" <c:if test="${preventionISPAWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when Patient has not consented to send ISPA data to DHIR.
+                        <fmt:message key="provider.preventionPrefs.ispaWarning"/>
                     <br/>
                     <input type="checkbox" name="preventionNonISPAWarningProperty.checked" <c:if test="${preventionNonISPAWarningProperty.checked}">checked</c:if>/>
-                        Hide Warning when Patient has not consented to send Non-ISPA data to DHIR.
+                        <fmt:message key="provider.preventionPrefs.nonIspaWarning"/>
                     <br/><br/>
                     <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
                     <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
                            onclick="window.close();"/>
                 </form>
                 <%} else {%>
-                Configuration has been saved.
+                <fmt:message key="provider.preventionPrefs.msgSuccess"/>
                 <br/><br/>
                 <input type="button" value="<%=bundle.getString(providerbtnClose)%>" onclick="window.close();"/>
                 <%}%>

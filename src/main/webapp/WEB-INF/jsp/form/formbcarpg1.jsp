@@ -1,4 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -62,7 +64,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Antenatal Record 1</title>
+        <title><fmt:message key="form.bcar.titlePage1"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%=bView?"bcArStyleView.css" : "bcArStyle.css"%>">
         <!-- calendar stylesheet -->
@@ -74,7 +76,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -235,7 +237,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -245,7 +247,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -362,7 +364,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -387,7 +389,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -697,14 +699,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/> <input
                         type="submit" value="Print Risk"
                         onclick="javascript:return onPrintRisk();"/></td>
@@ -714,7 +716,7 @@
                 <td><a href="javascript: function myFunction() {return false; }"
                        title="Double click shaded fields for drop down or calculation"
                        onClick="showHideBox('Instrdiv',1);return false;"><font
-                        color='red'>Instruction</font></a></td>
+                        color='red'><fmt:message key="form.bcar.instruction"/></font></a></td>
 
                 <td align="right"><!-- font size=-2><b>View:</b> </font>
             <a href="javascript: popupPage('form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"><font size=-2>AR2 (pg.1)</font></a> |
@@ -738,7 +740,7 @@
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                British Columbia Antenatal Record Part 1 <font size="-2">HLTH-1582-1
+                                <fmt:message key="form.bcar.recordTitlePart1"/> <font size="-2">HLTH-1582-1
                                     Rev.02/03</font></th>
                         </tr>
                     </table>
@@ -903,7 +905,7 @@
 			this information.</span></td>
             </tr>
             <tr>
-                <td width="45%"><i>Mother's Signature:</i> <input type="text"
+                <td width="45%"><i><fmt:message key="form.bcar.motherSignature"/></i> <input type="text"
                                                                   name="pg1_moSign" size="40" maxlength="60"
                                                                   value="<%= props.getProperty("pg1_moSign", "") %>"
                                                                   @oscar.formDB/>
@@ -2001,7 +2003,7 @@
                             <td><input type="checkbox" name="pg1_disBreFeed"
                                     <%= props.getProperty("pg1_disBreFeed", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td><span class="small8">Breastfeeding </font></td>
+                            <td><span class="small8"><fmt:message key="form.bcar.breastfeeding"/> </font></td>
                             <td><input type="checkbox" name="pg1_disGBS"
                                     <%= props.getProperty("pg1_disGBS", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
@@ -2018,10 +2020,10 @@
                                     dbType="tinyint(1)"/>yes <input type="checkbox" name="pg1_disBfN"
                                     <%= props.getProperty("pg1_disBfN", "") %> @oscar.formDB
                                                                     dbType="tinyint(1)"/>no</font></td>
-                            <td><input type="checkbox" name="pg1_disVBAC"
-                                    <%= props.getProperty("pg1_disVBAC", "") %> @oscar.formDB
+                            <td><input type="checkbox" name="pg1_dis<fmt:message key="form.bcar.vbac"/>"
+                                    <%= props.getProperty("pg1_dis<fmt:message key="form.bcar.vbac"/>", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td><span class="small8">VBAC</font></td>
+                            <td><span class="small8"><fmt:message key="form.bcar.vbac"/></font></td>
                             <td><input type="checkbox" name="pg1_disBabyCare"
                                     <%= props.getProperty("pg1_disBabyCare", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
@@ -2119,7 +2121,7 @@
                 <td width="60%"></td>
                 <td>SIGNATURE: <input type="text" name="pg1_signature" size="35"
                                       maxlength="40" value="<%= props.getProperty("pg1_signature", "") %>"
-                                      @oscar.formDB/> MD/RM
+                                      @oscar.formDB/> <fmt:message key="form.bcar.mdRm"/>
                 </td>
             </tr>
         </table>
@@ -2130,14 +2132,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
@@ -2225,7 +2227,7 @@
                                         <td><input type="checkbox" name="ar2_riskPriCesBirth"
                                                 <%= props.getProperty("ar2_riskPriCesBirth", "") %> @oscar.formDB
                                                    dbType="tinyint(1)"/></td>
-                                        <td>Prior Cesarean birth ( uterine surgery )</td>
+                                        <td><fmt:message key="form.bcar.priorCesareanBirth"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="ar2_riskPriIUGR"

@@ -29,6 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String user = (String) session.getAttribute("user");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -74,12 +77,12 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-        <title>BC Antenatal Record 2020 Part 2 Page 1</title>
+        <title><fmt:message key="form.formBCAR2020pg2.title"/></title>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
@@ -125,22 +128,22 @@
             $(function () {
 
                 //dirty form enable/disable save button.
-                $("form").find('input[value="Save"]').attr('disabled', true);
-                $("form").find('input[value="Save and Exit"]').attr('disabled', true);
-                $("form").find('input[value="Exit"]').removeAttr('disabled');
+                $("form").find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
 
                 $('form').on('dirty.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').removeAttr('disabled');
-                    $(this).find('input[value="Save and Exit"]').removeAttr('disabled');
-                    $(this).find('input[value="Exit"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').attr('disabled', true);
                 });
 
                 $('form').on('clean.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').attr('disabled', true);
-                    $(this).find('input[value="Save and Exit"]').attr('disabled', true);
-                    $(this).find('input[value="Exit"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
                 });
 
             });
@@ -182,39 +185,37 @@
                 <table class="sectionHeader hidePrint">
                     <tr>
                         <td align="left" rowspan="2" width="58%" style="padding:10px !important;">
-                            <input type="submit" class="btn btn-primary" value="Save" onclick="return onSave();"/>
-                            <input type="submit" class="btn btn-secondary" value="Save and Exit"
+                            <input type="submit" class="btn btn-primary" value="<fmt:message key="global.save"/>" onclick="return onSave();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key='global.saveExit'/>"
                                    onclick="return onSaveExit();"/>
 
-                            <input type="submit" class="btn btn-danger" value="Exit" onclick="window.close();"/>
-                            <input type="submit" class="btn btn-secondary" value="Print" onclick="return onPrint();"/>
+                            <input type="submit" class="btn btn-danger" value="<fmt:message key="global.btnExit"/>" onclick="window.close();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnPrint"/>" onclick="return onPrint();"/>
                             <span style="display:none"><input id="printBtn" type="submit" value="PrintIt"/></span>
 
                         </td>
                         <td align="right" rowspan="2" width="5%" valign="top">
                             <b>
-                                Edit:
+                                <fmt:message key="form.formBCAR2020pg3.label.edit"/>
                             </b>
                         </td>
                         <td align="right" width="37%">
-                            <a href="javascript:void(0);" onclick="return onPageChange('1');">Part 1</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('1');"><fmt:message key="form.formBCAR2020pg3.link.part1"/></a>
                             |
                             <b>
-                                <a href="javascript:void(0);" onclick="return onPageChange('2');">Part 2 (Page 1)</a>
+                                <a href="javascript:void(0);" onclick="return onPageChange('2');"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></a>
                             </b>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('3');">Part 2 (Page 2)</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('3');"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></a>
                         </td>
                     </tr>
                     <tr>
                         <td align="right">
-                            <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10">Attachments</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.attachments"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('4');" class="small10">Reference
-                                Page 1</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('4');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.referencePage1"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('5');" class="small10">Reference
-                                Page 2</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('5');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.referencePage2"/></a>
                         </td>
                     </tr>
                 </table>
@@ -222,7 +223,7 @@
                 <!-- Page Heading -->
                 <table width="100%">
                     <tr>
-                        <th>British Columbia Antenatal Record Part 2 <font size="-2">PSBC 1905 - January 2020</font>
+                        <th><fmt:message key="form.formBCAR2020pg2.heading.record"/> <font size="-2"><fmt:message key="form.formBCAR2020pg3.heading.subtitle"/></font>
                         </th>
                     </tr>
                 </table>
@@ -234,13 +235,13 @@
                             <table width="100%" class="regular-border">
                                 <tr>
                                     <td width="40%" style="border-right: 1px solid black;">
-                                        <span class="title">12.</span> Planned place of birth @ 20 wks
+                                        <span class="title">12.</span> <fmt:message key="form.formBCAR2020pg2.label.plannedBirth20"/>
                                     </td>
                                     <td width="40%" style="border-left: 1px solid black;border-right: 1px solid black;">
-                                        Planned place of birth @ 36 wks
+                                        <fmt:message key="form.formBCAR2020pg2.label.plannedBirth36"/>
                                     </td>
                                     <td width="20%" style="border-left: 1px solid black;border-right: 1px solid black;">
-                                        Referral hospital
+                                        <fmt:message key="form.formBCAR2020pg2.label.referralHospital"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -249,14 +250,14 @@
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthAt20Wks", "")) %>"/>
                                         <input type="checkbox"
                                                name="c_plannedBirthAt20WksCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_plannedBirthAt20WksCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
-                                        Copy to hospital
+                                        <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">
                                         <input type="text" name="t_plannedBirthAt36Wks" size="15" maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthAt36Wks", "")) %>"/>
                                         <input type="checkbox"
                                                name="c_plannedBirthAt36WksCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_plannedBirthAt36WksCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
-                                        Copy to hospital
+                                        <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">
                                         <input type="text" name="t_plannedBirthReferralHospital" class="text-style"
@@ -267,19 +268,19 @@
                                 <tr>
                                     <td colspan="3"
                                         style="border-top: 1px solid black; border-bottom: 1px solid black;">
-                                        <span class="title">Confirmed EDD</span><span
+                                        <span class="title"><fmt:message key="form.formBCAR2020pg2.label.confirmedEDD"/></span><span
                                             class="sub-text">(dd/mm/yyyy)</span>
                                         <input type="text" id="d_confirmedEDD" name="d_confirmedEDD"
                                                title="Section 12 - Confirmed EDD" size="10" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("d_confirmedEDD", "")) %>"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_confirmedEDD_cal">
-                                        by:
+                                        <fmt:message key="form.formBCAR2020pg2.label.by"/>
                                         <input type="checkbox"
                                                name="c_confirmedEDDUS" <e:forHtmlAttribute value='<%= props.getProperty("c_confirmedEDDUS", "").equals("X") ? "checked" : "" %>' /> />
-                                        US
+                                        <fmt:message key="form.formBCAR2020pg2.label.us"/>
                                         <input type="checkbox"
                                                name="c_confirmedEDDIVF" <e:forHtmlAttribute value='<%= props.getProperty("c_confirmedEDDIVF", "").equals("X") ? "checked" : "" %>' /> />
-                                        IVF
+                                        <fmt:message key="form.formBCAR2020pg2.label.ivf"/>
                                     </td>
                                 </tr>
                             </table>
@@ -292,31 +293,31 @@
                                     </td>
                                     <td width="32%">
                                         <div class="div-left">
-                                            Date
+                                            <fmt:message key="form.formBCAR2020pg2.label.date"/>
                                             <span class="sub-text">(dd/mm/yyyy)</span>
                                         </div>
                                         <div class="div-right">
-                                            Antibody Titre
+                                            <fmt:message key="form.formBCAR2020pg2.label.antibodyTitre"/>
                                         </div>
                                     </td>
                                     <td width="28%" class="alignTop">
-                                        Date RhIg given
+                                        <fmt:message key="form.formBCAR2020pg2.label.rhigDate"/>
                                         <span class="sub-text">(dd/mm/yyyy)</span>
                                     </td>
                                     <td width="18%" class="alignTop">
-                                        Hemoglobin
+                                        <fmt:message key="form.formBCAR2020pg2.label.hemoglobin"/>
                                         <span class="sub-text">(g/L)</span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="10%" class="alignTop">
                                         <div class="div-center">
-                                            ABO
+                                            <fmt:message key="form.formBCAR2020pg2.label.abo"/>
                                         </div>
                                     </td>
                                     <td width="12%" class="alignTop">
                                         <div class="div-center">
-                                            Rh factor
+                                            <fmt:message key="form.formBCAR2020pg2.label.rhFactor"/>
                                         </div>
                                     </td>
                                     <td>
@@ -348,14 +349,14 @@
                                             <option value="B">B</option>
                                             <option value="AB">AB</option>
                                             <option value="O">O</option>
-                                            <option value="UN">Unknown</option>
+                                            <option value="UN"><fmt:message key="global.unknown"/></option>
                                         </select>
                                     </td>
                                     <td>
                                         <select name="s_investigationsRhFactor" style="width: 100%">
-                                            <option value="POS">Pos</option>
-                                            <option value="NEG">Neg</option>
-                                            <option value="UN">Unknown</option>
+                                            <option value="POS"><fmt:message key="form.formBCAR2020pg2.label.pos"/></option>
+                                            <option value="NEG"><fmt:message key="form.formBCAR2020pg2.label.neg"/></option>
+                                            <option value="UN"><fmt:message key="global.unknown"/></option>
                                         </select>
                                     </td>
                                     <td>
@@ -386,37 +387,37 @@
                                 <tr>
                                     <td width="17%">
                                         <div class="div-center">
-                                            <span class="title">Test</span>
+                                            <span class="title"><fmt:message key="form.formBCAR2020pg2.label.test"/></span>
                                         </div>
                                     </td>
                                     <td colspan="2" width="20%">
                                         <div class="div-center">
-                                            <span class="title">Results</span>
+                                            <span class="title"><fmt:message key="form.formBCAR2020pg2.label.results"/></span>
                                         </div>
                                     </td>
                                     <td colspan="2" width="63%">
                                         <div class="div-center">
-                                            <span class="title">Results/Follow-up/Comments</span>
+                                            <span class="title"><fmt:message key="form.formBCAR2020pg2.label.resultsFollowupComments"/></span>
                                         </div>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Rubella
+                                        <fmt:message key="form.formBCAR2020pg2.label.rubella"/>
                                     </td>
                                     <td width="10%">
                                         <input type="checkbox"
                                                name="c_investigationsRubellaImm" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaImm", "").equals("X") ? "checked" : "" %>' /> />
-                                        Imm
+                                        <fmt:message key="form.formBCAR2020pg2.label.yes"/>
                                     </td>
                                     <td width="10%">
                                         <input type="checkbox"
                                                name="c_investigationsRubellaNonImm" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaNonImm", "").equals("X") ? "checked" : "" %>' /> />
-                                        N-Imm
+                                        <fmt:message key="form.formBCAR2020pg2.label.no"/>
                                     </td>
                                     <td width="32%">
                                         <div class="divFlex">
-                                            Value
+                                            <fmt:message key="form.formBCAR2020pg2.label.value"/>
                                             <span class="sub-text">
 												(IU/mL)
 											</span>
@@ -428,22 +429,22 @@
                                     <td width="31%">
                                         <input type="checkbox"
                                                name="c_investigationsRubellaPPVaccine" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaPPVaccine", "").equals("X") ? "checked" : "" %>' /> />
-                                        Postpartum vaccine required
+                                        <fmt:message key="form.formBCAR2020pg2.label.postpartumVaccineRequired"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        HIV
+                                        <fmt:message key="form.formBCAR2020pg2.label.hiv"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsHIVNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.no"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsHIVPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.yes"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
@@ -455,12 +456,12 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsHIVT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
-                                        T3 repeat if high-risk
+                                        <fmt:message key="form.formBCAR2020pg2.label.t3RepeatHighRisk"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Syphilis
+                                        <fmt:message key="form.formBCAR2020pg2.label.syphilis"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
@@ -482,7 +483,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        HBsAg
+                                        <fmt:message key="form.formBCAR2020pg2.label.hbsag"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
@@ -504,36 +505,36 @@
                                         </div>
                                         <input type="checkbox"
                                                name="c_investigationsHBsAgPartner" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgPartner", "").equals("X") ? "checked" : "" %>' /> />
-                                        Partner/household contact
+                                        <fmt:message key="form.formBCAR2020pg2.label.partnerHouseholdContact"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsHBsAgAntiViral" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgAntiViral", "").equals("X") ? "checked" : "" %>' /> />
-                                        Anti-viral therapy required
+                                        <fmt:message key="form.formBCAR2020pg2.label.antiviralTherapyRequired"/>
                                         <br/>
                                         <input type="checkbox"
                                                name="c_investigationsHBsAgNewbornVaccine" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgNewbornVaccine", "").equals("X") ? "checked" : "" %>' /> />
-                                        Newborn vaccine required
+                                        <fmt:message key="form.formBCAR2020pg2.label.newbornVaccineRequired"/>
                                         <br/>
                                         <input type="checkbox"
                                                name="c_investigationsHBsAgNewbornHBIg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgNewbornHBIg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Newborn HBIg required
+                                        <fmt:message key="form.formBCAR2020pg2.label.newbornHbIgRequired"/>
                                         <br/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Gonorrhea
+                                        <fmt:message key="form.formBCAR2020pg2.label.gonorrhea"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGonorrheaNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGonorrheaPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
@@ -545,22 +546,22 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGonorrheaT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
-                                        T3 repeat if Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.t3RepeatPos"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Chlamydia
+                                        <fmt:message key="form.formBCAR2020pg2.label.chlamydia"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsChlamydiaNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsChlamydiaPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
@@ -572,26 +573,26 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsChlamydiaT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
-                                        T3 repeat if Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.t3RepeatPos"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Urine C&S
+                                        <fmt:message key="form.formBCAR2020pg2.label.urineCS"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsUrineNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsUrineNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsUrinePos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsUrinePos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
-                                            Culture
+                                            <fmt:message key="form.formBCAR2020pg2.label.culture"/>
                                             <input type="text" name="t_investigationsUrineCulture" class="text-style"
                                                    size="10" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_investigationsUrineCulture", "")) %>"/>
@@ -607,7 +608,7 @@
                                 </tr>
                                 <tr class="noBorderTopBottom">
                                     <td>
-                                        GDM
+                                        <fmt:message key="form.formBCAR2020pg2.label.gdm"/>
                                         <span class="sub-text">(@24-28 wks)</span>
                                     </td>
                                     <td>
@@ -617,35 +618,35 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGDMTestDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMTestDeclined", "").equals("X") ? "checked" : "" %>' /> />
-                                        GDM test declined
+                                        <fmt:message key="form.formBCAR2020pg2.label.gdmTestDeclined"/>
                                     </td>
                                     <td rowspan="2" valign="top">
                                         <input type="checkbox"
                                                name="c_investigationsGDMDietControlled" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMDietControlled", "").equals("X") ? "checked" : "" %>' /> />
-                                        Diet controlled
+                                        <fmt:message key="form.formBCAR2020pg2.label.dietControlled"/>
                                         <br/>
                                         <input type="checkbox"
                                                name="c_investigationsGDMInsulinReqd" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMInsulinReqd", "").equals("X") ? "checked" : "" %>' /> />
-                                        Insulin required
+                                        <fmt:message key="form.formBCAR2020pg2.label.insulinRequired"/>
                                     </td>
                                 </tr>
                                 <tr class="noBorderTopBottom">
                                     <td>
-                                        <span style="margin-left: 2em;">GCT</span>
+                                        <span style="margin-left: 2em;"><fmt:message key="form.formBCAR2020pg2.label.gct"/></span>
                                         <span class="sub-text">(50 g)</span>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGDMGCTNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGCTNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGDMGCTPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGCTPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
-                                        Value
+                                        <fmt:message key="form.formBCAR2020pg2.label.value"/>
                                         <span class="sub-text">(mmol/L)</span>
                                         @1hr
                                         <input type="text" name="t_investigationsGDMGCT1hr" size="6" maxlength="150"
@@ -654,21 +655,21 @@
                                 </tr>
                                 <tr class="noBorderTopBottom">
                                     <td>
-                                        <span style="margin-left: 2em;">GTT</span>
+                                        <span style="margin-left: 2em;"><fmt:message key="form.formBCAR2020pg2.label.gtt"/></span>
                                         <span class="sub-text">(75 g)</span>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGDMGTTNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGTTNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGDMGTTPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGTTPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
-                                        Value
+                                        <fmt:message key="form.formBCAR2020pg2.label.value"/>
                                         <span class="sub-text">(mmol/L)</span>
                                         @1hr
                                         <input type="text" name="t_investigationsGDMGTT1hr" size="6" maxlength="150"
@@ -691,15 +692,15 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGBSNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSNeg", "").equals("X") ? "checked" : "" %>' /> />
-                                        Neg
+                                        <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGBSPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSPos", "").equals("X") ? "checked" : "" %>' /> />
-                                        Pos
+                                        <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
-                                        Date
+                                        <fmt:message key="form.formBCAR2020pg2.label.date"/>
                                         <span class="sub-text">(dd/mm/yyyy)</span>
                                         <input type="text" id="d_investigationsGBSDate" name="d_investigationsGBSDate"
                                                size="8" maxlength="20"
@@ -709,12 +710,12 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_investigationsGBSCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
-                                        Copy to hospital
+                                        <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan="5">
-                                        Other (e.g. Ferritin, TSH, HepC)
+                                        <fmt:message key="form.formBCAR2020pg2.label.otherExample"/>
                                         <div class="divFlex">
                                             <input type="text" name="t_investigationsOther" size="60" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_investigationsOther", "")) %>"/>
@@ -727,15 +728,15 @@
                             <table width="100%" class="outside-border">
                                 <tr>
                                     <td colspan="2">
-                                        <div class="title">Prenatal Genetic Investigations</div>
+                                        <div class="title"><fmt:message key="form.formBCAR2020pg2.label.prenatalGeneticInvestigations"/></div>
                                     </td>
                                     <td colspan="2">
                                         <input type="checkbox"
                                                name="c_prenatalGeneticDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticDeclined", "").equals("X") ? "checked" : "" %>' /> />
-                                        Declined
+                                        <fmt:message key="form.formBCAR2020pg2.label.declined"/>
                                     </td>
                                     <td style="border-left: 1px solid black;">
-                                        <div class="title">Results</div>
+                                        <div class="title"><fmt:message key="form.formBCAR2020pg2.label.results"/></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -771,18 +772,18 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_prenatalGeneticNIPTMSP" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticNIPTMSP", "").equals("X") ? "checked" : "" %>' /> />
-                                        NIPT (MSP)
+                                        <fmt:message key="form.formBCAR2020pg2.label.niptMsp"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_prenatalGeneticNIPTSelf" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticNIPTSelf", "").equals("X") ? "checked" : "" %>' /> />
-                                        NIPT (self-pay)
+                                        <fmt:message key="form.formBCAR2020pg2.label.niptSelfPay"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
                                             <input type="checkbox"
                                                    name="c_prenatalGeneticOther" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticOther", "").equals("X") ? "checked" : "" %>' /> />
-                                            Other
+                                            <fmt:message key="form.formBCAR2020pg2.label.other"/>
                                             <input type="text" name="t_prenatalGeneticOtherDetails" size="10"
                                                    maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_prenatalGeneticOtherDetails", "")) %>"/>
@@ -791,7 +792,7 @@
                                     <td>
                                         <input type="checkbox"
                                                name="c_prenatalGeneticAmnio" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticAmnio", "").equals("X") ? "checked" : "" %>' /> />
-                                        Amnio
+                                        <fmt:message key="form.formBCAR2020pg2.label.amnio"/>
                                     </td>
                                 </tr>
                             </table>
@@ -805,20 +806,20 @@
                                     <td width="39%">
                                         <input type="checkbox"
                                                name="c_edinburgDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_edinburgDeclined", "").equals("X") ? "checked" : "" %>' /> />
-                                        Declined
+                                        <fmt:message key="form.formBCAR2020pg2.label.declined"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan="2">
-                                        Date
+                                        <fmt:message key="form.formBCAR2020pg2.label.date"/>
                                         <span class="sub-text">(dd/mm/yyyy)</span>
                                         <input type="text" id="d_edinburgDate" name="d_edinburgDate"
-                                               title="14. Edinburgh - Date" size="10" maxlength="150"
+                                               title="<fmt:message key='form.formBCAR2020pg2.title.edinburghDate'/>" size="10" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("d_edinburgDate", "")) %>"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_edinburgDate_cal">
-                                        GA
+                                        <fmt:message key="form.formBCAR2020pg2.label.ga"/>
                                         <span class="sub-text">(wks/days)</span>
-                                        <input type="text" name="t_edinburgGA" title="14. Edinburgh - GA"
+                                        <input type="text" name="t_edinburgGA" title="<fmt:message key='form.formBCAR2020pg2.title.edinburghGA'/>"
                                                class="calcField" size="8" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_edinburgGA", "")) %>"
                                                onDblClick="getGAByFieldDate('t_edinburgGA', 'd_confirmedEDD', 'd_edinburgDate')"/>
@@ -828,19 +829,19 @@
                                     <td colspan="2">
                                         <div class="flex-row flex-justify">
                                             <div>
-                                                Total Score
+                                                <fmt:message key="form.formBCAR2020pg2.label.totalScore"/>
                                                 <input type="text" name="t_edinburgTotalScore" size="6" maxlength="150"
                                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_edinburgTotalScore", "")) %>"/>
                                             </div>
                                             <div>
-                                                Anxiety subscore
+                                                <fmt:message key="form.formBCAR2020pg2.label.anxietySubscore"/>
                                                 <span class="sub-text">(questions 3-5)</span>
                                                 <input type="text" name="t_edinburgAnxietySubscore" size="6"
                                                        maxlength="150"
                                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_edinburgAnxietySubscore", "")) %>"/>
                                             </div>
                                             <div>
-                                                Self-harm subscore
+                                                <fmt:message key="form.formBCAR2020pg2.label.selfHarmSubscore"/>
                                                 <span class="sub-text">(question 10)</span>
                                                 <input type="text" name="t_edinburgSelfharmSubscore" size="6"
                                                        maxlength="150"
@@ -852,7 +853,7 @@
                                 <tr>
                                     <td colspan="2">
                                         <div class="divFlex">
-                                            Follow-up
+                                                <fmt:message key="form.formBCAR2020pg2.label.followUp"/>
                                             <input type="text" name="t_edinburgFollowup" size="20" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_edinburgFollowup", "")) %>"/>
                                         </div>
@@ -866,7 +867,7 @@
                             <table width="100%" class="no-border">
                                 <tr>
                                     <td valign="top" width="50%">
-                                        Surname<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.surname"/><br/>
                                         <input type="text" name="t_patientSurname" class="text-style" size="30"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientSurname", "")) %>"
@@ -874,7 +875,7 @@
                                                readonly/>
                                     </td>
                                     <td valign="top" width="50%" colspan="2">
-                                        Given name<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.givenName"/><br/>
                                         <input type="text" name="t_patientGivenName" class="text-style" size="30"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientGivenName", "")) %>"
@@ -884,7 +885,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan="3">
-                                        Address - Number, Street name<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.addressNumberStreetName"/><br/>
                                         <input type="text" name="t_patientAddress" class="text-style" size="60"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientAddress", "")) %>"/>
@@ -892,19 +893,19 @@
                                 </tr>
                                 <tr>
                                     <td width="50%">
-                                        City<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.city"/><br/>
                                         <input type="text" name="t_patientCity" class="text-style" size="60"
                                                maxlength="50"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientCity", "")) %>"/>
                                     </td>
                                     <td width="25%">
-                                        Province<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.province"/><br/>
                                         <input type="text" name="t_patientProvince" class="text-style" size="60"
                                                maxlength="80"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientProvince", "")) %>"/>
                                     </td>
                                     <td width="25%">
-                                        Postal Code<br/>
+                                        <fmt:message key="form.formBCAR2020pg2.label.postalCode"/><br/>
                                         <input type="text" name="t_patientPostal" class="text-style" size="60"
                                                maxlength="10"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientPostal", "")) %>"/>
@@ -915,13 +916,13 @@
                                         <table width="100%">
                                             <tr>
                                                 <td width="33%">
-                                                    Home Phone Number
+                                                    <fmt:message key="form.formBCAR2020pg2.label.homePhoneNumber"/>
                                                 </td>
                                                 <td width="33%">
-                                                    Work Phone Number
+                                                    <fmt:message key="form.formBCAR2020pg2.label.workPhoneNumber"/>
                                                 </td>
                                                 <td width="34%">
-                                                    Cell Phone Number
+                                                    <fmt:message key="form.formBCAR2020pg2.label.cellPhoneNumber"/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -946,7 +947,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan="3">
-                                        Personal Health Number<br/>
+                                        <fmt:message key="form.formBCAR2020pg1.label.personalHealthNumber"/><br/>
                                         <input type="text" name="t_patientHIN" class="text-style" size="60"
                                                maxlength="10"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientHIN", "")) %>"
@@ -963,33 +964,33 @@
                             <table width="100%" class="regular-border">
                                 <tr>
                                     <td colspan="3">
-                                        <span class="title">15.</span> <span class="title">Ultrasounds & Other Imaging Investigations</span>
+                                        <span class="title">15.</span> <span class="title"><fmt:message key="form.formBCAR2020pg2.heading.ultrasoundsOtherImagingInvestigations"/></span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <th width="27%" class="div-center">
-                                        Date</br>
+                                        <fmt:message key="form.formBCAR2020pg2.label.date"/></br>
                                         <span class="sub-text">(dd/mm/yyyy)</span>
                                     </th>
                                     <th width="10%" class="div-center">
-                                        GA</br>
+                                        <fmt:message key="form.formBCAR2020pg2.label.ga"/></br>
                                         <span class="sub-text">(wks/days)</span>
                                     </th>
                                     <th width="63%" class="div-center">
-                                        Comments
+                                        <fmt:message key="form.formBCAR2020pg2.label.comments"/>
                                     </th>
                                 </tr>
                                 <tr>
                                     <td>
                                         <div class="div-center" style="margin-top:1px;">
                                             <input type="text" id="d_imagingDate1" name="d_imagingDate1"
-                                                   title="US/Imaging Line 1 - Date" size="9" maxlength="150"
+                                                   title="<fmt:message key='form.formBCAR2020pg2.title.usImagingDate'/>" size="9" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("d_imagingDate1", "")) %>"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_imagingDate1_cal">
                                         </div>
                                     </td>
                                     <td>
-                                        <input type="text" name="t_imagingGA1" title="US/Imaging Line 1 - GA"
+                                        <input type="text" name="t_imagingGA1" title="<fmt:message key='form.formBCAR2020pg2.title.usImagingGA'/>"
                                                class="calcField" size="8" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_imagingGA1", "")) %>"
                                                onDblClick="getGAByFieldDate('t_imagingGA1', 'd_confirmedEDD', 'd_imagingDate1')"/>
@@ -1004,13 +1005,13 @@
                                     <td>
                                         <div class="div-center" style="margin-top:1px;">
                                             <input type="text" id="d_imagingDate2" name="d_imagingDate2"
-                                                   title="US/Imaging Line 2 - Date" size="9" maxlength="150"
+                                                   title="<fmt:message key='form.formBCAR2020pg2.title.usImagingDate'/>" size="9" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("d_imagingDate2", "")) %>"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_imagingDate2_cal">
                                         </div>
                                     </td>
                                     <td>
-                                        <input type="text" name="t_imagingGA2" title="US/Imaging Line 2 - GA"
+                                        <input type="text" name="t_imagingGA2" title="<fmt:message key='form.formBCAR2020pg2.title.usImagingGA'/>"
                                                class="calcField" size="8" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_imagingGA2", "")) %>"
                                                onDblClick="getGAByFieldDate('t_imagingGA2', 'd_confirmedEDD', 'd_imagingDate2')"/>
@@ -1025,13 +1026,13 @@
                                     <td>
                                         <div class="div-center" style="margin-top:1px;">
                                             <input type="text" id="d_imagingDate3" name="d_imagingDate3"
-                                                   title="US/Imaging Line 3 - Date" size="9" maxlength="150"
+                                                   title="<fmt:message key='form.formBCAR2020pg2.title.usImagingDate'/>" size="9" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("d_imagingDate3", "")) %>"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_imagingDate3_cal">
                                         </div>
                                     </td>
                                     <td>
-                                        <input type="text" name="t_imagingGA3" title="US/Imaging Line 3 - GA"
+                                        <input type="text" name="t_imagingGA3" title="<fmt:message key='form.formBCAR2020pg2.title.usImagingGA'/>"
                                                class="calcField" size="8" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_imagingGA3", "")) %>"
                                                onDblClick="getGAByFieldDate('t_imagingGA3', 'd_confirmedEDD', 'd_imagingDate3')"/>
@@ -1046,13 +1047,13 @@
                                     <td>
                                         <div class="div-center" style="margin-top:1px;">
                                             <input type="text" id="d_imagingDate4" name="d_imagingDate4"
-                                                   title="US/Imaging Line 4 - Date" size="9" maxlength="150"
+                                                   title="<fmt:message key='form.formBCAR2020pg2.title.usImagingDate'/>" size="9" maxlength="150"
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("d_imagingDate4", "")) %>"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_imagingDate4_cal">
                                         </div>
                                     </td>
                                     <td>
-                                        <input type="text" name="t_imagingGA4" title="US/Imaging Line 4 - GA"
+                                        <input type="text" name="t_imagingGA4" title="<fmt:message key='form.formBCAR2020pg2.title.usImagingGA'/>"
                                                class="calcField" size="8" maxlength="150"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_imagingGA4", "")) %>"
                                                onDblClick="getGAByFieldDate('t_imagingGA4', 'd_confirmedEDD', 'd_imagingDate4')"/>
@@ -1069,76 +1070,76 @@
                             <table width="100%" class="outside-border">
                                 <tr>
                                     <td colspan="2">
-                                        <span class="title">16.</span> <span class="title">Perinatal Considerations & Referrals</span>
+                                        <span class="title">16.</span> <span class="title"><fmt:message key="form.formBCAR2020pg3.section.perinatalConsiderationsAndReferrals"/></span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="40%">
-                                        Pregnancy type:
+                                        <fmt:message key="form.formBCAR2020pg2.label.pregnancyType"/>
                                     </td>
                                     <td width="60%">
                                         <input type="checkbox"
                                                name="c_considerationsPregnancySingleton" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancySingleton", "").equals("X") ? "checked" : "" %>' /> />
-                                        Singleton
+                                        <fmt:message key="form.formBCAR2020pg2.option.singleton"/>
                                         <input type="checkbox"
                                                name="c_considerationsPregnancyTwin" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancyTwin", "").equals("X") ? "checked" : "" %>' /> />
-                                        Twin
+                                        <fmt:message key="form.formBCAR2020pg2.option.twin"/>
                                         <input type="checkbox"
                                                name="c_considerationsPregnancyMultiple" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancyMultiple", "").equals("X") ? "checked" : "" %>' /> />
-                                        Multiple (3+)
+                                        <fmt:message key="form.formBCAR2020pg2.option.multiple"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        VBAC eligible @ 36 wks:
+                                        <fmt:message key="form.formBCAR2020pg2.label.vbacEligibleAt36Weeks"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_considerationsVBACEligNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligNo", "").equals("X") ? "checked" : "" %>' /> />
-                                        No
+                                        <fmt:message key="global.no"/>
                                         <input type="checkbox"
                                                name="c_considerationsVBACEligYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligYes", "").equals("X") ? "checked" : "" %>' /> />
-                                        Yes
+                                        <fmt:message key="global.yes"/>
                                         <input type="checkbox"
                                                name="c_considerationsVBACEligNA" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligNA", "").equals("X") ? "checked" : "" %>' /> />
-                                        N/A
+                                        <fmt:message key="form.formBCAR2020pg2.option.na"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        VBAC planned @ 36 wks:
+                                        <fmt:message key="form.formBCAR2020pg2.label.vbacPlannedAt36Weeks"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_considerationsVBACPlanNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanNo", "").equals("X") ? "checked" : "" %>' /> />
-                                        No
+                                        <fmt:message key="global.no"/>
                                         <input type="checkbox"
                                                name="c_considerationsVBACPlanYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanYes", "").equals("X") ? "checked" : "" %>' /> />
-                                        Yes
+                                        <fmt:message key="global.yes"/>
                                         <input type="checkbox"
                                                name="c_considerationsVBACPlanNA" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanNA", "").equals("X") ? "checked" : "" %>' /> />
-                                        N/A
+                                        <fmt:message key="form.formBCAR2020pg2.option.na"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Plan to breastfeed:
+                                        <fmt:message key="form.formBCAR2020pg2.label.planToBreastfeed"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
                                                name="c_considerationsBreastfeedNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedNo", "").equals("X") ? "checked" : "" %>' /> />
-                                        No
+                                        <fmt:message key="global.no"/>
                                         <input type="checkbox"
                                                name="c_considerationsBreastfeedYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedYes", "").equals("X") ? "checked" : "" %>' /> />
-                                        Yes
+                                        <fmt:message key="global.yes"/>
                                         <input type="checkbox"
                                                name="c_considerationsBreastfeedUN" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedUN", "").equals("X") ? "checked" : "" %>' /> />
-                                        Undecided
+                                        <fmt:message key="form.formBCAR2020pg2.option.undecided"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
-                                        Lifestyle/substance use
+                                        <fmt:message key="form.formBCAR2020pg2.label.lifestyleSubstanceUse"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsLifestyle" class="text-style" size="60"
@@ -1148,7 +1149,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Pregnancy
+                                        <fmt:message key="form.formBCAR2020pg2.label.pregnancy"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsPregnancy" class="text-style" size="60"
@@ -1158,7 +1159,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Labour & birth
+                                        <fmt:message key="form.formBCAR2020pg2.label.labourBirth"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsLabour" class="text-style" size="60"
@@ -1168,7 +1169,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Breastfeeding
+                                        <fmt:message key="form.formBCAR2020pg2.label.breastfeeding"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsBreastfeeding" class="text-style"
@@ -1178,7 +1179,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Postpartum
+                                        <fmt:message key="form.formBCAR2020pg2.label.postpartum"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsPostpartum" class="text-style"
@@ -1188,7 +1189,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Contraception plan
+                                        <fmt:message key="form.formBCAR2020pg2.label.contraceptionPlan"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsContraception" class="text-style"
@@ -1198,7 +1199,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        Newborn
+                                        <fmt:message key="form.formBCAR2020pg2.label.newborn"/>
                                     </td>
                                     <td>
                                         <input type="text" name="t_considerationsNewborn" class="text-style" size="60"
@@ -1217,48 +1218,48 @@
                     <tr>
                         <th width="11%">
                             <span class="title">17.</span>
-                            Date
+                            <fmt:message key="form.formBCAR2020pg2.label.visitDate"/>
                             <br/>
                             <span class="sub-text">(dd/mm/yyyy)</span>
                         </th>
                         <th width="4%">
-                            GA
+                            <fmt:message key="form.formBCAR2020pg2.label.visitGA"/>
                             <br/>
                             <span class="sub-text">(wks/days)</span>
                         </th>
                         <th width="6%">
-                            BP
+                            <fmt:message key="form.formBCAR2020pg2.label.bp"/>
                         </th>
                         <th width="7%">
-                            Urine
+                            <fmt:message key="form.formBCAR2020pg2.label.urine"/>
                             <br/>
                             <span class="sub-text">(if indicated)</span>
                         </th>
                         <th width="4%">
-                            WT
+                            <fmt:message key="form.formBCAR2020pg2.label.wt"/>
                             <br/>
                             <span class="sub-text">(kg)</span>
                         </th>
                         <th width="4%">
-                            Fundus
+                            <fmt:message key="form.formBCAR2020pg2.label.fundus"/>
                             <br/>
                             <span class="sub-text">(cm)</span>
                         </th>
                         <th width="5%">
-                            FHR
+                            <fmt:message key="form.formBCAR2020pg2.label.fhr"/>
                             <br/>
                             <span class="sub-text">(per min)</span>
                         </th>
                         <th width="4%">
-                            FM
+                            <fmt:message key="form.formBCAR2020pg2.label.fm"/>
                         </th>
                         <th width="7%">
-                            Pres. &
+                            <fmt:message key="form.formBCAR2020pg2.label.presentationPosition"/>
                             <br/>
                             position
                         </th>
                         <th width="40%">
-                            Comments*
+                            <fmt:message key="form.formBCAR2020pg2.label.visitComments"/>
                         </th>
                         <th width="5%">
                             Next
@@ -1266,7 +1267,7 @@
                             visit
                         </th>
                         <th width="3%">
-                            Initials
+                            <fmt:message key="form.formBCAR2020pg2.label.initials"/>
                         </th>
                     </tr>
                     <%=((FrmBCAR2020Record) rec).createPrenatalVisitRow(props, "1")%>
@@ -1285,8 +1286,7 @@
                     <%=((FrmBCAR2020Record) rec).createPrenatalVisitRow(props, "14")%>
                     <tr>
                         <td colspan="12" class="div-center">
-                            <i>Please see the next page, British Columbia Antenatal Record part 2 (cont'd), to record
-                                additional visits.</i>
+                            <i><fmt:message key="form.formBCAR2020pg2.msg.additionalVisitsOnNextPage"/></i>
                         </td>
                     </tr>
 
@@ -1294,21 +1294,21 @@
                 <table width="100%" class="outside-border">
                     <tr>
                         <td colspan="5">
-                            <span class="title">18. Sign-Offs</span>
+                            <span class="title"><fmt:message key="form.formBCAR2020pg2.section.signOffs"/></span>
                         </td>
                     </tr>
                     <tr>
                         <td width="40%">
                             <div class="divFlex">
                                 1.
-                                <span class="sub-text">(name)</span>
+                                <span class="sub-text"><fmt:message key="form.formBCAR2020pg2.label.name"/></span>
                                 <input type="text" name="t_signOffsName1" class="text-style" size="30" maxlength="150"
                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_signOffsName1", "")) %>"/>
                             </div>
                         </td>
                         <td width="40%">
                             <div class="divFlex">
-                                <span class="sub-text">(signature)</span>
+                                <span class="sub-text"><fmt:message key="form.formBCAR2020pg2.label.signature"/></span>
                                 <input type="text" name="t_signOffsSignature1" class="text-style" size="30"
                                        maxlength="150"
                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_signOffsSignature1", "")) %>"/>
@@ -1317,31 +1317,31 @@
                         <td width="6%">
                             <input type="checkbox"
                                    name="c_signOffsMD1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' /> />
-                            MD
+                            <fmt:message key="form.formBCAR2020pg2.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
                                    name="c_signOffsRM1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' /> />
-                            RM
+                            <fmt:message key="form.formBCAR2020pg2.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
                                    name="c_signOffsNP1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' /> />
-                            NP
+                            <fmt:message key="form.formBCAR2020pg2.label.np"/>
                         </td>
                     </tr>
                     <tr>
                         <td width="40%">
                             <div class="divFlex">
                                 2.
-                                <span class="sub-text">(name)</span>
+                                <span class="sub-text"><fmt:message key="form.formBCAR2020pg2.label.name"/></span>
                                 <input type="text" name="t_signOffsName2" class="text-style" size="30" maxlength="150"
                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_signOffsName2", "")) %>"/>
                             </div>
                         </td>
                         <td width="40%">
                             <div class="divFlex">
-                                <span class="sub-text">(signature)</span>
+                                <span class="sub-text"><fmt:message key="form.formBCAR2020pg2.label.signature"/></span>
                                 <input type="text" name="t_signOffsSignature2" class="text-style" size="30"
                                        maxlength="150"
                                        value="<%= UtilMisc.htmlEscape(props.getProperty("t_signOffsSignature2", "")) %>"/>
@@ -1350,17 +1350,17 @@
                         <td width="6%">
                             <input type="checkbox"
                                    name="c_signOffsMD2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' /> />
-                            MD
+                            <fmt:message key="form.formBCAR2020pg2.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
                                    name="c_signOffsRM2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' /> />
-                            RM
+                            <fmt:message key="form.formBCAR2020pg2.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
                                    name="c_signOffsNP2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' /> />
-                            NP
+                            <fmt:message key="form.formBCAR2020pg2.label.np"/>
                         </td>
                     </tr>
                     <tr>
@@ -1401,34 +1401,34 @@
         </div>
     </div>
 
-    <div id="print-dialog" title="Print BCAR2020 Record">
+    <div id="print-dialog" title="<fmt:message key='form.formBCAR2020pg3.title.print'/>">
         <p class="validateTips"></p>
-        <p>Note: Remember to Save any changes before printing.</p>
+        <p><fmt:message key="form.formBCAR2020pg3.msg.saveBeforePrint"/></p>
         <div>
             <input type="checkbox" onclick="return printSelectAll();" id="print_all"
                    class="text ui-widget-content ui-corner-all"/>
-            <label for="print_all" class="small10">Select All</label>
+            <label for="print_all" class="small10"><fmt:message key="form.formBCAR2020pg3.label.selectAll"/></label>
         </div>
         <form>
             <fieldset>
                 <input type="checkbox" name="print_pr1" id="print_pr1" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr1">Part 1</label>
+                <label for="print_pr1"><fmt:message key="form.formBCAR2020pg3.link.part1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr2" id="print_pr2" checked="checked"
                        class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr2">Part 2 (Page 1)</label>
+                <label for="print_pr2"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr3" id="print_pr3" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr3">Part 2 (Page 2)</label>
+                <label for="print_pr3"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></label>
                 <br/>
                 <input type="checkbox" name="print_att" id="print_att" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_att">Attachments/Additional Info</label>
+                <label for="print_att"><fmt:message key="form.formBCAR2020pg3.label.attachmentsAdditionalInfo"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr4" id="print_pr4" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr4">Reference Page 1</label>
+                <label for="print_pr4"><fmt:message key="form.formBCAR2020pg3.link.referencePage1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr5" id="print_pr5" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr5">Reference Page 2</label>
+                <label for="print_pr5"><fmt:message key="form.formBCAR2020pg3.link.referencePage2"/></label>
                 <br/>
             </fieldset>
         </form>

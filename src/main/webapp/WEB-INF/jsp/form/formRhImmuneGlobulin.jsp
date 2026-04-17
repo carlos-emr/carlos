@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -150,7 +152,7 @@
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
@@ -580,7 +582,7 @@
             <textarea name="comments"
                       style="width: 45em;"><e:forHtmlContent value='<%= props.getProperty("comments", "") %>' /></textarea></fieldset>
 
-        <input type="submit" value="Save"/> <%
+        <input type="submit" value="<fmt:message key='global.save'/>"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
             onClick="javascript: popup(700,600,'addRhInjection?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />&amp;workflowId=<e:forJavaScriptAttribute value='<%= String.valueOf(h.get("ID")) %>' />&amp;formId=<e:forJavaScriptAttribute value='<%= String.valueOf(formId) %>' />','addInjection');"

@@ -266,10 +266,10 @@
                     </a>
                     <ul class="nav nav-tabs">
                         <li class="nav-item">
-                            <a class="nav-link active" href="#addContacts" data-bs-toggle="tab">Manage Contacts</a>
+                            <a class="nav-link active" href="#addContacts" data-bs-toggle="tab"><fmt:message key="messenger.config.MessengerAdmin.manageContacts"/></a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#manageGroups" data-bs-toggle="tab">Manage Contact Groups</a>
+                            <a class="nav-link" href="#manageGroups" data-bs-toggle="tab"><fmt:message key="messenger.config.MessengerAdmin.manageContactGroups"/></a>
                         </li>
                     </ul>
                 </div>
@@ -277,12 +277,11 @@
 
             <div class="row tab-content">
                 <div class="tab-pane active" id="addContacts">
-                    <p>Enable or disable (check or uncheck) clinic providers as a contact in the
-                        Messenger address book.</p>
+                    <p><fmt:message key="messenger.config.MessengerAdmin.msgEnableDisableProviders"/></p>
                     <ul class="nav nav-tabs">
                         <li class="nav-item">
                             <a class="nav-link active" data-bs-toggle="tab" href="#local-contacts">
-                                Local Providers
+                                <fmt:message key="messenger.config.MessengerAdmin.localProviders"/>
                             </a>
                         </li>
                     </ul>
@@ -310,7 +309,7 @@
                     </div>
                 </div>
                 <div class="tab-pane" id="manageGroups">
-                    <p>Manage Oscar Messenger contact groups</p>
+                    <p><fmt:message key="messenger.config.MessengerAdmin.msgManageOscarMessengerGroups"/></p>
                     <ul class="nav nav-tabs">
                         <c:forEach items="${ groups }" var="group" varStatus="count">
                             <li class="nav-item">
@@ -321,7 +320,7 @@
                         </c:forEach>
                         <li class="nav-item">
                             <a data-bs-toggle="tab" href="#new-group" class="nav-link text-muted">
-                                <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
+                                <i class="fa-solid fa-plus add-group-tab" title="<fmt:message key='messenger.config.MessengerAdmin.newGroup'/>"></i>
                             </a>
                         </li>
                     </ul>
@@ -336,7 +335,7 @@
                                             <div class="form-check">
                                                 <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
-                                                   title="Remove Contact"
+                                                   title="<fmt:message key='messenger.config.MessengerAdmin.removeContact'/>"
                                                    id="${ member.id.compositeId }-${ group.key.id }"></i>
                                                 <span class="provider-name">
 											${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
@@ -351,17 +350,16 @@
                                 <div class="mb-3 contact-group-buttons">
                                     <div class="input-group">
                                         <div class="autocomplete">
-                                            <input type='text' placeholder="Last, First" id="${ group.key.id }"
+                                            <input type='text' placeholder="<fmt:message key='messenger.config.MessengerAdmin.lastFirst'/>" id="${ group.key.id }"
                                                    class="search-provider"/>
                                             <input type='hidden' id="add-member-id-${ group.key.id }" value=""/>
-                                            <button id="add-${ group.key.id }" class="btn add-member-btn">Add Contact
+                                            <button id="add-${ group.key.id }" class="btn add-member-btn"><fmt:message key="messenger.config.MessengerAdmin.btnAddContact"/>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="row" style="background-color:white;">
-                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end">Delete
-                                        Group
+                                    <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end"><fmt:message key="messenger.config.MessengerAdmin.btnDeleteGroup"/>
                                     </button>
                                 </div>
                             </div>
@@ -370,10 +368,10 @@
                         <div class="tab-pane" id="new-group">
                             <div class="mb-3">
                                 <div class="input-group">
-                                    <input type='text' placeholder="Group Name" class="group-name-input"
+                                    <input type='text' placeholder="<fmt:message key='messenger.config.MessengerAdmin.groupName'/>" class="group-name-input"
                                            id="new-group-name"/>
                                     <button id="add-group-btn" class="btn btn-secondary">
-                                        add
+                                        <fmt:message key="messenger.config.MessengerAdmin.btnAddGroup"/>
                                     </button>
                                 </div>
                             </div>

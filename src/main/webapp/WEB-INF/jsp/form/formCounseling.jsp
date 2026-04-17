@@ -28,6 +28,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -43,10 +46,9 @@
         return;
     }
 %>
+<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -93,15 +95,14 @@
 
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
-        <title>Counseling</title>
+        <title><fmt:message key="form.counseling.title"/></title>
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)" bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
     <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
         <div class="DoNotPrint">
-            <p> This date field must formatted as seen (DD/MM/YYYY), you may change the date but do not change
-                formatting. </p>
+            <p><fmt:message key="form.counseling.dateNote"/></p>
         </div>
         <input type="text" name="formCreated" value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated","") %>' />"/>
         <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
@@ -118,7 +119,7 @@
 
         <div style="font-size: 24px; font-family: arial, helvetica, sans-serif;">
             <center>
-                <b>Counselling Note</b>
+                <b><fmt:message key="form.counseling.note"/></b>
             </center>
         </div>
         <div style="font-size: 19px; font-family: arial, helvetica, sans-serif;">
@@ -132,14 +133,14 @@
                 <TR>
                     <TD><e:forHtmlContent value='<%= props.getProperty("clinicAddress", "") %>' />
                     </TD>
-                    <TD ALIGN="right">Phone: <e:forHtmlContent value='<%= props.getProperty("clinicPhone", "") %>' />
+                    <TD ALIGN="right"><fmt:message key="global.phoneLabel"/> <e:forHtmlContent value='<%= props.getProperty("clinicPhone", "") %>' />
                     </TD>
                 </TR>
 
                 <TR>
                     <TD><e:forHtmlContent value='<%= props.getProperty("clinicCity", "") %>' />
                     </TD>
-                    <TD ALIGN="right">Fax: <e:forHtmlContent value='<%= props.getProperty("clinicFax", "") %>' />
+                    <TD ALIGN="right"><fmt:message key="global.faxLabel"/> <e:forHtmlContent value='<%= props.getProperty("clinicFax", "") %>' />
                     </TD>
                 </TR>
 
@@ -150,7 +151,7 @@
                     <TD>
                         <TABLE WIDTH="100%" align="center" style="border: 1px solid;">
                             <TR>
-                                <TD align="left" width="40%">Patient:</TD>
+                                <TD align="left" width="40%"><fmt:message key="global.patientLabel"/></TD>
                                 <TD align="left">
 
                                     <INPUT NAME="p_name"
@@ -161,7 +162,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Address:</TD>
+                                <TD align="left"><fmt:message key="global.addressLabel"/></TD>
                                 <TD align="left">
 
                                     <INPUT NAME="p_address1"
@@ -183,7 +184,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Phone:</TD>
+                                <TD align="left"><fmt:message key="global.phoneLabel"/></TD>
                                 <TD align="left">
                                     <INPUT NAME="p_phone"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
@@ -193,7 +194,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Birthdate:</TD>
+                                <TD align="left"><fmt:message key="global.birthdateLabel"/></TD>
                                 <TD align="left">
                                     <INPUT NAME="p_birthdate"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
@@ -202,7 +203,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Health Card No:</TD>
+                                <TD align="left"><fmt:message key="global.healthCardLabel"/></TD>
                                 <TD align="left">
                                     <INPUT NAME="p_healthcard"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
@@ -223,10 +224,10 @@
             </div>
 
             <div id="buttons">
-                <input id="savebut" type="submit" value="Save" onclick="javascript: return onSave();"/>
-                <input id="saveexitbut" type="submit" value="Save and Exit" onclick="javascript: return onSaveExit();"/>
-                <input id="exitbut" type="submit" value="Exit" onclick="javascript: return onExit();"/>
-                <input id="printPDF" type="submit" value="Print PDF" onclick="javascript: return onPrintPDF();"/>
+                <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
+                <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
+                <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
+                <input id="printPDF" type="submit" value="<fmt:message key='global.printPdf'/>" onclick="javascript: return onPrintPDF();"/>
             </div>
         </body>
 
@@ -239,19 +240,19 @@
             function onSave() {
                 document.forms[0].submit.value = "save";
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
 
             function onExit() {
-                if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+                if (confirm("<fmt:message key='global.msgNotSave'/>") == true) {
                     window.close();
                 }
                 return (false);

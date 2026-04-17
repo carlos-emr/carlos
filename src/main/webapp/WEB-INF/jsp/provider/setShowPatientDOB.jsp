@@ -92,7 +92,7 @@
             function validate() {
                 var date = document.getElementById("staleDate");
                 if (date.value == "") {
-                    alert("Please select a date before saving");
+                    alert("<fmt:message key='provider.setShowPatientDOB.msgPleaseSelectDate'/>");
                     return false;
                 }
 
@@ -115,9 +115,9 @@
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> ${e:forHtml(rxPageSizeProperty.value)}
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
-                    <input type="checkbox" name="rxShowPatientDOBProperty.checked" <c:if test="${rxShowPatientDOBProperty.checked}">checked</c:if> />Show patient's date of birth
+                    <input type="checkbox" name="rxShowPatientDOBProperty.checked" <c:if test="${rxShowPatientDOBProperty.checked}">checked</c:if> /><fmt:message key='provider.setShowPatientDOB.msgShowPatientDob'/>
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

@@ -71,7 +71,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Cumulative Lab</title>
+        <title><fmt:message key="lab.cumulativeLab.title"/></title>
         <!--I18n-->
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>

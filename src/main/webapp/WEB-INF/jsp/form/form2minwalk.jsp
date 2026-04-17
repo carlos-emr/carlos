@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -71,7 +72,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>2 Minute Walk Test and Lower Extremity Function Test</title>
+        <title><fmt:message key="form.2MinWalk.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -99,7 +100,7 @@
                     return true;
                 }
             } else {
-                alert("The input distance must be in ####.# format");
+                alert("<fmt:message key="form.2MinWalk.msgDistanceFormat"/>");
                 return false;
             }
 
@@ -139,9 +140,7 @@
                     <table border="0" cellspacing="0" cellpadding="0" width="740px"
                            height="10%">
                         <tr>
-                            <th class="subject">2 Minute Walk Test and Lower Extremity
-                                Function Test
-                            </th>
+                            <th class="subject"><fmt:message key="form.2MinWalk.heading"/></th>
                         </tr>
                     </table>
                 </td>
@@ -155,7 +154,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="5">2 Minute Walk</th>
+                                        <th colspan="5"><fmt:message key="form.2MinWalk.section.walk"/></th>
                                     </tr>
                                     <tr>
                                         <td valign="top" align="right">
@@ -176,53 +175,53 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="4">Distance: <input type="text" size="10"
+                                        <td colspan="4"><fmt:message key="form.2MinWalk.distance"/>: <input type="text" size="10"
                                                                          name="distance"
                                                                          value="<%= props.getProperty("distance", "") %>"/>
-                                            meter
+                                            <fmt:message key="form.2MinWalk.unitMeter"/>
                                         </td>
                                     </tr>
                                     <tr class="title">
-                                        <th colspan="5">Lower Extremity Function Test</th>
+                                        <th colspan="5"><fmt:message key="form.2MinWalk.section.lowerExtremityFunctionTest"/></th>
                                     </tr>
                                     <tr>
                                         <th>1.</th>
-                                        <th colspan="4" class="question">Balance</th>
+                                        <th colspan="4" class="question"><fmt:message key="form.2MinWalk.balance"/></th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q1tried"
                                                 <%= props.getProperty("Q1tried", "") %> /></td>
-                                        <td width="40%">Tried but unable</td>
+                                        <td width="40%"><fmt:message key="form.2MinWalk.triedButUnable"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q1FullTandem3To9"
                                                 <%= props.getProperty("Q1FullTandem3To9", "") %> /></td>
-                                        <td width="55%">3-9 secs. full tandem</td>
+                                        <td width="55%"><fmt:message key="form.2MinWalk.fullTandem3To9Secs"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q1SideBySide10"
                                                 <%= props.getProperty("Q1SideBySide10", "") %> /></td>
-                                        <td width="40%">10 secs. side by side</td>
+                                        <td width="40%"><fmt:message key="form.2MinWalk.sideBySide10Secs"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q1FullTandem10"
                                                 <%= props.getProperty("Q1FullTandem10", "") %> /></td>
-                                        <td width="55%">10 secs. full tandem</td>
+                                        <td width="55%"><fmt:message key="form.2MinWalk.fullTandem10Secs"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q1SemiTandem10"
                                                 <%= props.getProperty("Q1SemiTandem10", "") %> /></td>
-                                        <td width="40%">10 secs semi tandem</td>
+                                        <td width="40%"><fmt:message key="form.2MinWalk.semiTandem10Secs"/></td>
                                         <td width="5%"></td>
                                         <td width="55%"></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
-                                        <td colspan="4">Comments: <input type="text" size="80"
+                                        <td colspan="4"><fmt:message key="form.2MinWalk.comments"/> <input type="text" size="80"
                                                                          name="Q1Cmt"
                                                                          value="<%= props.getProperty("Q1Cmt", "") %>"/>
                                         </td>
@@ -239,9 +238,9 @@
                                             <li>Measure 8 feet (But allow 10 feet in which they can
                                                 walk)
                                             </li>
-                                            <li>"I want you to walk at your usual speed. Ready begin"</li>
-                                            <li>When the respondent starts, begin timing*</li>
-                                            <li>Record the time in the number of seconds</li>
+                                            <li><fmt:message key="form.2MinWalk.walkPrompt"/></li>
+                                            <li><fmt:message key="form.2MinWalk.beginTiming"/></li>
+                                            <li><fmt:message key="form.2MinWalk.recordSeconds"/></li>
                                             <li>Repeat walk</li>
                                             <br>
                                             * Should begin with feet together and end when both feet past the
@@ -268,7 +267,7 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
-                                        <td colspan="4">Comments: <input type="text" size="80"
+                                        <td colspan="4"><fmt:message key="form.2MinWalk.comments"/> <input type="text" size="80"
                                                                          name="Q2Cmt"
                                                                          value="<%= props.getProperty("Q2Cmt", "") %>"/>
                                         </td>
@@ -283,11 +282,11 @@
                                             <li>Armless at front and straight backed chair 18" high and
                                                 16" deep
                                             </li>
-                                            <li>Stand 5X from sit to standing, ending with standing</li>
+                                            <li><fmt:message key="form.2MinWalk.standPrompt"/></li>
                                             <li>If they are not able to stand unaided, code "Can't
                                                 stand"
                                             </li>
-                                            <li>Record why the respondent thinks it would be unsafe</li>
+                                            <li><fmt:message key="form.2MinWalk.recordUnsafe"/></li>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
@@ -295,7 +294,7 @@
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q3Unable"
                                                 <%= props.getProperty("Q3Unable", "") %> /></td>
-                                        <td width="40%">Unable to stand without using arms</td>
+                                        <td width="40%"><fmt:message key="form.2MinWalk.unableToStand"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="Q3From11To13s"
                                                 <%= props.getProperty("Q3From11To13s", "") %> /></td>
@@ -323,7 +322,7 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
-                                        <td colspan="4">Comments: <input type="text" size="80"
+                                        <td colspan="4"><fmt:message key="form.2MinWalk.comments"/> <input type="text" size="80"
                                                                          name="Q3Cmt"
                                                                          value="<%= props.getProperty("Q3Cmt", "") %>"/>
                                         </td>
@@ -342,18 +341,18 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: if(checkBeforeSave()==true) return onSave(); else return false;"/>
-                                <input type="submit" value="Save and Exit"
+                                <input type="submit" value="<fmt:message key='global.saveExit'/>"
                                        onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right"><fmt:message key="form.common.studyId"/>: <%= props.getProperty("studyID", "N/A") %>
                                 <input type="hidden" name="studyID"
                                        value="<%= props.getProperty("studyID", "N/A") %>"/></td>
                         </tr>

@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -128,7 +130,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Patient Encounter Worksheet</title>
+        <title><fmt:message key='form.patientEncounterWorksheet.title'/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -141,7 +143,7 @@
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0">
 
 
-    <h4 style="font-weight:bold;font-size:15px;text-align:center">Patient Encounter Worksheet</h4>
+    <h4 style="font-weight:bold;font-size:15px;text-align:center"><fmt:message key='form.patientEncounterWorksheet.title'/></h4>
 
     <div align="center">
         <form action="<%= request.getContextPath() %>/form/createpdf" method="POST">
@@ -163,7 +165,7 @@
                             <input type="hidden" name="clinic_phone" value="<%=clinic.getClinicPhone() %>"/>
                             <input type="hidden" name="clinic_fax" value="<%=clinic.getClinicFax() %>"/>
                             <tr>
-                                <td valign="top"><b>Office:</b></td>
+                                <td valign="top"><b><fmt:message key='form.patientEncounterWorksheet.office'/></b></td>
                                 <td valign="top">
                                     <%=clinic.getClinicName() %>
                                     <br/>
@@ -174,12 +176,12 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Phone:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.phone'/></td>
                                 <td><%=clinic.getClinicPhone() %>
                                 </td>
                             </tr>
                             <tr>
-                                <td>Fax:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.fax'/></td>
                                 <td><%=clinic.getClinicFax() %>
                                 </td>
                             </tr>
@@ -198,7 +200,7 @@
                             <input type="hidden" name="demo_hin"
                                    value="<%=demographic.getHin() + " (" + demographic.getHcType() + ")" %>"/>
                             <tr>
-                                <td valign="top"><b>Patient:</b></td>
+                                <td valign="top"><b><fmt:message key='form.patientEncounterWorksheet.patient'/></b></td>
                                 <td>
                                     <b><%=demographic.getFormattedName() %>
                                     </b> (<%=demographic.getSex().toUpperCase() %>)<br/>
@@ -208,16 +210,16 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Pat ID:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.patientId'/></td>
                                 <td><%=demographic.getDemographicNo() %>
                                 </td>
                             </tr>
                             <tr>
-                                <td>DOB:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.dob'/></td>
                                 <td><%=demographic.getBirthDayAsString() %>(<%=demographic.getAgeInYears() %>)</td>
                             </tr>
                             <tr>
-                                <td>HC #:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.hcNumber'/></td>
                                 <td><%=demographic.getHin() %> (<%=demographic.getHcType() %>)</td>
                             </tr>
                         </table>
@@ -233,16 +235,16 @@
                             <input type="hidden" name="ref_provider" value="test,test"/>
 
                             <tr>
-                                <td>Provider:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.provider'/></td>
                                 <td><%=providerName %>
                                 </td>
                             </tr>
                             <tr>
-                                <td>Family Doctor:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.familyDoctor'/></td>
                                 <td>Smith, John</td>
                             </tr>
                             <tr>
-                                <td>Referring Doctor:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.referringDoctor'/></td>
                                 <td>Smith, John</td>
                             </tr>
                         </table>
@@ -257,7 +259,7 @@
                             <% } %>
                         
                             <tr>
-                                <td>Appt. Date:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.apptDate'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
                                         <%=dateFormatter.format(appt.getAppointmentDate()) %>&nbsp;<%=timeFormatter.format(appt.getStartTime()) %>
@@ -267,7 +269,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Appt. Type:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.apptType'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
                                         <%=appt.getType() %>
@@ -277,7 +279,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Reason:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.reason'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
                                         <%=appt.getReason() %>
@@ -293,7 +295,7 @@
                 <tr>
                     <input type="hidden" name="allergies" value="<%=allergyString.toString() %>"/>
                     <td colspan="2">
-                        Allergies:<br/>
+                        <fmt:message key='form.patientEncounterWorksheet.allergies'/><br/>
                         <%=allergyString.toString() %>
                     </td>
                 </tr>
@@ -301,7 +303,7 @@
                 <tr>
 
                     <td colspan="2">
-                        Encounter Notes:<br/>
+                        <fmt:message key='form.patientEncounterWorksheet.encounterNotes'/><br/>
                         <textarea cols="138" rows="50" name="encounter_notes"></textarea>
                     </td>
                 </tr>
@@ -311,17 +313,17 @@
                         <table border="0" cellspacing="2" cellpadding="2">
 
                             <tr>
-                                <td>Diagnosis:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.diagnosis'/></td>
                                 <td><input name="diagnosis" type="text" value=""/>
                                 <td>
                             </tr>
                             <tr>
-                                <td>Signature:</td>
+                                <td><fmt:message key='form.patientEncounterWorksheet.signature'/></td>
                                 <td><input name="signature" type="text" value=""/></td>
                             </tr>
                             <tr>
                                 <td>&nbsp;</td>
-                                <td>Dr. <%=loggedInInfo.getLoggedInProvider().getFormattedName() %>
+                                <td><fmt:message key='form.patientEncounterWorksheet.doctorPrefix'/> <%=loggedInInfo.getLoggedInProvider().getFormattedName() %>
                                 </td>
                             </tr>
                         </table>
@@ -334,8 +336,8 @@
                         <table class="Head" class="hidePrint" height="5%" border="0">
                             <tr>
                                 <td align="left">
-                                    <input type="button" value="Exit" onclick="javascript:return onExit();"/>
-                                    <input type="submit" value="Print"/></td>
+                                    <input type="button" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                                    <input type="submit" value="<fmt:message key='global.btnPrint'/>"/></td>
                     </td>
                 </tr>
 
@@ -348,4 +350,3 @@
 
     </body>
 </html>
-

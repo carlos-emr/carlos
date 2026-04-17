@@ -161,17 +161,17 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
-                &nbsp;Prevention Reporting
+                &nbsp;<fmt:message key="prevention.reporting.title"/>
             </h4>
         </div>
 
         <form action="${pageContext.request.contextPath}/prevention/PreventionReport" method="get">
             <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
-                    <td style="width:180px;">Patient Demographic Query</td>
+                    <td style="width:180px;"><fmt:message key="prevention.reporting.patientDemographicQuery"/></td>
                     <td>
                         <select name="patientSet" id="patientSet" class="form-select form-select-sm" style="width:auto;display:inline-block">
-                            <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
+                            <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>><fmt:message key="prevention.reporting.selectQuery"/></option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
                                     RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -185,28 +185,28 @@
                     </td>
                 </tr>
                 <tr>
-                    <td>Prevention</td>
+                    <td><fmt:message key="prevention.reporting.prevention"/></td>
                     <td>
                         <select name="prevention" id="prevention" class="form-select form-select-sm" style="width:auto;display:inline-block">
-                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
-                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
-                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
-                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>>Child Immunizations</option>
-                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>>Colorectal</option>
-                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>>Flu</option>
+                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>><fmt:message key="prevention.reporting.selectPrevention"/></option>
+                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.breast"/></option>
+                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.cervical"/></option>
+                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.childImmunizations"/></option>
+                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.colorectal"/></option>
+                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>><fmt:message key="prevention.reporting.flu"/></option>
                         </select>
                     </td>
                 </tr>
                 <tr>
-                    <td>As of</td>
+                    <td><fmt:message key="prevention.reporting.asOf"/></td>
                     <td>
                         <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<e:forHtmlAttribute value='<%= asofDate %>' />"/>
-                        <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                        <a id="date"><img title="<fmt:message key='prevention.reporting.calendar'/>" src="<%= request.getContextPath() %>/images/cal.gif" alt="<fmt:message key='prevention.reporting.calendar'/>" border="0"/></a>
                     </td>
                 </tr>
             </table>
             <div style="padding:0 0 10px 0;">
-                <input type="submit" value="Run Report" class="btn btn-sm btn-primary"/>
+                <input type="submit" value="<fmt:message key='prevention.reporting.runReport'/>" class="btn btn-sm btn-primary"/>
             </div>
         </form>
 
@@ -233,9 +233,9 @@
             <input type="hidden" name="clinic_view" value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
-                <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>
-                <span style="margin-right:15px;">Ineligible: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(ineligible, "0") %>' /></strong></span>
-                <span style="margin-right:15px;">Up to Date: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(done, "0") %>' /> = <e:forHtmlContent value='<%= StringUtils.defaultString(percentage, "0") %>' />%</strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.totalPatients"/>: <strong><%=list.size()%></strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.ineligible"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(ineligible, "0") %>' /></strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.upToDate"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(done, "0") %>' /> = <e:forHtmlContent value='<%= StringUtils.defaultString(percentage, "0") %>' />%</strong></span>
                 <span style="margin-right:15px;"><e:forHtmlContent value='<%= String.valueOf(request.getAttribute("patientSet")) %>' /></span>
             </div>
 
@@ -243,20 +243,20 @@
                 <thead>
                 <tr>
                     <th class="unsortable">#</th>
-                    <th>DemoNo</th>
-                    <th>DOB</th>
-                    <th>Age as of<br/><%=UtilDateUtilities.DateToString(asDate)%></th>
-                    <th>Sex</th>
-                    <th>Lastname</th>
-                    <th>Firstname</th>
+                    <th><fmt:message key="prevention.reporting.demoNo"/></th>
+                    <th><fmt:message key="prevention.reporting.dob"/></th>
+                    <th><fmt:message key="prevention.reporting.ageAsOf"/><br/><%=UtilDateUtilities.DateToString(asDate)%></th>
+                    <th><fmt:message key="prevention.reporting.sex"/></th>
+                    <th><fmt:message key="prevention.reporting.lastname"/></th>
+                    <th><fmt:message key="prevention.reporting.firstname"/></th>
                     <%if (type != null) { %>
-                    <th>Guardian</th>
+                    <th><fmt:message key="prevention.reporting.guardian"/></th>
                     <%}%>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Address</th>
-                    <th>Next Appt.</th>
-                    <th>Status</th>
+                    <th><fmt:message key="prevention.reporting.phone"/></th>
+                    <th><fmt:message key="prevention.reporting.email"/></th>
+                    <th><fmt:message key="prevention.reporting.address"/></th>
+                    <th><fmt:message key="prevention.reporting.nextAppt"/></th>
+                    <th><fmt:message key="prevention.reporting.status"/></th>
                     <%if (type != null) { %>
                     <th>Shot #</th>
                     <%}%>
@@ -377,4 +377,3 @@ else labelClass = "bg-secondary";
     </script>
     </body>
 </html>
-

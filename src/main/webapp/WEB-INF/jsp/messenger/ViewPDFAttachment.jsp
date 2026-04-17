@@ -74,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -113,7 +114,7 @@
         session.setAttribute("PDFAttachment", pdfAttch);
     %>
 
-    <title>Document Transfer</title>
+    <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
 </head>
 
 
@@ -124,15 +125,15 @@
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">CARLOS Messenger</td>
+        <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.ViewPDFAttachment.headerMessenger"/></td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td>CARLOS Messenger Attachment</td>
+                    <td><fmt:message key="messenger.ViewPDFAttachment.headerAttachment"/></td>
                     <td></td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')">License</a></td>
+                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkAbout"/></a> | <a
+                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkLicense"/></a></td>
                 </tr>
             </table>
         </td>
@@ -152,7 +153,7 @@
                                     <td class="messengerButtonsA"><a href="#"
                                                                      onclick="javascript:top.window.close()"
                                                                      class="messengerButtons">
-                                        Close Attachment </a></td>
+                                        <fmt:message key="messenger.ViewPDFAttachment.btnCloseAttachment"/> </a></td>
                                 </tr>
                             </table>
                         </td>
@@ -170,7 +171,7 @@
                         </td>
                         <td bgcolor="#DDDDFF"><input type=submit
                                                      onclick=" document.forms[0].file_id.value = <%=i%>"
-                                                     value="Download"/></td>
+                                                     value="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>"/></td>
                     </tr>
                             <% }  %>
                         <input type="hidden" name="file_id" id="file_id"/>

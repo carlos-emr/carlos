@@ -123,7 +123,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;
                 <%if (IsPropertiesOn.isCaisiEnable()) { %>
 
-                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager?id=<e:forUriComponent value='<%= creatorDemo %>' />">Back to PMM </a>
+                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager?id=<e:forUriComponent value='<%= creatorDemo %>' />"><fmt:message key="demographic.addAlternateContact.backToPmm"/></a>
 
                 <%} %>
 
@@ -132,9 +132,9 @@
 
                 <form id="ADDAPPT" method="post"
                       action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
-                    <div>Name: <input type="text" name="keyword" size="25" value=""/>
+                    <div><fmt:message key="demographic.addAlternateContact.name"/> <input type="text" name="keyword" size="25" value=""/>
 
-                        <input type="submit" name="Submit" value="Search"/> <input
+                        <input type="submit" name="Submit" value="<fmt:message key='Search'/>"/> <input
                                 type="hidden" name="orderby" value="last_name"/>
 
                         <%
@@ -187,12 +187,12 @@
 
 
                 <div class="prevention">
-			<fieldset><legend>Relation</legend>
-				<label for="name">Name:</label>
+			<fieldset><legend><fmt:message key="demographic.addAlternateContact.relation"/></legend>
+				<label for="name"><fmt:message key="demographic.addAlternateContact.name"/>:</label>
 					<span id="name"><e:forHtmlContent value='<%= name %>' /></>
                             <br/>
 
-			<label for="relation">Relationship:</label>
+			<label for="relation"><fmt:message key="demographic.addAlternateContact.relationship"/>:</label>
 				<select name="relation" id="relation">
 
                                 <%
@@ -205,13 +205,13 @@
                                 %>
 			</select>
 				<input type="checkbox" name="sdm" id="sdm" value="yes">
-				<label for="sdm">Substitute Decision Maker</label>
+				<label for="sdm"><fmt:message key="demographic.addAlternateContact.substituteDecisionMaker"/></label>
 				<input type="checkbox" name="emergContact" id="emergContact" value="yes" />
-				<label for="emergContact">Emergency Contact</label> <br />
+				<label for="emergContact"><fmt:message key="demographic.addAlternateContact.emergencyContact"/></label> <br />
 
-                            <label for="notes">Notes:</label><br>
+                            <label for="notes"><fmt:message key="demographic.addAlternateContact.notes"/>:</label><br>
 			<textarea cols="20" rows="3" name="notes" id="notes"></textarea>
-				<input type="submit" value="Add Relationship" />
+				<input type="submit" value="<fmt:message key='demographic.addAlternateContact.addRelationship'/>" />
 			</fieldset>
                 </div>
             </form> <%}%>
@@ -245,7 +245,7 @@
 					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation" style="display:inline;">
 						<input type="hidden" name="id" value="<%=h.get("id")%>"/>
 						<input type="hidden" name="origDemo" value="<e:forHtmlAttribute value='<%= creatorDemo %>' />"/>
-						<a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this relationship?')){this.closest('form').submit();}">del</a>
+						<a href="javascript:void(0);" onclick="if(confirm('<fmt:message key='demographic.addAlternateContact.deleteConfirm'/>')){this.closest('form').submit();}"><fmt:message key='global.btnDelete'/></a>
 					</form>
 				</td>
                         </tr>
@@ -258,7 +258,7 @@
                     <br/>
                     <form action="<%=request.getContextPath() %>/demographic/AddRelation">
                         <input type="hidden" name="origDemo" value="<e:forHtmlAttribute value='<%= creatorDemo %>' />"/>
-                        <input type="submit" name="pmmClient" value="Finished"/>
+                        <input type="submit" name="pmmClient" value="<fmt:message key='demographic.addAlternateContact.finished'/>"/>
                     </form>
                 </oscar:oscarPropertiesCheck></td>
         </tr>

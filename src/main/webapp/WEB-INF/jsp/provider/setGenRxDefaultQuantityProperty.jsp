@@ -76,7 +76,7 @@
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="${e:forHtmlAttribute(quantity.value)}" />
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
-                        Invalid input.
+                        <fmt:message key="provider.setGenRxDefaultQuantityProperty.msgInvalidInput"/>
                     </p>
                     <br>
                     <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>

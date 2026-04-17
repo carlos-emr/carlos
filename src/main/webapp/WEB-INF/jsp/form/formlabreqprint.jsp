@@ -90,9 +90,9 @@
     <!-- class="TableWithBorder" -->
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Cancel"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnCancel'/>"
                                     onclick="javascript:return onCancel();"/> <input type="button"
-                                                                                     value="Print"
+                                                                                     value="<fmt:message key='global.btnPrint'/>"
                                                                                      onclick="javascript:return onPrint();"/>
             </td>
         </tr>
@@ -750,9 +750,9 @@
     </table>
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Cancel"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnCancel'/>"
                                     onclick="javascript:return onCancel();"/> <input type="button"
-                                                                                     value="Print"
+                                                                                     value="<fmt:message key='global.btnPrint'/>"
                                                                                      onclick="javascript:return onPrint();"/>
             </td>
         </tr>

@@ -1,4 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -47,7 +49,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Immunizations/Allergies</title>
+        <title><fmt:message key='form.immunAllergy.title'/></title>
         <link rel="stylesheet" type="text/css" href="arStyle.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
@@ -126,7 +128,7 @@
             if (ret == true) {
                 reset();
                 document.forms[0].target = "_self";
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -137,7 +139,7 @@
             if (ret == true) {
                 reset();
                 document.forms[0].target = "_self";
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -254,7 +256,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -279,7 +281,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -325,22 +327,22 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:window.print();"/></td>
             </tr>
         </table>
 
         <table width="100%" border="0" cellspacing="3" cellpadding="0">
             <tr>
-                <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                    Immunizations / Allergies (Patient: <%= props.getProperty("c_surname", "") %>,
+                <th><%=bView ? "<font color='yellow'>" : ""%><fmt:message key='form.immunAllergy.viewPage'/><%=bView ? "</font>" : ""%>
+                    <fmt:message key='form.immunAllergy.heading'/> <%= props.getProperty("c_surname", "") %>,
                     <%= props.getProperty("c_givenName", "") %> )
                 </th>
                 <input type="hidden" name="c_surname" size="30"
@@ -358,30 +360,30 @@
 
             <table width="80%" border="1" cellspacing="0" cellpadding="0">
                 <tr>
-                    <td align="right" width="50%">*Date of Administration :</td>
+                    <td align="right" width="50%"><fmt:message key='form.immunAllergy.dateOfAdministration'/></td>
                     <td><input type="text" name="dateAdmin" size="10" maxlength="10"
                                value="<%= props.getProperty("dateAdmin", "") %>" @oscar.formDB
                                dbType="date"/></td>
                 </tr>
                 <tr>
-                    <td align="right">Trade name :</td>
+                    <td align="right"><fmt:message key='form.immunAllergy.tradeName'/></td>
                     <td><input type="text" name="tradeName" size="30" maxlength="50"
                                value="<%= props.getProperty("tradeName", "") %>" @oscar.formDB/>
                     </td>
                 </tr>
                 <tr>
-                    <td align="right">Manufacturer :</td>
+                    <td align="right"><fmt:message key='form.immunAllergy.manufacturer'/></td>
                     <td><input type="text" name="manufacturer" size="30"
                                maxlength="50" value="<%= props.getProperty("manufacturer", "") %>"
                                @oscar.formDB/></td>
                 </tr>
                 <tr>
-                    <td align="right">Lot # :</td>
+                    <td align="right"><fmt:message key='form.immunAllergy.lotNumber'/></td>
                     <td><input type="text" name="lot" size="30" maxlength="50"
                                value="<%= props.getProperty("lot", "") %>" @oscar.formDB/></td>
                 </tr>
                 <tr>
-                    <td align="right">Exip. date :</td>
+                    <td align="right"><fmt:message key='form.immunAllergy.expiryDate'/></td>
                     <td><input type="text" name="expiDate" size="10" maxlength="10"
                                value="<%= props.getProperty("expiDate", "") %>" @oscar.formDB
                                dbType="date"/></td>
@@ -391,9 +393,7 @@
             <table width="80%" border="1" cellspacing="0" cellpadding="2">
 
                 <tr>
-                    <td align="right" valign="top" width="50%">Dose /administration
-                        :
-                    </td>
+                    <td align="right" valign="top" width="50%"><fmt:message key='form.immunAllergy.doseAdministration'/></td>
                     <td><input type="checkbox" name="doseAdminSC"
                             <%= props.getProperty("doseAdminSC", "") %> @oscar.formDB
                                dbType="tinyint(1)"/> SC<br>
@@ -410,47 +410,47 @@
                     </td>
                 </tr>
                 <tr>
-                    <td align="right" valign="top">Location :</td>
+                    <td align="right" valign="top"><fmt:message key='form.immunAllergy.location'/></td>
                     <td><input type="checkbox" name="locLtDel"
                             <%= props.getProperty("locLtDel", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> Lt. deltoid<br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.leftDeltoid'/><br>
                         <input type="checkbox" name="locRtDel"
                                 <%= props.getProperty("locRtDel", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> Rt. deltoid<br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.rightDeltoid'/><br>
                         <input type="checkbox" name="locLtDelOUQ"
                                 <%= props.getProperty("locLtDelOUQ", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> Lt gluteal (OUQ)<br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.leftGluteal'/><br>
                         <input type="checkbox" name="locRtDelOUQ"
                                 <%= props.getProperty("locRtDelOUQ", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> Rt.gluteal (OUQ)<br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.rightGluteal'/><br>
                         <input type="checkbox" name="locOther"
                                 <%= props.getProperty("locOther", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> other ( anterolateral thigh)
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.otherLocation'/>
                     </td>
                 </tr>
                 <tr>
-                    <td align="right" valign="top">Instructions :</td>
+                    <td align="right" valign="top"><fmt:message key='form.immunAllergy.instructions'/></td>
                     <td><input type="checkbox" name="InstrStay20"
                             <%= props.getProperty("InstrStay20", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> stay in waiting area for 20 minutes<br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.waitingArea'/><br>
                         <input type="checkbox" name="InstrExpectLoc"
                                 <%= props.getProperty("InstrExpectLoc", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> expect local tenderness/small lump <br>
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.localTenderness'/><br>
                         <input type="checkbox" name="InstrFU"
                                 <%= props.getProperty("InstrFU", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> f/u if rash, fever, Sz, leth or new Sxs
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.followUp'/>
                     </td>
                 </tr>
                 <tr>
-                    <td align="right" valign="top">At discharge :</td>
+                    <td align="right" valign="top"><fmt:message key='form.immunAllergy.atDischarge'/></td>
                     <td><input type="checkbox" name="disChNoComp"
                             <%= props.getProperty("disChNoComp", "") %> @oscar.formDB
-                               dbType="tinyint(1)"/> no complications
+                               dbType="tinyint(1)"/> <fmt:message key='form.immunAllergy.noComplications'/>
                     </td>
                 </tr>
             </table>
 
-            * Date format: yyyy/mm/dd
+            <fmt:message key='form.immunAllergy.dateFormatNote'/>
         </center>
 
     </form>

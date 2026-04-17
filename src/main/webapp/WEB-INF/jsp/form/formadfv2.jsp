@@ -123,7 +123,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -133,7 +133,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -250,7 +250,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -275,7 +275,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -321,14 +321,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="button" value="Exit"
+                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:window.print(); return false;"/>
                 </td>
                 <%
@@ -766,14 +766,14 @@
                 <td>
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="button" value="Exit"
+                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:window.print(); return false;"/>
                 </td>
                 <%

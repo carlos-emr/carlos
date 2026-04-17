@@ -6,10 +6,57 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
-    <title>CARLOS Email</title>
+    <fmt:message key="email.compose.title" var="emailComposeTitle"/>
+    <fmt:message key="email.compose.label.sender" var="emailComposeSenderLabel"/>
+    <fmt:message key="email.compose.label.patient" var="emailComposePatientLabel"/>
+    <fmt:message key="email.compose.placeholder.searchPatient" var="emailComposeSearchPatientPlaceholder"/>
+    <fmt:message key="email.compose.label.emailAddresses" var="emailComposeEmailAddressesLabel"/>
+    <fmt:message key="email.compose.btn.removeEmail" var="emailComposeRemoveEmail"/>
+    <fmt:message key="email.compose.msg.warning" var="emailComposeWarning"/>
+    <fmt:message key="email.compose.msg.additionalEmailAddressData" var="emailComposeAdditionalEmailAddressData"/>
+    <fmt:message key="email.compose.msg.noOutgoingEmailAccount" var="emailComposeNoOutgoingEmailAccount"/>
+    <fmt:message key="email.compose.msg.noValidEmail" var="emailComposeNoValidEmail"/>
+    <fmt:message key="email.compose.msg.updateDemographic" var="emailComposeUpdateDemographic"/>
+    <fmt:message key="email.compose.msg.andTryAgain" var="emailComposeAndTryAgain"/>
+    <fmt:message key="email.compose.msg.additionalSnippets" var="emailComposeAdditionalSnippets"/>
+    <fmt:message key="email.compose.msg.warningAdditionalSnippets" var="emailComposeWarningAdditionalSnippets"/>
+    <fmt:message key="email.compose.msg.correctEmailBeforeProceeding" var="emailComposeCorrectEmailBeforeProceeding"/>
+    <fmt:message key="email.compose.heading.body" var="emailComposeBodyLabel"/>
+    <fmt:message key="email.compose.placeholder.body" var="emailComposeBodyPlaceholder"/>
+    <fmt:message key="email.compose.msg.unencryptedBody" var="emailComposeUnencryptedBody"/>
+    <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
+    <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
+    <fmt:message key="email.compose.label.encryptedMessage" var="emailComposeEncryptedMessageLabel"/>
+    <fmt:message key="email.compose.tooltip.encryptedMessage" var="emailComposeEncryptedMessageTooltip"/>
+    <fmt:message key="email.compose.placeholder.encryptedMessage" var="emailComposeEncryptedMessagePlaceholder"/>
+    <fmt:message key="email.compose.label.password" var="emailComposePasswordLabel"/>
+    <fmt:message key="email.compose.placeholder.password" var="emailComposePasswordPlaceholder"/>
+    <fmt:message key="email.compose.label.clue" var="emailComposeClueLabel"/>
+    <fmt:message key="email.compose.tooltip.clue" var="emailComposeClueTooltip"/>
+    <fmt:message key="email.compose.placeholder.clue" var="emailComposeCluePlaceholder"/>
+    <fmt:message key="email.compose.label.encryptAttachments" var="emailComposeEncryptAttachmentsLabel"/>
+    <fmt:message key="email.compose.tooltip.encryptAttachments" var="emailComposeEncryptAttachmentsTooltip"/>
+    <fmt:message key="email.compose.section.additionalOptions" var="emailComposeAdditionalOptions"/>
+    <fmt:message key="email.compose.label.chartOptions" var="emailComposeChartOptions"/>
+    <fmt:message key="email.compose.btn.addAdditionalParameters" var="emailComposeAddAdditionalParameters"/>
+    <fmt:message key="email.compose.btn.send" var="emailComposeSend"/>
+    <fmt:message key="email.compose.btn.cancel" var="emailComposeCancel"/>
+    <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing"/>
+    <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
+    <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
+    <fmt:message key="email.compose.msg.bodyRequired" var="emailComposeBodyRequired"/>
+    <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
+    <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
+    <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
+    <fmt:message key="email.compose.msg.minimumRecipient" var="emailComposeMinimumRecipient"/>
+    <fmt:message key="email.compose.state.on" var="emailComposeStateOn"/>
+    <fmt:message key="email.compose.state.off" var="emailComposeStateOff"/>
+
+    <title>${emailComposeTitle}</title>
 
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css"/>
@@ -158,7 +205,7 @@
         <div id="page-header">
             <table id="oscarEmailHeader">
                 <tr>
-                    <td id="oscarEmailHeaderLeftColumn"><h1>CARLOS Email</h1></td>
+                    <td id="oscarEmailHeaderLeftColumn"><h1>${emailComposeTitle}</h1></td>
 
                     <td id="oscarEmailHeaderRightColumn" align=right>
                     </td>
@@ -199,13 +246,13 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="card-title">From</h5>
+                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgFrom"/></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
-                                    <label for="senderEmailAddress">Sender</label>
+                                    <label for="senderEmailAddress">${emailComposeSenderLabel}</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
@@ -224,17 +271,17 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">To</h5>
+                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgTo"/></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row mb-3">
                                 <div class="col-sm-1">
-                                    <label for="receiverName">Patient</label>
+                                    <label for="receiverName">${emailComposePatientLabel}</label>
                                 </div>
                                 <div class="col-sm-10">
                                     <input class="autocomplete form-control" type="text" name="recipient"
-                                           value="${ receiverName }" id="receiverName" placeholder="Search: last, first"
+                                           value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
                                            disabled/>
                                 </div>
                             </div>
@@ -242,7 +289,7 @@
                                 <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
                                     <div class="row mb-3 mt-3">
                                         <div class="col-sm-1">
-                                            <label for="receiverEmailAddress${loop.index + 1}">Email(s)</label>
+                                            <label for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
                                         </div>
                                         <div class="col-sm-10">
                                             <input class="form-control" type="email" name="receiverEmailAddress"
@@ -254,7 +301,7 @@
                                             </c:if>
                                         </div>
                                         <div class="col-sm-1">
-                                            <button type="button" title="Remove Email" class="btn btn-danger"
+                                            <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
                                                     onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </div>
@@ -274,31 +321,28 @@
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="errorMessageModalLabel">${e:forHtml(empty receiverEmailList or empty senderAccounts ? 'Warning' : 'Additional Email Address Data')}</h5>
+                                <h5 class="modal-title" id="errorMessageModalLabel">${empty receiverEmailList or empty senderAccounts ? emailComposeWarning : emailComposeAdditionalEmailAddressData}</h5>
                                 <button type="button" name="close" class="btn-close" data-bs-dismiss="modal"
-                                        aria-label="Close"></button>
+                                        aria-label="${emailComposeClose}"></button>
                             </div>
                             <div class="modal-body">
                                 <c:if test="${empty senderAccounts}">
-                                    <p>Sorry - no outgoing email account has been configured. Please contact your system
-                                        administrator for more information.</p>
+                                    <p>${emailComposeNoOutgoingEmailAccount}</p>
                                     <c:if test="${empty receiverEmailList or not empty invalidReceiverEmailList}">
                                         <hr>
                                     </c:if>
                                 </c:if>
                                 <c:choose>
                                     <c:when test="${empty receiverEmailList && empty invalidReceiverEmailList}">
-                                        <p>Sorry - this patient does not have a valid email address in their
-                                            demographic.
-                                            Please update their demographic (<a href="#"
+                                        <p>${emailComposeNoValidEmail}
+                                            ${emailComposeUpdateDemographic} (<a href="#"
                                                                                 onclick="openDemographicPage(event)"
                                                                                 class="alert-link">${ receiverName }</a>)
-                                            and try again.</p>
+                                            ${emailComposeAndTryAgain}</p>
                                     </c:when>
                                     <c:when test="${empty receiverEmailList && not empty invalidReceiverEmailList}">
-                                        <p>Sorry - this patient does not have a valid email address in their
-                                            demographic.
-                                            These additional snippets were found in the email address field of <a
+                                        <p>${emailComposeNoValidEmail}
+                                            ${emailComposeAdditionalSnippets} <a
                                                     href="#" onclick="openDemographicPage(event)"
                                                     class="alert-link">${ receiverName }</a></p>
                                         <ul>
@@ -308,8 +352,8 @@
                                         </ul>
                                     </c:when>
                                     <c:when test="${not empty invalidReceiverEmailList}">
-                                        <p><strong>Warning:</strong> these additional snippets were found in the email
-                                            address field of <a href="#" onclick="openDemographicPage(event)"
+                                        <p><strong>${emailComposeWarning}:</strong> ${emailComposeWarningAdditionalSnippets}
+                                            <a href="#" onclick="openDemographicPage(event)"
                                                                 class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
@@ -321,7 +365,7 @@
                             </div>
                             <c:if test="${not empty invalidReceiverEmailList}">
                                 <div class="modal-footer justify-content-start">
-                                    <p> You may wish to correct the patient's email address before proceeding</p>
+                                    <p>${emailComposeCorrectEmailBeforeProceeding}</p>
                                 </div>
                             </c:if>
                         </div>
@@ -330,7 +374,7 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">Subject</h5>
+                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgSubject"/></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -339,7 +383,7 @@
                                     <c:set var="subjectEmail"
                                            value="${ empty param.subjectEmail ? subjectEmail : param.subjectEmail }"/>
                                     <input class="form-control" type="text" name="subjectEmail" id="subjectEmail"
-                                           placeholder="Subject" value="${e:forHtmlAttribute(subjectEmail)}"
+                                           placeholder="<fmt:message key='messenger.ViewMessage.msgSubject'/>" value="${e:forHtmlAttribute(subjectEmail)}"
                                            autocomplete="off"/>
                                     <div class="error-message" id="subjectError"></div>
                                 </div>
@@ -350,36 +394,36 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">Body</h5>
+                        <h5 class="card-title">${emailComposeBodyLabel}</h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
                                     <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
-                                              placeholder="@message...">${e:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
+                                              placeholder="${emailComposeBodyPlaceholder}">${e:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
                                     <div class="error-message" id="bodyError"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> Unencrypted Body of Email
+                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeUnencryptedBody}
                     </div>
                 </div>
 
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title">
-                            <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
+                            <span class="fa-solid fa-lock"></span> ${emailComposeEncryptionLabel} <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
                                                                              data-bs-toggle="tooltip"
                                                                              data-bs-placement="right"
-                                                                             title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
+                                                                             title="${emailComposeEncryptionTooltip}"></span>
                             <div class="form-check form-switch encryptionLock">
                                 <input class="form-check-input" type="checkbox" id="encryptionSwitch"
                                        onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">ON</label>
+                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
                             </div>
                         </h5>
                     </div>
@@ -387,21 +431,21 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
-                                    <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
+                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
-                                                                   title="Message will be added into the encrypted pdf"></span></label>
+                                                                   title="${emailComposeEncryptedMessageTooltip}"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
-                                              rows="5" placeholder="...">${e:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
+                                              rows="5" placeholder="${emailComposeEncryptedMessagePlaceholder}">${e:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
                             <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
-                                    <label>Password</label>
+                                    <label>${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-10">
                                     <input class="form-control" type="text" name="emailPDFPassword"
-                                           id="emailPDFPassword" placeholder="YYYYMMDDHIN"
+                                           id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
                                            value="${ e:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword) }"
                                            autocomplete="off"/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
@@ -409,21 +453,21 @@
                             </div>
                             <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
-                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                                    <label>${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
-                                                      title="Clue will be added into the email body (visible)"></span></label>
+                                                      title="${emailComposeClueTooltip}"></span></label>
                                 </div>
                                 <div class="col-sm-10">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="...">${e:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${e:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
                             <div class="row mt-3 mb-3">
                                 <div class="col-sm-2">
-                                    <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
+                                    <label>${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-bs-toggle="tooltip" data-bs-placement="right"
-                                                                     title="Email attachments will be encrypted when enabled"></span></label>
+                                                                     title="${emailComposeEncryptAttachmentsTooltip}"></span></label>
                                 </div>
                                 <div class="col-sm-10">
                                     <div class="form-check form-switch">
@@ -443,27 +487,27 @@
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title">
-                            Additional options
+                            ${emailComposeAdditionalOptions}
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <label>Chart options</label>
+                                    <label>${emailComposeChartOptions}</label>
                                     <div class="form-check">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="doNotAddAsNoteOption" value="doNotAddAsNote" onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="doNotAddAsNoteOption">
-                                                Do not add to patient chart
+                                                <fmt:message key="email.compose.chart.doNotAdd"/>
                                             </label>
                                     </div>
                                     <div class="form-check">
 											<input class="form-check-input" type="radio" name="patientChartOption" id="addFullNoteOption" value="addFullNote" checked onClick="toggleInternalTextArea()">
                                             <label class="form-check-label" for="addFullNoteOption">
-                                                Chart as new note in patient's chart
+                                                <fmt:message key="email.compose.chart.addNote"/>
                                             </label>
 										<div id="internalCommentContainer" class="d-none">
-											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="Internal comment to include" rows="3">${e:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
+											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="<fmt:message key='email.compose.chart.internalComment'/>" rows="3">${e:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -474,7 +518,7 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">Attachments</h5>
+                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgAttachments"/></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -515,7 +559,7 @@
                 <div id="additionalParams" class="m-2 row d-none">
                     <div class="col-sm-3">
                         <button type="button" class="btn btn-link text-decoration-none"
-                                onclick="showAdditionalParamsTextBox()">Add Additional Parameters
+                                onclick="showAdditionalParamsTextBox()">${emailComposeAddAdditionalParameters}
                         </button>
                     </div>
                     <div class="col-sm-9">
@@ -523,7 +567,7 @@
                                value="${not empty emailAdditionalParams ? emailAdditionalParams : ''}"/>
                         <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'd-none' }"
                                name="additionalURLParams" id="additionalURLParams"
-                               placeholder="Extra Parameters (if applicable)"
+                               placeholder="<fmt:message key='email.compose.additionalParams.placeholder'/>"
                                value="${e:forHtmlAttribute(emailAdditionalParams)}">
                     </div>
                 </div>
@@ -531,15 +575,15 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
+                            <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
-                                Send
+                                ${emailComposeSend}
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel"
-                                    class="btn btn-danger btn-md float-end" value="Cancel" name="close"
+                                    class="btn btn-danger btn-md float-end" value="${emailComposeCancel}" name="close"
                                     onclick="cancelEmail()">
                                 <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
-                                Cancel
+                                ${emailComposeCancel}
                             </button>
                         </div>
                     </div>
@@ -552,20 +596,20 @@
             <c:choose>
                 <c:when test="${ emailLog.status eq 'SUCCESS' }">
 				<div class="alert alert-success" role="alert" id="successMessage">
-					<p>Your email to <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> was successfully sent.</p>
+					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
                     </div>
-				<p class="mt-1" id="windowCloseMessage">This window will close in <b>3</b> seconds...</p>
+				<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                 </c:when>
                 <c:otherwise>
                     <div class="alert alert-danger" role="alert">
-                        <p> Your email to <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> was NOT sent.
-                            Please review the error message and try again.<br><br>
-                            <b>Error Message:</b> <br>
+                        <p><fmt:message key="email.compose.msg.yourEmailTo"/> <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.wasNotSent"/>
+                            <fmt:message key="email.compose.msg.reviewErrorAndTryAgain"/><br><br>
+                            <b><fmt:message key="email.compose.msg.errorMessage"/></b> <br>
                             ${e:forHtml(emailLog.errorMessage)}</p>
                     </div>
                 </c:otherwise>
             </c:choose>
-            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>
         </c:if>
     </div>
 </div>
@@ -626,6 +670,15 @@
         }
     });
 
+    const emailComposeSubjectRequiredMsg = "<e:forJavaScript value='${emailComposeSubjectRequired}' />";
+    const emailComposeBodyRequiredMsg = "<e:forJavaScript value='${emailComposeBodyRequired}' />";
+    const emailComposePasswordRequiredMsg = "<e:forJavaScript value='${emailComposePasswordRequired}' />";
+    const emailComposeClueRequiredMsg = "<e:forJavaScript value='${emailComposeClueRequired}' />";
+    const emailComposePasswordMinLengthMsg = "<e:forJavaScript value='${emailComposePasswordMinLength}' />";
+    const emailComposeMinimumRecipientMsg = "<e:forJavaScript value='${emailComposeMinimumRecipient}' />";
+    const emailComposeStateOnMsg = "<e:forJavaScript value='${emailComposeStateOn}' />";
+    const emailComposeStateOffMsg = "<e:forJavaScript value='${emailComposeStateOff}' />";
+
     function validateEmailForm() {
         if (!validateForm()) {
             return false;
@@ -652,15 +705,15 @@
 
         const errors = {};
 
-        validateField(subjectEmail, 'Subject is required', errors, 'subjectError');
-        validateField(bodyEmail, 'Body is required', errors, 'bodyError');
+        validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
+        validateField(bodyEmail, emailComposeBodyRequiredMsg, errors, 'bodyError');
         if (isEncrypted) {
             if (hasEncryptedMessage) {
-                validateField(emailPDFPassword, 'Password is required', errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, 'Clue is required', errors, 'emailPDFPasswordClueError');
+                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
+                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
             } else if (hasAttachments && isAttachmentEncrypted) {
-                validateField(emailPDFPassword, 'Password is required', errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, 'Clue is required', errors, 'emailPDFPasswordClueError');
+                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
+                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
             } else {
                 clearError('emailPDFPasswordError');
                 clearError('emailPDFPasswordClueError');
@@ -680,7 +733,7 @@
             errors[field.name] = errorMessage;
             displayError(errorElementId, errorMessage);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
-            errorMessage = 'Password must be at least 5 characters long.';
+            errorMessage = emailComposePasswordMinLengthMsg;
             errors[field.name] = errorMessage;
             displayError(errorElementId, errorMessage);
         }
@@ -705,7 +758,7 @@
         const checkbox = document.getElementById("encryptionSwitch");
         document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
-        document.getElementById("isEncryption").innerHTML = checkbox.checked ? "ON" : "OFF";
+        document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
     }
 
@@ -719,7 +772,7 @@
         if (receiverEmailsContainer.children.length > 1) {
             receiverEmailsContainer.removeChild(formGroup);
         } else {
-            alert("This recipient cannot be removed because a minimum of one recipient is required");
+            alert(emailComposeMinimumRecipientMsg);
         }
     }
 

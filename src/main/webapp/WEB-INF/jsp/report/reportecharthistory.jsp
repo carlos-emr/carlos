@@ -69,7 +69,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>ENCOUNTER SHEET</title>
+    <title><fmt:message key="encounter.echartHistory.title"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     <script language="JavaScript">
         <!--
@@ -107,7 +107,7 @@
         <TH><b><fmt:message key="encounter.echartHistory.apptDate"/></b></TH>
         <TH width="50%"><b><fmt:message key="encounter.echartHistory.reason"/></b></TH>
         <!--TH width="10%"><b>Size</b></TH-->
-        <th>Provider</th>
+        <th><fmt:message key="encounter.echartHistory.provider"/></th>
     </tr>
     <%
         boolean bfirsttime = true;
@@ -160,13 +160,12 @@
         nLastPage = Integer.parseInt(strLimit1) - intLimit2;
         if (nLastPage >= 0) {
     %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
-    Page</a> | <%
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="report.reportecharthistory.lastPage"/></a> | <%
     }
     if (nItems == intLimit2) {
 %> <a
         href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<e:forUriComponent value='<%= splitectsize %>' />">
-    Next Page</a> <%
+    <fmt:message key="report.reportecharthistory.nextPage"/></a> <%
     }
 %>
 </CENTER>

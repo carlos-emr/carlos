@@ -46,11 +46,15 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String opEdit = bundle.getString("schedule.scheduletemplatecodesetting.btnEdit");
+    String opSave = bundle.getString("schedule.scheduletemplatecodesetting.btnSave");
+    String opDelete = bundle.getString("schedule.scheduletemplatecodesetting.btnDelete");
 %>
 <%
     int rowsAffected = 0;
     if (request.getParameter("dboperation") != null) {
-        if (request.getParameter("dboperation").compareTo(" Save ") == 0) {
+        if (request.getParameter("dboperation").equals(opSave)) {
             ScheduleTemplateCode code = scheduleTemplateCodeDao.getByCode(request.getParameter("code").toCharArray()[0]);
             if (code != null) {
                 scheduleTemplateCodeDao.remove(code.getId());
@@ -66,7 +70,7 @@
             scheduleTemplateCodeDao.persist(code);
 
         }
-        if (request.getParameter("dboperation").equals("Delete")) {
+        if (request.getParameter("dboperation").equals(opDelete)) {
             ScheduleTemplateCode code = scheduleTemplateCodeDao.getByCode(request.getParameter("code").toCharArray()[0]);
             if (code != null) {
                 scheduleTemplateCodeDao.remove(code.getId());
@@ -147,7 +151,7 @@
                     }
                 %>
             </select>
-            <input type="hidden" name="dboperation" value=" Edit ">
+            <input type="hidden" name="dboperation" value="<%= Encode.forHtmlAttribute(opEdit) %>">
             <input type="submit" class="btn btn-secondary" value='<fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
@@ -155,7 +159,7 @@
     <div class="card card-body bg-body-tertiary">
         <form name="addtemplatecode" method="post" action="${pageContext.request.contextPath}/schedule/TemplateCodeSetting" class="">
             <%
-                boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(" Edit ");
+                boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(opEdit);
                 if (bEdit) {
                     ScheduleTemplateCode stc = scheduleTemplateCodeDao.findByCode(request.getParameter("code"));
                     if (stc != null) {
@@ -215,33 +219,30 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label" for="limitType">Limit Type:</label>
+                <label class="form-label" for="limitType"><fmt:message key="schedule.scheduletemplatecodesetting.formLimitType"/>:</label>
                 <div>
                     <input type="radio" name="confirm" value="No"
-                            <%=(bEdit? (dataBean.getProperty("confirm").startsWith("N")? "checked" : "") : "checked")%>>Off
+                            <%=(bEdit? (dataBean.getProperty("confirm").startsWith("N")? "checked" : "") : "checked")%>><fmt:message key="schedule.scheduletemplatecodesetting.formLimitOff"/>
                     <input type="radio" name="confirm" value="Yes"
-                            <%=((bEdit && dataBean.getProperty("confirm").equals("Yes"))? "checked" : "")%>>Warning
+                            <%=((bEdit && dataBean.getProperty("confirm").equals("Yes"))? "checked" : "")%>><fmt:message key="schedule.scheduletemplatecodesetting.formLimitWarning"/>
                     <!-- <input type="radio" name="confirm" value="Str"
 					<%=(bEdit? (dataBean.getProperty("confirm").startsWith("Str")? "checked" : "") : "checked")%>>Strict
 				not implimented --> <br>
                     <input type="radio" name="confirm" value="Day"
-                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Day")? "checked" : "") : "checked")%>>Same
-                    Day
+                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Day")? "checked" : "") : "checked")%>><fmt:message key="schedule.scheduletemplatecodesetting.formLimitSameDay"/>
                     <input type="radio" name="confirm" value="Wk"
-                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Wk")? "checked" : "") : "checked")%>>Same
-                    Week
+                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Wk")? "checked" : "") : "checked")%>><fmt:message key="schedule.scheduletemplatecodesetting.formLimitSameWeek"/>
                     <input type="radio" name="confirm" value="Onc"
-                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Onc")? "checked" : "") : "checked")%>>On-Call
-                    Urgent
+                            <%=(bEdit? (dataBean.getProperty("confirm").equals("Onc")? "checked" : "") : "checked")%>><fmt:message key="schedule.scheduletemplatecodesetting.formLimitOnCallUrgent"/>
 
                 </div>
                 <div style="text-align:right">
                     <br>
                     <input type="button" class="btn btn-secondary"
-                           onclick="document.forms['addtemplatecode'].dboperation.value='Delete'; document.forms['addtemplatecode'].submit();"
+                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opDelete) %>'; document.forms['addtemplatecode'].submit();"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"
-                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value=' Save '; document.forms['addtemplatecode'].submit();}"
+                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnSave"/>'>
                     <input type="button" name="Button" class="btn btn-link"
                            value='<fmt:message key="global.btnExit"/>'

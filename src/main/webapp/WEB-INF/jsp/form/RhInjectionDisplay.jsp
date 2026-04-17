@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -43,6 +44,8 @@
         return;
     }
 %>
+
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page
         import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
@@ -63,22 +66,22 @@
             String refused = (String) hdata.get("refused");
 %>
 <fieldset>
-    <legend> Injection # <%=k + 1%> &nbsp;
-        &nbsp; &nbsp; Date: <%=hdata.get("preventionDate")%> &nbsp; &nbsp;
+    <legend><fmt:message key="form.rhInjectionDisplay.legendTitle"/> <%=k + 1%> &nbsp;
+        &nbsp; &nbsp; <fmt:message key="form.rhInjectionDisplay.date"/> <%=hdata.get("preventionDate")%> &nbsp; &nbsp;
         &nbsp;
-        Weeks: <%=UtilDateUtilities.calculateGestationAge((Date) hdata.get("prevention_date_asDate"), UtilDateUtilities.StringToDate(date))%>
+        <fmt:message key="form.rhInjectionDisplay.weeks"/> <%=UtilDateUtilities.calculateGestationAge((Date) hdata.get("prevention_date_asDate"), UtilDateUtilities.StringToDate(date))%>
     </legend>
-    <%if (refused.equals("1")) { %> Refused <a
+    <%if (refused.equals("1")) { %> <fmt:message key="form.rhInjectionDisplay.refused"/> <a
         onclick="deleteInjection('<%=hdata.get("id")%>')"
         href="javascript: function myFunction() {return false; }"
-        style="color: blue;"> Delete </a> <%} else {%> Given
-    By: <%=ProviderData.getProviderName((String) hdata.get("provider_no"))%>
-    Location: <%=hextended.get("location")  %> Lot #: <%=hextended.get("lot")  %>
-    Product #: <%=hextended.get("product")  %> Dosage: <%=hextended.get("dosage")  %>
+        style="color: blue;"><fmt:message key="form.rhInjectionDisplay.delete"/></a> <%} else {%> <fmt:message key="form.rhInjectionDisplay.given"/>
+    <fmt:message key="form.rhInjectionDisplay.by"/> <%=ProviderData.getProviderName((String) hdata.get("provider_no"))%>
+    <fmt:message key="form.rhInjectionDisplay.location"/> <%=hextended.get("location")  %> <fmt:message key="form.rhInjectionDisplay.lotNumber"/> <%=hextended.get("lot")  %>
+    <fmt:message key="form.rhInjectionDisplay.productNumber"/> <%=hextended.get("product")  %> <fmt:message key="form.rhInjectionDisplay.dosage"/> <%=hextended.get("dosage")  %>
     <a onclick="deleteInjection('<%=hdata.get("id")%>')"
        href="javascript: function myFunction() {return false; }"
-       style="color: blue;"> Delete </a> </br>
-    Reason: <%=hextended.get("reason")  %> <%}%>
+       style="color: blue;"><fmt:message key="form.rhInjectionDisplay.delete"/></a> </br>
+    <fmt:message key="form.rhInjectionDisplay.reason"/> <%=hextended.get("reason")  %> <%}%>
 </fieldset>
 <% }
 }%>

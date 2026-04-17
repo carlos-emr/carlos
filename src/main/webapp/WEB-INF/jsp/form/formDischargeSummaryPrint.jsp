@@ -27,6 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -47,6 +48,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.utility.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
@@ -78,7 +80,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>MULTI-DISCIPLINARY TEAM DISCHARGE SUMMARY</title>
+        <title><fmt:message key="form.dischargeSummaryPrint.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <style type="text/css" media="print">
             .header {
@@ -125,7 +127,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -135,7 +137,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -252,7 +254,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -277,7 +279,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -300,8 +302,8 @@
 
     <table width="100%" class="header">
         <tr width="100%">
-            <td align="left"><input type="button" value="Exit"
-                                    onclick="window.close();"/> <input type="button" value="Print"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
+                                    onclick="window.close();"/> <input type="button" value="<fmt:message key="global.btnPrint"/>"
                                                                        onclick="window.print()"/></td>
         </tr>
     </table>
@@ -309,7 +311,7 @@
 
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr>
-            <td align="center"><b>Sherbourne Health Centre Infirmary</b></td>
+            <td align="center"><b><fmt:message key="form.dischargeSummaryPrint.infirmary"/></b></td>
         </tr>
         <tr>
             <td align="center"><b>(ph) 416-324-4108</b></td>
@@ -321,8 +323,7 @@
             <td>&nbsp;</td>
         </tr>
         <tr>
-            <td align="center"><b>MULTI-DISCIPLINARY TEAM DISCHARGE
-                SUMMARY</b></td>
+            <td align="center"><b><fmt:message key="form.dischargeSummaryPrint.heading"/></b></td>
         </tr>
         <tr>
             <td>&nbsp;</td>
@@ -332,27 +333,27 @@
 
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr width="100%">
-            <td align="left"><b>Client Name:</b> <%= props.getProperty("clientName", "") %>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.clientName"/>:</b> <%= props.getProperty("clientName", "") %>
             </td>
-            <td align="left"><b>DOB<small>(yyyy/mm/dd)</small>: </b> <%= props.getProperty("birthDate", "") %>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.dob"/> <small>(yyyy/mm/dd)</small>: </b> <%= props.getProperty("birthDate", "") %>
             </td>
-            <td align="left"><b>OHIP#: </b> <%= props.getProperty("ohip", "") %>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.ohip"/>: </b> <%= props.getProperty("ohip", "") %>
             </td>
         </tr>
 
         <tr width="100%">
-            <td align="left"><b>Admit Date:</b> <%= props.getProperty("admitDate", "") %>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.admitDate"/>:</b> <%= props.getProperty("admitDate", "") %>
             </td>
-            <td align="left"><b>Discharge Date<small>(yyyy/mm/dd):</small>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.dischargeDate"/> <small>(yyyy/mm/dd):</small>
             </b> <%= props.getProperty("dischargeDate", "") %>
             </td>
-            <td align="left"><b>Allergies: </b> <%= props.getProperty("allergies", "") %>
+            <td align="left"><b><fmt:message key="form.dischargeSummaryPrint.allergies"/>: </b> <%= props.getProperty("allergies", "") %>
             </td>
     </table>
     <br>
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
-            <th align="left">Admitting Diagnosis/Primary Diagnosis:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.admittingDiagnosis"/>:</th>
         </tr>
         <tr>
             <td><%= props.getProperty("admissionNotes", "") %>
@@ -362,7 +363,7 @@
             <td>&nbsp;</td>
         </tr>
         <tr>
-            <th align="left">Problem List:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.problemList"/>:</th>
         </tr>
         <tr>
             <td><%= props.getProperty("currentIssues", "") %>
@@ -372,8 +373,7 @@
             <td>&nbsp;</td>
         </tr>
         <tr>
-            <th align="left">Brief Summary of stay (special
-                procedures/treatment/complications):
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.briefSummary"/>:
             </th>
         </tr>
         <tr>
@@ -384,8 +384,7 @@
             <td>&nbsp;</td>
         </tr>
         <tr>
-            <th align="left">Discharge Plan of
-                Care/Recommendations/Outstanding Issues:
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.dischargePlan"/>:
             </th>
         </tr>
         <tr>
@@ -399,15 +398,15 @@
 
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
-            <th align="left">Follow-up Appointment(s):</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.followUpAppointments"/>:</th>
         </tr>
     </table>
     <table width="100%" border="1" cellspacing="0" cellpadding="0">
         <tr>
-            <th>Agency/Health Care Provider</th>
-            <th>Phone No</th>
-            <th>Date/Time</th>
-            <th>Location</th>
+            <th><fmt:message key="form.dischargeSummaryPrint.agencyProvider"/></th>
+            <th><fmt:message key="form.dischargeSummaryPrint.phoneNo"/></th>
+            <th><fmt:message key="form.dischargeSummaryPrint.dateTime"/></th>
+            <th><fmt:message key="form.dischargeSummaryPrint.location"/></th>
         </tr>
         <tr>
             <td><%= props.getProperty("doctor1", "") %>&nbsp;</td>
@@ -440,41 +439,41 @@
             <td>
                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                     <tr>
-                        <th>Current Medications:</th>
+                        <th><fmt:message key="form.dischargeSummaryPrint.currentMedications"/>:</th>
                     </tr>
                     <tr>
-                        <td>Please see Attached Summary</td>
+                        <td><fmt:message key="form.dischargeSummaryPrint.seeAttachedSummary"/></td>
                     </tr>
                 </table>
             <td>
                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                     <tr>
-                        <th align="left">Prescription Provided:</th>
+                        <th align="left"><fmt:message key="form.dischargeSummaryPrint.prescriptionProvided"/>:</th>
                         <td align="left">
                             <%if (props.getProperty("prescriptionProvided", "").equals("1")) {%> <input
                                 type="radio" name="prescriptionProvided" value="1" checked/> <%} else { %>
-                            <input type="radio" name="prescriptionProvided" value="1"/> <%} %>Yes
+                            <input type="radio" name="prescriptionProvided" value="1"/> <%} %><fmt:message key="global.yes"/>
                         </td>
                         <td align="left">
                             <%if (props.getProperty("prescriptionProvided", "").equals("0")) {%> <input
                                 type="radio" name="prescriptionProvided" value="0" checked/> <%} else { %>
-                            <input type="radio" name="prescriptionProvided" value="0"/> <%} %>No
+                            <input type="radio" name="prescriptionProvided" value="0"/> <%} %><fmt:message key="global.no"/>
                         </td>
 
                     </tr>
 
 
                     <tr>
-                        <th align="left">Changes in Medications (include explanation):</th>
+                        <th align="left"><fmt:message key="form.dischargeSummaryPrint.changesInMedications"/>:</th>
                         <td align="left">
                             <%if (props.getProperty("medicationProvided", "").equals("1")) {%> <input
                                 type="radio" name="medicationProvided" value="1" checked/> <%} else { %>
-                            <input type="radio" name="medicationProvided" value="1"/> <%} %>Yes
+                            <input type="radio" name="medicationProvided" value="1"/> <%} %><fmt:message key="global.yes"/>
                         </td>
                         <td align="left">
                             <%if (props.getProperty("medicationProvided", "").equals("0")) {%> <input
                                 type="radio" name="medicationProvided" value="0" checked/> <%} else { %>
-                            <input type="radio" name="medicationProvided" value="0"/> <%} %>No
+                            <input type="radio" name="medicationProvided" value="0"/> <%} %><fmt:message key="global.no"/>
                         </td>
                     </tr>
                     <tr>
@@ -488,15 +487,15 @@
     <br>
     <table>
         <tr>
-            <th align="left">Referrals:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.referrals"/>:</th>
         </tr>
     </table>
     <table width="100%" border="1" cellspacing="0" cellpadding="0">
 
         <tr>
-            <th>Program</th>
-            <th>Referral Made</th>
-            <th>Outcome</th>
+            <th><fmt:message key="form.dischargeSummaryPrint.program"/></th>
+            <th><fmt:message key="form.dischargeSummaryPrint.referralMade"/></th>
+            <th><fmt:message key="form.dischargeSummaryPrint.outcome"/></th>
         </tr>
         <tr>
             <td><%= props.getProperty("referralProgram1", "") %>&nbsp;</td>
@@ -529,7 +528,7 @@
 
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
-            <th align="left">Notes:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.notes"/>:</th>
         </tr>
         <tr>
             <td><%= props.getProperty("notes", "") %>
@@ -539,15 +538,15 @@
     <br>
     <table>
         <tr>
-            <th align="left">Infirmary Health Care Provider:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.infirmaryProvider"/>:</th>
             <td><%= props.getProperty("providerName", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <th align="left">Provider's Signature:</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.providerSignature"/>:</th>
             <td><%= props.getProperty("signature", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <th align="left">Date(yyyy/mm/dd):</th>
+            <th align="left"><fmt:message key="form.dischargeSummaryPrint.date"/> (yyyy/mm/dd):</th>
             <td><%= props.getProperty("signatureDate", "") %>&nbsp;</td>
         </tr>
     </table>

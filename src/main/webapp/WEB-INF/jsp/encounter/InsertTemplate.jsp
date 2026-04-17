@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 <html>
@@ -55,7 +56,7 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <table>
         <tr>
-            <td>Processing...</td>
+            <td><fmt:message key="encounter.insertTemplate.processing"/></td>
             <%
                 String tmplValue = (String) request.getAttribute("templateValue");
             %>

@@ -30,6 +30,9 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="demographic.procontact.title.consentToContact" var="procontactConsentTitle"/>
+<fmt:message key="demographic.procontact.title.active" var="procontactActiveTitle"/>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
@@ -43,30 +46,30 @@
 <div id="procontact_<e:forHtmlAttribute value='<%= id %>' />">
     <input type="hidden" name="procontact_<e:forHtmlAttribute value='<%= id %>' />.id" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.id" value=""/>
 
-    <a href="#" onclick="deleteProContact(<e:forJavaScriptAttribute value='<%= id %>' />);">[Delete]</a>
+    <a href="#" onclick="deleteProContact(<e:forJavaScriptAttribute value='<%= id %>' />);">[<fmt:message key="global.btnDelete"/>]</a>
 
     &nbsp;
 
     <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.role" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.role">
-        <option value="Referring Doctor">Referring Doctor</option>
-        <option value="Family Doctor">Family Doctor</option>
-        <option value="Specialist">Specialist</option>
-        <option value="Dietician">Dietician</option>
+        <option value="Referring Doctor"><fmt:message key="demographic.procontact.role.referringDoctor"/></option>
+        <option value="Family Doctor"><fmt:message key="demographic.procontact.role.familyDoctor"/></option>
+        <option value="Specialist"><fmt:message key="demographic.procontact.role.specialist"/></option>
+        <option value="Dietician"><fmt:message key="demographic.procontact.role.dietician"/></option>
     </select>
 
     &nbsp;
 
     <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact"
-            title="Consent to Contact">
-        <option value="1">Consent</option>
-        <option value="0">No Consent</option>
+            title="${procontactConsentTitle}">
+        <option value="1"><fmt:message key="demographic.procontact.consent"/></option>
+        <option value="0"><fmt:message key="demographic.procontact.noConsent"/></option>
     </select>
 
     &nbsp;
 
-    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" title="Active">
-        <option value="1">Active</option>
-        <option value="0">Inactive</option>
+    <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" title="${procontactActiveTitle}">
+        <option value="1"><fmt:message key="demographic.procontact.active"/></option>
+        <option value="0"><fmt:message key="demographic.procontact.inactive"/></option>
     </select>
 
     &nbsp;
@@ -74,12 +77,12 @@
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
     <select name="procontact_<e:forHtmlAttribute value='<%= id %>' />.type" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.type">
-        <option value="<%=DemographicContact.TYPE_PROVIDER%>">Internal</option>
+        <option value="<%=DemographicContact.TYPE_PROVIDER%>"><fmt:message key="demographic.procontact.internal"/></option>
         <%if (CarlosProperties.getInstance().getProperty("NEW_CONTACTS_UI_EXTERNAL_CONTACT", "true").equals("true")) { %>
-        <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
+        <option value="<%=DemographicContact.TYPE_CONTACT%>"><fmt:message key="demographic.procontact.external"/></option>
         <% } %>
         <option value="<%=DemographicContact.TYPE_PROFESSIONALSPECIALIST%>"
-        ">Professional Specialist</option>
+        "><fmt:message key="demographic.procontact.professionalSpecialist"/></option>
     </select>
 
     &nbsp;

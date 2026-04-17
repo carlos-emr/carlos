@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
@@ -70,7 +73,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Grip Strength Measurements (Kgs)</title>
+        <title><fmt:message key="form.gripStrength.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -136,7 +139,7 @@
                 <td>
                     <table border="0" cellspacing="0" cellpadding="0" width="740px">
                         <tr>
-                            <th class="subject">Grip Strength Measurements (Kgs)</th>
+                            <th class="subject"><fmt:message key="form.gripStrength.title"/></th>
                         </tr>
                     </table>
                 </td>
@@ -150,13 +153,13 @@
                                 <table width="100%" height="300px" border="0" cellspacing="1px"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="2">Time 1</th>
+                                        <th colspan="2"><fmt:message key="form.gripStrength.time1"/></th>
                                     </tr>
                                     <tr class="title">
                                         <th align="center"><font style="font-size: 85%">
-                                            Dominant Limb </font></th>
+                                            <fmt:message key="form.gripStrength.dominantLimb"/> </font></th>
                                         <th align="center"><font style="font-size: 85%">
-                                            Non-Dominant Limb </font></th>
+                                            <fmt:message key="form.gripStrength.nonDominantLimb"/> </font></th>
                                     </tr>
                                     <tr>
                                         <td bgcolor="white" align="center">1 = <input type="text"
@@ -198,10 +201,10 @@
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td bgcolor="white" align="center">Average = <input
+                                        <td bgcolor="white" align="center"><fmt:message key="form.gripStrength.average"/> = <input
                                                 type="text" readonly="true" name="domAvg"
                                                 value="<%= props.getProperty("domAvg", "") %>"/></td>
-                                        <td bgcolor="white" align="center">Average = <input
+                                        <td bgcolor="white" align="center"><fmt:message key="form.gripStrength.average"/> = <input
                                                 type="text" readonly="true" name="nonDomAvg"
                                                 value="<%= props.getProperty("nonDomAvg", "") %>"/></td>
                                     </tr>
@@ -218,18 +221,18 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right"><fmt:message key="form.gripStrength.studyId"/> <%= props.getProperty("studyID", "N/A") %>
                                 <input type="hidden" name="studyID"
                                        value="<%= props.getProperty("studyID", "N/A") %>"/></td>
                         </tr>

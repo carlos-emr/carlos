@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -166,7 +167,7 @@
             document.forms[0].submit.value = "exit";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -264,7 +265,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -291,7 +292,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -423,10 +424,10 @@
             <tr>
                 <td nowrap="true">
                     <% if (!readOnly) { %>
-                    <input type="submit" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <% } %>
-                    <input type="submit" value="Exit" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
                     <input type="submit" value="Print Pdf" onclick="javascript:return onPrintPDF();"/>
 
                     <select name="letterhead" id="letterhead" onchange="switchProvider(this.value)">
@@ -649,7 +650,7 @@
                                         %>
                                         <td class="borderGrayBottomRight"
                                             style="border-right: 0px; width: 130px;"><font
-                                                class="subHeading"><fmt:message key="encounter.form.labreq.patientChartNo"/></font><br/>
+                                                class="subHeading"><fmt:message key='encounter.form.labreq.patientChartNo'/></font><br/>
                                             <input type="hidden" style="width: 90%" name="patientChartNo"
                                                    value="<e:forHtmlAttribute value='<%= demoChartNo %>' />"/> <e:forHtmlContent value='<%= props.getProperty("patientChartNo", "") %>' />
                                         </td>
@@ -1415,11 +1416,11 @@
         <table class="Head" class="hidePrint">
             <tr>
                 <td nowrap="true">
-                    <% if (!readOnly) { %> <input type="submit" value="Save"
+                    <% if (!readOnly) { %> <input type="submit" value="<fmt:message key='global.save'/>"
                                                   onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                                 value="Save and Exit"
+                                                                                                 value="<fmt:message key='global.saveExit'/>"
                                                                                                  onclick="javascript:return onSaveExit();"/> <% } %>
-                    <input type="submit" value="Exit"
+                    <input type="submit" value="<fmt:message key='global.btnExit'/>"
                            onclick="javascript:return onExit();"/> <input type="submit"
                                                                           value="Print Pdf"
                                                                           onclick="javascript:return onPrintPDF();"/>

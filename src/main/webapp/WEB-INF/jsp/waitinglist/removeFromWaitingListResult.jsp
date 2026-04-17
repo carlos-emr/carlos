@@ -22,6 +22,8 @@
 
 --%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
     Purpose:
         Render the post-remove popup result for waiting-list removals.
@@ -38,14 +40,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title></title>
+    <title><fmt:message key='oscarwaitinglist.removeFromWaitingListResult.title'/></title>
     <link rel="stylesheet" type="text/css"
           href="${e:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
 </head>
 <body>
 <table>
     <tr>
-        <td>Update waiting list</td>
+        <td><fmt:message key='oscarwaitinglist.removeFromWaitingListResult.update'/></td>
     </tr>
 </table>
 <script type="text/javascript">

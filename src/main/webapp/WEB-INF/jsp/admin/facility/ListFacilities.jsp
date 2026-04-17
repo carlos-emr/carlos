@@ -30,6 +30,8 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -50,13 +52,13 @@
 %>
 <html>
     <head>
-        <title>Facilities</title>
+        <title><fmt:message key="admin.facility.list.title"/></title>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/tigris.css'/>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/displaytag.css'/>
 
         <script>
             function ConfirmDelete(name) {
-                if (confirm("Are you sure you want to delete " + name + " ?")) {
+                if (confirm("<fmt:message key='admin.facility.list.confirmDeletePrefix'/> " + name + "<fmt:message key='admin.facility.list.confirmDeleteSuffix'/>")) {
                     return true;
                 }
                 return false;
@@ -64,7 +66,7 @@
         </script>
     </head>
     <body>
-    <h1>Facilities</h1>
+    <h1><fmt:message key="admin.facility.list.heading"/></h1>
     <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="facility" name="facilities" export="false" pagesize="0"
@@ -72,14 +74,15 @@
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="paging.banner.item_name" value="agency"/>
             <display:setProperty name="paging.banner.items_name" value="facilities"/>
-            <display:setProperty name="basic.msg.empty_list" value="No facilities found."/>
+            <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
+            <display:setProperty name="basic.msg.empty_list" value="${noFacilitiesMessage}"/>
 
-            <display:column property="name" sortable="true" title="Name"/>
-            <display:column property="description" sortable="true" title="Description"/>
+            <display:column property="name" sortable="true" titleKey="admin.facility.list.header.name"/>
+            <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
 
             <display:column sortable="false" title="">
                 <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${e:forHtmlAttribute(facility.id)}">
-                    Edit </a>
+                    <fmt:message key="admin.facility.list.linkEdit"/> </a>
             </display:column>
             <!--
             < isplay:column sortable="false" title="">

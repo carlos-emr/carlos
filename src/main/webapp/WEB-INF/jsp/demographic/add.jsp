@@ -250,7 +250,7 @@
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
                 } else {
-                    alert("You must type in the following fields: Last Name, First Name.");
+                    alert("<fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>");
                 }
                 return typeInOK;
             }

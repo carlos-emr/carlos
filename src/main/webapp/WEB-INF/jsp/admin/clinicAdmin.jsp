@@ -61,7 +61,7 @@
 
 <html>
     <head>
-        <title>Clinic</title>
+        <title><fmt:message key="admin.admin.clinicAdmin"/></title>
 
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
@@ -127,13 +127,13 @@
                     <input type="text" name="clinic.clinicProvince" id="clinic.clinicProvince" value="<e:forHtmlAttribute value='<%= clinic.getClinicProvince() != null ? clinic.getClinicProvince() : "" %>' />" />
                 </div>
             </div>
-            <div class="mb-3" title="Multi phone delimited by |">
+            <div class="mb-3" title="<fmt:message key="admin.clinicAdmin.multiPhoneTitle"/>">
                 <label class="form-label" for="clinic.clinicDelimPhone"><fmt:message key="appointment.addappointment.msgPhone"/>|<fmt:message key="appointment.addappointment.msgPhone"/></label>
                 <div>
                     <input type="text" name="clinic.clinicDelimPhone" id="clinic.clinicDelimPhone" value="<e:forHtmlAttribute value='<%= clinic.getClinicDelimPhone() != null ? clinic.getClinicDelimPhone() : "" %>' />" />
                 </div>
             </div>
-            <div class="mb-3" title="Multi fax delimited by |">
+            <div class="mb-3" title="<fmt:message key="admin.clinicAdmin.multiFaxTitle"/>">
                 <label class="form-label" for="clinic.clinicDelimFax"><fmt:message key="admin.provider.formFax"/>|<fmt:message key="admin.provider.formFax"/></label>
                 <div>
                     <input type="text" name="clinic.clinicDelimFax" id="clinic.clinicDelimFax" value="<e:forHtmlAttribute value='<%= clinic.getClinicDelimFax() != null ? clinic.getClinicDelimFax() : "" %>' />" />

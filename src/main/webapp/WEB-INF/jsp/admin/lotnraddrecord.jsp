@@ -77,11 +77,11 @@
         %>
         <e:forHtml value='<%= resultMsg %>' />
         <br/>
-        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>">Add Another Lot #
-            to <e:forHtmlContent value='<%= prevention %>' />
+        <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>"><fmt:message key="admin.lotaddrecord.btnAddAnother"/>
+            <e:forHtmlContent value='<%= prevention %>' />
         </a> <br/>
-        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit">View
-            Lots for <e:forHtmlContent value='<%= prevention %>' />
+        <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit"><fmt:message key="admin.lotaddrecord.btnViewLots"/>
+            <e:forHtmlContent value='<%= prevention %>' />
         </a>
     </center>
     </body>

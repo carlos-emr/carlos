@@ -70,10 +70,13 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String opDelete = bundle.getString("schedule.scheduleholidaysetting.btnDelete");
+    String opSave = bundle.getString("schedule.scheduleholidaysetting.btnSave");
 %>
 
 <% //save or delete the holiday settings
-    if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").compareTo(" Save ") == 0 || request.getParameter("dboperation").equals("Delete"))) {
+    if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").equals(opSave) || request.getParameter("dboperation").equals(opDelete))) {
         //save the record first, change holidaybean next
         String temp = null;
         int rowsAffected = 0;
@@ -90,7 +93,7 @@
 
             scheduleHolidayBean.remove(request.getParameter(temp));
 
-            if (request.getParameter("dboperation").compareTo(" Save ") == 0) {
+            if (request.getParameter("dboperation").equals(opSave)) {
                 sh = new ScheduleHoliday();
                 sh.setId(MyDateFormat.getSysDate(request.getParameter(temp)));
                 sh.setHolidayName(request.getParameter("holiday_name"));
@@ -166,13 +169,13 @@
 
             function deleteHoliday() {
                 addspace();
-                document.forms['schedule'].dboperation.value = 'Delete';
+                document.forms['schedule'].dboperation.value = '<%= opDelete %>';
                 document.forms['schedule'].submit();
             }
 
             function saveHoliday() {
                 if (checkInput()) {
-                    document.forms['schedule'].dboperation.value = ' Save ';
+                    document.forms['schedule'].dboperation.value = '<%= opSave %>';
                     document.forms['schedule'].submit();
                 } else {
                     return false;

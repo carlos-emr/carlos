@@ -24,12 +24,18 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.model.security.Secuserrole" %>
 <%@ page import="io.github.carlos_emr.carlos.daos.security.SecuserroleDao" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     SecuserroleDao secuserroleDao = (SecuserroleDao) SpringUtils.getBean(SecuserroleDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <%
     DBPreparedHandler dbObj = new DBPreparedHandler();
+    String submitAddRoles = bundle.getString("report.reportonbilledvisitprovider.btnAddRoles");
+    String submitUpdateRole = bundle.getString("report.reportonbilledvisitprovider.btnUpdate");
 
     // update the role list
     if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
@@ -43,7 +49,7 @@
     }
 
     // save the role list
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Add Role(s)")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitAddRoles)) {
         Properties prop = new Properties();
 
         List<Secuserrole> surs = secuserroleDao.findAll();
@@ -73,7 +79,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>PROVIDER</title>
+    <title><fmt:message key="report.reportonbilledvisitprovider.title"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
     <script language="JavaScript">
 
@@ -96,9 +102,8 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align="CENTER" width="90%"><font face="Helvetica"
-                                             color="#FFFFFF"> PROVIDER LIST </font></th>
-        <td nowrap><font size="-1" color="#FFFFFF"> FP-doctor;
-            MFP-resident; NP-nurse; SW-social worker; OT-other </font></td>
+                                             color="#FFFFFF"><fmt:message key="report.reportonbilledvisitprovider.header.providerList"/></font></th>
+        <td nowrap><font size="-1" color="#FFFFFF"><fmt:message key="report.reportonbilledvisitprovider.rolesHint"/></font></td>
     </tr>
 </table>
 <%
@@ -145,14 +150,14 @@
     <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
            cellpadding="1">
         <tr bgcolor="mediumaquamarine">
-            <th colspan="7" align="left">New Provider-Role List</th>
+            <th colspan="7" align="left"><fmt:message key="report.reportonbilledvisitprovider.header.newProviderRoleList"/></th>
             <td align="right"><input type="submit" name="submit"
-                                     value="Add Role(s)"></td>
+                                     value="<fmt:message key='report.reportonbilledvisitprovider.btnAddRoles'/>"></td>
         </tr>
         <tr bgcolor="silver">
-            <th width="30%" nowrap>ID</th>
-            <th width="30%" nowrap><b>First Name</b></th>
-            <th width="30%" nowrap><b>Last Name</b></th>
+            <th width="30%" nowrap><fmt:message key="report.reportonbilledvisitprovider.header.id"/></th>
+            <th width="30%" nowrap><b><fmt:message key="report.reportonbilledvisitprovider.header.firstName"/></b></th>
+            <th width="30%" nowrap><b><fmt:message key="report.reportonbilledvisitprovider.header.lastName"/></b></th>
             <!--th width="10%" nowrap>
                 <b>providers type</b>
               </th>
@@ -162,19 +167,19 @@
               <th width="10%" nowrap>
                 <b>ohip_no</b>
               </th-->
-            <th width="5%" nowrap>FP <br>
-                doctor
+            <th width="5%" nowrap><fmt:message key="report.reportonbilledvisitprovider.role.fp"/> <br>
+                <fmt:message key="report.reportonbilledvisitprovider.role.doctor"/>
             </th>
-            <th width="5%" nowrap>RFP <br>
-                resident
+            <th width="5%" nowrap><fmt:message key="report.reportonbilledvisitprovider.role.rfp"/> <br>
+                <fmt:message key="report.reportonbilledvisitprovider.role.resident"/>
             </th>
-            <th width="5%" nowrap>NP <br>
-                nurse
+            <th width="5%" nowrap><fmt:message key="report.reportonbilledvisitprovider.role.np"/> <br>
+                <fmt:message key="report.reportonbilledvisitprovider.role.nurse"/>
             </th>
-            <th width="5%" nowrap>SW <br>
-                social worker
+            <th width="5%" nowrap><fmt:message key="report.reportonbilledvisitprovider.role.sw"/> <br>
+                <fmt:message key="report.reportonbilledvisitprovider.role.socialWorker"/>
             </th>
-            <th width="5%" nowrap>OT</th>
+            <th width="5%" nowrap><fmt:message key="report.reportonbilledvisitprovider.role.ot"/></th>
         </tr>
         <%
             for (int i = 0; i < vec.size(); i++) {
@@ -211,23 +216,23 @@
             <td>
               <%= ((Properties)vec.get(i)).getProperty("ohip_no", "") %>
             </td-->
-            <td align="center" <%=bDoc ? "bgcolor=\"silver\"" : ""%> title="Doctor">
+            <td align="center" <%=bDoc ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.doctor'/>">
                 <input type="radio"
                        name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[0]%>" <%=bDoc?"checked":""%>></td>
-            <td align="center" <%=bRes ? "bgcolor=\"silver\"" : ""%> title="Resident">
+            <td align="center" <%=bRes ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.resident'/>">
                 <input type="radio"
                        name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[1]%>" <%=bRes?"checked":""%>></td>
-            <td align="center" <%=bNp ? "bgcolor=\"silver\"" : ""%> title="Nurse">
+            <td align="center" <%=bNp ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.nurse'/>">
                 <input type="radio"
                        name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[2]%>" <%=bNp?"checked":""%>></td>
             <td align="center" <%=bSw ? "bgcolor=\"silver\"" : ""%>
-                title="Social Worker"><input type="radio"
+                title="<fmt:message key='report.reportonbilledvisitprovider.role.socialWorker'/>"><input type="radio"
                                              name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                                              value="<%=ROLE[3]%>" <%=bSw?"checked":""%>></td>
-            <td align="center" <%=bOt ? "bgcolor=\"silver\"" : ""%> title="Other">
+            <td align="center" <%=bOt ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.other'/>">
                 <input type="radio"
                        name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
                        value="<%=ROLE[4]%>" <%=bOt?"checked":""%>></td>
@@ -238,7 +243,7 @@
         %>
         <tr bgcolor="A9A9A9">
             <td colspan="8" align="right"><input type="submit" name="submit"
-                                                 value="Add Role(s)"></td>
+                                                 value="<fmt:message key='report.reportonbilledvisitprovider.btnAddRoles'/>"></td>
         </tr>
         <%
             }
@@ -249,14 +254,14 @@
 <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
        cellpadding="1">
     <tr bgcolor="mediumaquamarine">
-        <th colspan="5" align="left">Confirmed Provider-Role List</th>
+        <th colspan="5" align="left"><fmt:message key="report.reportonbilledvisitprovider.header.confirmedProviderRoleList"/></th>
     </tr>
     <tr bgcolor="silver">
-        <th width="10%" nowrap>ID</th>
-        <th width="30%" nowrap><b>First Name</b></th>
-        <th width="30%" nowrap><b>Last Name</b></th>
-        <th nowrap>Role</th>
-        <th nowrap>Action</th>
+        <th width="10%" nowrap><fmt:message key="report.reportonbilledvisitprovider.header.id"/></th>
+        <th width="30%" nowrap><b><fmt:message key="report.reportonbilledvisitprovider.header.firstName"/></b></th>
+        <th width="30%" nowrap><b><fmt:message key="report.reportonbilledvisitprovider.header.lastName"/></b></th>
+        <th nowrap><fmt:message key="report.reportonbilledvisitprovider.header.role"/></th>
+        <th nowrap><fmt:message key="report.reportonbilledvisitprovider.header.action"/></th>
             <%
           int k = 0;
 
@@ -277,10 +282,22 @@
                     name="<%="name" + Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
                 <%
                     for (int j = 0; j < ROLE.length; j++) {
+                        String roleOptionLabel = ROLE[j];
+                        if ("doctor".equals(ROLE[j])) {
+                            roleOptionLabel = bundle.getString("report.reportonbilledvisitprovider.role.doctor");
+                        } else if ("resident".equals(ROLE[j])) {
+                            roleOptionLabel = bundle.getString("report.reportonbilledvisitprovider.role.resident");
+                        } else if ("nurse".equals(ROLE[j])) {
+                            roleOptionLabel = bundle.getString("report.reportonbilledvisitprovider.role.nurse");
+                        } else if ("social worker".equals(ROLE[j])) {
+                            roleOptionLabel = bundle.getString("report.reportonbilledvisitprovider.role.socialWorker");
+                        } else {
+                            roleOptionLabel = bundle.getString("report.reportonbilledvisitprovider.role.other");
+                        }
                 %>
                 <option value="<%=ROLE[j]%>"
                         <%= ROLE[j].equals(oldRoleList.get(i + 2)) ? "selected" : "" %>>
-                    <%= ROLE[j] %>
+                    <%= roleOptionLabel %>
                 </option>
                 <%
                     }
@@ -288,7 +305,7 @@
             </select></td>
             <td align="center"><input type="hidden" name="providerId"
                                       value="<e:forHtmlAttribute value='<%= oldRoleList.get(i + 3).toString() %>' />"> <input type="submit"
-                                                                                    name="buttonUpdate" value="Update">
+                                                                                    name="buttonUpdate" value="<%=submitUpdateRole%>">
             </td>
         </form>
     </tr>

@@ -71,7 +71,7 @@
 <script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
-    <h4>EMR Usage Report</h4>
+    <h4><fmt:message key="admin.UsageReport.title"/></h4>
 </div>
 
 <%
@@ -95,11 +95,10 @@
       id="usageForm">
     <fieldset>
         <h4>
-            Usage Report <br> <small>Please select the provider,
-            service begin and end dates.</small>
+            <fmt:message key="admin.UsageReport.heading"/> <br> <small><fmt:message key="admin.UsageReport.instructions"/></small>
         </h4>
         <div class="mb-3">
-            <label class="form-label">Provider</label>
+            <label class="form-label"><fmt:message key="admin.UsageReport.provider"/></label>
             <div>
 
                 <select name="providerNo">
@@ -120,7 +119,7 @@
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label">Start Date</label>
+            <label class="form-label"><fmt:message key="admin.UsageReport.startDate"/></label>
             <div>
                 <input type="text" id="startDate" name="startDate"
                        value="<e:forHtmlAttribute value='<%= request.getParameter("startDate") != null ? request
@@ -128,7 +127,7 @@
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label">End Date</label>
+            <label class="form-label"><fmt:message key="admin.UsageReport.endDate"/></label>
             <div>
                 <input type="text" id="endDate" name="endDate"
                        value="<e:forHtmlAttribute value='<%= request.getParameter("endDate") != null ? request
@@ -138,7 +137,7 @@
         <div class="mb-3">
             <hr>
             <div>
-                <button type="submit" class="btn btn-primary">Run Report</button>
+                <button type="submit" class="btn btn-primary"><fmt:message key="admin.UsageReport.runReport"/></button>
             </div>
         </div>
     </fieldset>
@@ -227,23 +226,23 @@
 %>
 
 <fieldset>
-    <legend>Practice Profile</legend>
+    <legend><fmt:message key="admin.UsageReport.practiceProfile"/></legend>
 
     <dl class="row">
-        <dt>Practice Size</dt>
+        <dt><fmt:message key="admin.UsageReport.practiceSize"/></dt>
         <dd>
             <span class="badge text-bg-secondary"><%=demoList.size()%></span>
         </dd>
     </dl>
 
-    <h5>Age and Gender Distribution</h5>
+    <h5><fmt:message key="admin.UsageReport.ageGenderDistribution"/></h5>
     <table class="table table-bordered table-striped table-sm table-hover">
         <thead>
         <tr>
-            <th>Age Group - Years</th>
-            <th>Percentage</th>
-            <th>Male</th>
-            <th>Female</th>
+            <th><fmt:message key="admin.UsageReport.ageGroupYears"/></th>
+            <th><fmt:message key="admin.UsageReport.percentage"/></th>
+            <th><fmt:message key="admin.UsageReport.male"/></th>
+            <th><fmt:message key="admin.UsageReport.female"/></th>
         </tr>
         </thead>
         <tbody>
@@ -281,33 +280,26 @@
     </table>
 
 
-    <h5>Scheduled Appts</h5>
+    <h5><fmt:message key="admin.UsageReport.scheduledAppts"/></h5>
 
     <table class="table table-bordered table-striped table-sm table-hover tooltips">
         <thead>
         <tr>
-            <th>Scheduled Appts</th>
+            <th><fmt:message key="admin.UsageReport.scheduledAppts"/></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Bill for services  includes OHIP, WSIB, other Provincial plans, private insurance and uninsured (self pay, third parties) invoicing">Billing</a>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.billing'/>"><fmt:message key="admin.UsageReport.billing"/></a>
             </th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Enter encounter notes for patients seen  progress note entry associated with a kept patient office visit">Encounter
-                Note</a></th>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.encounterNote'/>"><fmt:message key="admin.UsageReport.encounterNote"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Enter problem lists for patients seen  presence of CPP problem list entry. If an application allows for none in the CPP category of Problem List/Ongoing Problems this is an
-					acceptable entry.">Problem
-                List</a></th>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.problemList'/>"><fmt:message key="admin.UsageReport.problemList"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Store documents not originated from an EMR  includes any scanned documents or external documents delivered through an electronic interface e.g. through Hospital Report
-					Manager.">Stored
-                Documents</a></th>
-            <th>Rx new/renewals</th>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.storedDocuments'/>"><fmt:message key="admin.UsageReport.storedDocuments"/></a></th>
+            <th><fmt:message key="admin.UsageReport.rxNewRenewals"/></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Generate automated alerts or  reminders to support care delivery includes medication alerts (drug-drug, drug-allergy, drug-condition); preventive care and chronic disease
-					management reminders">Use
-                of reminders/alerts</a></th>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.useOfRemindersAlerts'/>"><fmt:message key="admin.UsageReport.useOfRemindersAlerts"/></a></th>
             <th><a data-bs-toggle="tooltip"
-                   data-bs-title="Receive lab results electronically, directly into the EMR from private labs  includes electronic interfaces with hospital labs.">Labs</a>
+                   data-bs-title="<fmt:message key='admin.UsageReport.tip.labs'/>"><fmt:message key="admin.UsageReport.labs"/></a>
             </th>
         </tr>
         </thead>

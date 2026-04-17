@@ -56,7 +56,7 @@
     <% response.setHeader("Cache-Control", "no-cache");%>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Position Hazard Communication Form</title>
+        <title><fmt:message key="form.PositionHazard.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="screen"
               href="<%= request.getContextPath() %>/form/positionHazardStyle.css">
@@ -119,7 +119,7 @@
             document.forms[0].target = "_self";
             document.forms[0].submit.value = "exit";
 
-            ret = confirm("Are you sure you wish to save and close this window?");
+            ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             return ret;
         }
 
@@ -141,11 +141,11 @@
         <table class="Head" class="hidePrint">
             <tr>
                 <td nowrap="true">
-                    <% if (!readOnly) { %> <input type="submit" value="Save"
+                    <% if (!readOnly) { %> <input type="submit" value="<fmt:message key='global.save'/>"
                                                   onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                                 value="Save and Exit"
+                                                                                                 value="<fmt:message key='global.saveExit'/>"
                                                                                                  onclick="javascript:return onSaveExit();"/> <% } %>
-                    <input type="submit" value="Exit"
+                    <input type="submit" value="<fmt:message key='global.btnExit'/>"
                            onclick="javascript:return onExit();"/> <input type="button" value="Print Pdf" onclick="onPrintPDF();"/>
                 </td>
             </tr>
@@ -920,10 +920,10 @@
             <tr>
                 <td nowrap="true">
                     <% if (!readOnly) { %>
-                    <input type="submit" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <% } %>
-                    <input type="submit" value="Exit" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
                     <input type="button" value="Print Pdf" onclick="onPrintPDF();"/>
                 </td>
             </tr>

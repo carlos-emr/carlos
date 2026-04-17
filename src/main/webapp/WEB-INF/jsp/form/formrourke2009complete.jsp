@@ -1,6 +1,6 @@
 <%--
 
-    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of <fmt:message key="form.rourke.family"/> Medicine, McMaster University. <fmt:message key="form.rourke.all"/> Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
     This software was written for the
-    Department of Family Medicine
+    Department of <fmt:message key="form.rourke.family"/> Medicine
     McMaster University
     Hamilton
     Ontario, Canada
@@ -78,7 +78,7 @@
 
     <!-- language for the calendar -->
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
     <!-- the following script defines the Calendar.setup helper function, which makes
            adding a calendar a matter of 1 or 2 lines of code. -->
@@ -285,7 +285,7 @@
                     var elem = document.forms["frmP1"].elements[measurements[dateIdx][elemIdx]];
 
                     if (elem.value.length > 0 && (isNaN(elem.value) || document.getElementById(date).value.length == 0)) {
-                        alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
+                        alert('<fmt:message key='encounter.formRourke2006.frmError'/>');
                         return false;
                     }
                 }
@@ -302,7 +302,7 @@
                 reset();
                 document.getElementById("frmP1").action += "?submit=save";
 
-                if (confirm("Are you sure you want to save this form?")) {
+                if (confirm("<fmt:message key='global.msgWannaSave'/>")) {
                     document.forms["frmP1"].submit();
 
                 }
@@ -317,7 +317,7 @@
                 reset();
                 document.getElementById("frmP1").action += "?submit=exit";
 
-                if (confirm("Are you sure you wish to save and close this window?")) {
+                if (confirm("<fmt:message key='global.msgSaveExit'/>")) {
                     document.forms["frmP1"].submit();
                 }
 
@@ -351,7 +351,7 @@
                     return false;
                 }
             }
-            // All characters are numbers.
+            // <fmt:message key="form.rourke.all"/> characters are numbers.
             return true;
         }
 

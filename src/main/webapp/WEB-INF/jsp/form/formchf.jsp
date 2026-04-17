@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -146,7 +147,7 @@
                 document.forms[0].submit.value = "exit";
                 var ret = checkAllDates();
                 if (ret == true) {
-                    ret = confirm("Are you sure you wish to save and close this window?");
+                    ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 }
                 return ret;
             }
@@ -287,7 +288,7 @@
 
             function checkTypeIn(obj) {
                 if (!checkTypeNum(obj.value)) {
-                    alert("You must type in a number in the field.");
+                    alert("<fmt:message key='global.msgTypeANumber'/>");
                 }
             }
 
@@ -313,7 +314,7 @@
                         return false;
                     }
                 } catch (ex) {
-                    alert('Catch Invalid Date in field ' + dateBox.name + '\n Try YYYY/MM/DD');
+                    alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name + '\n Try YYYY/MM/DD');
                     dateBox.focus();
                     dateBox.blur();
                     dateBox.select();
@@ -496,13 +497,13 @@
             <!-- hideprint class is defined in our CSS not to display on print, color is slate grey -->
             <tr>
                 <td align="left"><input type="hidden" name="submit" value="exit"/>
-                    <input type="submit" value="Save"
+                    <input type="submit" value="<fmt:message key='global.save'/>"
                            onclick="javascript:return onSave();"/> <input type="submit"
-                                                                          value="Save and Exit"
+                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                           onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td><a href="javascript: popupFixedPage(700,960,'form/chf');">Tips</a>&nbsp;&nbsp;
 

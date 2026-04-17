@@ -45,6 +45,7 @@
 
 <!DOCTYPE html>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -87,7 +88,7 @@
     <HEAD>
         <META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
 
-        <TITLE>Self-Assessment Intake - v1</TITLE>
+        <TITLE><fmt:message key="form.selfAssessment.title"/></TITLE>
     </HEAD>
 
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)" bgcolor="#eeeeee">
@@ -107,30 +108,30 @@
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP BGCOLOR="#000000">
                     <OL>
-                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif"><B>ID</B></FONT></P>
+                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif"><B><fmt:message key="form.selfAssessment.id"/></B></FONT></P>
                         </LI>
                     </OL>
                 </TD>
             </TR>
             <TR VALIGN=TOP>
                 <TD WIDTH=335>
-                    <p>Name: <input type="text" name="name" value="<%= props.getProperty("name", "")%>" readonly></FONT>
+                    <p><fmt:message key="form.selfAssessment.name"/> <input type="text" name="name" value="<%= props.getProperty("name", "")%>" readonly></FONT>
                     </P>
-                    <p>Sex: <input type="text" name="sex" value="<%= props.getProperty("sex", "")%>" readonly></FONT>
+                    <p><fmt:message key="form.selfAssessment.sex"/> <input type="text" name="sex" value="<%= props.getProperty("sex", "")%>" readonly></FONT>
                     </P>
-                    <p>DOB: <input type="text" name="p_birthdate" value="<%= props.getProperty("p_birthdate", "")%>"
+                    <p><fmt:message key="form.selfAssessment.dob"/> <input type="text" name="p_birthdate" value="<%= props.getProperty("p_birthdate", "")%>"
                                    readonly></FONT></P>
                 </TD>
                 <TD WIDTH=433>
-                    <p>Faculty: <input type="text" name="faculty" value="<%= props.getProperty("faculty", "")%>"></FONT>
+                    <p><fmt:message key="form.selfAssessment.faculty"/> <input type="text" name="faculty" value="<%= props.getProperty("faculty", "")%>"></FONT>
                     </P>
-                    <p>Academic Year: <input type="text" name="AcademicYear"
+                    <p><fmt:message key="form.selfAssessment.academicYear"/> <input type="text" name="AcademicYear"
                                              value="<%= props.getProperty("AcademicYear", "")%>"></FONT></P>
-                    <p>Part-time or Full-time: <input type="text" name="PTFT"
+                    <p><fmt:message key="form.selfAssessment.ptft"/> <input type="text" name="PTFT"
                                                       value="<%= props.getProperty("PTFT", "")%>"></FONT></P>
-                    <p>Do you have a job: <input type="text" name="Job" size="25" maxlength="200"
+                    <p><fmt:message key="form.selfAssessment.job"/> <input type="text" name="Job" size="25" maxlength="200"
                                                  value="<%= props.getProperty("Job", "")%>"></FONT></P>
-                    <p>Average hours of Work/Week: <input type="text" name="Hours" size="25" maxlength="200"
+                    <p><fmt:message key="form.selfAssessment.hoursPerWeek"/> <input type="text" name="Hours" size="25" maxlength="200"
                                                           value="<%= props.getProperty("Hours", "")%>"></FONT></P>
                 </TD>
             </TR>
@@ -140,70 +141,68 @@
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP>
-                    Living Situation:<br>
-                    Residence: <input type="text" name="Residence" value="<%= props.getProperty("Residence", "")%>">
+                    <fmt:message key="form.selfAssessment.livingSituation"/><br>
+                    <fmt:message key="form.selfAssessment.residence"/> <input type="text" name="Residence" value="<%= props.getProperty("Residence", "")%>">
                     <br>
-                    Off Campus: <input type="text" name="Campus" value="<%= props.getProperty("Campus", "")%>"> <br>
-                    At Home: <input type="text" name="Home" value="<%= props.getProperty("Home", "")%>"> <br>
-                    Number of Roommates: <input type="text" name="Roommates" size="5" maxlength="50"
+                    <fmt:message key="form.selfAssessment.offCampus"/> <input type="text" name="Campus" value="<%= props.getProperty("Campus", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.atHome"/> <input type="text" name="Home" value="<%= props.getProperty("Home", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.roommates"/> <input type="text" name="Roommates" size="5" maxlength="50"
                                                 value="<%= props.getProperty("Roommates", "")%>"><br>
-                    Other: <input type="text" name="LivingSituationOther" size="100" maxlength="250"
+                    <fmt:message key="form.selfAssessment.other"/> <input type="text" name="LivingSituationOther" size="100" maxlength="250"
                                   value="<%= props.getProperty("LivingSituationOther", "")%>">
                 </TD>
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP BGCOLOR="#000000">
                     <OL START=3>
-                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif">Please check the boxes
-                            that best describe the reasons you have come to counselling: </FONT></P></LI>
-                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif">Please complete to your
-                            comfort level: </FONT></P></LI>
+                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif"><fmt:message key="form.selfAssessment.reasonsCounselling"/></FONT></P></LI>
+                        <LI><P><font color="#ffffff" STYLE="font-size: 14pt" FACE="Arial, serif"><fmt:message key="form.selfAssessment.comfortLevel"/></FONT></P></LI>
                     </OL>
                 </TD>
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP>
-                    Depression/Self-Esteem: <input type="text" name="Depression"
+                    <fmt:message key="form.selfAssessment.depressionSelfEsteem"/> <input type="text" name="Depression"
                                                    value="<%= props.getProperty("Depression", "")%>"> <br>
-                    Feelings of helplessness/hopelessness: <input type="text" name="helplessness"
+                    <fmt:message key="form.selfAssessment.helplessnessHopelessness"/> <input type="text" name="helplessness"
                                                                   value="<%= props.getProperty("helplessness", "")%>">
                     <br>
-                    ADHD: <input type="text" name="ADHD" value="<%= props.getProperty("ADHD", "")%>"> <br>
-                    Obsessions/Compulsions: <input type="text" name="Obsessions"
+                    <fmt:message key="form.selfAssessment.adhd"/> <input type="text" name="ADHD" value="<%= props.getProperty("ADHD", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.obsessionsCompulsions"/> <input type="text" name="Obsessions"
                                                    value="<%= props.getProperty("Obsessions", "")%>"> <br>
-                    Bipolar Mood Disorder/Manic Depressive Illness: <input type="text" name="Bipolar"
+                    <fmt:message key="form.selfAssessment.bipolarMoodDisorder"/> <input type="text" name="Bipolar"
                                                                            value="<%= props.getProperty("Bipolar", "")%>">
                     <br>
-                    Anxiety: <input type="text" name="Anxiety" value="<%= props.getProperty("Anxiety", "")%>"> <br>
-                    Self-Esteem: <input type="text" name="Esteem" value="<%= props.getProperty("Esteem", "")%>"> <br>
-                    Relationship Difficulties: <input type="text" name="Relationship"
+                    <fmt:message key="form.selfAssessment.anxiety"/> <input type="text" name="Anxiety" value="<%= props.getProperty("Anxiety", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.selfEsteem"/> <input type="text" name="Esteem" value="<%= props.getProperty("Esteem", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.relationshipDifficulties"/> <input type="text" name="Relationship"
                                                       value="<%= props.getProperty("Relationship", "")%>"> <br>
 
-                    Eating Problems: <input type="text" name="Eating" value="<%= props.getProperty("Eating", "")%>">
+                    <fmt:message key="form.selfAssessment.eatingProblems"/> <input type="text" name="Eating" value="<%= props.getProperty("Eating", "")%>">
                     <br>
-                    Sexual Issues: <input type="text" name="Sexual" value="<%= props.getProperty("Sexual", "")%>"> <br>
-                    Suicidal Thoughts: <input type="text" name="Suicidal"
+                    <fmt:message key="form.selfAssessment.sexualIssues"/> <input type="text" name="Sexual" value="<%= props.getProperty("Sexual", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.suicidalThoughts"/> <input type="text" name="Suicidal"
                                               value="<%= props.getProperty("Suicidal", "")%>"> <br>
-                    Psychosis, hearing voices, hallucinations: <input type="text" name="Psychosis"
+                    <fmt:message key="form.selfAssessment.psychosis"/> <input type="text" name="Psychosis"
                                                                       value="<%= props.getProperty("Psychosis", "")%>">
                     <br>
-                    Mania: <input type="text" name="Mania" value="<%= props.getProperty("Mania", "")%>"> <br>
-                    Grief: <input type="text" name="Grief" value="<%= props.getProperty("Grief", "")%>"> <br>
-                    Substance Abuse: <input type="text" name="Substance"
+                    <fmt:message key="form.selfAssessment.mania"/> <input type="text" name="Mania" value="<%= props.getProperty("Mania", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.grief"/> <input type="text" name="Grief" value="<%= props.getProperty("Grief", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.substanceAbuse"/> <input type="text" name="Substance"
                                             value="<%= props.getProperty("Substance", "")%>"> <br>
-                    Trauma:<br>
+                    <fmt:message key="form.selfAssessment.trauma"/><br>
                     <UL>
-                        <LI>Emotional: <input type="text" name="TraumaEmotional"
+                        <LI><fmt:message key="form.selfAssessment.emotional"/> <input type="text" name="TraumaEmotional"
                                               value="<%= props.getProperty("TraumaEmotional", "")%>"></LI>
-                        <LI>Physical: <input type="text" name="TraumaPhysical"
+                        <LI><fmt:message key="form.selfAssessment.physical"/> <input type="text" name="TraumaPhysical"
                                              value="<%= props.getProperty("TraumaPhysical", "")%>"></LI>
-                        <LI>Sexual: <input type="text" name="TraumaSexual"
+                        <LI><fmt:message key="form.selfAssessment.sexual"/> <input type="text" name="TraumaSexual"
                                            value="<%= props.getProperty("TraumaSexual", "")%>"></LI>
 
                     </UL>
-                    Academic Difficulties: <input type="text" name="Academic"
+                    <fmt:message key="form.selfAssessment.academicDifficulties"/> <input type="text" name="Academic"
                                                   value="<%= props.getProperty("Academic", "")%>"> <br>
-                    Other please explain: <br>
+                    <fmt:message key="form.selfAssessment.otherPleaseExplain"/> <br>
                     <input type="text" name="ReasonsOther" size="100" maxlength="200"
                            value="<%= props.getProperty("ReasonsOther", "")%>">
                 </TD>
@@ -211,37 +210,37 @@
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP BGCOLOR="#000000">
                     <OL START=4>
-                        <LI><P><FONT COLOR="#ffffff"><B>PAST MEDICAL HISTORY</B></FONT></P></LI>
+                        <LI><P><FONT COLOR="#ffffff"><B><fmt:message key="form.selfAssessment.pastMedicalHistory"/></B></FONT></P></LI>
                     </OL>
                 </TD>
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP>
-                    Hospitalizations: <br>
-                    When (Date YYYY-MM-DD) and why: <br>
+                    <fmt:message key="form.selfAssessment.hospitalizations"/> <br>
+                    <fmt:message key="form.selfAssessment.whenDateWhy"/> <br>
                     <textarea name="Hospitalizations" id="Hospitalizations" rows="0"
                               cols="111"><%= props.getProperty("Hospitalizations", "")%></textarea><br>
 
-                    Surgery: <br>
+                    <fmt:message key="form.selfAssessment.surgery"/> <br>
                     <textarea name="Surgery" id="Surgery" rows="0"
                               cols="111"><%= props.getProperty("Surgery", "")%></textarea><br>
 
-                    Medical illnesses: <br><textarea name="Medicalillnesses" id="Medicalillnesses" rows="0"
+                    <fmt:message key="form.selfAssessment.medicalIllnesses"/> <br><textarea name="Medicalillnesses" id="Medicalillnesses" rows="0"
                                                      cols="111"><%= props.getProperty("Medicalillnesses", "")%></textarea><br>
 
-                    Are you currently taking medication: <input type="text" name="CurrentMedications"
+                    <fmt:message key="form.selfAssessment.currentlyTakingMedication"/> <input type="text" name="CurrentMedications"
                                                                 value="<%= props.getProperty("CurrentMedications", "")%>">
                     <br>
-                    Please list:<br><textarea name="CurrentMedicationsList" id="CurrentMedicationsList" rows="0"
+                    <fmt:message key="form.selfAssessment.pleaseList"/><br><textarea name="CurrentMedicationsList" id="CurrentMedicationsList" rows="0"
                                               cols="111"><%= props.getProperty("CurrentMedicationsList", "")%></textarea><br>
 
-                    Have you previously taken psychiatric medication? <input type="text" name="psychiatricMedications"
+                    <fmt:message key="form.selfAssessment.previousPsychiatricMedication"/> <input type="text" name="psychiatricMedications"
                                                                              value="<%= props.getProperty("psychiatricMedications", "")%>">
                     <br>
-                    Please list:<br><textarea name="psychiatricMedicationsList" id="psychiatricMedicationsList" rows="0"
+                    <fmt:message key="form.selfAssessment.pleaseList"/><br><textarea name="psychiatricMedicationsList" id="psychiatricMedicationsList" rows="0"
                                               cols="111"><%= props.getProperty("psychiatricMedicationsList", "")%></textarea><br>
 
-                    Please enter additional information:<br><textarea name="HospitalizationsOther"
+                    <fmt:message key="form.selfAssessment.additionalInformation"/><br><textarea name="HospitalizationsOther"
                                                                       id="HospitalizationsOther" rows="0"
                                                                       cols="111"><%= props.getProperty("HospitalizationsOther", "")%></textarea><br>
                 </TD>
@@ -249,60 +248,60 @@
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP BGCOLOR="#000000">
                     <OL START=5>
-                        <LI><P><FONT COLOR="#ffffff"><B>PAST PSYCHIATRIC HISTORY</B></FONT></P></LI>
+                        <LI><P><FONT COLOR="#ffffff"><B><fmt:message key="form.selfAssessment.pastPsychiatricHistory"/></B></FONT></P></LI>
                     </OL>
                 </TD>
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP>
-                    Substance Abuse: <input type="text" name="PastSubstance"
+                    <fmt:message key="form.selfAssessment.substanceAbuse"/> <input type="text" name="PastSubstance"
                                             value="<%= props.getProperty("PastSubstance", "")%>"> <br>
-                    Alcohol: <input type="text" name="PastAlcohol" value="<%= props.getProperty("PastAlcohol", "")%>">
+                    <fmt:message key="form.selfAssessment.alcohol"/> <input type="text" name="PastAlcohol" value="<%= props.getProperty("PastAlcohol", "")%>">
                     <br>
-                    Prescribed Drugs: <input type="text" name="PastPrescribedDrugs"
+                    <fmt:message key="form.selfAssessment.prescribedDrugs"/> <input type="text" name="PastPrescribedDrugs"
                                              value="<%= props.getProperty("PastPrescribedDrugs", "")%>"> <br>
-                    Over the Counter Medications: <input type="text" name="PastCounterMedications"
+                    <fmt:message key="form.selfAssessment.overTheCounterMedications"/> <input type="text" name="PastCounterMedications"
                                                          value="<%= props.getProperty("PastCounterMedications", "")%>">
                     <br>
-                    Street Drugs: <input type="text" name="PastStreetDrugs"
+                    <fmt:message key="form.selfAssessment.streetDrugs"/> <input type="text" name="PastStreetDrugs"
                                          value="<%= props.getProperty("PastStreetDrugs", "")%>"> <br>
-                    Tobacco: <input type="text" name="PastTobacco" value="<%= props.getProperty("PastTobacco", "")%>">
+                    <fmt:message key="form.selfAssessment.tobacco"/> <input type="text" name="PastTobacco" value="<%= props.getProperty("PastTobacco", "")%>">
                     <br>
-                    Trauma:
+                    <fmt:message key="form.selfAssessment.trauma"/>
                     <UL>
-                        <LI>Emotional: <input type="text" name="PastPSYCHIATRICTraumaEmotional"
+                        <LI><fmt:message key="form.selfAssessment.emotional"/> <input type="text" name="PastPSYCHIATRICTraumaEmotional"
                                               value="<%= props.getProperty("PastPSYCHIATRICTraumaEmotional", "")%>">
                         </LI>
-                        <LI>Physical: <input type="text" name="PastPSYCHIATRICTraumaPhysical"
+                        <LI><fmt:message key="form.selfAssessment.physical"/> <input type="text" name="PastPSYCHIATRICTraumaPhysical"
                                              value="<%= props.getProperty("PastPSYCHIATRICTraumaPhysical", "")%>"></LI>
-                        <LI>Sexual: <input type="text" name="PastPSYCHIATRICTraumaSexual"
+                        <LI><fmt:message key="form.selfAssessment.sexual"/> <input type="text" name="PastPSYCHIATRICTraumaSexual"
                                            value="<%= props.getProperty("PastPSYCHIATRICTraumaSexual", "")%>"></LI>
                     </UL>
-                    Legal Problems: <input type="text" name="PastLegal"
+                    <fmt:message key="form.selfAssessment.legalProblems"/> <input type="text" name="PastLegal"
                                            value="<%= props.getProperty("PastLegal", "")%>"> <br>
-                    Gambling Addiction: <input type="text" name="PastGambling"
+                    <fmt:message key="form.selfAssessment.gamblingAddiction"/> <input type="text" name="PastGambling"
                                                value="<%= props.getProperty("PastGambling", "")%>"> <br>
-                    Allergies/Reactions to Psychiatric Medications: <input type="text" name="PastReactionsMedication"
+                    <fmt:message key="form.selfAssessment.allergiesReactionsToPsychiatricMedications"/> <input type="text" name="PastReactionsMedication"
                                                                            value="<%= props.getProperty("PastReactionsMedication", "")%>">
                     <br>
 
-                    Medication Name: <br><textarea name="PastReactionsMedicationList" id="PastReactionsMedicationList"
+                    <fmt:message key="form.selfAssessment.medicationName"/> <br><textarea name="PastReactionsMedicationList" id="PastReactionsMedicationList"
                                                    rows="0"
                                                    cols="111"><%= props.getProperty("PastReactionsMedicationList", "")%></textarea><br>
 
-                    Suicide Attempts: <input type="text" name="PastSuicideAttempts"
+                    <fmt:message key="form.selfAssessment.suicideAttempts"/> <input type="text" name="PastSuicideAttempts"
                                              value="<%= props.getProperty("PastSuicideAttempts", "")%>"> <br>
-                    How Many?<br><textarea name="PastSuicideMany" id="PastSuicideMany" rows="0"
+                    <fmt:message key="form.selfAssessment.howMany"/><br><textarea name="PastSuicideMany" id="PastSuicideMany" rows="0"
                                            cols="111"><%= props.getProperty("PastSuicideMany", "")%></textarea><br>
-                    When?<br><textarea name="PastSuicideWhen" id="PastSuicideWhen" rows="0"
+                    <fmt:message key="form.selfAssessment.when"/><br><textarea name="PastSuicideWhen" id="PastSuicideWhen" rows="0"
                                        cols="111"><%= props.getProperty("PastSuicideWhen", "")%></textarea><br>
 
-                    Self-Harm/Cutting: <input type="text" name="PastCutting"
+                    <fmt:message key="form.selfAssessment.selfHarmCutting"/> <input type="text" name="PastCutting"
                                               value="<%= props.getProperty("PastCutting", "")%>"> <br>
-                    Post traumatic stress disorder?: <input type="text" name="ptsd"
+                    <fmt:message key="form.selfAssessment.ptsd"/> <input type="text" name="ptsd"
                                                             value="<%= props.getProperty("ptsd", "")%>"> <br>
 
-                    Please enter additional information: <br><textarea name="PastPASTPSYCHIATRICOther"
+                    <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="PastPASTPSYCHIATRICOther"
                                                                        id="PastPASTPSYCHIATRICOther" rows="0"
                                                                        cols="111"><%= props.getProperty("PastPASTPSYCHIATRICOther", "")%></textarea><br>
                 </TD>
@@ -317,16 +316,16 @@
             </TR>
             <TR>
                 <TD COLSPAN=2 WIDTH=785 VALIGN=TOP>
-                    Ages:
-                    Mother: <input type="text" name="AgesMother" size="5" maxlength="50"
+                    <fmt:message key="form.selfAssessment.ages"/>
+                    <fmt:message key="form.selfAssessment.mother"/> <input type="text" name="AgesMother" size="5" maxlength="50"
                                    value="<%= props.getProperty("AgesMother", "")%>"><br>
-                    Father: <input type="text" name="AgesFather" size="5" maxlength="50"
+                    <fmt:message key="form.selfAssessment.father"/> <input type="text" name="AgesFather" size="5" maxlength="50"
                                    value="<%= props.getProperty("AgesFather", "")%>"><br>
-                    Siblings: <input type="text" name="AgesSiblings" size="30" maxlength="100"
+                    <fmt:message key="form.selfAssessment.siblings"/> <input type="text" name="AgesSiblings" size="30" maxlength="100"
                                      value="<%= props.getProperty("AgesSiblings", "")%>"><br>
-                    Others: <input type="text" name="AgesOthers" size="100" maxlength="100"
+                    <fmt:message key="form.selfAssessment.others"/> <input type="text" name="AgesOthers" size="100" maxlength="100"
                                    value="<%= props.getProperty("AgesOthers", "")%>"><br>
-                    Are You Adopted?: <input type="text" name="Adopted" value="<%= props.getProperty("Adopted", "")%>">
+                    <fmt:message key="form.selfAssessment.adopted"/> <input type="text" name="Adopted" value="<%= props.getProperty("Adopted", "")%>">
                     <br>
                 </TD>
             </TR>
@@ -334,47 +333,46 @@
                 <TD width="778" colspan="2" valign="TOP" bgcolor="#000000">
                     <OL START=7>
                         <LI>
-                            <P><FONT COLOR="#ffffff"><B>Family Psychiatric History (check all that apply to your
-                                immediate family)</B></FONT></P>
+                            <P><FONT COLOR="#ffffff"><B><fmt:message key="form.selfAssessment.familyPsychiatricHistory"/></B></FONT></P>
                         </LI>
                     </OL>
                 </TD>
             </TR>
             <TR>
                 <TD WIDTH=778 colspan="2" VALIGN=TOP>
-                    Depression: <input type="text" name="FamilyDepression"
+                    <fmt:message key="form.selfAssessment.depression"/> <input type="text" name="FamilyDepression"
                                        value="<%= props.getProperty("FamilyDepression", "")%>"> <br>
-                    Anxiety: <input type="text" name="FamilyAnxiety"
+                    <fmt:message key="form.selfAssessment.anxiety"/> <input type="text" name="FamilyAnxiety"
                                     value="<%= props.getProperty("FamilyAnxiety", "")%>"> <br>
-                    Substance Abuse: <input type="text" name="FamilySubstance"
+                    <fmt:message key="form.selfAssessment.substanceAbuse"/> <input type="text" name="FamilySubstance"
                                             value="<%= props.getProperty("FamilySubstance", "")%>"> <br>
-                    Alcohol: <input type="text" name="FamilyAlcohol"
+                    <fmt:message key="form.selfAssessment.alcohol"/> <input type="text" name="FamilyAlcohol"
                                     value="<%= props.getProperty("FamilyAlcohol", "")%>"> <br>
-                    Drugs Specify:
+                    <fmt:message key="form.selfAssessment.drugsSpecify"/>
                     <br><textarea name="FamilyDrugs" id="FamilyDrugs" rows="0"
                                   cols="111"><%= props.getProperty("FamilyDrugs", "")%></textarea><br>
-                    Trauma:
+                    <fmt:message key="form.selfAssessment.trauma"/>
                     <UL>
-                        <LI>Emotional: <input type="text" name="FamilyEmotional"
+                        <LI><fmt:message key="form.selfAssessment.emotional"/> <input type="text" name="FamilyEmotional"
                                               value="<%= props.getProperty("FamilyEmotional", "")%>"></LI>
-                        <LI>Physical: <input type="text" name="FamilyPhysical"
+                        <LI><fmt:message key="form.selfAssessment.physical"/> <input type="text" name="FamilyPhysical"
                                              value="<%= props.getProperty("FamilyPhysical", "")%>"></LI>
-                        <LI>Sexual: <input type="text" name="FamilySexual"
+                        <LI><fmt:message key="form.selfAssessment.sexual"/> <input type="text" name="FamilySexual"
                                            value="<%= props.getProperty("FamilySexual", "")%>"></LI>
                     </UL>
-                    Suicide: <input type="text" name="FamilySuicide"
+                    <fmt:message key="form.selfAssessment.suicide"/> <input type="text" name="FamilySuicide"
                                     value="<%= props.getProperty("FamilySuicide", "")%>"> <br>
-                    Eating Disorder: <input type="text" name="FamilyEating"
+                    <fmt:message key="form.selfAssessment.eatingDisorder"/> <input type="text" name="FamilyEating"
                                             value="<%= props.getProperty("FamilyEating", "")%>"> <br>
-                    Bipolar Disorder: <input type="text" name="FamilyBipolar"
+                    <fmt:message key="form.selfAssessment.bipolarDisorder"/> <input type="text" name="FamilyBipolar"
                                              value="<%= props.getProperty("FamilyBipolar", "")%>"> <br>
                     Psychosis: <input type="text" name="FamilyPsychosis"
                                       value="<%= props.getProperty("FamilyPsychosis", "")%>"> <br>
-                    Schizophrenia: <input type="text" name="FamilySchizophrenia"
+                    <fmt:message key="form.selfAssessment.schizophrenia"/> <input type="text" name="FamilySchizophrenia"
                                           value="<%= props.getProperty("FamilySchizophrenia", "")%>"> <br>
-                    ADHD: <input type="text" name="FamilyADHD" value="<%= props.getProperty("FamilyADHD", "")%>"> <br>
+                    <fmt:message key="form.selfAssessment.adhd"/> <input type="text" name="FamilyADHD" value="<%= props.getProperty("FamilyADHD", "")%>"> <br>
 
-                    Please enter additional information: <br><textarea name="FamilyPsychiatricOther"
+                    <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="FamilyPsychiatricOther"
                                                                        id="FamilyPsychiatricOther" rows="0"
                                                                        cols="111"><%= props.getProperty("FamilyPsychiatricOther", "")%></textarea><br>
                 </TD>
@@ -385,35 +383,35 @@
             </TR>
             <TR>
                 <TD WIDTH=778 colspan="2" VALIGN=TOP>
-                    Are you a smoker at present? <input type="text" name="Smoker"
+                    <fmt:message key="form.selfAssessment.smokerAtPresent"/> <input type="text" name="Smoker"
                                                         value="<%= props.getProperty("Smoker", "")%>"> <br>
-                    How much do you smoke? <input type="text" name="SmokeQty" size="100" maxlength="100"
+                    <fmt:message key="form.selfAssessment.howMuchSmoke"/> <input type="text" name="SmokeQty" size="100" maxlength="100"
                                                   value="<%= props.getProperty("SmokeQty", "")%>"> <br>
-                    Do you use street drugs of any kind: <input type="text" name="StreetDrugs"
+                    <fmt:message key="form.selfAssessment.streetDrugsAnyKind"/> <input type="text" name="StreetDrugs"
                                                                 value="<%= props.getProperty("StreetDrugs", "")%>"> <br>
-                    Do you drink alcohol? <input type="text" name="DrinkAlcohol"
+                    <fmt:message key="form.selfAssessment.drinkAlcohol"/> <input type="text" name="DrinkAlcohol"
                                                  value="<%= props.getProperty("DrinkAlcohol", "")%>"> <br>
-                    On average, how many drinks do yo have per occasion? <input type="text" name="DrinkAlcoholMany"
+                    <fmt:message key="form.selfAssessment.drinksPerOccasion"/> <input type="text" name="DrinkAlcoholMany"
                                                                                 size="100" maxlength="100"
                                                                                 value="<%= props.getProperty("DrinkAlcoholMany", "")%>"><br>
-                    On average, how many drinks do yo have per week? <input type="text" name="DrinkAlcoholWeekly"
+                    <fmt:message key="form.selfAssessment.drinksPerWeek"/> <input type="text" name="DrinkAlcoholWeekly"
                                                                             size="100" maxlength="150"
                                                                             value="<%= props.getProperty("DrinkAlcoholWeekly", "")%>"><br>
-                    Do you exercise weekly? <input type="text" name="Exercise"
+                    <fmt:message key="form.selfAssessment.exerciseWeekly"/> <input type="text" name="Exercise"
                                                    value="<%= props.getProperty("Exercise", "")%>"> <br>
-                    Do you eat 3 meals a day? <input type="text" name="Meals"
+                    <fmt:message key="form.selfAssessment.eatThreeMeals"/> <input type="text" name="Meals"
                                                      value="<%= props.getProperty("Meals", "")%>"> <br>
-                    Are you in a relationship? <input type="text" name="InRelationship"
+                    <fmt:message key="form.selfAssessment.inRelationship"/> <input type="text" name="InRelationship"
                                                       value="<%= props.getProperty("InRelationship", "")%>"> <br>
-                    Is your academic performance okay? <input type="text" name="AcademicPerformance"
+                    <fmt:message key="form.selfAssessment.academicPerformanceOkay"/> <input type="text" name="AcademicPerformance"
                                                               value="<%= props.getProperty("AcademicPerformance", "")%>">
                     <br>
-                    Sexual Orientation:<input type="text" name="SexualOrientation"
+                    <fmt:message key="form.selfAssessment.sexualOrientation"/><input type="text" name="SexualOrientation"
                                               value="<%= props.getProperty("SexualOrientation", "")%>"> <br>
                     <br>
-                    Religious Affiliation: <input type="text" name="ReligiousAffiliation" size="100" maxlength="150"
+                    <fmt:message key="form.selfAssessment.religiousAffiliation"/> <input type="text" name="ReligiousAffiliation" size="100" maxlength="150"
                                                   value="<%= props.getProperty("ReligiousAffiliation", "")%>"> <br>
-                    Please enter additional information: <br><textarea name="GeneralOther" id="GeneralOther" rows="0"
+                    <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="GeneralOther" id="GeneralOther" rows="0"
                                                                        cols="111"><%= props.getProperty("GeneralOther", "")%></textarea><br>
 
                 </TD>
@@ -430,9 +428,9 @@
 
 
         <div align="center" id="buttons">
-            <input id="savebut" type="submit" value="Save" onclick="javascript: return onSave();"/>
-            <input id="saveexitbut" type="submit" value="Save and Exit" onclick="javascript: return onSaveExit();"/>
-            <input id="exitbut" type="submit" value="Exit" onclick="javascript: return onExit();"/>
+            <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
+            <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
+            <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
 
         </div>
 
@@ -442,18 +440,18 @@
 
             function onSave() {
                 document.forms[0].submit.value = "save";
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
 
             function onExit() {
-                if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+                if (confirm("<fmt:message key='global.msgNotSave'/>") == true) {
                     window.close();
                 }
                 return (false);

@@ -80,12 +80,12 @@
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
-                        Invalid input.
+                        <fmt:message key="provider.patientNameLength.msgInvalidInput"/>
                     </p>
-                    <fmt:message key="provider.patientNameLength.title"/>
+                    <fmt:message key="provider.patientNameLength.msgProvider"/>
                     <input type="text" id="numericFormField" name="patientNameLength.value" value="${e:forHtmlAttribute(length.value)}" />
                     <br/>
-                    <input type="submit" name="submit" value="Apply" class="btn btn-primary" />
+                    <input type="submit" name="submit" value="<fmt:message key='provider.patientNameLength.btnSubmit'/>" class="btn btn-primary" />
                 </form>
 
                 <%} else {%>

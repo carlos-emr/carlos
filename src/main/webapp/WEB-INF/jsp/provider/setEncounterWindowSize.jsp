@@ -79,13 +79,13 @@
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <br/>
-                    Width: <input type="text" name="encounterWindowWidth.value" value="${e:forHtmlAttribute(width.value)}" size="5" />
+                    <%=bundle.getString("eform.visual.editor.label.width")%> <input type="text" name="encounterWindowWidth.value" value="${e:forHtmlAttribute(width.value)}" size="5" />
                     <br/>
-                    Height: <input type="text" name="encounterWindowHeight.value" value="${e:forHtmlAttribute(height.value)}" size="5" />
+                    <%=bundle.getString("eform.visual.editor.label.height")%> <input type="text" name="encounterWindowHeight.value" value="${e:forHtmlAttribute(height.value)}" size="5" />
                     <br/>
-                    Maximize: <input type="checkbox" name="encounterWindowMaximize.checked" <c:if test="${encounterWindowMaximize.checked}">checked</c:if> />
+                    <%=bundle.getString("provider.setEncounterWindowSize.maximize")%> <input type="checkbox" name="encounterWindowMaximize.checked" <c:if test="${encounterWindowMaximize.checked}">checked</c:if> />
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<%=bundle.getString("provider.setShowPatientDOB.btnApply")%>" />
                 </form>
 
                 <%} else {%>

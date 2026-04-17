@@ -70,6 +70,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<%
     ReportTempDao reportTempDao = SpringUtils.getBean(ReportTempDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     FormDao formDao = SpringUtils.getBean(FormDao.class);
@@ -78,7 +81,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>REPORT EDB</title>
+    <title><%= bundle.getString("report.reportedblist.title") %></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
     <script language="JavaScript">
         <!--
@@ -95,11 +98,10 @@
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
-        <th align=CENTER><font face="Helvetica" color="#FFFFFF">EDB
-            LIST</font></th>
+        <th align=CENTER><font face="Helvetica" color="#FFFFFF"><%= bundle.getString("report.reportedblist.header.list") %></font></th>
         <th align="right" width="10%" NOWRAP><input type="button"
-                                                    name="Button" value="Print" onClick="window.print()"> <input
-                type="button" name="Button" value="Cancel" onClick="window.close()">
+                                                    name="Button" value="<%= bundle.getString("global.btnPrint") %>" onClick="window.print()"> <input
+                type="button" name="Button" value="<%= bundle.getString("global.btnCancel") %>" onClick="window.close()">
         </th>
     </tr>
 </table>
@@ -110,14 +112,14 @@
         <tr bgcolor="silver">
             <TH>&nbsp;</TH>
             <TH align="center"><b>#</b></TH>
-            <TH align="center" width="10%" nowrap><b>EDB</b></TH>
-            <TH align="center" width="30%"><b>Patient's Name </b></TH>
+            <TH align="center" width="10%" nowrap><b><%= bundle.getString("report.reportedblist.header.edb") %></b></TH>
+            <TH align="center" width="30%"><b><%= bundle.getString("report.reportedblist.header.patientName") %></b></TH>
             <!--TH align="center" width="20%"><b>Demog' No </b></TH-->
-            <TH align="center" width="5%"><b>Age</b></TH>
-            <TH align="center" width="5%"><b>Gravida</b></TH>
-            <TH align="center" width="10%"><b>Term</b></TH>
-            <TH align="center" width="30%"><b>Phone</b></TH>
-            <TH align="center"><b>Provider</b></TH>
+            <TH align="center" width="5%"><b><%= bundle.getString("report.reportedblist.header.age") %></b></TH>
+            <TH align="center" width="5%"><b><%= bundle.getString("report.reportedblist.header.gravida") %></b></TH>
+            <TH align="center" width="10%"><b><%= bundle.getString("report.reportedblist.header.term") %></b></TH>
+            <TH align="center" width="30%"><b><%= bundle.getString("report.reportedblist.header.phone") %></b></TH>
+            <TH align="center"><b><%= bundle.getString("report.reportedblist.header.provider") %></b></TH>
         </tr>
         <%
             GregorianCalendar now = new GregorianCalendar();
@@ -206,13 +208,12 @@
     String encodedEndDate = Encode.forUriComponent(endDate != null ? endDate : "");
     if(nLastPage>=0) {
 %> <a
-                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>">Last
-            Page</a> | <%
+                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><%= bundle.getString("report.reportedblist.lastPage") %></a> | <%
   }
   if(nItems==intLimit2) {
 %> <a
                 href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
-            Next Page</a> <%}%>
+            <%= bundle.getString("report.reportedblist.nextPage") %></a> <%}%>
 
 </body>
 </html>

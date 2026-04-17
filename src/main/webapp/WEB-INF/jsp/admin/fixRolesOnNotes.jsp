@@ -42,6 +42,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -59,11 +61,11 @@
 
 <html>
 <head>
-    <title>Fix Roles in Notes</title>
+    <title><fmt:message key="admin.fixRolesOnNotes.title"/></title>
 </head>
 <body>
 
-<h2>Fix Roles in Notes</h2>
+<h2><fmt:message key="admin.fixRolesOnNotes.heading"/></h2>
 
 
 <%
@@ -76,15 +78,15 @@
 
 
 <ul>
-    <li>If you have some notes which have a reporter_caisi_role of 0
-    <li>This utility will fix them in a bulk way.</li>
-    <li>Make sure you know what you are doing!</li>
+    <li><fmt:message key="admin.fixRolesOnNotes.item.one"/></li>
+    <li><fmt:message key="admin.fixRolesOnNotes.item.two"/></li>
+    <li><fmt:message key="admin.fixRolesOnNotes.item.three"/></li>
 </ul>
 </h4>
 
 <%if (action == null || !"run".equals(action)) { %>
 <form action="<%=request.getContextPath()%>/admin/FixRolesOnNotes" method="post">
-    Choose role to change to: <select name="role_to">
+    <fmt:message key="admin.fixRolesOnNotes.chooseRole"/> <select name="role_to">
     <%
         for (SecRole role : roles) {
     %>
@@ -93,14 +95,14 @@
     <%} %>
 </select>
     <input type="hidden" name="action" value="run"/>
-    <input type="submit" value="Run Report"/>
+    <input type="submit" value="<fmt:message key='admin.fixRolesOnNotes.run'/>"/>
 </form>
 <%
 } else {
     String roleTo = request.getParameter("role_to");
     String error = "";
     if (roleTo == null || "0".equals(roleTo)) {
-        error = "Must set valid destination role";
+        error = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("admin.fixRolesOnNotes.errorRole");
     }
 
     CaseManagementNoteDAO noteDao = SpringUtils.getBean(CaseManagementNoteDAO.class);
@@ -117,7 +119,7 @@
 
 %>
 <!-- fix here -->
-<H2>FIXED</H2>
+<H2><fmt:message key="admin.fixRolesOnNotes.fixed"/></H2>
 <%
     }
 %>

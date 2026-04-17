@@ -27,6 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -97,7 +98,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>MULTI-DISCIPLINARY TEAM DISCHARGE SUMMARY</title>
+        <title><fmt:message key="form.dischargeSummary.title"/></title>
         <link rel="stylesheet" type="text/css" href="arStyle.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
@@ -129,7 +130,7 @@
             var ret = checkAllDates();
             if (ret) {
                 document.forms[0].action = "/<%=project_home%>/form/formname";
-                ret = confirm("Are you sure you want to save this form and see the print preview?");
+                ret = confirm("<fmt:message key="form.dischargeSummary.msgSavePreview"/>");
             }
             return ret;
         }
@@ -139,7 +140,7 @@
             var ret = checkAllDates();
             if (ret) {
                 //reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -149,7 +150,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 //reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -266,7 +267,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -291,7 +292,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -344,20 +345,20 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="button" value="Exit"
+                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <%
                     String appPath = request.getContextPath();
                 %> <% if (formId > 0) { %> <input type="submit"
-                                                  value="Print Preview" onclick="javascript:return onPrintPreview();"/>
+                                                  value="<fmt:message key="form.dischargeSummary.printPreview"/>" onclick="javascript:return onPrintPreview();"/>
                     <!--
-            <input type="button" value="Print Preview" onclick="location.href='<%= appPath %>/form/formDischargeSummaryPrint?demographic_no=<%=demoNo%>&formId=<%=formId%>&user=<%=provNo%>' " />
+            <input type="button" value="<fmt:message key="form.dischargeSummary.printPreview"/>" onclick="location.href='<%= appPath %>/form/formDischargeSummaryPrint?demographic_no=<%=demoNo%>&formId=<%=formId%>&user=<%=provNo%>' " />
             
-            <a href='<%=appPath %>/form/formDischargeSummaryPrint' onClick="window.open(this.href,'Discharge Summary Form Print Preview','width=800,height=600,toolbar=no,location=no,directories=no,status=no,menubar=yes,scrollbars=yes,copyhistory=no,resizable=yes');return false;">Print Preview</a> 
+            <a href='<%=appPath %>/form/formDischargeSummaryPrint' onClick="window.open(this.href,'Discharge Summary Form <fmt:message key="form.dischargeSummary.printPreview"/>','width=800,height=600,toolbar=no,location=no,directories=no,status=no,menubar=yes,scrollbars=yes,copyhistory=no,resizable=yes');return false;"><fmt:message key="form.dischargeSummary.printPreview"/></a>
             --> <% } %>
                 </td>
             </tr>
@@ -367,7 +368,7 @@
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">
                 <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
-                                         color="#FFFFFF">Sherbourne Health Centre Infirmary</font></th>
+                                         color="#FFFFFF"><fmt:message key="form.dischargeSummary.infirmaryName"/></font></th>
             </tr>
             <tr bgcolor="#486ebd">
                 <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
@@ -406,12 +407,12 @@
                 <td width="10%"><input type="text" name="admitDate"
                                        readonly="true" style="width: 100%" size="10" maxlength="10"
                                        value="<%= props.getProperty("admitDate", "") %>"/></td>
-                <td width="10%" align="right">Discharge Date<small>(yyyy/mm/dd):<small></td>
+                <td width="10%" align="right"><fmt:message key="form.dischargeSummary.dischargeDate"/><small>(yyyy/mm/dd):<small></td>
                 <td width="5%"><input type="text" name="dischargeDate"
                                       style="width: 100%" size="10" maxlength="12"
                                       value="<%= props.getProperty("dischargeDate", "") %>"/></td>
                 <!--
-	 <td width="5%" align="right">Program Name: </td>
+	 <td width="5%" align="right"><fmt:message key="form.dischargeSummary.programName"/>: </td>
 	 <td width="25%"><input type="text" name="programName" readonly style="width:100%" value="<%= props.getProperty("programName", "") %>"/></td>
 	-->
                 <td width="5%" align="right">Allergies:</td>
@@ -431,13 +432,13 @@
         <br>
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
-                <td colspan="3">Admitting Diagnosis/Primary Diagnosis: <textarea
+                <td colspan="3"><fmt:message key="form.dischargeSummary.admittingDiagnosis"/>: <textarea
                         name="admissionNotes" style="width: 100%" cols="20" rows="3"
                         @oscar.formDB dbType="text"/><%= props.getProperty("admissionNotes", "") %></textarea>
                 </td>
             </tr>
             <tr>
-                <td colspan="3">Problem List: <textarea name="currentIssues"
+                <td colspan="3"><fmt:message key="form.dischargeSummary.problemList"/>: <textarea name="currentIssues"
                                                         readonly style="width: 100%" cols="20" rows="3" @oscar.formDB
                                                         dbType="text"/><%= props.getProperty("currentIssues", "") %></textarea>
                 </td>
@@ -461,7 +462,7 @@
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
                 <!--  NOT USED followUpAppointment CHECKBOX any more
-        <td colspan="4">Follow-up Appointment(s):  To be arranged by Patient:</td>
+        <td colspan="4"><fmt:message key="form.dischargeSummary.followUpByPatient"/></td>
         <td align="right">
         -->
                 <%//if(props.getProperty("followUpAppointment","").equals("1")){%>
@@ -491,13 +492,13 @@
         </td>
         <td>No</td>
     -->
-                <td colspan="4">Follow-up Appointment(s):</td>
+                <td colspan="4"><fmt:message key="form.dischargeSummary.followUpAppointments"/></td>
             </tr>
             <tr>
-                <td align="left">Agency/Health Care Provider</td>
-                <td align="left">Phone No</td>
-                <td align="left">Date/Time</td>
-                <td align="left">Location</td>
+                <td align="left"><fmt:message key="form.dischargeSummary.agencyProvider"/></td>
+                <td align="left"><fmt:message key="form.dischargeSummary.phoneNumber"/></td>
+                <td align="left"><fmt:message key="form.dischargeSummary.dateTime"/></td>
+                <td align="left"><fmt:message key="form.dischargeSummary.location"/></td>
             </tr>
             <tr>
                 <td align="left"><input type="text" name="doctor1"
@@ -559,7 +560,7 @@
         <br>
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
-                <td width="50%">Current Medications: <!--
+                <td width="50%"><fmt:message key="form.dischargeSummary.currentMedications"/> <!--
 		<textarea name="prescriptionSummary" readonly="true" style="width:100%" cols="30" rows="7" @oscar.formDB dbType="text"/><%= props.getProperty("prescriptionSummary", "") %></textarea>
 	 --> <textarea name="prescriptionSummary" readonly="true"
                    style="width: 100%" cols="30" rows="4" @oscar.formDB dbType="text"/>Please see Attached
@@ -568,7 +569,7 @@
                 <td width="50%">
                     <table width="100%" border="1" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td>Prescription Provided:</td>
+                            <td><fmt:message key="form.dischargeSummary.prescriptionProvided"/></td>
                             <td align="right">
                                 <%if (props.getProperty("prescriptionProvided", "").equals("1")) {%> <input
                                     type="radio" name="prescriptionProvided" value="1" checked/> <%} else { %>
@@ -586,7 +587,7 @@
                         </tr>
 
                         <tr>
-                            <td>Changes in Medications (include explanation):</td>
+                            <td><fmt:message key="form.dischargeSummary.changesInMedications"/></td>
                             <td align="right">
                                 <%if (props.getProperty("medicationProvided", "").equals("1")) {%> <input
                                     type="radio" name="medicationProvided" value="1" checked/> <%} else { %>
@@ -616,7 +617,7 @@
                         </tr>
                         <!--
 		<tr>
-			<td>ODB Form Required:</td>
+			<td><fmt:message key="form.dischargeSummary.odbFormRequired"/></td>
 			<td align="right">
 			<%if(props.getProperty("ODBFormReqired","").equals("1")){%>
 			<input type="radio" name="ODBFormReqired" value="1" checked />
@@ -645,7 +646,7 @@
 		 -->
                         <!--
 		<tr>
-			<td>Counselling Provided by:</td>
+			<td><fmt:message key="form.dischargeSummary.counsellingProvidedBy"/></td>
 			<td><input type="text" name="counsellorName" style="width:100%" size="26" maxlength="26" value="<%= props.getProperty("counsellorName", "") %>"/><td>
 			<td></td>
 			<td></td>
@@ -654,7 +655,7 @@
 			<td></td>			
 		</tr>
 		<tr>
-			<td>Follow-up Required:</td>
+			<td><fmt:message key="form.dischargeSummary.followUpRequired"/></td>
 			<td align="right">
 	
 			<%if(props.getProperty("followUpRequired","").equals("1")){%>
@@ -676,7 +677,7 @@
 			<td></td>			
 		</tr>
 		<tr>
-			<td>If yes, please specify:</td>
+			<td><fmt:message key="form.dischargeSummary.ifYesSpecify"/></td>
 			<td colspan="6"><input type="text" name="followUpRequiredDetail" style="width:100%" size="60" maxlength="60" value="<%= props.getProperty("followUpRequiredDetail", "") %>"/><td>						
 		</tr>
 	-->
@@ -688,12 +689,12 @@
         <br>
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
-                <td colspan="3"><b>Referrals:</b></td>
+                <td colspan="3"><b><fmt:message key="form.dischargeSummary.referrals"/></b></td>
             </tr>
             <tr>
-                <td>Program</td>
-                <td>Referral Made</td>
-                <td>Outcome</td>
+                <td><fmt:message key="form.dischargeSummary.program"/></td>
+                <td><fmt:message key="form.dischargeSummary.referralMade"/></td>
+                <td><fmt:message key="form.dischargeSummary.outcome"/></td>
             <tr>
             <tr>
                 <td><input type="text" name="referralProgram1"
@@ -754,22 +755,22 @@
         <br>
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
-                <td colspan="6">Notes: <textarea name="notes"
+                <td colspan="6"><fmt:message key="form.dischargeSummary.notes"/>: <textarea name="notes"
                                                  style="width: 100%" cols="20" rows="3" @oscar.formDB
                                                  dbType="text"/><%= props.getProperty("notes", "") %></textarea>
                 </td>
             </tr>
 
             <tr>
-                <td align="left">Infirmary Health Care Provider:</td>
+                <td align="left"><fmt:message key="form.dischargeSummary.infirmaryHealthCareProvider"/></td>
                 <td><input type="text" name="providerName" readonly="true"
                            style="width: 100%" size="30" maxlength="30"
                            value="<%= props.getProperty("providerName", "") %>"/></td>
-                <td>Provider's Signature:</td>
+                <td><fmt:message key="form.dischargeSummary.providersSignature"/></td>
                 <td><input type="text" name="signature" size="25" maxlength="25"
                            value="<%= props.getProperty("signature", "") %>" @oscar.formDB/>
                 </td>
-                <td>Date(yyyy/mm/dd):</td>
+                <td><fmt:message key="form.dischargeSummary.date"/> (yyyy/mm/dd):</td>
                 <td><input type="text" name="signatureDate" size="10"
                            maxlength="10" value="<%= props.getProperty("signatureDate", "") %>"/>
                 </td>
@@ -784,14 +785,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="button" value="Exit"
+                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <% if (formId > 0) { %> <input
-                        type="submit" value="Print Preview"
+                        type="submit" value="<fmt:message key="form.dischargeSummary.printPreview"/>"
                         onclick="javascript:return onPrintPreview();"/> <%} %>
                 </td>
             </tr>

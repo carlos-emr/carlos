@@ -228,7 +228,7 @@
         //--> reset all list input fields
         jQuery.fn.resetFields = function () {
             // clean search fields and re-focus
-            jQuery('#searchHealthCareTeamInput').val("Last Name, First Name").css('color', 'grey');
+            jQuery('#searchHealthCareTeamInput').val("<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>").css('color', 'grey');
         }
 
         //--> Remove/Edit contact action. Wrapped in a function to re-bind after postback
@@ -309,15 +309,15 @@
                 }
             });
 
-            jQuery('#searchHealthCareTeamInput').val("Last Name, First Name").css('color', 'grey')
+            jQuery('#searchHealthCareTeamInput').val("<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>").css('color', 'grey')
                 .focus(function () {
-                    if (this.value == "Last Name, First Name") {
+                    if (this.value == "<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>") {
                         this.value = "";
                         jQuery('#searchHealthCareTeamInput').css('color', 'black')
                     }
                 }).blur(function () {
                 if (this.value == "") {
-                    this.value = "Last Name, First Name";
+                    this.value = "<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>";
                     jQuery('#searchHealthCareTeamInput').css('color', 'grey')
                 }
             });
@@ -356,7 +356,7 @@
         <table class="MainTable" >
 
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="20%">Manage Health Care Team</td>
+            <td class="MainTableTopRowLeftColumn" width="20%"><fmt:message key="demographic.manageHealthCareTeam.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -390,15 +390,15 @@
                     <c:set value="${ demographicContacts }" var="demographicContactList" scope="page"/>
 
                     <tr id="tableTitle" class="category_table_heading">
-                        <th colspan="6" class="alignLeft">Health Care Team</th>
+                        <th colspan="6" class="alignLeft"><fmt:message key="demographic.manageHealthCareTeam.heading"/></th>
                     </tr>
 
                     <c:if test="${ not empty demographicContactList }">
                         <tr id="healthCareTeamSubHeading">
                             <td></td>
-                            <td>Name</td>
-                            <td>Phone</td>
-                            <td>Fax</td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colName"/></td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colPhone"/></td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colFax"/></td>
                             <td></td>
                             <td></td>
                         </tr>
@@ -447,14 +447,14 @@
                 <table id="addEditHealthCareTeam" class="${ param.view }View">
                         <%-- ADD NEW MEMBER TO HEALTH CARE TEAM --%>
 
-                    <tr>
-                        <td class="alignLeft"><strong>add a provider:</strong></td>
-                        <td class="alignLeft">
-                            <select name="searchInternalExternal" id="searchInternalExternal">
-                                <option value="${ providerType }">internal</option>
-                                <option value="${ professionalContactType }">external</option>
-                            </select>
-                        </td>
+                        <tr>
+                            <td class="alignLeft"><strong><fmt:message key="demographic.manageHealthCareTeam.addProvider"/></strong></td>
+                            <td class="alignLeft">
+                                <select name="searchInternalExternal" id="searchInternalExternal">
+                                    <option value="${ providerType }"><fmt:message key="demographic.manageHealthCareTeam.internal"/></option>
+                                    <option value="${ professionalContactType }"><fmt:message key="demographic.manageHealthCareTeam.external"/></option>
+                                </select>
+                            </td>
 
                         <!-- If Internal list, then display the Internal Demographic options
                          External, then display the external search options -->
@@ -472,7 +472,7 @@
 
                         <td class="internal">
                             <input type="button" name="addHealthCareTeamButton"
-                                   id="addHealthCareTeamButton" value="Add"/>
+                                   id="addHealthCareTeamButton" value="<fmt:message key='global.btnAdd'/>"/>
                         </td>
 
                         <td class="external">
@@ -493,7 +493,7 @@
 
                         <td class="external">
                             <input type="button" name="searchHealthCareTeamButton" id="searchHealthCareTeamButton"
-                                   value="Search"/>
+                                   value="<fmt:message key='oscarMDS.search.btnSearch'/>"/>
                         </td>
 
                     </tr>

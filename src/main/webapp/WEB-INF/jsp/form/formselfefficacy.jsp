@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -70,7 +72,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Self Efficacy</title>
+        <title><fmt:message key="form.SelfEfficacy.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -364,7 +366,7 @@
                     <table border="0" cellspacing="0" cellpadding="0" width="740px"
                            height="10%">
                         <tr>
-                            <th class="subject">Self Efficacy</th>
+                            <th class="subject"><fmt:message key="form.SelfEfficacy.heading"/></th>
                         </tr>
                     </table>
                 </td>
@@ -378,9 +380,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Perform Self-Management
-                                            Behaviours
-                                        </th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.selfManagementBehaviours"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Exercise Regularly</th>
@@ -572,9 +572,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Perform Self-Management
-                                            Behaviours
-                                        </th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.selfManagementBehaviours"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Obtain Help From Communit, Family and
@@ -730,9 +728,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Perform Self-Management
-                                            Behaviours
-                                        </th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.selfManagementBehaviours"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Communicate with Physician</th>
@@ -866,7 +862,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Manage Disease in General</th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.manageDiseaseInGeneral"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE to Manage Disease in General</th>
@@ -1038,7 +1034,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Achieve Outcomes</th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.achieveOutcomes"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Do Chores</th>
@@ -1172,7 +1168,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Achieve Outcomes</th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.achieveOutcomes"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Social/Recreational Activities</th>
@@ -1358,7 +1354,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Achieve Outcomes</th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.achieveOutcomes"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Manage Symptoms</th>
@@ -1533,7 +1529,7 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="12">Self Efficacy to Achieve Outcomes</th>
+                                        <th colspan="12"><fmt:message key="form.SelfEfficacy.section.achieveOutcomes"/></th>
                                     </tr>
                                     <tr class="subTitle">
                                         <th colspan="12">SE Control/Manage Depression</th>
@@ -1723,15 +1719,15 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
                             <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>

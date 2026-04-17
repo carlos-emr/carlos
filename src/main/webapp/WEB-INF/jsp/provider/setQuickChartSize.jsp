@@ -75,11 +75,11 @@
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
-                        Invalid input.
+                        <fmt:message key="provider.quickChartSize.msgInvalidInput"/>
                     </p>
-                    Number of Notes : <input type="text" id="numericFormField" name="quickChartSize.value" value="${e:forHtmlAttribute(size.value)}" size="5"/>
+                    <fmt:message key="provider.quickChartSize.msgProvider"/> <input type="text" id="numericFormField" name="quickChartSize.value" value="${e:forHtmlAttribute(size.value)}" size="5"/>
                     <br/>
-                    <input type="submit" name="submit" value="Apply"class="btn btn-primary" />
+                    <input type="submit" name="submit" value="<fmt:message key='provider.quickChartSize.btnSubmit'/>" class="btn btn-primary" />
                 </form>
 
                 <%} else {%>

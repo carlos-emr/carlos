@@ -29,6 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -48,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "IntakeInfo";
     String formLink = "formintakeinfo.jsp";
@@ -70,7 +74,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Intake Information</title>
+        <title><fmt:message key="form.IntakeInfo.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -220,7 +224,7 @@
                 <td>
                     <table border="0" cellspacing="0" cellpadding="0" width="740px">
                         <tr>
-                            <th class="subject">Intake Information</th>
+                            <th class="subject"><fmt:message key="form.IntakeInfo.heading"/></th>
                         </tr>
                     </table>
                 </td>
@@ -234,7 +238,7 @@
                                 <table width="740px" height="80px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">A. Personal Information</th>
+                                        <th colspan="4"><fmt:message key="form.intakeInfo.sectionA"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question">Sex:</th>
@@ -267,7 +271,7 @@
                                 <table width="740px" height="550px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">B. Marital Status / Accomodation</th>
+                                        <th colspan="4"><fmt:message key="form.intakeInfo.sectionB"/></th>
                                     </tr>
                                     <tr>
                                         <th colspan="4" class="question">What type of accommodations
@@ -303,8 +307,7 @@
                                         <td width="45%"></td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">What is your present
-                                            marital status?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.maritalStatusQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -348,8 +351,7 @@
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <th colspan="2" class="question">How many people live in
-                                            your household?
+                                        <th colspan="2" class="question"><fmt:message key="form.intakeInfo.householdCountQuestion"/>
                                         </th>
                                         <td colspan="2"><input type="text" name="nbpplInHousehold"
                                                                style="background-color: #FFFFFF"
@@ -357,8 +359,7 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Is there someone who lives
-                                            with you who can help out?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.caregiverQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -380,9 +381,7 @@
                                         <td width="45%"></td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">If <font
-                                                style="text-decoration: underline">Yes</font>, what is your
-                                            relationship with this individual?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.caregiverRelationshipQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -419,8 +418,7 @@
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Do you have others (not
-                                            living in your home) that you can call on for support?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.otherSupportQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -552,15 +550,12 @@
                                         <td valign="top">
                                             <table border="0" cellspacing="0" cellpadding="0" width="100%">
                                                 <tr class="title">
-                                                    <th colspan="4">D. Income</th>
+                                                    <th colspan="4"><fmt:message key="form.intakeInfo.sectionD"/></th>
                                                 </tr>
                                                 <tr>
-                                                    <th colspan="4" class="question">What was the approximate
-                                                        total household income in the past 12 months; before taxes? <br>
-                                                        Please include income from all sources such as as wages,
-                                                        commissions, pensions, family allowance, rental investments
-                                                        income and so forth.
-                                                    </th>
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.incomeQuestion"/> <br>
+                                            <fmt:message key="form.intakeInfo.incomeNote"/>
+                                        </th>
                                                 </tr>
                                                 <tr bgcolor="white">
                                                     <td width="5%" align="right"><input type="checkbox"
@@ -596,7 +591,7 @@
                                                                                         class="checkbox"
                                                                                         name="incomeDoNotKnow"
                                                             <%= props.getProperty("incomeDoNotKnow", "") %> /></td>
-                                                    <td width="45%">Do not know</td>
+                                                    <td width="45%"><fmt:message key="global.dontKnow"/></td>
                                                 </tr>
                                                 <tr bgcolor="white">
                                                     <td width="5%" align="right"><input type="checkbox"
@@ -608,11 +603,10 @@
                                                                                         class="checkbox"
                                                                                         name="incomeRefusedToAns"
                                                             <%= props.getProperty("incomeRefusedToAns", "") %> /></td>
-                                                    <td width="45%">Refused to answer</td>
+                                                    <td width="45%"><fmt:message key="form.intakeInfo.refusedToAnswer"/></td>
                                                 </tr>
                                                 <tr>
-                                                    <th colspan="4" class="question">Thinking about your
-                                                        financial situation, would you say that you are...
+                                                    <th colspan="4" class="question"><fmt:message key="form.intakeInfo.financialSituationQuestion"/>
                                                     </th>
                                                 </tr>
                                                 <tr bgcolor="white">
@@ -620,21 +614,21 @@
                                                                                         class="checkbox"
                                                                                         name="financialDifficult"
                                                             <%= props.getProperty("financialDifficult", "") %> /></td>
-                                                    <td colspan="3">Having difficulty making ends meet?</td>
+                                                    <td colspan="3"><fmt:message key="form.intakeInfo.financialDifficulty"/></td>
                                                 </tr>
                                                 <tr bgcolor="white">
                                                     <td width="5%" align="right"><input type="checkbox"
                                                                                         class="checkbox"
                                                                                         name="financialEnough"
                                                             <%= props.getProperty("financialEnough", "") %> /></td>
-                                                    <td colspan="3">Having just enough to get along?</td>
+                                                    <td colspan="3"><fmt:message key="form.intakeInfo.financialEnough"/></td>
                                                 </tr>
                                                 <tr bgcolor="white">
                                                     <td width="5%" align="right"><input type="checkbox"
                                                                                         class="checkbox"
                                                                                         name="financialComfortable"
                                                             <%= props.getProperty("financialComfortable", "") %> /></td>
-                                                    <td colspan="3">Are you comfortable?</td>
+                                                    <td colspan="3"><fmt:message key="form.intakeInfo.financialComfortable"/></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -644,16 +638,14 @@
                                         <td valign="top">
                                             <table border="0" cellspacing="0" cellpadding="0" width="100%">
                                                 <tr class="title">
-                                                    <th colspan="3">E. Activity</th>
+                                                    <th colspan="3"><fmt:message key="form.intakeInfo.sectionE"/></th>
                                                 </tr>
                                                 <tr>
-                                                    <th colspan="3" class="question">Are you currently engaged
-                                                        in any of the following activites?
+                                                    <th colspan="3" class="question"><fmt:message key="form.intakeInfo.activitiesQuestion"/>
                                                     </th>
                                                 </tr>
                                                 <tr>
-                                                    <th colspan="3" class="question">How many hours per week
-                                                        are you involved in each activity?
+                                                    <th colspan="3" class="question"><fmt:message key="form.intakeInfo.hoursQuestion"/>
                                                     </th>
                                                 </tr>
                                                 <tr class="subTitle">
@@ -697,10 +689,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage1();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage3();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage1();"><fmt:message key="global.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage3();"><fmt:message key="global.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -711,11 +701,10 @@
                                 <table width="740px" height="630px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">F. Health</th>
+                                        <th colspan="4"><fmt:message key="form.intakeInfo.sectionF"/></th>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Have you had any health
-                                            problems in the last 6 months?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.healthProblemsQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -725,7 +714,7 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Do you smoke cigarettes?</th>
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.smokeQuestion"/></th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
@@ -733,19 +722,19 @@
                                                 <%= props.getProperty("smkY", "") %> /><br>
                                             <input type="checkbox" class="checkbox" name="smkN"
                                                     <%= props.getProperty("smkN", "") %> /></td>
-                                        <td width="15%">Yes<br>
-                                            No
+                                        <td width="15%"><fmt:message key="global.yes"/><br>
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td colspan="2">
                                             <table>
                                                 <tr>
-                                                    <td>How many cigarettes per day?</td>
+                                                    <td><fmt:message key="form.intakeInfo.cigarettesPerDay"/></td>
                                                     <td><input type="text" name="nbCigarettes"
                                                                value="<%= props.getProperty("nbCigarettes", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>How long have you smoked?</td>
+                                                    <td><fmt:message key="form.intakeInfo.smokedHowLong"/></td>
                                                     <td><input type="text" name="howLongSmk"
                                                                value="<%=props.getProperty("howLongSmk","")%>"/></td>
                                                 </tr>
@@ -753,8 +742,7 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Did you ever smoke
-                                            cigarettes regularly?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.everSmokedQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
@@ -763,19 +751,19 @@
                                                 <%= props.getProperty("didSmkY", "") %> /><br>
                                             <input type="checkbox" class="checkbox" name="didSmkN"
                                                     <%= props.getProperty("didSmkN", "") %> /></td>
-                                        <td width="15%">Yes<br>
-                                            No
+                                        <td width="15%"><fmt:message key="global.yes"/><br>
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td colspan="2">
                                             <table>
                                                 <tr>
-                                                    <td>How many cigarettes per day?</td>
+                                                    <td><fmt:message key="form.intakeInfo.cigarettesPerDay"/></td>
                                                     <td><input type="text" name="didNbCigarettes"
                                                                value="<%= props.getProperty("didNbCigarettes", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>How long have you smoked?</td>
+                                                    <td><fmt:message key="form.intakeInfo.smokedHowLong"/></td>
                                                     <td><input type="text" name="didHowLongSmk"
                                                                value="<%=props.getProperty("didHowLongSmk","")%>"/></td>
                                                 </tr>
@@ -783,16 +771,14 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">In the past 6 months, have
-                                            you had a drink of beer, wine, liquor or other alcoholic
-                                            beverage?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.past6MonthsQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="alcoholY"
                                                 <%= props.getProperty("alcoholY", "") %> /></td>
-                                        <td>Yes</td>
+                                        <td><fmt:message key="global.yes"/></td>
                                         <td></td>
                                         <td></td>
                                     </tr>
@@ -800,20 +786,19 @@
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="alcoholN"
                                                 <%= props.getProperty("alcoholN", "") %> /></td>
-                                        <td>No</td>
+                                        <td><fmt:message key="global.no"/></td>
                                         <td></td>
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <th colspan="4" class="question">Have you had more than 12
-                                            drinks per week in the last 6 months?
+                                        <th colspan="4" class="question"><fmt:message key="form.intakeInfo.more12DrinksQuestion"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="more12DrinksY"
                                                 <%= props.getProperty("more12DrinksY", "") %> /></td>
-                                        <td>Yes</td>
+                                        <td><fmt:message key="global.yes"/></td>
                                         <td></td>
                                         <td></td>
                                     </tr>
@@ -821,108 +806,100 @@
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="more12DrinksN"
                                                 <%= props.getProperty("more12DrinksN", "") %> /></td>
-                                        <td>No</td>
+                                        <td><fmt:message key="global.no"/></td>
                                         <td></td>
                                         <td></td>
                                     </tr>
                                     <tr class="title">
-                                        <th valign="top" colspan="8">G. Diagnosis</th>
+                                        <th valign="top" colspan="8"><fmt:message key="form.intakeInfo.sectionG"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" colspan="8"><font
-                                                style='text-decoration: italic'> I'm going to read you a
-                                            list of serious illnesses and other health problems. For each
-                                            one, please tell me if a doctor has told you that you have that
-                                            condition since your last assessment. </font></th>
+                                                style='text-decoration: italic'><fmt:message key="form.intakeInfo.diagnosisIntro"/></font></th>
                                     </tr>
 
                                     <tr>
                                         <th>1.</th>
-                                        <th colspan="7" class="question">Has a doctor ever told you
-                                            that you had a heart attack or myocardial infarction?
+                                        <th colspan="7" class="question"><fmt:message key="form.intakeInfo.diagnosis1"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartAttackY"
                                                 <%= props.getProperty("heartAttackY", "") %> /></td>
-                                        <td>Yes</td>
+                                        <td><fmt:message key="global.yes"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartAttackRefused"
                                                 <%= props.getProperty("heartAttackRefused", "") %> /></td>
-                                        <td>Refused</td>
+                                        <td><fmt:message key="global.refused"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartAttackN"
                                                 <%= props.getProperty("heartAttackN", "") %> /></td>
-                                        <td>No</td>
+                                        <td><fmt:message key="global.no"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartAttackDoNotKnow"
                                                 <%= props.getProperty("heartAttackDoNotKnow", "") %> /></td>
-                                        <td>Don't Know</td>
+                                        <td><fmt:message key="global.dontKnow"/></td>
                                     </tr>
                                     <tr>
                                         <th>2.</th>
-                                        <th colspan="7" class="question">(Has a doctor ever told you
-                                            that you had...) angina?
+                                        <th colspan="7" class="question"><fmt:message key="form.intakeInfo.diagnosis2"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="anginaY"
                                                 <%= props.getProperty("anginaY", "") %> /></td>
-                                        <td>Yes</td>
+                                        <td><fmt:message key="global.yes"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="anginaRefused"
                                                 <%= props.getProperty("anginaRefused", "") %> /></td>
-                                        <td>Refused</td>
+                                        <td><fmt:message key="global.refused"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="anginaN"
                                                 <%= props.getProperty("anginaN", "") %> /></td>
-                                        <td>No</td>
+                                        <td><fmt:message key="global.no"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="anginaDoNotKnow"
                                                 <%= props.getProperty("anginaDoNotKnow", "") %> /></td>
-                                        <td>Don't Know</td>
+                                        <td><fmt:message key="global.dontKnow"/></td>
                                     </tr>
                                     <tr>
                                         <th>3.</th>
-                                        <th colspan="7" class="question">(Has a doctor ever told you
-                                            that you had...) congestive heart failure?
+                                        <th colspan="7" class="question"><fmt:message key="form.intakeInfo.diagnosis3"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartFailureY"
                                                 <%= props.getProperty("heartFailureY", "") %> /></td>
-                                        <td>Yes</td>
+                                        <td><fmt:message key="global.yes"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartFailureRefused"
                                                 <%= props.getProperty("heartFailureRefused", "") %> /></td>
-                                        <td>Refused</td>
+                                        <td><fmt:message key="global.refused"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox" name="heartFailureN"
                                                 <%= props.getProperty("heartFailureN", "") %> /></td>
-                                        <td>No</td>
+                                        <td><fmt:message key="global.no"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="checkbox"
                                                                             name="heartFailureDoNotKnow"
                                                 <%= props.getProperty("heartFailureDoNotKnow", "") %> /></td>
-                                        <td>Don't Know</td>
+                                        <td><fmt:message key="global.dontKnow"/></td>
                                     </tr>
                                 </table>
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage2();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage4();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage2();"><fmt:message key="global.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage4();"><fmt:message key="global.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -933,7 +910,7 @@
                                 <table width="740px" height="630px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th valign="top" colspan="8">G. Diagnosis (continue...)</th>
+                                        <th valign="top" colspan="8"><fmt:message key="form.intakeInfo.sectionG"/> (<fmt:message key="form.intakeInfo.continueLabel"/>...)</th>
                                     </tr>
                                     <tr>
                                         <th>4.</th>
@@ -1176,10 +1153,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage3();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage5();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage3();"><fmt:message key="global.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage5();"><fmt:message key="global.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -1432,15 +1407,15 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave()"/> <input type="submit"
-                                                                                         value="Save and Exit"
+                                                                                         value="<fmt:message key='global.saveExit'/>"
                                                                                          onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
                             <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>

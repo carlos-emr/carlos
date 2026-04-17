@@ -74,7 +74,7 @@
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="eDocBrowserInMasterFileProperty.checked" <c:if test="${eDocBrowserInMasterFileProperty.checked}">checked</c:if>  /><fmt:message key="provider.btnSetEDocBrowserInMasterFile"/>
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

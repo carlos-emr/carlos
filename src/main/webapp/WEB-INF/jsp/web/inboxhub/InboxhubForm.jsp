@@ -90,7 +90,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <div id="specificProviderId" class="ms-3">
                                     <input type="hidden" name="query.searchProviderNo" id="findProvider" value="${e:forHtmlAttribute(query.searchProviderNo)}"/>
                                     <div class="input-group input-group-sm">
-                                        <input class="form-control pe-0 m-1" type="text" id="autocompleteProvider" name="query.searchProviderName" value="<e:forHtmlAttribute value='${query.searchProviderName}' />" placeholder="Provider"/>
+                                        <input class="form-control pe-0 m-1" type="text" id="autocompleteProvider" name="query.searchProviderName" value="<e:forHtmlAttribute value='${query.searchProviderName}' />" placeholder="<fmt:message key='inboxhub.form.providerPlaceholder'/>"/>
                                     </div>
                                 </div>
                             </div>
@@ -140,7 +140,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <div class="inbox-form-datepicker-wrapper mb-1 d-flex">
                                     <label class="my-auto pe" for="startDate"><fmt:message key="inboxhub.form.startDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
-                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="startDate" name="query.startDate" value="${e:forHtmlAttribute(query.startDate)}"/>
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="<fmt:message key='inboxhub.form.datePlaceholder'/>" id="startDate" name="query.startDate" value="${e:forHtmlAttribute(query.startDate)}"/>
                                         <span class="input-group-text" for="startDate" id="startDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
                                     <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearStartDate"></i>
@@ -148,7 +148,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <div class="inbox-form-datepicker-wrapper d-flex">
                                     <label class="my-auto" for="endDate"><fmt:message key="inboxhub.form.endDate"/></label>
                                     <div class="input-group input-group-sm d-inline-flex">
-                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="yyyy-mm-dd" id="endDate" name="query.endDate" value="${e:forHtmlAttribute(query.endDate)}"/>
+                                        <input class="form-control pe-0 inbox-form-datepicker-input" type="text" placeholder="<fmt:message key='inboxhub.form.datePlaceholder'/>" id="endDate" name="query.endDate" value="${e:forHtmlAttribute(query.endDate)}"/>
                                         <span class="input-group-text" for="endDate" id="endDateIcon"><i class="fa-solid fa-calendar"></i></span>
                                     </div>
                                     <i class="fa-solid fa-circle-xmark clear-btn" aria-hidden="true" id="clearEndDate"></i>
@@ -235,7 +235,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <span id="inboxhubFormSearchSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
                                 <span id="inboxhubFormSearchText"><fmt:message key="oscarMDS.search.btnSearch"/></span>
                             </button>
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="resetInboxFilters();">Reset</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="resetInboxFilters();"><fmt:message key="inboxhub.form.btnReset"/></button>
                         </div>
                     </div>
                 </form>
@@ -389,7 +389,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
             <div class="toast-body">
                 <fmt:message key="inboxhub.form.ajaxError"/>
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="<fmt:message key='global.btnClose'/>"></button>
         </div>
     </div>
 </div>

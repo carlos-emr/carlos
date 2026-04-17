@@ -74,7 +74,7 @@
                     <input type="checkbox" name="dashboardShareProperty.checked" <c:if test="${dashboardShareProperty.checked}">checked</c:if> />
                         <fmt:message key="provider.pref.dashboardShare"/>
                     <br/><br/>
-                    <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
+                    <input type="submit" value="<%=bundle.getString("provider.setShowPatientDOB.btnApply")%>"/>
                     <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
                            onclick="window.close();"/>
                 </form>

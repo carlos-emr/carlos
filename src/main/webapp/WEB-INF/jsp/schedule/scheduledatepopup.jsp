@@ -52,6 +52,10 @@
     String day = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("day")));
 
     String available = "checked", strHour = "", strReason = "value=''", strCreator = "Me";
+    ResourceBundle scheduleBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
+    String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
+    strCreator = scheduleBundle.getString("schedule.scheduledatepopup.me");
     HScheduleDate aHScheduleDate = (HScheduleDate) scheduleDateBean.get(year + "-" + month + "-" + day);
     if (aHScheduleDate != null) {
         available = aHScheduleDate.available.compareTo("1") == 0 ? "checked" : "";
@@ -168,7 +172,7 @@
                         %>
                         <tr>
                             <td>
-                                <div align="right">Location:</div>
+                                <div align="right"><fmt:message key="schedule.scheduledatepopup.formLocation"/>:</div>
                             </td>
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
@@ -204,12 +208,12 @@
                                            value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />"> <input
                                             type="button"
                                             value='<fmt:message key="schedule.scheduledatepopup.btnSave"/>'
-                                            onclick="document.forms['schedule'].Submit.value=' Save '; document.forms['schedule'].submit();">
+                                            onclick="document.forms['schedule'].Submit.value='<%= submitSave %>'; document.forms['schedule'].submit();">
                                     <input type="button" name="Button"
                                            value='<fmt:message key="schedule.scheduledatepopup.btnCancel"/>'
                                            onClick="window.close()"> <input type="button"
                                                                             value='<fmt:message key="schedule.scheduledatepopup.btnDelete"/>'
-                                                                            onclick="document.forms['schedule'].Submit.value=' Delete '; document.forms['schedule'].submit();">
+                                                                            onclick="document.forms['schedule'].Submit.value='<%= submitDelete %>'; document.forms['schedule'].submit();">
                                 </div>
                             </td>
                         </tr>

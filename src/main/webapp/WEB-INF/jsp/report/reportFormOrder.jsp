@@ -19,12 +19,14 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
     String formTableName = request.getParameter("formTableName") != null ? request.getParameter("formTableName") : tableName;
     String configTableName = request.getParameter("configTableName") != null ? request.getParameter("configTableName") : formTableName;
     String SAVE_AS = request.getParameter("save") != null ? request.getParameter("save") : "default";
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
 // get form name
     String reportName = (new RptReportItem()).getReportName(reportId);
@@ -33,7 +35,8 @@
     RptReportConfigData tableObj = new RptReportConfigData();
 
 // change order action 
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Move here")) {
+    String submitMoveHere = bundle.getString("report.reportFormOrder.button.moveHere");
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitMoveHere)) {
         String itemId = request.getParameter("nameSelected") != null ? request.getParameter("nameSelected") : "";
         String newPos = request.getParameter("position") != null ? request.getParameter("position") : "";
         tableObj.updateRecordOrder(SAVE_AS, reportId, itemId, newPos);
@@ -47,7 +50,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Report Field Order</title>
+        <title><fmt:message key="report.reportFormOrder.title"/></title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <script language="JavaScript">
 
@@ -66,7 +69,7 @@
             function checkscript() {
                 if (n != 1) {
                     // something is wrong
-                    alert('You need ONLY one selection!');
+                    alert('<fmt:message key="report.reportFormOrder.alertOneSelection"/>');
                     return false;
                 }
                 return true;
@@ -77,7 +80,7 @@
                 if (param.checked) {
                     n++;
                     if (n > 1) {
-                        alert("You can not have more than one selection.");
+                        alert("<fmt:message key='report.reportFormOrder.alertMoreThanOneSelection'/>");
                         n--;
                         param.checked = false;
                     } else {
@@ -102,10 +105,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><e:forHtmlContent value='<%= reportName %>' /> Order</td>
+            <td><e:forHtmlContent value='<%= reportName %>' /> <fmt:message key="report.reportFormOrder.heading"/></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />">Back
-                to the Configuration</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormOrder.backToConfiguration"/></a></td>
         </tr>
     </table>
 
@@ -124,7 +126,7 @@
                                 String fieldCaption = Encode.forHtml(prop.getProperty("caption", ""));
                                 String fieldId = prop.getProperty("id", "");
                                 String fieldPosition = prop.getProperty("order_no", "");
-                                String action = " Add ";
+                                String action = submitMoveHere;
                         %>
 
                         <tr class=<%=color%>>
@@ -133,7 +135,7 @@
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="Move here" onClick="onButMove(<e:forJavaScript value='<%= fieldPosition %>' />)"/></td>
+                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<e:forJavaScript value='<%= fieldPosition %>' />)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>

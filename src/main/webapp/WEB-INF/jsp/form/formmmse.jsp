@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -54,7 +55,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Mini Mental State Exam</title>
+        <title><fmt:message key="form.mmse.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="form/mmseStyle.css"/>
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css"/>
@@ -78,14 +79,14 @@
 
         function onSave() {
             document.forms[0].submit.value = "save";
-            var ret = confirm("Are you sure you want to save this form?");
+            var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
 
             return ret;
         }
 
         function onSaveExit() {
             document.forms[0].submit.value = "exit";
-            var ret = confirm("Are you sure you wish to save and close this window?");
+            var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
 
             return ret;
         }
@@ -118,13 +119,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td nowrap="true"><input type="submit" value="Save"
+                <td nowrap="true"><input type="submit" value="<fmt:message key='global.save'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="Save and Exit"
+                                                                                        value="<fmt:message key='global.saveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>
@@ -132,24 +133,23 @@
         <!-- class="TableWithBorder" -->
         <table width="100%">
             <tr>
-                <td class="title" colspan="2" align="center">MINI - MENTAL STATE
-                    EXAM
+                <td class="title" colspan="2" align="center"><fmt:message key="form.mmse.heading"/>
                 </td>
             </tr>
             <tr>
                 <td colspan="2" align="center">
                     <table width="80%">
                         <tr>
-                            <td>Name: <input type="hidden" name="pName"
+                            <td><fmt:message key="form.mmse.label.name"/>: <input type="hidden" name="pName"
                                              value="<%=props.getProperty("pName", "")%>"/> <%=props.getProperty("pName", "")%>
                             </td>
-                            <td>Age: <input type="hidden" name="age"
+                            <td><fmt:message key="form.mmse.label.age"/>: <input type="hidden" name="age"
                                             value="<%=props.getProperty("age", "")%>"/> <%=props.getProperty("age", "")%>
                             </td>
-                            <td>Sex: <input type="hidden" name="sex"
+                            <td><fmt:message key="form.mmse.label.sex"/>: <input type="hidden" name="sex"
                                             value="<%=props.getProperty("sex", "")%>"/> <%=props.getProperty("sex", "")%>
                             </td>
-                            <td>Date: <input type="hidden" size="10" name="formDate"
+                            <td><fmt:message key="form.mmse.label.date"/>: <input type="hidden" size="10" name="formDate"
                                              value="<%=props.getProperty("formDate", "")%>"/> <%=props.getProperty("formDate", "")%>
                             </td>
                         </tr>
@@ -157,8 +157,8 @@
                 </td>
             </tr>
             <tr>
-                <td align="center"><b>Diagnosis:</b></td>
-                <td align="center"><b>Medications:</b></td>
+                <td align="center"><b><fmt:message key="form.mmse.label.diagnosis"/></b></td>
+                <td align="center"><b><fmt:message key="form.mmse.label.medications"/></b></td>
             </tr>
             <tr>
                 <td align="center"><textarea name="diagnosis"
@@ -175,35 +175,35 @@
                             <td width="50%">
                                 <table border="0">
                                     <tr>
-                                        <td class="score">SCORE</td>
-                                        <td class="max">MAX</td>
-                                        <td class="title" width="100%">ORIENTATION</td>
+                                        <td class="score"><fmt:message key="form.mmse.score"/></td>
+                                        <td class="max"><fmt:message key="form.mmse.max"/></td>
+                                        <td class="title" width="100%"><fmt:message key="form.mmse.orientation"/></td>
                                     </tr>
                                     <tr>
                                         <td class="score"><input type="text" size="1" name="o_date"
                                                                  value="<%=props.getProperty("o_date", "")%>"/></td>
                                         <td class="score">5</td>
-                                        <td>Name: year, season, month, date, day<br>
+                                        <td><fmt:message key="form.mmse.label.name"/>: year, season, month, date, day<br>
                                             <i>("What is the year...?")</i></td>
                                     </tr>
                                     <tr>
                                         <td class="score"><input type="text" size="1" name="o_place"
                                                                  value="<%=props.getProperty("o_place", "")%>"/></td>
                                         <td class="score">5</td>
-                                        <td>Name: country, province, city, hospital, floor<br>
+                                        <td><fmt:message key="form.mmse.label.name"/>: country, province, city, hospital, floor<br>
                                             <i>("Where are we? What country...?")</i></td>
                                     </tr>
                                     <tr>
                                         <td class="score">&nbsp;</td>
                                         <td class="score">&nbsp;</td>
-                                        <td class="title">REGISTRATION:</td>
+                                        <td class="title"><fmt:message key="form.mmse.registration"/></td>
                                     </tr>
                                     <tr>
                                         <td class="score"><input type="text" size="1"
                                                                  name="r_objects"
                                                                  value="<%=props.getProperty("r_objects", "")%>"/></td>
                                         <td class="score">3</td>
-                                        <td>Name 3 objects (1 sec. for each).<br>
+                                        <td><fmt:message key="form.mmse.registrationInstructions"/><br>
                                             Ask patient to repeat all 3.<br>
                                             Score 1 pt. for each right answer at first try.<br>
                                             (Repeat up to 6 times until all are learned)
@@ -212,7 +212,7 @@
                                     <tr>
                                         <td class="score">&nbsp;</td>
                                         <td class="score">&nbsp;</td>
-                                        <td class="title">ATTENTION & CALCULATION:</td>
+                                        <td class="title"><fmt:message key="form.mmse.attentionCalculation"/></td>
                                     </tr>
                                     <tr>
                                         <td class="score"><input type="text" size="1"
@@ -220,7 +220,7 @@
                                                                  value="<%=props.getProperty("a_serial", "")%>"/></td>
                             </td>
                             <td class="score">5</td>
-                            <td>Serial 7's: 100 - 93 - 86 - 79 - 72 - 65<br>
+                            <td><fmt:message key="form.mmse.serial7s"/><br>
                                 Score 1 pt. for each right answer. Stop at 5.<br>
                                 OR<br>
                                 Spell "WORLD" backwards.<br>
@@ -236,20 +236,20 @@
                             <td class="score"><input type="text" size="1" name="re_name"
                                                      value="<%=props.getProperty("re_name", "")%>"/></td>
                             <td class="score">3</td>
-                            <td>Name the 3 objects learned above.<br>
+                            <td><fmt:message key="form.mmse.recallThreeObjects"/><br>
                                 Score 1 pt. for each right answer.
                             </td>
                         </tr>
                         <tr>
                             <td class="score">&nbsp;</td>
                             <td class="score">&nbsp;</td>
-                            <td class="title">LANGUAGE TESTS:</td>
+                            <td class="title"><fmt:message key="form.mmse.languageTests"/></td>
                         </tr>
                         <tr>
                             <td class="score"><input type="text" size="1" name="l_name"
                                                      value="<%=props.getProperty("l_name", "")%>"/></td>
                             <td class="score">2</td>
-                            <td>Name: PENCIL, WATCH</td>
+                            <td><fmt:message key="form.mmse.label.name"/>: PENCIL, WATCH</td>
                         </tr>
                         <tr>
                             <td class="score"><input type="text" size="1"
@@ -263,7 +263,7 @@
                                                      name="l_follow" value="<%=props.getProperty("l_follow", "")%>"/>
                             </td>
                             <td class="score">3</td>
-                            <td>Follow a 3 stage command:<br>
+                            <td><fmt:message key="form.mmse.threeStageCommand"/><br>
                                 <i>"Take the paper in your right hand;<br>
                                     fold it in half; and put it on the floor.</i></td>
                         </tr>
@@ -271,19 +271,19 @@
                             <td class="score"><input type="text" size="1" name="l_read"
                                                      value="<%=props.getProperty("l_read", "")%>"/></td>
                             <td class="score">1</td>
-                            <td>Read & obey: <i>"CLOSE YOUR EYES"</i></td>
+                            <td><fmt:message key="form.mmse.closeYourEyes"/></td>
                         </tr>
                         <tr>
                             <td class="score"><input type="text" size="1" name="l_write"
                                                      value="<%=props.getProperty("l_write", "")%>"/></td>
                             <td class="score">1</td>
-                            <td>Write a sentence.</td>
+                            <td><fmt:message key="form.mmse.writeSentence"/></td>
                         </tr>
                         <tr>
                             <td class="score"><input type="text" size="1" name="l_copy"
                                                      value="<%=props.getProperty("l_copy", "")%>"/></td>
                             <td class="score">1</td>
-                            <td>Copy the design.</td>
+                            <td><fmt:message key="form.mmse.copyDesign"/></td>
                         </tr>
                         <tr>
                             <td class="score"><input type="text" size="1" name="total"
@@ -294,7 +294,7 @@
                         <tr>
                             <td class="score">&nbsp;</td>
                             <td class="score">&nbsp;</td>
-                            <td class="title">LEVEL OF CONSCIOUSNESS:<br>
+                            <td class="title"><fmt:message key="form.mmse.levelOfConsciousness"/><br>
                                 <table width="100%">
                                     <tr>
                                         <td width="25%">Alert</td>
@@ -316,7 +316,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="score" colspan="2"><u><i>Interpretation:</i></u>
+                            <td class="score" colspan="2"><u><i><fmt:message key="form.mmse.interpretation"/></i></u>
                             </td>
                             <td>
                                 <table>
@@ -330,7 +330,7 @@
                                         <td><input type="checkbox" name="i_depression"
                                                 <%=props.getProperty("i_depression", "")%> /></td>
                                         <td>15 - 23</td>
-                                        <td>Depression/cognitive loss</td>
+                                        <td><fmt:message key="form.mmse.depressionCognitiveLoss"/></td>
                                     </tr>
                                     <td><input type="checkbox" name="i_normal"
                                             <%=props.getProperty("i_normal", "")%> /></td>
@@ -357,7 +357,7 @@
                             etc?"</i></td>
                 </tr>
                 <tr>
-                    <td><a>Registration:</a><br>
+                    <td><a><fmt:message key="form.mmse.registration"/></a><br>
                         Ask the patient if you may test his/her memory. The first
                         repetition determines the score. Repeat up to 6 times until all
                         are learned. If after 6 trials they aren't learned, recall cannot
@@ -365,7 +365,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td><a>Attention & Calculation:</a><br>
+                    <td><a><fmt:message key="form.mmse.attentionCalculation"/></a><br>
                         Begin with 100 and count backwards by 7. Stop after 5
                         subtractions. Or spell "WORLD" backwards. Score is the number of
                         letters in correct order.
@@ -426,13 +426,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td nowrap="true"><input type="submit" value="Save"
+                <td nowrap="true"><input type="submit" value="<fmt:message key='global.save'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="Save and Exit"
+                                                                                        value="<fmt:message key='global.saveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>

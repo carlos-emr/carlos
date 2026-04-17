@@ -112,8 +112,7 @@
             <td class="MainTableRightColumn">
                 <%if (oscarProps.getProperty("new_label_print") == null || oscarProps.getProperty("new_label_print").equals("false")) { %>
 
-                <div class="alert-box warning"><span>Warning: </span>This feature is currently disabled and requires the
-                    property "new_label_print" to be enabled. Please contact your support to enable this property.
+                <div class="alert-box warning"><span><fmt:message key="global.warning"/> </span><fmt:message key="provider.setDefaultPrinter.warningText"/>
                 </div>
 
                 <%}%>

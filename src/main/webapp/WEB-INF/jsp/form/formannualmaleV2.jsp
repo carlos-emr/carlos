@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -55,7 +57,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Annual Health Review</title>
+        <title><fmt:message key='encounter.formAnnual.title'/></title>
         <link rel="stylesheet" type="text/css" href="annualStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -74,7 +76,7 @@
         function popupOscarCon(vheight, vwidth, varpage) {
             var page = varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes, screenX=0,screenY=0,top=0,left=0";
-            var popup = window.open(varpage, "<fmt:message key="encounter.Index.msgOscarConsultation"/>", windowprops);
+            var popup = window.open(varpage, "<fmt:message key='encounter.Index.msgOscarConsultation'/>", windowprops);
             popup.focus();
         }
 
@@ -82,7 +84,7 @@
             document.forms[0].submit.value = "save";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='encounter.formMaleAnnual.msgWannaSave'/>");
             }
             return ret;
         }
@@ -91,7 +93,7 @@
             document.forms[0].submit.value = "exit";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='encounter.formMaleAnnual.msgSaveExit'/>");
             }
             return ret;
         }
@@ -183,7 +185,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -207,7 +209,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert("<fmt:message key='encounter.formAnnual.msgInvalidDatePrefix'/>" + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -269,21 +271,20 @@
     <table class="Head">
         <!--class="hidePrint"-->
         <tr>
-            <td align="left"><input type="submit" value="Save"
+            <td align="left"><input type="submit" value="<fmt:message key='encounter.formMaleAnnual.btnSave'/>"
                                     onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                   value="Save and Exit"
+                                                                                   value="<fmt:message key='encounter.formMaleAnnual.btnSaveExit'/>"
                                                                                    onclick="javascript:return onSaveExit();"/>
                 <input
-                        type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                <input type="button" value="Print"
+                        type="submit" value="<fmt:message key="encounter.formMaleAnnual.btnExit"/>" onclick="javascript:return onExit();"/>
+                <input type="button" value="<fmt:message key='encounter.formMaleAnnual.btnPrint'/>"
                        onclick="javascript:return onPrint();"/> <input type="button"
                                                                        value="Consult"
                                                                        onclick="javascript:popupOscarCon(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=<%=demoNo%>');"/>
 
             </td>
             <td align='right'><a
-                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
-                Review Planner</a></td>
+                    href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key='encounter.formMaleAnnual.btnAnnualReview'/></a></td>
         </tr>
     </table>
 
@@ -292,14 +293,14 @@
             <td>
                 <table cellspacing="3" cellpadding="0" width="100%">
                     <tr>
-                        <td><big><i><b>ANNUAL MALE HEALTH REVIEW</b></i></big></td>
-                        <td><b>Name:</b> <input type="text" class="Input" name="pName"
+                        <td><big><i><b><fmt:message key='encounter.formMaleAnnual.msgAnnualMaleReview'/></b></i></big></td>
+                        <td><b><fmt:message key='encounter.formMaleAnnual.formName'/>:</b> <input type="text" class="Input" name="pName"
                                                 readonly="true" size="30"
                                                 value="<%= props.getProperty("pName", "") %>"/></td>
-                        <td><b>Age:</b> <input type="text" class="Input"
+                        <td><b><fmt:message key='encounter.formMaleAnnual.formAge'/>:</b> <input type="text" class="Input"
                                                readonly="true" name="age" size="11"
                                                value="<%= props.getProperty("age", "") %>"/></td>
-                        <td><b>Date</b><small>(yyyy/mm/dd)</small>: <input type="text"
+                        <td><b><fmt:message key='encounter.formMaleAnnual.formDate'/></b><small><fmt:message key='encounter.formAnnual.formDateFormat'/></small>: <input type="text"
                                                                            class="Input" name="formDate" size="11"
                                                                            value="<%=props.getProperty("formDate", "") %>"/>
                         </td>
@@ -310,32 +311,32 @@
                         <td align="center" valign=top>
                             <table width="100%">
                                 <tr>
-                                    <td class="HeadingsReqOhip">PMHX/PSHX:*</td>
-                                    <td class="HeadingNotOhip">Updated<input type="checkbox"
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgPMHXPSHX'/></td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.updated'/><input type="checkbox"
                                                                              name="pmhxPshxUpdated"
                                             <%=props.getProperty("pmhxPshxUpdated", "") %> /></td>
                                 </tr>
                                 <tr>
-                                    <td class="HeadingsReqOhip">FamHx:*</td>
-                                    <td class="HeadingNotOhip">Updated<input type="checkbox"
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgFamHx'/></td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.updated'/><input type="checkbox"
                                                                              name="famHxUpdated" <%=props.getProperty("famHxUpdated", "") %> />
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="HeadingsReqOhip">SocHx:*</td>
-                                    <td class="HeadingNotOhip">Updated<input type="checkbox"
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgSocHx'/></td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.updated'/><input type="checkbox"
                                                                              name="socHxUpdated" <%=props.getProperty("socHxUpdated", "") %> />
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="HeadingNotOhip">Allergies:</td>
-                                    <td class="HeadingNotOhip">Updated<input type="checkbox"
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.formAllergies'/></td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.updated'/><input type="checkbox"
                                                                              name="allergiesUpdated"
                                             <%=props.getProperty("allergiesUpdated", "") %> /></td>
                                 </tr>
                                 <tr>
-                                    <td class="HeadingNotOhip">Medications:</td>
-                                    <td class="HeadingNotOhip">Updated<input type="checkbox"
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.formMedications'/></td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formFemaleAnnual.updated'/><input type="checkbox"
                                                                              name="medicationsUpdated"
                                             <%=props.getProperty("medicationsUpdated", "") %> /></td>
                                 </tr>
@@ -345,22 +346,22 @@
                         <td align="center">
                             <table cellspacing=0>
                                 <tr>
-                                    <td class="HeadingsReqOhip">Wt:*</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.formWeight'/>:*</td>
                                     <td><input type="text" name="weight"
                                                value="<%=props.getProperty("weight", "") %>"/></td>
                                 <tr>
                                 <tr>
-                                    <td class="HeadingsReqOhip">Ht:*</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.formHeight'/>:*</td>
                                     <td><input type="text" name="height"
                                                value="<%=props.getProperty("height", "") %>"/></td>
                                 <tr>
                                 <tr>
-                                    <td class="HeadingNotOhip">Waist (100cm):</td>
+                                    <td class="HeadingNotOhip"><fmt:message key='encounter.formAnnual.msgWaist100cm'/></td>
                                     <td><input type="text" name="waist"
                                                value="<%=props.getProperty("waist", "") %>"/></td>
                                 <tr>
                                 <tr>
-                                    <td class="HeadingsReqOhip">BP:*</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.formBP'/>:*</td>
                                     <td><input type="text" name="BP"
                                                value="<%=props.getProperty("BP", "") %>"/></td>
                                 <tr>
@@ -381,13 +382,13 @@
                                 </tr>
                                 <tr>
                                     <td>&nbsp;</td>
-                                    <td class="Headings">No</td>
-                                    <td class="Headings">Yes</td>
+                                    <td class="Headings"><fmt:message key='encounter.formMaleAnnual.btnNo'/></td>
+                                    <td class="Headings"><fmt:message key='encounter.formMaleAnnual.btnYes'/></td>
                                     <td>&nbsp;</td>
                                 </tr>
                                 <tr>
 
-                                    <td class="listItemReqOhip">Smoking:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formFemaleAnnual.formSmoking'/>:*</td>
                                     <td><input type="checkbox" name="smokingNo"
                                             <%= props.getProperty("smokingNo", "") %> /></td>
                                     <td><input type="checkbox" name="smokingYes"
@@ -397,7 +398,7 @@
                                                              value="<%= props.getProperty("smoking", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">ETOH:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formFemaleAnnual.formAlcohol'/>:*</td>
                                     <td><input type="checkbox" name="etohNo"
                                             <%= props.getProperty("etohNo", "") %> /></td>
                                     <td><input type="checkbox" name="etohYes"
@@ -407,7 +408,7 @@
                                                              value="<%= props.getProperty("etoh", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItem">Caffeine:</td>
+                                    <td class="listItem"><fmt:message key='encounter.formAnnual.msgCaffeine'/></td>
                                     <td><input type="checkbox" name="caffineNo"
                                             <%= props.getProperty("caffineNo", "") %> /></td>
                                     <td><input type="checkbox" name="caffineYes"
@@ -418,7 +419,7 @@
                                 </tr>
 
                                 <tr>
-                                    <td class="listItemReqOhip">OTC/Illicit Drugs:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formFemaleAnnual.formIllicitDrugs'/>:*</td>
                                     <td><input type="checkbox" name="otcNo"
                                             <%= props.getProperty("otcNo", "") %> /></td>
                                     <td><input type="checkbox" name="otcYes"
@@ -428,7 +429,7 @@
                                                              value="<%= props.getProperty("otc", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItem">Exercise/Sports:</td>
+                                    <td class="listItem"><fmt:message key='encounter.formFemaleAnnual.formExercise'/></td>
                                     <td><input type="checkbox" name="exerciseNo"
                                             <%= props.getProperty("exerciseNo", "") %> /></td>
                                     <td><input type="checkbox" name="exerciseYes"
@@ -438,7 +439,7 @@
                                                              value="<%= props.getProperty("exercise", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">Nutrition:</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formFemaleAnnual.formNutrition'/></td>
                                     <td><input type="checkbox" name="nutritionNo"
                                             <%= props.getProperty("nutritionNo", "") %> /></td>
                                     <td><input type="checkbox" name="nutritionYes"
@@ -448,7 +449,7 @@
                                                              value="<%= props.getProperty("nutrition", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItem">Dental Hygiene:</td>
+                                    <td class="listItem"><fmt:message key='encounter.formFemaleAnnual.formDentalHygiene'/></td>
                                     <td><input type="checkbox" name="dentalNo"
                                             <%= props.getProperty("dentalNo", "") %> /></td>
                                     <td><input type="checkbox" name="dentalYes"
@@ -458,7 +459,7 @@
                                                              value="<%= props.getProperty("dental", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td nowrap="true" class="listItem">Occupational Risks:</td>
+                                    <td nowrap="true" class="listItem"><fmt:message key='encounter.formFemaleAnnual.formOccupationalRisks'/></td>
                                     <td><input type="checkbox" name="occupationalNo"
                                             <%= props.getProperty("occupationalNo", "") %> /></td>
                                     <td><input type="checkbox" name="occupationalYes"
@@ -511,7 +512,7 @@
                                 <tr>
                                     <td align="left" nowrap="true"
                                         title="(sleep, energy, wt. loss, appetite, etc.)"
-                                        class="listItemReqOhip">General*:
+                                        class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgGeneral'/>
                                     </td>
                                     <td><input type="checkbox" name="generalN"
                                             <%= props.getProperty("generalN", "") %> /></td>
@@ -523,7 +524,7 @@
                                 </tr>
 
                                 <tr>
-                                    <td align="left" nowrap="true" class="listItemReqOhip">H/N:*</td>
+                                    <td align="left" nowrap="true" class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgHn'/></td>
                                     <td><input type="checkbox" name="headN"
                                             <%= props.getProperty("headN", "") %> /></td>
                                     <td><input type="checkbox" name="headAbN"
@@ -533,7 +534,7 @@
                                                              value="<%= props.getProperty("head", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">Chest:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgChest'/></td>
                                     <td><input type="checkbox" name="chestN"
                                             <%= props.getProperty("chestN", "") %> /></td>
                                     <td><input type="checkbox" name="chestAbN"
@@ -543,7 +544,7 @@
                                                              value="<%= props.getProperty("chest", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">CVS:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgCvs'/></td>
                                     <td><input type="checkbox" name="cvsN"
                                             <%= props.getProperty("cvsN", "") %> /></td>
                                     <td><input type="checkbox" name="cvsAbN"
@@ -553,7 +554,7 @@
                                                              value="<%= props.getProperty("cvs", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">G.I.:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgGi'/></td>
                                     <td><input type="checkbox" name="giN"
                                             <%= props.getProperty("giN", "") %> /></td>
                                     <td><input type="checkbox" name="giAbN"
@@ -563,7 +564,7 @@
                                                              value="<%= props.getProperty("gi", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">G.U.:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgGu'/></td>
                                     <td><input type="checkbox" name="guN"
                                             <%= props.getProperty("guN", "") %> /></td>
                                     <td><input type="checkbox" name="guAbN"
@@ -573,7 +574,7 @@
                                                              value="<%= props.getProperty("gu", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">CNS:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgCns'/></td>
                                     <td><input type="checkbox" name="cnsN"
                                             <%= props.getProperty("cnsN", "") %> /></td>
                                     <td><input type="checkbox" name="cnsAbN"
@@ -583,7 +584,7 @@
                                                              value="<%= props.getProperty("cns", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">MSK:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgMsk'/></td>
                                     <td><input type="checkbox" name="mskN"
                                             <%= props.getProperty("mskN", "") %> /></td>
                                     <td><input type="checkbox" name="mskAbN"
@@ -593,7 +594,7 @@
                                                              value="<%= props.getProperty("msk", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">Skin:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgSkin'/></td>
                                     <td><input type="checkbox" name="skinN"
                                             <%= props.getProperty("skinN", "") %> /></td>
                                     <td><input type="checkbox" name="skinAbN"
@@ -603,7 +604,7 @@
                                                              value="<%= props.getProperty("skin", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td class="listItemReqOhip">Mood:*</td>
+                                    <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgMood'/></td>
                                     <td><input type="checkbox" name="moodN"
                                             <%= props.getProperty("moodN", "") %> /></td>
                                     <td><input type="checkbox" name="moodAbN"
@@ -613,7 +614,7 @@
                                                              value="<%= props.getProperty("mood", "") %>"/></td>
                                 </tr>
                                 <tr>
-                                    <td valign="top" class="listItem">Other:</td>
+                                    <td valign="top" class="listItem"><fmt:message key='encounter.formAnnual.msgOther'/></td>
                                     <td valign="top"><input type="checkbox" name="otherN"
                                             <%= props.getProperty("otherN", "") %> /></td>
                                     <td valign="top"><input type="checkbox" name="otherAbN"
@@ -639,13 +640,13 @@
                                                 <td>
                                                     <table>
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">H/N:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgHn'/></td>
                                                             <td class="Headings">N</td>
                                                             <td class="Headings">AbN</td>
                                                             <td>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Eyes:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgEyes'/></td>
                                                             <td><input type="checkbox" name="eyesN"
                                                                     <%= props.getProperty("eyesN", "")   %> /></td>
                                                             <td><input type="checkbox" name="eyesAbN"
@@ -655,7 +656,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Ears:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgEars'/></td>
                                                             <td><input type="checkbox" name="earsN"
                                                                     <%= props.getProperty("earsN", "") %> /></td>
                                                             <td><input type="checkbox" name="earsAbN"
@@ -665,7 +666,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Oropharynx:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgOropharynx'/></td>
                                                             <td><input type="checkbox" name="oropharynxN"
                                                                     <%= props.getProperty("oropharynxN", "") %> /></td>
                                                             <td><input type="checkbox" name="oropharynxAbN"
@@ -676,7 +677,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Thyroid:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgThyroid'/></td>
                                                             <td><input type="checkbox" name="thyroidN"
                                                                     <%= props.getProperty("thyroidN", "") %> /></td>
                                                             <td><input type="checkbox" name="thyroidAbN"
@@ -686,7 +687,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">L. nodes:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgLNodes'/></td>
                                                             <td><input type="checkbox" name="lnodesN"
                                                                     <%= props.getProperty("lnodesN", "") %> /></td>
                                                             <td><input type="checkbox" name="lnodesAbN"
@@ -705,7 +706,7 @@
                                                             <td>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Clear:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgClear'/></td>
                                                             <td><input type="checkbox" name="clearN"
                                                                     <%= props.getProperty("clearN", "") %> /></td>
                                                             <td><input type="checkbox" name="clearAbN"
@@ -725,7 +726,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Wheezes:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgWheezes'/></td>
                                                             <td><input type="checkbox" name="wheezesN"
                                                                     <%= props.getProperty("wheezesN", "") %> /></td>
                                                             <td><input type="checkbox" name="wheezesAbN"
@@ -735,7 +736,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Crackles:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgCrackles'/></td>
                                                             <td><input type="checkbox" name="cracklesN"
                                                                     <%= props.getProperty("cracklesN", "") %> /></td>
                                                             <td><input type="checkbox" name="cracklesAbN"
@@ -745,7 +746,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Other:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgOther'/></td>
                                                             <td colspan=2>&nbsp;</td>
                                                             <td><input type="text" class="OnExam" name="chestOther"
                                                                        value="<%= props.getProperty("chestOther", "") %>"/>
@@ -756,7 +757,7 @@
                                                             <td colspan=4>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">CVS:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgCvs'/></td>
                                                             <td class="Headings">N</td>
                                                             <td class="Headings">AbN</td>
                                                             <td>&nbsp;</td>
@@ -772,7 +773,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Murmur:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgMurmur'/></td>
                                                             <td><input type="checkbox" name="murmurN"
                                                                     <%= props.getProperty("murmurN", "") %> /></td>
                                                             <td><input type="checkbox" name="murmurAbN"
@@ -782,7 +783,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Periph pulse:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgPeriphPulse'/></td>
                                                             <td><input type="checkbox" name="periphPulseN"
                                                                     <%= props.getProperty("periphPulseN", "") %> /></td>
                                                             <td><input type="checkbox" name="periphPulseAbN"
@@ -794,7 +795,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Edema:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgEdema'/></td>
                                                             <td><input type="checkbox" name="edemaN"
                                                                     <%= props.getProperty("edemaN", "") %> /></td>
                                                             <td><input type="checkbox"
@@ -806,7 +807,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">JVP:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgJvp'/></td>
                                                             <td><input type="checkbox" name="jvpN"
                                                                     <%= props.getProperty("jvpN", "") %> /></td>
                                                             <td><input type="checkbox"
@@ -818,7 +819,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItemReqOhip">HR/rhythm:*</td>
+                                                            <td class="listItemReqOhip"><fmt:message key='encounter.formAnnual.msgHrRhythm'/></td>
                                                             <td><input type="checkbox" name="rhythmN"
                                                                     <%= props.getProperty("rhythmN", "") %> /></td>
                                                             <td><input type="checkbox" name="rhythmAbN"
@@ -828,7 +829,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItemReqOhip">BP:*</td>
+                                                            <td class="listItemReqOhip"><fmt:message key='encounter.formFemaleAnnual.formBP'/>:*</td>
                                                             <td><input type="checkbox" name="chestbpN"
                                                                     <%= props.getProperty("chestbpN", "") %> /></td>
                                                             <td><input type="checkbox" name="chestbpAbN"
@@ -838,7 +839,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Other:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgOther'/></td>
                                                             <td colspan=2>&nbsp;</td>
                                                             <td><input type="text" class="OnExam" name="cvsOther"
                                                                        value="<%= props.getProperty("cvsOther", "") %>"/>
@@ -865,13 +866,13 @@
                                                 <td>
                                                     <table>
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">BREASTS:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgBreasts'/></td>
                                                             <td class="Headings">N</td>
                                                             <td class="Headings">AbN</td>
                                                             <td>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Left:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgLeft'/></td>
                                                             <td><input type="checkbox" name="breastLeftN"
                                                                     <%= props.getProperty("breastLeftN", "") %> /></td>
                                                             <td><input type="checkbox" name="breastLeftAbN"
@@ -882,7 +883,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Right:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgRight'/></td>
                                                             <td><input type="checkbox" name="breastRightN"
                                                                     <%= props.getProperty("breastRightN", "") %> /></td>
                                                             <td><input type="checkbox" name="breastRightAbN"
@@ -897,13 +898,13 @@
                                                         </tr>
 
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">ABD:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgAbd'/></td>
                                                             <td class="Headings">N</td>
                                                             <td class="Headings">AbN</td>
                                                             <td>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Soft:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgSoft'/></td>
                                                             <td><input type="checkbox" name="softN"
                                                                     <%= props.getProperty("softN", "") %> /></td>
                                                             <td><input type="checkbox" name="softAbN"
@@ -913,7 +914,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Tender:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgTender'/></td>
                                                             <td><input type="checkbox" name="tenderN"
                                                                     <%= props.getProperty("tenderN", "") %> /></td>
                                                             <td><input type="checkbox" name="tenderAbN"
@@ -923,7 +924,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">b.s.:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgBs'/></td>
                                                             <td><input type="checkbox" name="bsN"
                                                                     <%= props.getProperty("bsN", "") %> /></td>
                                                             <td><input type="checkbox" name="bsAbN"
@@ -932,7 +933,7 @@
                                                                        value="<%= props.getProperty("bs", "") %>"/></td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Hepatomeg:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgHepatomeg'/></td>
                                                             <td><input type="checkbox" name="hepatomegN"
                                                                     <%= props.getProperty("hepatomegN", "") %> /></td>
                                                             <td><input type="checkbox" name="hepatomegAbN"
@@ -942,7 +943,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Splenomeg:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgSplenomeg'/></td>
                                                             <td><input type="checkbox" name="splenomegN"
                                                                     <%= props.getProperty("splenomegN", "") %> /></td>
                                                             <td><input type="checkbox" name="splenomegAbN"
@@ -952,7 +953,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Masses:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgMasses'/></td>
                                                             <td><input type="checkbox" name="massesN"
                                                                     <%= props.getProperty("massesN", "") %> /></td>
                                                             <td><input type="checkbox" name="massesAbN"
@@ -962,7 +963,7 @@
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="listItem">Rectal:</td>
+                                                            <td class="listItem"><fmt:message key='encounter.formAnnual.msgRectal'/></td>
                                                             <td><input type="checkbox" name="rectalN"
                                                                     <%= props.getProperty("rectalN", "") %> /></td>
                                                             <td><input type="checkbox" name="rectalAbN"
@@ -982,7 +983,7 @@
                                                             <td>&nbsp;</td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">GENITALIA:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgGenitalia'/></td>
                                                             <td><input type="checkbox" name="examGenitaliaN"
                                                                     <%= props.getProperty("examGenitaliaN", "") %> />
                                                             </td>
@@ -999,7 +1000,7 @@
                                                         </tr>
 
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">MSK:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgMsk'/></td>
                                                             <td><input type="checkbox" name="exammskN"
                                                                     <%= props.getProperty("exammskN", "") %> /></td>
                                                             <td><input type="checkbox" name="exammskAbN"
@@ -1013,7 +1014,7 @@
                                                         </tr>
 
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">Skin:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgSkin'/></td>
                                                             <td><input type="checkbox" name="examskinN"
                                                                     <%= props.getProperty("examskinN", "") %> /></td>
                                                             <td><input type="checkbox" name="examskinAbN"
@@ -1027,7 +1028,7 @@
                                                         </tr>
 
                                                         <tr>
-                                                            <td class="HeadingsReqOhip">CNS:*</td>
+                                                            <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgCns'/></td>
                                                             <td><input type="checkbox" name="examcnsN"
                                                                     <%= props.getProperty("examcnsN", "") %> /></td>
                                                             <td><input type="checkbox" name="examcnsAbN"
@@ -1054,7 +1055,7 @@
                         <td>
                             <table width="100%">
                                 <tr>
-                                    <td><b>IMPRESSION & PLAN</b></td>
+                                    <td><b><fmt:message key='encounter.formAnnual.msgImpressionPlan'/></b></td>
                                 </tr>
                                 <tr>
                                     <td align="center"><textarea name="impressionPlan"
@@ -1076,7 +1077,7 @@
                                     <td colspan=3>
                                         <table cellspacing="0" cellpadding="0" width="100%" border=0>
                                             <tr>
-                                                <td class="HeadingsReqOhip" width="200">1. Sexual Health:</td>
+                                                <td class="HeadingsReqOhip" width="200"><fmt:message key='encounter.formFemaleAnnual.sectionSexualHealth'/></td>
                                                 <td class="HeadingsReqOhip">&nbsp;</td>
                                                 <td class="HeadingsReqOhip">&nbsp;</td>
                                                 <td class="HeadingsReqOhip">&nbsp;</td>
@@ -1089,16 +1090,16 @@
 
                                 </tr>
                                 <tr>
-                                    <td colspan=3 class="listItem">Previous Hx Sti's:</td>
+                                    <td colspan=3 class="listItem"><fmt:message key='encounter.formAnnual.msgPreviousHxStis'/></td>
                                 </tr>
                                 <tr>
-                                    <td colspan=3 class="listItem">Contraception:</td>
+                                    <td colspan=3 class="listItem"><fmt:message key='encounter.formAnnual.msgContraception'/></td>
                                 </tr>
                                 <tr>
-                                    <td colspan=3 class="listItem">Sexual Dysfunction:</td>
+                                    <td colspan=3 class="listItem"><fmt:message key='encounter.formAnnual.msgSexualDysfunction'/></td>
                                 </tr>
                                 <tr>
-                                    <td colspan=3 class="listItem">Safe Sex:</td>
+                                    <td colspan=3 class="listItem"><fmt:message key='encounter.formAnnual.msgSafeSex'/></td>
                                 </tr>
                             </table>
                         </td>
@@ -1110,9 +1111,9 @@
                         <td class="bottomBorder" valign="top">
                             <table cellspacing=0 cellpadding=0 width="100%">
                                 <tr>
-                                    <td class="HeadingsReqOhip">2. Obesity:</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formAnnual.msgObesity'/></td>
                                     <td class="listItem">BMI(>27)</td>
-                                    <td align=right class="listItem">Level B</td>
+                                    <td align=right class="listItem"><fmt:message key='encounter.formAnnual.msgLevelB'/></td>
                                 </tr>
                             </table>
                         </td>
@@ -1124,7 +1125,7 @@
                         <td class="bottomBorder">
                             <table width="100%" cellspacing=0 cellpadding=0>
                                 <tr>
-                                    <td valign=top class="HeadingsReqOhip">3.Cholesterol:</td>
+                                    <td valign=top class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.cholesterol'/></td>
                                     <td>
                                         <table>
                                             <tr>
@@ -1169,7 +1170,7 @@
                         <td class="bottomBorder">
                             <table width="100%" cellspacing=0 cellpadding=0>
                                 <tr>
-                                    <td class="HeadingsReqOhip">4. Osteoporosis:</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.osteoporosis'/></td>
                                     <td class="listItem">BMD age > 65 yes or 1 major or 2 minor
                                         RF's
                                     </td>
@@ -1268,9 +1269,9 @@
 			<td class="bottomBorder">
 				<table width=100%>
 				<tr>
-					<td rowspan=3 valign=top class="HeadingsReqOhip">5. PAPs:</td>
+					<td rowspan=3 valign=top class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.paps'/></td>
 					<td class="listItem"> annual after becoming sexually active</td>
-					<td align=right class="listItem">Level B</td>
+					<td align=right class="listItem"><fmt:message key='encounter.formAnnual.msgLevelB'/></td>
 				</tr>
 				<tr>
 					<td colspan=2 class="listItem">if N X3 then q2 yr (B)</td>
@@ -1286,7 +1287,7 @@
 			<td class="bottomBorder" valign=top width="100%">
 				<table width="100%" valign="top">
 				   <tr>
-				      <td class="HeadingsReqOhip">6.Mammogram:</td>
+				      <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.mammogram'/></td>
 				      <td class="listItem">age 50 - 69 yrs: q2 yrs</td>
 				      <td align=right class="listItem">Level A</td>
 				   </tr>
@@ -1299,7 +1300,7 @@
                         <td class="bottomBorder">
                             <table>
                                 <tr>
-                                    <td class="HeadingsReqOhip">5. Colorectal CA:</td>
+                                    <td class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.colorectalCa'/></td>
                                 </tr>
                                 <tr>
                                     <td valign=top>
@@ -1425,7 +1426,7 @@
                         <td class="bottomBorder">
                             <table>
                                 <tr>
-                                    <td width=200 class="HeadingsReqOhip">8.Immunization</td>
+                                    <td width=200 class="HeadingsReqOhip"><fmt:message key='encounter.formFemaleAnnual.immunization'/></td>
                                     <td class="listItem">Td<input type="checkbox"
                                                                   name="immunizationtd"
                                             <%= props.getProperty("immunizationtd", "") %> /></td>
@@ -1451,7 +1452,7 @@
                 <br>
                 <table class="FixedTableWithBorder">
                     <tr>
-                        <td colspan="2" align="right">Signature: <input type="text"
+                        <td colspan="2" align="right"><fmt:message key='encounter.formFemaleAnnual.signature'/> <input type="text"
                                                                         name="signature" size="30"
                                                                         value="<%= props.getProperty("signature", "") %>"/>
                         </td>
@@ -1460,18 +1461,17 @@
 
                 <table class="Head" class="hidePrint">
                     <tr>
-                        <td align="left"><input type="submit" value="Save"
+                        <td align="left"><input type="submit" value="<fmt:message key='encounter.formMaleAnnual.btnSave'/>"
                                                 onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                               value="Save and Exit"
+                                                                                               value="<fmt:message key='encounter.formMaleAnnual.btnSaveExit'/>"
                                                                                                onclick="javascript:return onSaveExit();"/>
-                            <input type="submit" value="Exit"
+                            <input type="submit" value="<fmt:message key='encounter.formMaleAnnual.btnExit'/>"
                                    onclick="javascript:return onExit();"/> <input type="button"
-                                                                                  value="Print"
+                                                                                  value="<fmt:message key='encounter.formMaleAnnual.btnPrint'/>"
                                                                                   onclick="javascript:return onPrint();"/>
                         </td>
                         <td align='right'><a
-                                href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">Annual
-                            Review Planner</a></td>
+                                href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key='encounter.formMaleAnnual.btnAnnualReview'/></a></td>
                     </tr>
                 </table>
 

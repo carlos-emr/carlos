@@ -77,7 +77,7 @@
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
     <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     <head>
         <title>Letterhead</title>
@@ -231,7 +231,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Birthdate:</TD>
+                                <TD align="left"><fmt:message key="form.consultant.birthdate"/></TD>
                                 <TD align="left">
                                     <INPUT NAME="p_birthdate"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
@@ -240,7 +240,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Health Card No:</TD>
+                                <TD align="left"><fmt:message key="form.consultant.healthCardNo"/></TD>
                                 <TD align="left">
                                     <INPUT NAME="p_healthcard"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
@@ -268,10 +268,10 @@
     </textarea>
             </div>
             <div id="buttons">
-                <input id="savebut" type="submit" value="Save" onclick="javascript: return onSave();"/>
-                <input id="saveexitbut" type="submit" value="Save and Exit" onclick="javascript: return onSaveExit();"/>
-                <input id="exitbut" type="submit" value="Exit" onclick="javascript: return onExit();"/>
-                <input id="printbut" type="submit" value="Print" onclick="javascript: return onPrint();"/>
+                <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
+                <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
+                <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
+                <input id="printbut" type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
             </div>
         </body>
         <style type="text/css">
@@ -319,6 +319,7 @@
 
         <script type="text/javascript">
             function onPrint() {
+                let ret;
                 document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
@@ -342,7 +343,8 @@
                 setStyle('textareaDiv', 'position', 'relative');
                 window.print();
 
-                if (ret = confirm("Do you wish to make changes?")) {
+                const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
+                if (ret) {
                     setStyle('textareaDiv', 'position', 'absolute');
                     setStyle('textDiv', 'position', 'absolute');
                     setVisibility('textDiv', 'hidden');
@@ -358,12 +360,12 @@
 
             function onSave() {
                 document.forms[0].submit.value = "save";
-                ret = confirm("Are you sure you want to save this form?");
+                const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onExit() {
-                if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+                if (confirm("<fmt:message key='global.msgNotSave'/>") == true) {
                     window.close();
                 }
                 return (false);
@@ -371,7 +373,7 @@
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
-                ret = confirm("Are you sure you wish to save and close this window?");
+                const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
 

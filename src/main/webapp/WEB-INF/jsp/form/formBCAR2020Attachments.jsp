@@ -29,6 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String user = (String) session.getAttribute("user");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -78,12 +81,12 @@
 <html>
     <head>
 
-        <title>BC Antenatal Record 2020 Attachments/Additional Info</title>
+        <title><fmt:message key="form.BCAR2020Attachments.title"/></title>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
@@ -133,22 +136,22 @@
             $(function () {
 
                 //dirty form enable/disable save button.
-                $("form").find('input[value="Save"]').attr('disabled', true);
-                $("form").find('input[value="Save and Exit"]').attr('disabled', true);
-                $("form").find('input[value="Exit"]').removeAttr('disabled');
+                $("form").find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
 
                 $('form').on('dirty.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').removeAttr('disabled');
-                    $(this).find('input[value="Save and Exit"]').removeAttr('disabled');
-                    $(this).find('input[value="Exit"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').attr('disabled', true);
                 });
 
                 $('form').on('clean.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').attr('disabled', true);
-                    $(this).find('input[value="Save and Exit"]').attr('disabled', true);
-                    $(this).find('input[value="Exit"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
                 });
 
             });
@@ -297,32 +300,32 @@
                 <table class="sectionHeader hidePrint">
                     <tr>
                         <td align="left" rowspan="2" width="58%" style="padding:10px !important;">
-                            <input type="submit" class="btn btn-primary" value="Save" onclick="return onSave();"/>
-                            <input type="submit" class="btn btn-secondary" value="Save and Exit"
+                            <input type="submit" class="btn btn-primary" value="<fmt:message key="global.save"/>" onclick="return onSave();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key='global.saveExit'/>"
                                    onclick="return onSaveExit();"/>
 
-                            <input type="submit" class="btn btn-danger" value="Exit" onclick="window.close();"/>
-                            <input type="submit" class="btn btn-secondary" value="Print" onclick="return onPrint();"/>
+                            <input type="submit" class="btn btn-danger" value="<fmt:message key="global.btnExit"/>" onclick="window.close();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnPrint"/>" onclick="return onPrint();"/>
                             <span style="display:none"><input id="printBtn" type="submit" value="PrintIt"/></span>
 
                         </td>
                         <td align="right" rowspan="2" width="5%" valign="top">
                             <b>
-                                Edit:
+                                <fmt:message key="form.formBCAR2020pg3.label.edit"/>
                             </b>
                         </td>
                         <td align="right" width="37%">
-                            <a href="javascript:void(0);" onclick="return onPageChange('1');">Part 1</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('1');"><fmt:message key="form.formBCAR2020pg3.link.part1"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('2');">Part 2 (Page 1)</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('2');"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('3');">Part 2 (Page 2)</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('3');"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></a>
                         </td>
                     </tr>
                     <tr>
                         <td align="right">
                             <b>
-                                <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10">Attachments</a>
+                                <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.attachments"/></a>
                             </b>
                             |
                             <a href="javascript:void(0);" onclick="return onPageChange('4');" class="small10">Reference
@@ -337,8 +340,7 @@
                 <!-- Page Heading -->
                 <table width="100%" border="0" cellspacing="0" cellpadding="1">
                     <tr>
-                        <th align="left">British Columbia Antenatal Record Attachments <font size="-2">PSBC 1905 -
-                            January 2020</font></th>
+                        <th align="left"><fmt:message key="form.BCAR2020Attachments.title"/> <font size="-2"><fmt:message key="form.formBCAR2020pg3.heading.subtitle"/></font></th>
                     </tr>
                 </table>
 
@@ -346,19 +348,13 @@
                     <tr>
                         <td width="60%" valign="top">
                             <p>
-                                This page is not part of the standard BC Antenatal Record 2020 form. Any additional
-                                information that does not fit onto the standard form can be added to the sections below.
+                                <fmt:message key="form.BCAR2020Attachments.heading.additionalInformation"/>
                             </p>
                             <p>
-                                The buttons above each section will pull information from the patients E-Chart into the
-                                section below.
-
-                                If a section is checked (enabled), it will print as part of the attachments. If the
-                                section is unchecked (disabled), it will not print.
+                                <fmt:message key="form.BCAR2020Attachments.msg.pullFromEChart"/>
                             </p>
                             <p>
-                                The Privacy Statement is a requirement by PHSA, it cannot be modified or removed, and
-                                must be printed as part of the BCAR2020.
+                                <fmt:message key="form.BCAR2020Attachments.msg.privacyStatementRequired"/>
                             </p>
                         </td>
 
@@ -367,7 +363,7 @@
                             <table width="100%" border="0" cellspacing="0" cellpadding="1">
                                 <tr>
                                     <td valign="top" width="50%">
-                                        Surname<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.surname"/><br/>
                                         <input type="text" name="t_patientSurname" style="width: 100%" size="30"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientSurname", "")) %>"
@@ -375,7 +371,7 @@
                                                readonly/>
                                     </td>
                                     <td valign="top" width="50%" colspan="2">
-                                        Given name<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.givenName"/><br/>
                                         <input type="text" name="t_patientGivenName" style="width: 100%" size="30"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientGivenName", "")) %>"
@@ -385,7 +381,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan="3">
-                                        Address - Number, Street name<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.address"/><br/>
                                         <input type="text" name="t_patientAddress" style="width: 100%" size="60"
                                                maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientAddress", "")) %>"/>
@@ -393,19 +389,19 @@
                                 </tr>
                                 <tr>
                                     <td width="50%">
-                                        City<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.city"/><br/>
                                         <input type="text" name="t_patientCity" style="width: 100%" size="60"
                                                maxlength="50"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientCity", "")) %>"/>
                                     </td>
                                     <td width="25%">
-                                        Province<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.province"/><br/>
                                         <input type="text" name="t_patientProvince" style="width: 100%" size="60"
                                                maxlength="80"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientProvince", "")) %>"/>
                                     </td>
                                     <td width="25%">
-                                        Postal Code<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.postalCode"/><br/>
                                         <input type="text" name="t_patientPostal" style="width: 100%" size="60"
                                                maxlength="10"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientPostal", "")) %>"/>
@@ -416,13 +412,13 @@
                                         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                             <tr>
                                                 <td width="33%">
-                                                    Home Phone Number
+                                                    <fmt:message key="form.BCAR2020Attachments.label.homePhoneNumber"/>
                                                 </td>
                                                 <td width="33%">
-                                                    Work Phone Number
+                                                    <fmt:message key="form.BCAR2020Attachments.label.workPhoneNumber"/>
                                                 </td>
                                                 <td width="34%">
-                                                    Cell Phone Number
+                                                    <fmt:message key="form.BCAR2020Attachments.label.cellPhoneNumber"/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -447,7 +443,7 @@
                                 </tr>
                                 <tr>
                                     <td colspan="3">
-                                        Personal Health Number<br/>
+                                        <fmt:message key="form.BCAR2020Attachments.label.personalHealthNumber"/><br/>
                                         <input type="text" name="t_patientHIN" style="width: 100%" size="60"
                                                maxlength="10"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_patientHIN", "")) %>"
@@ -467,20 +463,19 @@
                                         <input type="checkbox"
                                                name="c_attMedications" <e:forHtmlAttribute value='<%= props.getProperty("c_attMedications", "").equals("X") ? "checked" : "" %>' /> />
 
-                                        <span class="title">Medications</span>
-                                        <p>You can either click any of the buttons below to pull in any medications from
-                                            the E-Chart, or enter your own in the box below.</p>
+                                        <span class="title"><fmt:message key="form.BCAR2020Attachments.label.medications"/></span>
+                                        <p><fmt:message key="form.BCAR2020Attachments.msg.medications"/></p>
                                         <input id="fetchMedications|mt_attMedications" type="button"
-                                               class="btn btn-sm clinicalData" value="Medications"/>&nbsp;
+                                               class="btn btn-sm clinicalData" value="<fmt:message key='form.BCAR2020Attachments.button.medications'/>"/>&nbsp;
                                         <input id="fetchLongTermMedications|mt_attMedications" type="button"
-                                               class="btn btn-sm clinicalData" value="Long Term Medications"/>&nbsp;
+                                               class="btn btn-sm clinicalData" value="<fmt:message key='form.BCAR2020Attachments.button.longTermMedications'/>"/>&nbsp;
                                         <input id="fetchOtherMeds" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportOtherMeds'/>"
                                                onclick="importFromEnct('OtherMeds',document.forms[0].mt_attMedications);"/>
                                         <br/>
                                         <textarea name="mt_attMedications" id="mt_attMedications"
                                                   style="width: 100%; height:180px;" size="30"
-                                                  title="Medications"><%= UtilMisc.htmlEscape(props.getProperty("mt_attMedications", "")) %></textarea>
+                                                  title="<fmt:message key='form.BCAR2020Attachments.label.medications'/>"><%= UtilMisc.htmlEscape(props.getProperty("mt_attMedications", "")) %></textarea>
                                     </td>
                                 </tr>
                             </table>
@@ -491,15 +486,14 @@
                                         <input type="checkbox"
                                                name="c_attAllergies" <e:forHtmlAttribute value='<%= props.getProperty("c_attAllergies", "").equals("X") ? "checked" : "" %>' /> />
 
-                                        <span class="title">Allergies</span>
-                                        <p>You can either click the button below to pull in any allergies from the
-                                            E-Chart, or enter your own in the box below.</p>
+                                        <span class="title"><fmt:message key="form.BCAR2020Attachments.label.allergies"/></span>
+                                        <p><fmt:message key="form.BCAR2020Attachments.msg.allergies"/></p>
                                         <input id="fetchAllergies|mt_attAllergies" type="button"
-                                               class="btn btn-sm clinicalData" value="Allergies"/>
+                                               class="btn btn-sm clinicalData" value="<fmt:message key='form.BCAR2020Attachments.button.allergies'/>"/>
                                         <br/>
                                         <textarea name="mt_attAllergies" id="mt_attAllergies"
                                                   style="width: 100%; height:180px;" size="30"
-                                                  title="Allergies"><%= UtilMisc.htmlEscape(props.getProperty("mt_attAllergies", "")) %></textarea>
+                                                  title="<fmt:message key='form.BCAR2020Attachments.label.allergies'/>"><%= UtilMisc.htmlEscape(props.getProperty("mt_attAllergies", "")) %></textarea>
                                     </td>
                                 </tr>
                             </table>
@@ -510,29 +504,29 @@
                                         <input type="checkbox"
                                                name="c_attAdditionalInfo" <e:forHtmlAttribute value='<%= props.getProperty("c_attAdditionalInfo", "").equals("X") ? "checked" : "" %>' /> />
 
-                                        <span class="title">Additional Information</span>
-                                        <p>The buttons below will pull information in from the E-Chart.</p>
+                                        <span class="title"><fmt:message key="form.BCAR2020Attachments.heading.additionalInformation"/></span>
+                                        <p><fmt:message key="form.BCAR2020Attachments.msg.pullFromEChart"/></p>
                                         <input id="fetchAddInfoSocHistory" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportSocHistory'/>"
                                                onclick="importFromEnct('SocialHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchAddInfoFamHistory" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportFamHistory'/>"
                                                onclick="importFromEnct('FamilyHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchAddInfoMedHistory" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportMedHistory'/>"
                                                onclick="importFromEnct('MedicalHistory',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchAddInfoConcerns" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportConcerns'/>"
                                                onclick="importFromEnct('ongoingConcerns',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchAddInfoReminders" type="button" class="btn btn-sm"
-                                               value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders"/>"
+                                               value="<fmt:message key='encounter.oscarConsultationRequest.ConsultationFormRequest.btnImportReminders'/>"
                                                onclick="importFromEnct('Reminders',document.forms[0].mt_attAdditionalInfo);"/>&nbsp;
                                         <input id="fetchRiskFactors|mt_attAdditionalInfo" type="button"
-                                               class="btn btn-sm clinicalData" value="Risk Factors"/>&nbsp;
+                                               class="btn btn-sm clinicalData" value="<fmt:message key='form.BCAR2020Attachments.button.riskFactors'/>"/>&nbsp;
                                         <br/>
                                         <textarea name="mt_attAdditionalInfo" id="mt_attAdditionalInfo"
                                                   style="width: 100%; height:180px;" size="30"
-                                                  title="Additional Information"><%= UtilMisc.htmlEscape(props.getProperty("mt_attAdditionalInfo", "")) %></textarea>
+                                                  title="<fmt:message key='form.BCAR2020Attachments.heading.additionalInformation'/>"><%= UtilMisc.htmlEscape(props.getProperty("mt_attAdditionalInfo", "")) %></textarea>
                                     </td>
                                 </tr>
                             </table>
@@ -544,10 +538,9 @@
                                 <tr>
                                     <td valign="top">
                                         <!-- Privacy Statement -->
-                                        <span class="title">Privacy Statement </span><span
-                                            class="sub-text">Mandatory</span>
-                                        <p>Printing the privacy statement as part of the BCAR2020 is a requirement by
-                                            PHSA. It cannot be modified or removed.</p>
+                                        <span class="title"><fmt:message key="form.BCAR2020Attachments.label.privacyStatement"/></span><span
+                                            class="sub-text"><fmt:message key="form.BCAR2020Attachments.label.mandatory"/></span>
+                                        <p><fmt:message key="form.BCAR2020Attachments.msg.privacyStatementRequired"/></p>
                                         <textarea style="width: 100%; height:110px;" size="30" readonly>Perinatal Services BC collects, uses and discloses personal information only as authorized under section 26(c), 33, and 35 of the BC Freedom of Information and Protection of Privacy Act, other legislation and PHSA's Privacy and Confidentiality Policy.  Information is collected for the purposes of supporting health care providers, leaders, researchers, and policymakers in their work to improve maternal, fetal, and neonatal health.  This includes work carried out for purposes of research, surveillance, program delivery, and evaluation.  We take all reasonable steps to make sure personal information is treated confidentially, is used only for the intended purpose and securely stored.  For questions regarding collection, use or disclosure of personal information, please contact the Provincial Director, Informatics and Privacy at (604) 877-2121 extension 223761 or business address:  Perinatal Services BC, Suite 350 - West Tower, 555 West 12th Avenue, Vancouver, BC   V5Z 3X7.</textarea>
                                     </td>
                                 </tr>
@@ -558,35 +551,35 @@
             </form>
         </div>
     </div>
-    <div id="print-dialog" title="Print BCAR2020 Record">
+    <div id="print-dialog" title="<fmt:message key='form.formBCAR2020pg3.title.print'/>">
         <p class="validateTips"></p>
-        <p>Note: Remember to Save any changes before printing.</p>
+        <p><fmt:message key="form.BCAR2020Attachments.msg.rememberSaveBeforePrint"/></p>
 
         <div>
             <input type="checkbox" onclick="return printSelectAll();" id="print_all"
                    class="text ui-widget-content ui-corner-all"/>
-            <label for="print_all" class="small10">Select All</label>
+            <label for="print_all" class="small10"><fmt:message key="form.formBCAR2020pg3.label.selectAll"/></label>
         </div>
         <form>
             <fieldset>
                 <input type="checkbox" name="print_pr1" id="print_pr1" checked="checked"
                        class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr1">Part 1</label>
+                <label for="print_pr1"><fmt:message key="form.formBCAR2020pg3.link.part1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr2" id="print_pr2" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr2">Part 2 (Page 1)</label>
+                <label for="print_pr2"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr3" id="print_pr3" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr3">Part 2 (Page 2)</label>
+                <label for="print_pr3"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></label>
                 <br/>
                 <input type="checkbox" name="print_att" id="print_att" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_att">Attachments/Additional Info</label>
+                <label for="print_att"><fmt:message key="form.formBCAR2020pg3.label.attachmentsAdditionalInfo"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr4" id="print_pr4" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr4">Reference Page 1</label>
+                <label for="print_pr4"><fmt:message key="form.formBCAR2020pg3.link.referencePage1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr5" id="print_pr5" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr5">Reference Page 2</label>
+                <label for="print_pr5"><fmt:message key="form.formBCAR2020pg3.link.referencePage2"/></label>
                 <br/>
             </fieldset>
         </form>

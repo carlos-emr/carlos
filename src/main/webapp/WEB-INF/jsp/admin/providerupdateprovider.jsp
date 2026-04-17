@@ -121,12 +121,12 @@
                 if (document.updatearecord.practitionerNo.value != "") {
                     var val = document.updatearecord.practitionerNoType.options[document.updatearecord.practitionerNoType.selectedIndex].value;
                     if (val == "") {
-                        alert("Please choose a College Type");
+                        alert("<fmt:message key="admin.providerupdateprovider.msgChooseCollegeType"/>");
                         return false;
                     }
                 }
                 if (!(document.updatearecord.provider_no.value == "-new-" || document.updatearecord.provider_no.value.match(/^[1-9]\d*$/))) {
-                    alert("Provider No. must be a number.");
+                    alert("<fmt:message key="admin.providerupdateprovider.msgProviderNoNumber"/>");
                     return false;
                 } else {
                     return true;
@@ -284,12 +284,10 @@
                     } else {
                     }
                 %>">
-                <td align="right">
-                    Assigned Supervisor
-                </td>
+                <td align="right"><fmt:message key="admin.providerupdateprovider.assignedSupervisor"/></td>
                 <td>
                     <select id="supervisor" name="supervisor">
-                        <option value="">Please Assign Supervisor</option>
+                        <option value=""><fmt:message key="admin.providerupdateprovider.pleaseAssignSupervisor"/></option>
                                 <%
                     for( ProviderData p : providerL ) {
                         
@@ -448,7 +446,7 @@
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
-                                <option value="">Select Below</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                                 <%
                                     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
@@ -468,7 +466,7 @@
                                 } else {
                                 %>
 
-                                <option value="">None Available</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.noneAvailable"/></option>
                                 <%
                                     }
 
@@ -507,7 +505,7 @@
                     </tr>
                     <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <tr>
-                        <td align="right">Default Clinic NBR:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.defaultClinicNbr"/></td>
                         <td colspan="3">
                             <select name="xml_p_nbr">
                                 <%
@@ -527,7 +525,7 @@
                     </tr>
                     <%} %>
                     <tr>
-                        <td align="right">Bill Center:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.billCenter"/></td>
                         <td><select name="billcenter">
                             <option value=""></option>
                             <%

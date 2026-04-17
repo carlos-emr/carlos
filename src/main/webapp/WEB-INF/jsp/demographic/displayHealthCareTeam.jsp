@@ -123,7 +123,7 @@
         <body id="${ param.view }View" >
         <table class="MainTable" >
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="20%">&nbsp;Health Care Team</td>
+            <td class="MainTableTopRowLeftColumn" width="20%">&nbsp;<fmt:message key="demographic.manageHealthCareTeam.heading"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -154,7 +154,7 @@
 
             <%-- DETACHED VIEW ENABLED  --%>
 
-        <h3 id="tableTitle">Health Care Team</h3>
+        <h3 id="tableTitle"><fmt:message key="demographic.manageHealthCareTeam.heading"/></h3>
 
             <%-- END DETACHED VIEW ENABLED  --%>
 

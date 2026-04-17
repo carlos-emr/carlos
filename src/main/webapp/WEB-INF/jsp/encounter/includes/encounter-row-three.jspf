@@ -14,7 +14,7 @@
             <%-- Split chart link --%>
             <c:if test="${hasSplitChart}">
                 &nbsp;&nbsp;&nbsp;
-                <a href="#" onclick="showpic('splitChartLayer','splitChartId');" id="splitChartId">Split Chart</a>
+                <a href="#" onclick="showpic('splitChartLayer','splitChartId');" id="splitChartId"><fmt:message key="encounter.rowThree.splitChart"/></a>
             </c:if>
 
             <%-- Template autocomplete input (Scriptaculous Autocompleter initialized in encounter.js loader()) --%>

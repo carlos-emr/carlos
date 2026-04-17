@@ -51,7 +51,8 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Print Mental Health Outcome</title>
+        <fmt:setBundle basename="oscarResources"/>
+        <title><fmt:message key="form.mhoutcomeprint.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
@@ -88,16 +89,16 @@
 
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>
 
     <table cellpadding="5" cellspacing="0">
         <tr>
-            <th align="left"><big>MENTAL HEALTH OUTCOME</big><br>
+            <th align="left"><big><fmt:message key="form.mhoutcomeprint.heading"/></big><br>
                 <br>
             </th>
         </tr>
@@ -106,31 +107,31 @@
                 <table border="0" cellpadding="5" cellspacing="0"
                        class="tableWithBorder">
                     <tr>
-                        <td>Name:</td>
+                        <td><fmt:message key="form.mhoutcomeprint.name"/></td>
                         <td align="left"><%= props.getProperty("c_pName", "") %>&nbsp;</td>
                     </tr>
                     <tr>
-                        <td>Sex:</td>
+                        <td><fmt:message key="form.mhoutcomeprint.sex"/></td>
                         <td align="left"><%= props.getProperty("c_sex", "") %>&nbsp;</td>
                     </tr>
         </tr>
-        <td>Address:</td>
+        <td><fmt:message key="form.mhoutcomeprint.address"/></td>
         <td align="left"><%= props.getProperty("c_address", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Home Phone:</td>
+            <td><fmt:message key="form.mhoutcomeprint.homePhone"/></td>
             <td align="left"><%= props.getProperty("c_homePhone", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Birth Date <small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.mhoutcomeprint.birthDate"/> <small>(yyyy/mm/dd)</small>:</td>
             <td align="left"><%= props.getProperty("c_birthDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referral Date<small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.mhoutcomeprint.referralDate"/><small>(yyyy/mm/dd)</small>:</td>
             <td align="left"><%= props.getProperty("c_referralDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referred By:</td>
+            <td><fmt:message key="form.mhoutcomeprint.referredBy"/></td>
             <td align="left"><%= props.getProperty("c_referredBy", "") %>&nbsp;</td>
         </tr>
     </table>
@@ -140,7 +141,7 @@
         <td>
             <table>
                 <tr>
-                    <td class="mhSelect">Services Provided:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.servicesProvided"/><br>
                         <% String[] sp = list.loadData("mhOutcome/ServicesProvided.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("o_sp1", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp1", "---")) - 1] %>
@@ -154,7 +155,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Problems Encountered:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.problemsEncountered"/><br>
                         <% String[] pe = list.loadData("mhOutcome/ProblemsEncountered.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("o_pe1", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe1", "---")) - 1] %>
@@ -168,7 +169,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Dispostion:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.disposition"/><br>
                         <% String[] d = list.loadData("mhOutcome/Disposition.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("o_d1", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d1", "---")) - 1] %>
@@ -182,7 +183,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Patient Not Seen:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.patientNotSeen"/><br>
                         <% String[] pns = list.loadData("mhOutcome/PatientNotSeen.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("o_pns1", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns1", "---")) - 1] %>
@@ -196,7 +197,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Comments:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.comments"/><br>
                         <%= props.getProperty("o_outComments", "")%>
                     </td>
                 </tr>
@@ -206,9 +207,9 @@
     </table>
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>

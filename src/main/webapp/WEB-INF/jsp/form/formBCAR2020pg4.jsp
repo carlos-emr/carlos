@@ -29,6 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String user = (String) session.getAttribute("user");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -70,12 +73,12 @@
 <!DOCTYPE HTML>
 <html>
     <head>
-        <title>BC Antenatal Record 2020 Reference Page 1</title>
+        <title><fmt:message key="form.formBCAR2020pg4.title"/></title>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar.js"></script>
         <script type="text/javascript"
-                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%=request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"
@@ -116,22 +119,22 @@
             $(function () {
 
                 //dirty form enable/disable save button.
-                $("form").find('input[value="Save"]').attr('disabled', true);
-                $("form").find('input[value="Save and Exit"]').attr('disabled', true);
-                $("form").find('input[value="Exit"]').removeAttr('disabled');
+                $("form").find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                $("form").find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
 
                 $('form').on('dirty.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').removeAttr('disabled');
-                    $(this).find('input[value="Save and Exit"]').removeAttr('disabled');
-                    $(this).find('input[value="Exit"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').attr('disabled', true);
                 });
 
                 $('form').on('clean.areYouSure', function () {
 
-                    $(this).find('input[value="Save"]').attr('disabled', true);
-                    $(this).find('input[value="Save and Exit"]').attr('disabled', true);
-                    $(this).find('input[value="Exit"]').removeAttr('disabled');
+                    $(this).find('input[value="<fmt:message key="global.save"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.saveExit"/>"]').attr('disabled', true);
+                    $(this).find('input[value="<fmt:message key="global.btnExit"/>"]').removeAttr('disabled');
                 });
 
             });
@@ -173,39 +176,37 @@
                 <table class="sectionHeader hidePrint">
                     <tr>
                         <td align="left" rowspan="2" width="58%" style="padding:10px !important;">
-                            <input type="submit" class="btn btn-primary" value="Save" onclick="return onSave();"/>
-                            <input type="submit" class="btn btn-secondary" value="Save and Exit"
+                            <input type="submit" class="btn btn-primary" value="<fmt:message key="global.save"/>" onclick="return onSave();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key='global.saveExit'/>"
                                    onclick="return onSaveExit();"/>
 
-                            <input type="submit" class="btn btn-danger" value="Exit" onclick="window.close();"/>
-                            <input type="submit" class="btn btn-secondary" value="Print" onclick="return onPrint();"/>
+                            <input type="submit" class="btn btn-danger" value="<fmt:message key="global.btnExit"/>" onclick="window.close();"/>
+                            <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnPrint"/>" onclick="return onPrint();"/>
                             <span style="display:none"><input id="printBtn" type="submit" value="PrintIt"/></span>
 
                         </td>
                         <td align="right" rowspan="2" width="5%" valign="top">
                             <b>
-                                Edit:
+                                <fmt:message key="form.formBCAR2020pg3.label.edit"/>
                             </b>
                         </td>
                         <td align="right" width="37%">
-                            <a href="javascript:void(0);" onclick="return onPageChange('1');">Part 1</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('1');"><fmt:message key="form.formBCAR2020pg3.link.part1"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('2');">Part 2 (Page 1)</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('2');"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></a>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('3');">Part 2 (Page 2)</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('3');"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></a>
                         </td>
                     </tr>
                     <tr>
                         <td align="right">
-                            <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10">Attachments</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('6');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.attachments"/></a>
                             |
                             <b>
-                                <a href="javascript:void(0);" onclick="return onPageChange('4');" class="small10">Reference
-                                    Page 1</a>
+                                <a href="javascript:void(0);" onclick="return onPageChange('4');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.referencePage1"/></a>
                             </b>
                             |
-                            <a href="javascript:void(0);" onclick="return onPageChange('5');" class="small10">Reference
-                                Page 2</a>
+                            <a href="javascript:void(0);" onclick="return onPageChange('5');" class="small10"><fmt:message key="form.formBCAR2020pg3.link.referencePage2"/></a>
                         </td>
                     </tr>
                 </table>
@@ -213,8 +214,7 @@
                 <!-- Page Heading -->
                 <table width="100%" border="0" cellspacing="0" cellpadding="1">
                     <tr>
-                        <th align="left">British Columbia Antenatal Record Reference Page 1 <font size="-2">PSBC 1905 -
-                            January 2020</font></th>
+                        <th align="left"><fmt:message key="form.formBCAR2020pg4.heading.record"/> <font size="-2"><fmt:message key="form.formBCAR2020pg3.heading.subtitle"/></font></th>
                     </tr>
                 </table>
 
@@ -229,7 +229,7 @@
                             <tr>
                                 <td>
                                     <div class="reference-header-1">
-                                        Discussion Topics
+                                        <fmt:message key="form.formBCAR2020pg4.heading.discussionTopics"/>
                                     </div>
                                 </td>
                             </tr>
@@ -238,7 +238,7 @@
                             <tr>
                                 <td>
                                     <div class="reference-header-2">
-                                        1st-3rd Trimester (as indicated)
+                                        <fmt:message key="form.formBCAR2020pg4.heading.trimester"/>
                                     </div>
                                 </td>
                             </tr>
@@ -251,63 +251,63 @@
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterNutrition" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterNutrition", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Nutrition/folic acid
+                                                    <fmt:message key="form.formBCAR2020pg4.label.nutritionFolicAcid"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterWeightGain" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterWeightGain", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Healthy weight gain
+                                                    <fmt:message key="form.formBCAR2020pg4.label.healthyWeightGain"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterPhysicalActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPhysicalActivity", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Physical activity
+                                                    <fmt:message key="form.formBCAR2020pg4.label.physicalActivity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterOccupation" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterOccupation", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Occupational concerns
+                                                    <fmt:message key="form.formBCAR2020pg4.label.occupationalConcerns"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterPersonalSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPersonalSafety", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Personal Safety
+                                                    <fmt:message key="form.formBCAR2020pg4.label.personalSafety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterSupportSystem" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSupportSystem", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Support system
+                                                    <fmt:message key="form.formBCAR2020pg4.label.supportSystem"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterMentalHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterMentalHealth", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Mental health
+                                                    <fmt:message key="form.formBCAR2020pg4.label.mentalHealth"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterSubstanceUse" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSubstanceUse", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Substance Use (i.e. alcohol, drugs)
+                                                    <fmt:message key="form.formBCAR2020pg4.label.substanceUse"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterSexualActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSexualActivity", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Sexual activity, STI risk factors, screening
+                                                    <fmt:message key="form.formBCAR2020pg4.label.sexualActivity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterImmunization" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterImmunization", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Immunization
+                                                    <fmt:message key="form.formBCAR2020pg4.label.immunization"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1st3rdTrimesterVBAC" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterVBAC", "").equals("X") ? "checked" : "" %>' /> />
-                                                    VBAC counseling (if applicable)
+                                                    <fmt:message key="form.formBCAR2020pg4.label.vbacCounseling"/>
                                                 </div>
                                             </td>
                                         </tr>
@@ -319,7 +319,7 @@
                             <tr>
                                 <td>
                                     <div class="reference-header-2">
-                                        1st Trimester
+                                        <fmt:message key="form.formBCAR2020pg4.heading.firstTrimester"/>
                                     </div>
                                 </td>
                             </tr>
@@ -332,29 +332,29 @@
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterNausea" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterNausea", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Nausea/vomiting
+                                                    <fmt:message key="form.formBCAR2020pg4.label.nauseaVomiting"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterSafety", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Safety: food, medications/ vitamins/ supplements, seatbelts
+                                                    <fmt:message key="form.formBCAR2020pg4.label.safety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterOralHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterOralHealth", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Oral health
+                                                    <fmt:message key="form.formBCAR2020pg4.label.oralHealth"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterExposures" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterExposures", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Exposures: infections, pets, environment, occupation
+                                                    <fmt:message key="form.formBCAR2020pg4.label.exposures"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterTravel" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterTravel", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Travel
+                                                    <fmt:message key="form.formBCAR2020pg4.label.travel"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
@@ -366,7 +366,7 @@
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_1stTrimesterEarlyLoss" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterEarlyLoss", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Early pregnancy loss: signs / symptoms, what to do
+                                                    <fmt:message key="form.formBCAR2020pg4.label.earlyPregnancyLoss"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
@@ -413,59 +413,58 @@
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterBleeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBleeding", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Bleeding
+                                                    <fmt:message key="form.formBCAR2020pg4.label.bleeding"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterPretermLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPretermLabour", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Preterm labour: signs/symptoms
+                                                    <fmt:message key="form.formBCAR2020pg4.label.pretermLabourSignsSymptoms"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterPROM" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPROM", "").equals("X") ? "checked" : "" %>' /> />
-                                                    PROM
+                                                    <fmt:message key="form.formBCAR2020pg4.label.prom"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterLifestyle" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterLifestyle", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Lifestyle and social risk assessment
+                                                    <fmt:message key="form.formBCAR2020pg4.label.lifestyleAndSocialRiskAssessment"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterGestationalDiab" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterGestationalDiab", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Gestational diabetes screening
+                                                    <fmt:message key="form.formBCAR2020pg4.label.gestationalDiabetesScreening"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterPrenatalClasses" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPrenatalClasses", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Prenatal classes
+                                                    <fmt:message key="form.formBCAR2020pg4.label.prenatalClasses"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterBirthOptions" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthOptions", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Birth options and practices that promote healthy birth
+                                                    <fmt:message key="form.formBCAR2020pg4.label.birthOptionsAndPracticesThatPromoteHealthyBirth"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Birth plan: travel to other community for delivery (if applicable)
+                                                    <fmt:message key="form.formBCAR2020pg4.label.birthPlanTravelOtherCommunity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Breastfeeding and importance of immediate, uninterrupted
-                                                    skin-to-skin care
+                                                    <fmt:message key="form.formBCAR2020pg4.label.breastfeedingAndImportanceOfImmediateUninterruptedSkinToSkinCare"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_2ndTrimesterPostpartumContra" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPostpartumContra", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Postpartum contraception
+                                                    <fmt:message key="form.formBCAR2020pg4.label.postpartumContraception"/>
                                                 </div>
                                             </td>
                                         </tr>
@@ -490,103 +489,103 @@
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterFetalMovement" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterFetalMovement", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Fetal movement
+                                                    <fmt:message key="form.formBCAR2020pg4.label.fetalMovement"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterEmergencyContact" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterEmergencyContact", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Emergency contact/on-call providers
+                                                    <fmt:message key="form.formBCAR2020pg4.label.emergencyContactOnCallProviders"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterECV" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterECV", "").equals("X") ? "checked" : "" %>' /> />
-                                                    ECV, breech delivery, elective Cesarean delivery (if applicable)
+                                                    <fmt:message key="form.formBCAR2020pg4.label.ecvBreechDeliveryElectiveCesareanDeliveryIfApplicable"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterIndicationsInduction" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterIndicationsInduction", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Indications for induction of labour
+                                                    <fmt:message key="form.formBCAR2020pg4.label.indicationsForInductionOfLabour"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterSignsLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterSignsLabour", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Signs/symptoms of labour and admission timing
+                                                    <fmt:message key="form.formBCAR2020pg4.label.signsSymptomsOfLabourAndAdmissionTiming"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Birth plan: labour support, pain management
+                                                    <fmt:message key="form.formBCAR2020pg4.label.birthPlanLabourSupportPainManagement"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterPotentialInterventions" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPotentialInterventions", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Potential interventions, use of blood products
+                                                    <fmt:message key="form.formBCAR2020pg4.label.potentialInterventionsBloodProducts"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterGenitalHerpes" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGenitalHerpes", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Genital herpes suppression
+                                                    <fmt:message key="form.formBCAR2020pg4.label.genitalHerpesSuppression"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterGBSScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGBSScreening", "").equals("X") ? "checked" : "" %>' /> />
-                                                    GBS screening/prophylaxis
+                                                    <fmt:message key="form.formBCAR2020pg4.label.gbsScreeningProphylaxis"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterCordBloodBanking" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterCordBloodBanking", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Cord blood banking
+                                                    <fmt:message key="form.formBCAR2020pg4.label.cordBloodBanking"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterErythromycin" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterErythromycin", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Erythromycin/ophthalmia neonatorum prophylaxis/ treatment
+                                                    <fmt:message key="form.formBCAR2020pg4.label.erythromycinOphthalmiaProphylaxisTreatment"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterVitaminK" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterVitaminK", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Vitamin K prophylaxis
+                                                    <fmt:message key="form.formBCAR2020pg4.label.vitaminKProphylaxis"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterNewbornCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterNewbornCare", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Newborn care, screening, circumcision, follow-up
+                                                    <fmt:message key="form.formBCAR2020pg4.label.newbornCareScreeningCircumcisionFollowup"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Breastfeeding adjustment, skills, support
+                                                    <fmt:message key="form.formBCAR2020pg4.label.breastfeedingAdjustmentSkillsSupport"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterPostpartumCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumCare", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Postpartum care
+                                                    <fmt:message key="form.formBCAR2020pg4.label.postpartumCare"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterPostpartumContraception" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumContraception", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Postpartum contraception
+                                                    <fmt:message key="form.formBCAR2020pg4.label.postpartumContraception"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterDischargePlanning" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterDischargePlanning", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Discharge planning, car seat safety
+                                                    <fmt:message key="form.formBCAR2020pg4.label.dischargePlanningCarSeatSafety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterInfantSleep" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterInfantSleep", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Infant safe sleep
+                                                    <fmt:message key="form.formBCAR2020pg4.label.infantSafeSleep"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
                                                            name="c_3rdTrimesterWorkPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterWorkPlan", "").equals("X") ? "checked" : "" %>' /> />
-                                                    Work plan, maternity leave
+                                                    <fmt:message key="form.formBCAR2020pg4.label.workPlanMaternityLeave"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
@@ -606,34 +605,34 @@
         </div>
     </div>
 
-    <div id="print-dialog" title="Print BCAR2020 Record">
+    <div id="print-dialog" title="<fmt:message key='form.formBCAR2020pg3.title.print'/>">
         <p class="validateTips"></p>
-        <p>Note: Remember to Save any changes before printing.</p>
+        <p><fmt:message key="form.formBCAR2020pg3.msg.saveBeforePrint"/></p>
         <div>
             <input type="checkbox" onclick="return printSelectAll();" id="print_all"
                    class="text ui-widget-content ui-corner-all"/>
-            <label for="print_all" class="small10">Select All</label>
+            <label for="print_all" class="small10"><fmt:message key="form.formBCAR2020pg3.label.selectAll"/></label>
         </div>
         <form>
             <fieldset>
                 <input type="checkbox" name="print_pr1" id="print_pr1" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr1">Part 1</label>
+                <label for="print_pr1"><fmt:message key="form.formBCAR2020pg3.link.part1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr2" id="print_pr2" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr2">Part 2 (Page 1)</label>
+                <label for="print_pr2"><fmt:message key="form.formBCAR2020pg3.link.part2page1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr3" id="print_pr3" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr3">Part 2 (Page 2)</label>
+                <label for="print_pr3"><fmt:message key="form.formBCAR2020pg3.link.part2page2"/></label>
                 <br/>
                 <input type="checkbox" name="print_att" id="print_att" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_att">Attachments/Additional Info</label>
+                <label for="print_att"><fmt:message key="form.formBCAR2020pg3.label.attachmentsAdditionalInfo"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr4" id="print_pr4" checked="checked"
                        class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr4">Reference Page 1</label>
+                <label for="print_pr4"><fmt:message key="form.formBCAR2020pg3.link.referencePage1"/></label>
                 <br/>
                 <input type="checkbox" name="print_pr5" id="print_pr5" class="text ui-widget-content ui-corner-all"/>
-                <label for="print_pr5">Reference Page 2</label>
+                <label for="print_pr5"><fmt:message key="form.formBCAR2020pg3.link.referencePage2"/></label>
                 <br/>
             </fieldset>
         </form>

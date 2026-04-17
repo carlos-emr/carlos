@@ -79,7 +79,7 @@
                             </option>
                         </c:forEach>
                     </select>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

@@ -55,18 +55,18 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Waiting List</title>
+        <title><fmt:message key='oscarwaitinglist.displayWaitingList.title'/></title>
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
 
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -92,12 +92,12 @@
                 <td class="MainTableTopRowRightColumn" colspan="2" width="85%">
                     <table class="TopStatusBar">
                         <tr>
-                            <td>Current List: <c:if test="${not empty waitingListName}">
+                            <td><fmt:message key='oscarwaitinglist.displayWaitingList.currentList'/> <c:if test="${not empty waitingListName}">
                                 ${e:forHtml(waitingListName)}
                             </c:if></td>
                             <td align="right"></td>
 
-                            <td align="left">Please Select a Waiting List:</td>
+                            <td align="left"><fmt:message key='oscarwaitinglist.displayWaitingList.selectWaitingList'/></td>
                             <td>
                                 <select name="selectedWL" id="selectedWL">
                                 <option value=""></option>
@@ -119,7 +119,7 @@
                                 <option value="<%=id%>" <%=selected%>><%=name%>
                                 </option>
                                         <%}%>
-                                </select> <INPUT type="button" onClick="goToPage()" value="Generate Report">
+                                </select> <INPUT type="button" onClick="goToPage()" value="<fmt:message key='oscarwaitinglist.displayWaitingList.generateReport'/>">
                                         <%
         String userRole = "";
         if(session.getAttribute("userrole") != null){
@@ -127,10 +127,8 @@
         }
         if(userRole.indexOf("admin") >= 0){
 %> <a href="#" onclick="popupEditWlNamePage();"
-      style="color: #000000; text-decoration: none;">Create List</a> <%
-        }else{
-%> test <%
-}
+      style="color: #000000; text-decoration: none;"><fmt:message key='oscarwaitinglist.displayWaitingList.createList'/></a> <%
+        }
 %>
 
                         </tr>
@@ -148,16 +146,13 @@
                                         <td>
                                     <tr>
                                         <td align="left" class="Header" width="20"></td>
-                                        <td align="left" class="Header" width="100">Patient Name</td>
-                                        <td align="center" class="Header" width="370">Note</td>
+                                        <td align="left" class="Header" width="100"><fmt:message key='oscarwaitinglist.displayWaitingList.patientName'/></td>
+                                        <td align="center" class="Header" width="370"><fmt:message key='oscarwaitinglist.displayWaitingList.note'/></td>
                                         <td align="left" class="Header" width="50">
-                                            <nobr>Date
-                                                of
-                                            </nobr>
-                                            Request<br/>
-                                            <nobr>(yyyy-mm-dd)</nobr>
+                                            <fmt:message key='oscarwaitinglist.displayWaitingList.dateOfRequest'/><br/>
+                                            <fmt:message key='oscarwaitinglist.displayWaitingList.dateFormat'/>
                                         </td>
-                                        <td align="center" class="Header" width="300">Provider</td>
+                                        <td align="center" class="Header" width="300"><fmt:message key='oscarwaitinglist.displayWaitingList.provider'/></td>
                                         <td align="left" class="Header" width="50"></td>
                                     </tr>
                                     <c:forEach var="waitingListBean" items="${waitingList.waitingList}" varStatus="ctr">
@@ -176,7 +171,7 @@
                                             <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
                                                 ${e:forHtml(waitingListBean.patientName)}
                                             </a>
-                                            <input type="button" value="Update" name="update_${ctr.index}" style="font-size: 7pt;"
+                                            <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
                                                    onClick="updateWaitingList('${e:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
@@ -205,11 +200,11 @@
                                                 </c:forEach>
                                             </select>
                                             <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
-                                                make_appt
+                                                <fmt:message key='oscarwaitinglist.displayWaitingList.makeAppointment'/>
                                             </a>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(WLId)}');">remove</a>
+                                            <a href="#" onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(WLId)}');"><fmt:message key='oscarwaitinglist.displayWaitingList.remove'/></a>
                                         </td>
                                     </tr>
                                     </c:forEach>
@@ -220,7 +215,7 @@
                         <tr>
 
                             <td><input type="button" name="closeWindow"
-                                       value="<fmt:message key="global.btnClose"/>"
+                                       value="<fmt:message key='global.btnClose'/>"
                                        style="font-size: 8pt;" onClick="window.close()"></td>
                         </tr>
                     </table>
@@ -294,7 +289,7 @@
                 + '&demographic_no=' + encodeURIComponent(demographicNo)
                 + '&demographic_name=' + encodeURIComponent(patientName);
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
-            var popup = window.open(page, "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
+            var popup = window.open(page, "<fmt:message key='provider.appointmentProviderAdminDay.apptProvider'/>", windowprops);
             if (popup != null) {
                 if (popup.opener == null) {
                     popup.opener = self;
@@ -324,7 +319,7 @@
         }
 
         function removePatient(demographicNo, waitingList) {
-            var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
+            var agree = confirm("<fmt:message key='oscarwaitinglist.displayPatientWaitingList.confirmRemove'/>");
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';

@@ -29,7 +29,10 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="tickler.ticklerAdd.additionalMessage" var="ticklerAdditionalMessage"/>
 <script type="text/javascript">
 
     //--> Date picker
@@ -57,11 +60,10 @@
             <div class="mb-3">
                 <div class="card card-body bg-body-tertiary" id="patientTicklerList">
 						<span class="message">
-							Assign this Tickler action for each of the
-							selected patients.
+							<fmt:message key="tickler.ticklerAdd.msgAssignTicklerForSelectedPatients"/>
 						</span>
                     <span class="error" style="color:red;display:none;">
-							There was an error while assigning this tickler. Maybe no patients were checked?
+							<fmt:message key="tickler.ticklerAdd.msgAssignTicklerError"/>
 						</span>
                     <input type="hidden" name="demographics" value="${ demographics }"/>
                 </div>
@@ -72,7 +74,7 @@
     <div class="row">
         <div class="col-12">
             <div class="mb-3">
-                <label>Action:</label>
+                <label><fmt:message key="tickler.ticklerAdd.action"/></label>
                 <select class="form-select required" name="ticklerCategoryId">
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
@@ -87,7 +89,7 @@
     <div class="row">
         <div class="col-6">
             <div class="mb-3">
-                <label>Assign to:</label>
+                <label><fmt:message key="tickler.ticklerAdd.assignTaskTo"/></label>
                 <select class="form-select required" name="taskAssignedTo">
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
@@ -101,13 +103,13 @@
 
         <div class="col-6">
             <div class="mb-3">
-                <label>Priority:</label>
+                <label><fmt:message key="tickler.ticklerEdit.priority"/></label>
 
                 <select class="form-select required" name="priority">
                     <option value=""></option>
-                    <option value="Low">Low</option>
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
+                    <option value="Low"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                    <option value="Normal"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                    <option value="High"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
                 </select>
             </div>
         </div>
@@ -116,8 +118,7 @@
     <div class="row">
         <div class="col-6">
 
-            <label for="datePickerServiceDate" class="form-label">Service
-                Date:</label>
+            <label for="datePickerServiceDate" class="form-label"><fmt:message key="tickler.ticklerEdit.serviceDate"/></label>
             <div>
                 <div class="input-group">
                     <input name="serviceDate" id="datePickerServiceDate" type="text"
@@ -130,7 +131,7 @@
         </div>
 
         <div class="col-6">
-            <label for="ticklerTime" class="form-label"> Time:</label>
+            <label for="ticklerTime" class="form-label"><fmt:message key="tickler.ticklerAdd.serviceTime"/></label>
             <div>
                 <div class="input-group">
                     <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>
@@ -145,7 +146,7 @@
     <div class="row">
         <div class="col-12">
             <div class="mb-3">
-                <label>Message:</label>
+                <label><fmt:message key="tickler.ticklerAdd.message"/></label>
                 <select class="form-select" name="message">
                     <option value=""></option>
                     <c:forEach items="${ textSuggestions }" var="textSuggestion">
@@ -155,9 +156,8 @@
                     </c:forEach>
                 </select>
             </div>
-            <textarea name="messageAppend" class="form-control" rows="6" placeholder="Additional message."></textarea>
+            <textarea name="messageAppend" class="form-control" rows="6" placeholder="${ticklerAdditionalMessage}"></textarea>
         </div>
     </div>
 
 </form>
-

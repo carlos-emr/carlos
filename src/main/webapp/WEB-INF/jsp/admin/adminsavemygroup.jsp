@@ -104,7 +104,7 @@
     %>
 
 
-    <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-primary">View Group List</a>
+    <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnViewGroupList"/></a>
 
     <a href="${pageContext.request.contextPath}/admin/AdminNewGroup" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
 

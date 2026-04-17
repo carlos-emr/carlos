@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -53,7 +54,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Vascular Tracker (Draft)</title>
+        <title><fmt:message key="form.vt.title"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -102,7 +103,7 @@
             storeSMKSupportData();
             storeFTExamSupportData();
             storeEyeExamSupportData();
-            var ret = confirm("Are you sure you wish to save and close this window?");
+            var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
 
             return ret;
         }
@@ -708,13 +709,13 @@
         <table class="Head" class="hidePrint" width="640px" cellpadding="0"
                cellspacing="0">
             <tr>
-                <td align="left"><input type="submit" value="Update VT"
+                <td align="left"><input type="submit" value="<fmt:message key='form.vt.update'/>"
                                         onclick="javascript:onSave();"/> <input type="submit"
-                                                                                value="Save and Exit"
+                                                                                value="<fmt:message key='global.saveExit'/>"
                                                                                 onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>
@@ -883,14 +884,14 @@
                                                                 <td class="subTitle" width="15%">Last Quit<br>
                                                                     (yyyy-MM-dd)
                                                                 </td>
-                                                                <td class="subTitle" width="15%">Ob. Date<br>
+                                                                <td class="subTitle" width="15%"><fmt:message key="form.vt.obDate"/><br>
                                                                     (yyyy-MM-dd)
                                                                 </td>
-                                                                <td class="subTitle" width="28%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                                <td class="subTitle" width="28%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable">Last Data</td>
+                                                                <td class="dataEntryTable"><fmt:message key="form.vt.lastData"/></td>
                                                                 <td class="dataEntryTable"><font style="font-size: 80%">
                                                                     <%=request.getAttribute("SmkSLastData")%>
                                                                 </font></td>
@@ -905,7 +906,7 @@
                                                                 <td class="dataEntryTable">&nbsp;</td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable">New Data</td>
+                                                                <td class="dataEntryTable"><fmt:message key="form.vt.newData"/></td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <input type="text" name="value(SmkSValue)" size="8%" /></td>
                                                                 <td class="dataEntryTable" align="center">
@@ -943,9 +944,9 @@
                                                     <td class="subTitle" width="36%" style="text-align: left">
                                                         Lifestyle
                                                     </td>
-                                                    <td class="subTitle" width="16%">Last Data</td>
-                                                    <td class="subTitle" width="18%">New Data</td>
-                                                    <td class="subTitle" width="30%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                    <td class="subTitle" width="16%"><fmt:message key="form.vt.lastData"/></td>
+                                                    <td class="subTitle" width="18%"><fmt:message key="form.vt.newData"/></td>
+                                                    <td class="subTitle" width="30%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1011,13 +1012,13 @@
 									<span id="psychHead1" style="display: none;">Psychosocial
 									Screen</span></td>
                                                     <td class="subTitle" width="16%"><span id="psychHead2"
-                                                                                           style="display: none;">Last Data</span>
+                                                                                           style="display: none;"><fmt:message key="form.vt.lastData"/></span>
                                                     </td>
                                                     <td class="subTitle" width="18%"><span id="psychHead3"
-                                                                                           style="display: none;">New Data</span>
+                                                                                           style="display: none;"><fmt:message key="form.vt.newData"/></span>
                                                     </td>
                                                     <td class="subTitle" width="30%"><span id="psychHead4"
-                                                                                           style="display: none;"> <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                                                           style="display: none;"> <fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
 									</span></td>
                                                 </tr>
                                                 <tr>
@@ -1117,13 +1118,13 @@
 									<span id="medHead1" style="display: none;">Medication
 									Adherence screen</span></td>
                                                     <td class="subTitle" width="16%"><span id="medHead2"
-                                                                                           style="display: none;">Last Data</span>
+                                                                                           style="display: none;"><fmt:message key="form.vt.lastData"/></span>
                                                     </td>
                                                     <td class="subTitle" width="18%"><span id="medHead3"
-                                                                                           style="display: none;">New Data</span>
+                                                                                           style="display: none;"><fmt:message key="form.vt.newData"/></span>
                                                     </td>
                                                     <td class="subTitle" width="30%"><span id="medHead4"
-                                                                                           style="display: none;"> <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                                                           style="display: none;"> <fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
 									</span></td>
                                                 </tr>
                                                 <tr>
@@ -1265,13 +1266,13 @@
                                                     <td class="subTitle" width="36%" style="text-align: left">
                                                     </td>
                                                     <td class="subTitle" width="16%"><span id="vitalHead1"
-                                                                                           style="display: none;">Last Data<br>
+                                                                                           style="display: none;"><fmt:message key="form.vt.lastData"/><br>
 									Entered on</span></td>
                                                     <td class="subTitle" width="18%"><span id="vitalHead2"
-                                                                                           style="display: none;">New Data</span>
+                                                                                           style="display: none;"><fmt:message key="form.vt.newData"/></span>
                                                     </td>
                                                     <td class="subTitle" width="30%"><span id="vitalHead3"
-                                                                                           style="display: none;"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></span>
+                                                                                           style="display: none;"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/></span>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1483,14 +1484,12 @@
                                                    id="examinationFoot">
                                                 <tr>
                                                     <td class="subTitle" width="28%">&nbsp;</td>
-                                                    <td class="subTitle" width="17%">Last Data<br>
-                                                        Entered on
-                                                    </td>
-                                                    <td class="subTitle" width="22%">New Data</td>
-                                                    <td class="subTitle" width="10%">Ob. Date<br>
+                                                    <td class="subTitle" width="17%"><fmt:message key="form.vt.lastDataEnteredOn"/><br></td>
+                                                    <td class="subTitle" width="22%"><fmt:message key="form.vt.newData"/></td>
+                                                    <td class="subTitle" width="10%"><fmt:message key="form.vt.obDate"/><br>
                                                         (yyyy-MM-dd)
                                                     </td>
-                                                    <td class="subTitle" width="23%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></td>
+                                                    <td class="subTitle" width="23%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/></td>
                                                 </tr>
                                                 <tr>
                                                     <th class="dataEntryTable" colspan="3">Foot Exam</th>
@@ -1708,14 +1707,12 @@
                                                    id="examinationEye">
                                                 <tr>
                                                     <td class="subTitle" width="28%">&nbsp;</td>
-                                                    <td class="subTitle" width="17%">Last Data<br>
-                                                        Entered on
-                                                    </td>
-                                                    <td class="subTitle" width="22%">New Data</td>
-                                                    <td class="subTitle" width="10%">Ob. Date<br>
+                                                    <td class="subTitle" width="17%"><fmt:message key="form.vt.lastDataEnteredOn"/><br></td>
+                                                    <td class="subTitle" width="22%"><fmt:message key="form.vt.newData"/></td>
+                                                    <td class="subTitle" width="10%"><fmt:message key="form.vt.obDate"/><br>
                                                         (yyyy-MM-dd)
                                                     </td>
-                                                    <td class="subTitle" width="23%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></td>
+                                                    <td class="subTitle" width="23%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/></td>
                                                 </tr>
                                                 <tr>
                                                     <th class="dataEntryTable" colspan="3">Eye Exam</th>
@@ -1868,14 +1865,12 @@
                                             <table cellpadding='0' cellspacing='0' id="labs">
                                                 <tr>
                                                     <td class="subTitle" width="34%"></td>
-                                                    <td class="subTitle" width="16%">Last Data<br>
-                                                        Entered on
-                                                    </td>
-                                                    <td class="subTitle" width="5%">New Data</td>
-                                                    <td class="subTitle" width="10%">Ob. Date<br>
+                                                    <td class="subTitle" width="16%"><fmt:message key="form.vt.lastDataEnteredOn"/><br></td>
+                                                    <td class="subTitle" width="5%"><fmt:message key="form.vt.newData"/></td>
+                                                    <td class="subTitle" width="10%"><fmt:message key="form.vt.obDate"/><br>
                                                         (yyyy-MM-dd)
                                                     </td>
-                                                    <td class="subTitle" width="35%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                    <td class="subTitle" width="35%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2130,7 +2125,7 @@
                                     <tr>
                                         <th class="title" colspan="2"><span id="detailDiag"
                                                                             style="display: none;"><a
-                                                href="javascript: showHideItem('diagnosis');">Diagnosis >></a></span>
+                                                href="javascript: showHideItem('diagnosis');"><fmt:message key="form.vt.diagnosis"/></a></span>
                                         </th>
                                     </tr>
 
@@ -2182,7 +2177,7 @@
                                                             </c:forEach>
                                                         </c:if>
                                                         <c:if test="${empty drugs}">
-                                                            No Drug in the current drug profile
+                                                            <fmt:message key="form.vt.noDrugs"/>
                                                         </c:if>
                                                     </td>
                                                 </tr>
@@ -2209,7 +2204,7 @@
                                                             </c:forEach>
                                                         </c:if>
                                                         <c:if test="${empty allergies}">
-                                                            No Allergies in the current drug profile
+                                                            <fmt:message key="form.vt.noAllergies"/>
                                                         </c:if>
                                                     </td>
                                                 </tr>
@@ -2231,11 +2226,9 @@
                                                    id="counselling" style="display: none">
                                                 <tr>
                                                     <td class="subTitle" width="29%"></td>
-                                                    <td class="subTitle" width="16%">Last Data<br>
-                                                        Entered on
-                                                    </td>
+                                                    <td class="subTitle" width="16%"><fmt:message key="form.vt.lastDataEnteredOn"/><br></td>
                                                     <td class="subTitle" width="10%">&nbsp;</td>
-                                                    <td class="subTitle" width="45%"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                    <td class="subTitle" width="45%"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2403,13 +2396,13 @@
         <table class="Head" class="hidePrint" width="640">
             <tr>
                 <td align="left"><input type="hidden" name="submit" value=""/>
-                    <input type="submit" value="Update VT" onclick="javascript:onSave();"/>
-                    <input type="submit" value="Save and Exit"
+                    <input type="submit" value="<fmt:message key='form.vt.update'/>" onclick="javascript:onSave();"/>
+                    <input type="submit" value="<fmt:message key='global.saveExit'/>"
                            onclick="javascript:return onSaveExit();"/> <input type="submit"
-                                                                              value="Exit"
+                                                                              value="<fmt:message key='global.btnExit'/>"
                                                                               onclick="javascript:return onExit();"/>
                     <input
-                            type="button" value="Print" onclick="javascript:return onPrint();"/>
+                            type="button" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
                 </td>
             </tr>
         </table>

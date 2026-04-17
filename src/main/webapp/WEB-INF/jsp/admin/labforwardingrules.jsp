@@ -35,7 +35,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.CarlosProperties" %>
+        import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList, io.github.carlos_emr.carlos.lab.ForwardingRules, io.github.carlos_emr.CarlosProperties, java.util.ResourceBundle" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -65,6 +65,7 @@
         providerNo = "0";
 
     ArrayList frwdProviders = fr.getProviders(providerNo);
+    ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 
 <html>
@@ -78,7 +79,7 @@
     <script type="text/javascript">
 
         function removeProvider(remProviderNo, providerName) {
-            var answer = confirm("Are you sure you would like to stop forwarding labs to " + providerName)
+            var answer = confirm("<fmt:message key='admin.labFwdRules.confirmRemovePrefix'/>" + providerName)
             if (answer) {
                 document.RULES.operation.value = "remove";
                 document.RULES.remProviderNum.value = remProviderNo;
@@ -90,7 +91,7 @@
         }
 
         function setActionClear() {
-            var answer = confirm("Are you sure you would like to clear the forwarding rules?")
+            var answer = confirm("<fmt:message key='admin.labFwdRules.confirmClear'/>")
             if (answer) {
                 document.RULES.operation.value = "clear";
                 return true;
@@ -104,16 +105,16 @@
             CarlosProperties props = CarlosProperties.getInstance();
             String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
             if (providerNo.equals("0")){%>
-            alert("You must select a providers to set the rules for.");
+            alert("<fmt:message key='admin.labFwdRules.mustSelectProvider'/>");
             return false;
             <%}else if(autoFileLabs != null && autoFileLabs.equalsIgnoreCase("yes")){%>
-            return confirm("Are you sure you would like to update the forwarding rules?")
+            return confirm("<fmt:message key='admin.labFwdRules.confirmUpdate'/>")
             <%}else{%>
             if (document.RULES.providerNums.value == '' && document.RULES.status[1].checked && <%= (frwdProviders.size() == 0)%>) {
-                alert("You must select a providers to forward the incoming labs to if you wish to automatically file them.");
+                alert("<fmt:message key='admin.labFwdRules.mustSelectForwardingProvider'/>");
                 return false;
             } else {
-                return confirm("Are you sure you would like to update the forwarding rules?")
+                return confirm("<fmt:message key='admin.labFwdRules.confirmUpdate'/>")
             }
             <%}%>
         }
@@ -133,11 +134,11 @@
 
 
     <div class="card card-body bg-body-tertiary">
-        <h5>Select Provider</h5>
-        Please Select the provider to set fowarding rules for:
+        <h5><fmt:message key="oscarMDS.selectProvider.title"/></h5>
+        <fmt:message key="admin.labFwdRules.instructions"/>
 
         <select name="providerNo" id="provider-selection">
-            <option value="0">None Selected</option>
+            <option value="0"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
             <% ArrayList providers = ProviderData.getProviderList();
                 for (int i = 0; i < providers.size(); i++) {
                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);%>
@@ -155,15 +156,15 @@
 
 
     <div class="card card-body bg-body-tertiary">
-        <h5>Current Forwarding Rules</h5>
+        <h5><fmt:message key="admin.labFwdRules.currentRules"/></h5>
         <%
             String status = "N";
             if (providerNo.equals("0")) {
         %>
-        <p>No provider has been selected.</p>
+        <p><fmt:message key="admin.labFwdRules.noProviderSelected"/></p>
         <%
         } else if (!fr.isSet(providerNo)) {%>
-        <p class="text-info">There are no forwarding rules set</p>
+        <p class="text-info"><fmt:message key="admin.labFwdRules.noneConfigured"/></p>
         <%
         } else {
             status = fr.getStatus(providerNo);
@@ -175,8 +176,8 @@
 
             <thead>
             <tr>
-                <th>Provider</th>
-                <th>Incoming Status</th>
+                <th><fmt:message key="admin.labFwdRules.provider"/></th>
+                <th><fmt:message key="admin.labFwdRules.incomingStatus"/></th>
                 <th></th>
             </tr>
             </thead>
@@ -186,12 +187,12 @@
             <tr>
                 <td><%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %> <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>
                 </td>
-                <td><%= status.equals("N") ? "New" : "Filed" %>
+                <td><%= status.equals("N") ? oscarRec.getString("oscarMDS.search.formReportStatusNew") : oscarRec.getString("inbox.inboxmanager.msgFiled") %>
                 </td>
                 <td>
                     <button type="submit" class="btn btn-sm"
                             onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' /> <e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' />')"
-                            title="remove provider"><i class="fa-solid fa-trash"></i> remove
+                            title="<fmt:message key='admin.labFwdRules.removeTitle'/>"><i class="fa-solid fa-trash"></i> <fmt:message key="admin.labFwdRules.remove"/>
                     </button>
                 </td>
             </tr>
@@ -205,14 +206,14 @@
 
         <div class="alert alert-danger">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            <strong>Warning!</strong> The incoming labs are not being forwarded.
+            <strong><fmt:message key="global.warning"/></strong> <fmt:message key="admin.labFwdRules.notForwarding"/>
         </div>
 
 
         <%}%>
         <br/>
-        <button type="submit" class="btn btn-danger" onclick="return setActionClear()"><i class="fa-solid fa-trash"></i> Clear
-            All Forwarding Rules
+        <button type="submit" class="btn btn-danger" onclick="return setActionClear()"><i class="fa-solid fa-trash"></i> <fmt:message key="global.clear"/>
+            <fmt:message key="admin.labFwdRules.allForwardingRules"/>
         </button>
 
         <%}%>
@@ -222,22 +223,22 @@
 
     <div class="card card-body bg-body-tertiary">
 
-        <h5>Update Forwarding Rules</h5>
+        <h5><fmt:message key="admin.labFwdRules.updateRules"/></h5>
 
-        Set incoming status:
+        <fmt:message key="admin.labFwdRules.setIncomingStatus"/>
         <input type="radio" name="status" value="N"    <%= status.equals("F") ? "" : "checked" %>> <fmt:message key="oscarMDS.search.formReportStatusNew"/>
-        <input type="radio" name="status" value="F" <%= status.equals("F") ? "checked" : "" %>> Filed
+        <input type="radio" name="status" value="F" <%= status.equals("F") ? "checked" : "" %>> <fmt:message key="inbox.inboxmanager.msgFiled"/>
 
         <br/>
 
-        Forward incoming reports to the following providers:<br/>
+        <fmt:message key="admin.labFwdRules.forwardTo"/><br/>
 
-        <small>(Hold 'Ctrl' to select multiple providers)</small>
+        <small><fmt:message key="admin.labFwdRules.holdCtrl"/></small>
         <br/>
 
         <select multiple name="providerNums" style="height: 200px">
             <optgroup
-                    label="&#160&#160Doctors&#160&#160&#160&#160&#160&#160&#160&#160">
+                    label="&#160&#160<%= oscarRec.getString("admin.labFwdRules.doctors") %>&#160&#160&#160&#160&#160&#160&#160&#160">
                 <% //ArrayList providers = ProviderData.getProviderList();
                     for (int i = 0; i < providers.size(); i++) {
                         String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
@@ -251,7 +252,7 @@
         </select>
 
         <br/>
-        <input type="submit" class="btn btn-primary" value="Update" onclick="return confirmUpdate()">
+        <input type="submit" class="btn btn-primary" value="<fmt:message key='global.update'/>" onclick="return confirmUpdate()">
 
     </div>
 

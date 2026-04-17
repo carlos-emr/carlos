@@ -14,6 +14,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -42,7 +44,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <title>Clinic NBR Management Start Time : <%=CarlosProperties.getInstance().getStartTime()%>
+        <title><fmt:message key="admin.clinicNbrManage.titlePrefix"/> <%=CarlosProperties.getInstance().getStartTime()%>
         </title>
         <script type="text/javascript">
             function toggleButtons(visible) {
@@ -104,11 +106,11 @@
         <table>
 
             <tr bgcolor="#486ebd">
-                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF">Remove NRB Code</font></th>
+                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.clinicNbrManage.removeCode"/></font></th>
             </tr>
 
             <tr>
-                <td align="right">Current NBR codes in database:</td>
+                <td align="right"><fmt:message key="admin.clinicNbrManage.currentCodes"/></td>
                 <td>
                     <select id="xml_p_nbr" name="xml_p_nbr">
                         <%
@@ -127,7 +129,7 @@
                 </td>
 
                 <td>
-                    <input type="submit" name="subbutton" value="Remove Selected Code" onclick="return removeCode();">
+                    <input type="submit" name="subbutton" value='<fmt:message key="admin.clinicNbrManage.removeSelected"/>' onclick="return removeCode();">
                 </td>
             </tr>
         </table>
@@ -135,17 +137,17 @@
     <form method="post" action="" name="manageNRB">
         <table>
             <tr bgcolor="#486ebd">
-                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF">Add NBR Code</font></th>
+                <th align="LEFT" colspan="3"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.clinicNbrManage.addCode"/></font></th>
             </tr>
             <tr>
                 <td>
-                    Value: <input id="nbr_value" type="text" name="nbr_value"/>
+                    <fmt:message key="admin.clinicNbrManage.value"/> <input id="nbr_value" type="text" name="nbr_value"/>
                 </td>
                 <td>
-                    Description: <input id="nbr_string" type="text" name="nbr_string"/>
+                    <fmt:message key="admin.clinicNbrManage.description"/> <input id="nbr_string" type="text" name="nbr_string"/>
                 </td>
                 <td>
-                    <input type="submit" name="subbutton" value="Add New Code" onclick="return addCode();">
+                    <input type="submit" name="subbutton" value='<fmt:message key="admin.clinicNbrManage.addNewCode"/>' onclick="return addCode();">
                 </td>
             </tr>
         </table>

@@ -19,10 +19,12 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String SAVE_AS = "default";
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
 // get form name
     String reportName = (new RptReportItem()).getReportName(reportId);
@@ -38,7 +40,10 @@
 //if(tableName==null) tableName = vecTableName.size() >= 1? (String)vecTableName.get(0) : "";
 
 // add/delete action 
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals(" Add ")) {
+    String submitAdd = bundle.getString("global.btnAdd");
+    String submitDelete = bundle.getString("global.btnDelete");
+
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitAdd)) {
         String strCapName = request.getParameter("selField") != null ? request.getParameter("selField") : "";
         String[] strTemp = strCapName.split("\\|");
         if (strTemp.length > 1) {
@@ -52,7 +57,7 @@
             confObj.insertRecordWithOrder();
         }
     }
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitDelete)) {
         String strCapName = request.getParameter("selConfig") != null ? request.getParameter("selConfig") : "";
 
         String[] strTemp = strCapName.split("\\|");
@@ -80,7 +85,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Report List</title>
+        <title><fmt:message key="report.reportFormDemoConfig.title"/></title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <script language="JavaScript">
 
@@ -91,12 +96,12 @@
             }
 
             function onDelete() {
-                ret = confirm("Are you sure you want to delete it?");
+                ret = confirm("<%= bundle.getString("report.reportList.confirmDelete") %>");
                 return ret;
             }
 
             function onRestore() {
-                ret = confirm("Are you sure you want to restore it?");
+                ret = confirm("<%= bundle.getString("report.reportList.confirmRestore") %>");
                 return ret;
             }
 
@@ -117,9 +122,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><e:forHtmlContent value='<%= reportName %>' /> Configuration</td>
+            <td><e:forHtmlContent value='<%= reportName %>' /> <fmt:message key="report.reportFormDemoConfig.heading"/></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />">Back to the Report</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportFormDemoConfig.backToReport"/></a></td>
         </tr>
     </table>
 
@@ -127,8 +132,7 @@
         <form method="post" name="baseurl0" action="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig">
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%"><a
-                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />">Form</a> | Patient
-                    Profile <br/>
+                        href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportFormDemoConfig.label.form"/></a> | <fmt:message key="report.reportFormDemoConfig.label.patientProfile"/> <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
                             String strMatchConfig = "";
@@ -147,17 +151,16 @@
                         <% } %>
                     </select> <br>
                     <a
-                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />&formTableName=<e:forUriComponent value='<%= formTableName %>' />&configTableName=<e:forUriComponent value='<%= configTableName %>' />">Add
-                        Caption</a></td>
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />&formTableName=<e:forUriComponent value='<%= formTableName %>' />&configTableName=<e:forUriComponent value='<%= configTableName %>' />"><fmt:message key="report.reportFormDemoConfig.linkAddCaption"/></a></td>
 
                 <td align="center" width="20%" nowrap valign="top">
                     <table width="100%" border="0" cellspacing="0" cellpadding="2">
                         <tr>
-                            <td colspan="2">Fields | Selected <br>
+                            <td colspan="2"><fmt:message key="report.reportFormDemoConfig.label.fields"/> | <fmt:message key="report.reportFormDemoConfig.label.selected"/> <br>
                                 <br>
-                                ==<input type="submit" name="submit" value=" Add "/>=&gt;&gt; <br>
+                                ==<input type="submit" name="submit" value="<fmt:message key='global.btnAdd'/>"/>=&gt;&gt; <br>
                                 <br>
-                                &lt;&lt;=<input type="submit" name="submit" value="Delete"/>==
+                                &lt;&lt;=<input type="submit" name="submit" value="<fmt:message key='global.btnDelete'/>"/>==
                         </tr>
                     </table>
                 </td>
@@ -173,7 +176,7 @@
                     </option>
                     <% } %>
                 </select> <br>
-                    Change Order <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />">
+                    <fmt:message key="report.reportFormDemoConfig.linkChangeOrder"/> <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />">
                     <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />">
                     <input type="hidden" name="configTableName"
                            value="<e:forHtmlAttribute value='<%= configTableName %>' />"></td>

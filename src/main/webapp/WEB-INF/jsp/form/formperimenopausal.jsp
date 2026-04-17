@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -96,7 +98,7 @@
             document.forms[0].submit.value = "save";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -105,7 +107,7 @@
             document.forms[0].submit.value = "exit";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -208,7 +210,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -232,7 +234,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -285,13 +287,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>
@@ -1118,13 +1120,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
             </tr>
         </table>

@@ -1,4 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -31,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ParameterizedSql" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%
     String VALUE = "value_";
     String DATE_FORMAT = "dateFormat_";
@@ -38,7 +40,13 @@
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name
     String reportName = (new RptReportItem()).getReportName(reportId);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
+    // Security note (CodeQL java/Sqli #6469 false positive):
+    // getQueryStr() returns a ParameterizedSql with '?' bind placeholders for all WHERE
+    // values. Table names are validated by RptFormQuery.validateTableName() against a
+    // strict SQL-identifier regex. The query is executed with psql.getParamsArray() as
+    // bind parameters — no user input is concatenated into the SQL string.
     RptFormQuery formQuery = new RptFormQuery();
     ParameterizedSql psql = formQuery.getQueryStr(reportId, request);
 
@@ -50,11 +58,12 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Report List</title>
+        <title><fmt:message key="report.reportList.title"/></title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <script language="JavaScript">
 
@@ -65,18 +74,18 @@
             }
 
             function onDelete() {
-                ret = confirm("Are you sure you want to delete it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmDelete'/>");
                 return ret;
             }
 
             function onRestore() {
-                ret = confirm("Are you sure you want to restore it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmRestore'/>");
                 return ret;
             }
 
             function onAdd() {
                 if (document.baseurl.name.value.length < 2) {
-                    alert("Please type in a valid name!");
+                    alert("<fmt:message key='report.reportList.validName'/>");
                     return false;
                 } else {
                     return true;
@@ -111,7 +120,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />">Back to Report Filter</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportList.backToFilter"/></a></td>
         </tr>
     </table>
 

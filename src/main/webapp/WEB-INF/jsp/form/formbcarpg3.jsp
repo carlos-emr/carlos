@@ -1,4 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -64,7 +66,7 @@
 %>
 <html>
     <head>
-        <title>Antenatal Record 2</title>
+        <title><fmt:message key="form.bcar.titlePage2"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="<%=bView?"bcArStyleView.css" : "bcArStyle.css"%>">
         <!-- calendar stylesheet -->
@@ -75,7 +77,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -448,13 +450,13 @@
             ret = checkAllNumber();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
 
         function onExit() {
-            if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+            if (confirm("<fmt:message key='global.msgNotSave'/>") == true) {
                 window.close();
             }
             return (false);
@@ -466,7 +468,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -641,7 +643,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -665,7 +667,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -937,13 +939,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <%
                         if (!bView) {
                     %>
-                    <input type="submit" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <%
                         }
                     %>
-                    <input type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" value="Print" onclick="javascript:return onPrint();"/>
+                    <input type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
                 </td>
 
                 <%
@@ -952,7 +954,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 <td>
                     <a href="javascript: function myFunction() {return false; }"
                        title="Double click shaded fields for drop down or calculation"
-                       onClick="showHideBox('Instrdiv',1);return false;"><font color='red'>Instruction</font></a>
+                       onClick="showHideBox('Instrdiv',1);return false;"><font color='red'><fmt:message key="form.bcar.instruction"/></font></a>
                 </td>
 
                 <!--  <td align="right"><b>View:</b>
@@ -979,7 +981,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                British Columbia Antenatal Record Part 2 <font size="-2">HLTH-1582-2 Rev.02/03</font>
+                                <fmt:message key="form.bcar.recordTitlePart2"/> <font size="-2">HLTH-1582-2 Rev.02/03</font>
                             </th>
                         </tr>
                     </table>
@@ -1403,9 +1405,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 <td width="7%" align="center">URINE</td>
                 <td width="6%" align="center"><span class="small9">GEST.<br>AGE IN<br>WEEKS</span></td>
                 <td width="7%" align="center"><span class="small9">FUNDAL<br>HEIGHT<br>CMS.</span></td>
-                <td width="7%" align="center">FHR &<br>ACTIVITY</td>
+                <td width="7%" align="center"><fmt:message key="form.bcar.fhrActivity"/></td>
                 <td width="7%" align="center"><span class="small9">PRESEN-<br>TATION &<br>POSITION</span></td>
-                <td width="44%" colspan="2" align="right" valign="bottom"><span class="small8">Return in</span></td>
+                <td width="44%" colspan="2" align="right" valign="bottom"><span class="small8"><fmt:message key="form.bcar.returnIn"/></span></td>
                 </td>
             </tr>
             <tr>
@@ -2294,7 +2296,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
                     <table width="100%" border="0" cellspacing="2" cellpadding="0">
                         <tr>
-                            <td width="5%"><span class="small9">Doula:</span></td>
+                            <td width="5%"><span class="small9"><fmt:message key="form.bcar.doula"/>:</span></td>
                             <td width="60%"><input type="text" name="ar2_doula" style="width:100%" size="50"
                                                    maxlength="100" value="<%= props.getProperty("ar2_doula", "") %>"/>
                             </td>
@@ -2319,7 +2321,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td width="45%"><input type="text" name="pg3_signature" style="width:100%" size="50" maxlength="60"
                                        value="<%= props.getProperty("pg3_signature", "") %>" @oscar.formDB/></td>
-                <td><span class="small9">MD/RM</span>
+                <td><span class="small9"><fmt:message key="form.bcar.mdRm"/></span>
                 </td>
             </tr>
         </table>
@@ -2335,13 +2337,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <%
                         if (!bView) {
                     %>
-                    <input type="submit" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <%
                         }
                     %>
-                    <input type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" value="Print" onclick="javascript:return onPrint();"/>
+                    <input type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
                 </td>
 
                 <%
@@ -2434,7 +2436,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                             <input type="checkbox"
                                                    name="ar2_riskPriCesBirth" <%= props.getProperty("ar2_riskPriCesBirth", "") %> />
                                         </td>
-                                        <td>Prior Cesarean birth ( uterine surgery )</td>
+                                        <td><fmt:message key="form.bcar.priorCesareanBirth"/></td>
                                     </tr>
                                     <tr>
                                         <td>

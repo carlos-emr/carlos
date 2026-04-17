@@ -394,12 +394,12 @@
                     <td>
                         <c:if test="${ missingDrugData }">
                             <c:set var="controls" value="off" scope="page"/>
-                            <span style="color:red;">Missing Medication Data</span>
+                            <span style="color:red;"><fmt:message key="form.bpmh.missingMedicationData"/></span>
                         </c:if>
                         <c:choose>
                             <c:when test="${empty bpmh.allergiesString}">
                                 <c:set var="controls" value="off" scope="page"/>
-                                <span style="color:red;">Allergy Notation is Required (ie: NKDA)</span>
+                                <span style="color:red;"><fmt:message key="form.bpmh.allergyNotationRequired"/></span>
                             </c:when>
                         </c:choose>
                         <c:choose>
