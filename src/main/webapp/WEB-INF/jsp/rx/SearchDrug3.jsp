@@ -1373,6 +1373,7 @@ function renderRxStage() {
     }
 
     function displayInstructions(randomId){
+        // Reuse the existing medication-history modal because the old displayInstructions endpoint no longer exists.
         displayMedHistory(randomId);
     }
 
