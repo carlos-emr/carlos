@@ -760,8 +760,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
 
             // When
-            @SuppressWarnings("unchecked")
-            List<List> result = lookupDao.GetCodeFieldValues(tableDef);
+            List<?> result = lookupDao.GetCodeFieldValues(tableDef);
 
             // Then
             assertThat(result).isNotNull();

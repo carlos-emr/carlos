@@ -381,6 +381,21 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return codes;
     }
 
+    /**
+     * Creates a defensive copy of a field definition template before row-specific
+     * values are applied.
+     *
+     * <p>{@link #GetCodeFieldValues(LookupTableDefValue)} returns one
+     * {@link FieldDefValue} list per result row. Reusing the same
+     * {@code FieldDefValue} instances across iterations causes aliasing, so every
+     * returned row ends up reflecting the last processed values. Copying the
+     * template metadata here lets each row keep its own {@code val}/{@code valDesc}
+     * state.</p>
+     *
+     * @param source FieldDefValue the template field definition to copy
+     * @return FieldDefValue a detached copy safe to mutate for one result row
+     * @since 2026-04-17
+     */
     private static FieldDefValue copyFieldDefValue(FieldDefValue source) {
         FieldDefValue copy = new FieldDefValue();
         copy.setTableId(source.getTableId());
