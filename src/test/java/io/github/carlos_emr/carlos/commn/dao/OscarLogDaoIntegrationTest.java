@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -31,7 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.lang.reflect.Field;
+import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
 
@@ -57,6 +60,9 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private OscarLogDao dao;
 
+    @PersistenceContext(unitName = "testPersistenceUnit")
+    private EntityManager entityManager;
+
     private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
                                      String content, String contentId) throws Exception {
         return createOscarLog(demographicId, providerNo, action, content, contentId, new Date());
@@ -66,17 +72,20 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
                                      String content, String contentId, Date created) throws Exception {
         OscarLog log = new OscarLog();
         EntityDataGenerator.generateTestDataForModelClass(log);
-        Field createdField = OscarLog.class.getDeclaredField("created");
-        createdField.setAccessible(true);
-        createdField.set(log, created);
         log.setDemographicId(demographicId);
         log.setProviderNo(providerNo);
         log.setAction(action);
         log.setContent(content);
         log.setContentId(contentId);
         dao.persist(log);
-        hibernateTemplate.flush();
-        return log;
+        entityManager.flush();
+        entityManager.createNativeQuery("update log set dateTime = ?1 where id = ?2")
+                .setParameter(1, new Timestamp(created.getTime()))
+                .setParameter(2, log.getId())
+                .executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+        return dao.find(log.getId());
     }
 
     @Nested
