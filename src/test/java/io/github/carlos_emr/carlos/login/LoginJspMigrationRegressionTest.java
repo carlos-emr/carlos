@@ -47,6 +47,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class LoginJspMigrationRegressionTest {
 
+    /**
+     * Matches legacy public error JSP references such as "/errorpage.jsp" that
+     * should no longer appear after the WEB-INF error-page migration.
+     */
     private static final Pattern LEGACY_PUBLIC_ERROR_JSP_REFERENCE =
             Pattern.compile("(^|[^A-Za-z0-9])/(errorpage|failure|securityError|500)\\.jsp(?=[\"'<\\s]|$)");
     private static final Path STRUTS_LOGIN_XML =
@@ -229,8 +233,7 @@ class LoginJspMigrationRegressionTest {
 
     private static Stream<String> readLines(Path path) {
         try {
-            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-            return lines.stream()
+            return Files.lines(path, StandardCharsets.UTF_8)
                     .map(line -> path + ": " + line.trim());
         }
         catch (IOException e) {
