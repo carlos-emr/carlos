@@ -30,34 +30,31 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
-
-<link rel="stylesheet" type="text/css" href="encounterStyles.css">
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Template</title>
+        <meta charset="UTF-8">
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="encounter.license.title"/></title>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">license</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td style="text-align: right"><a
-                                href="javascript:window.close()">close</a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn"></td>
-            <td class="MainTableRightColumn"><pre>
+    <body>
+    <div class="container">
+
+        <div class="page-header-bar d-flex align-items-center justify-content-between
+                    py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-semibold"><fmt:message key="encounter.license.title"/></span>
+            </div>
+            <div class="text-muted small">
+                <a href="javascript:window.close()"><fmt:message key="global.btnClose"/></a>
+            </div>
+        </div>
+
+        <div class="bg-light border rounded p-2">
+            <pre>
 /* *
  * Copyright (c) 2001-2015. Department of Family Medicine, McMaster University. All Rights Reserved.
  *
@@ -84,12 +81,8 @@
  * Ontario, Canada
  */
 </pre>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+        </div>
+
+    </div>
     </body>
 </html>

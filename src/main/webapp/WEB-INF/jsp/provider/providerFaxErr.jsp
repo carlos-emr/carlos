@@ -32,33 +32,40 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css"
-              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-
+        <meta charset="UTF-8">
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:message key="provider.editRxFax.title"/></title>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
+    <body>
+    <div class="container">
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:message key="provider.editRxFax.msgPrefs"/></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><fmt:message key="provider.editRxFax.msgProviderFaxNumber"/></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td style="color: red" class="MainTableRightColumn"><fmt:message key="provider.editRxFax.msgError"/></td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+        <div id="jsAlertBanner"
+             class="alert alert-danger alert-dismissible"
+             style="display:none"
+             role="alert">
+            <span id="jsAlertText"></span>
+            <button type="button"
+                    class="btn-close"
+                    onclick="this.closest('.alert').style.display='none'"
+                    aria-label="Close"></button>
+        </div>
+
+        <div class="page-header-bar d-flex align-items-center justify-content-between
+                    py-2 mb-3 border-bottom" id="header">
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-semibold"><fmt:message key="provider.editRxFax.msgPrefs"/></span>
+            </div>
+            <div class="text-muted small"><fmt:message key="provider.editRxFax.msgProviderFaxNumber"/></div>
+        </div>
+
+        <div class="bg-light border rounded p-2">
+            <div class="text-danger"><fmt:message key="provider.editRxFax.msgError"/></div>
+        </div>
+
+    </div>
     </body>
 </html>
