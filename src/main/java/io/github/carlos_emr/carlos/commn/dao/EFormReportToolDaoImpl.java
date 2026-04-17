@@ -122,6 +122,9 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sql.append("eft_latest tinyint(1) NOT NULL, ");
         sql.append("dateCreated timestamp NOT NULL ");
         for (String field : fields) {
+            if (field != null && field.contains("`")) {
+                throw new IllegalArgumentException("Invalid column name: " + field);
+            }
             sql.append(",`" + field + "` text");
         }
         sql.append(")");
@@ -155,32 +158,43 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sb.append("dateFormCreated,");
         sb.append("providerNo,");
         sb.append("eft_latest,");
-        sb.append("dateCreated,");
+        sb.append("dateCreated");
         for (EFormValue v : values) {
-            sb.append("`" + v.getVarName() + "`");
-            sb.append(",");
+            if (v.getVarName() != null && v.getVarName().contains("`")) {
+                throw new IllegalArgumentException("Invalid column name: " + v.getVarName());
+            }
+            sb.append(",`" + v.getVarName() + "`");
         }
-
-        sb.deleteCharAt(sb.length() - 1);
 
         sb.append(" ) VALUES (");
-        sb.append(fdid + ",");
-        sb.append(demographicNo + ",");
-        sb.append("\'" + DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss") + "\',");
-        sb.append("\'" + persistedProviderNo + "\',");
+        sb.append("?1,");
+        sb.append("?2,");
+        sb.append("?3,");
+        sb.append("?4,");
         sb.append("0,");
-        sb.append("now(),");
-        for (EFormValue v : values) {
-            sb.append("\'" + v.getVarValue() + "\'");
-            sb.append(",");
+        sb.append("now()");
+
+        int paramIndex = 5;
+        for (int i = 0; i < values.size(); i++) {
+            sb.append(",?");
+            sb.append(paramIndex++);
         }
-        sb.deleteCharAt(sb.length() - 1);
 
         sb.append(")");
 
         //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, dateFormCreated);
+        q.setParameter(4, persistedProviderNo);
+
+        paramIndex = 5;
+        for (EFormValue v : values) {
+            q.setParameter(paramIndex++, v.getVarValue());
+        }
+
         q.executeUpdate();
     }
 
