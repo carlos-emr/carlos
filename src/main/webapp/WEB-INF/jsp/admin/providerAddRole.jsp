@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 
@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -58,7 +59,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -86,12 +87,12 @@
                 secRole.setName(role_name);
                 secRoleDao.merge(secRole);
                 RoleCache.reload();
-                msg = encodedRoleName + " is updated.<br>" + searchFirst;
+                msg = encodedRoleName + " " + oscarRec.getString("admin.provideraddrole.msgUpdated") + "<br>" + searchFirst;
                 action = "search";
                 prop.setProperty("role_name", role_name);
                 LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_ROLE, role_name, ip);
             } else {
-                msg = encodedRoleName + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
+                msg = encodedRoleName + " " + oscarRec.getString("admin.provideraddrole.msgNotUpdated") + ". " + oscarRec.getString("admin.provideraddrole.msgTryEditAgain");
                 action = "edit" + role_name;
                 prop.setProperty("role_name", role_name);
             }
@@ -104,22 +105,22 @@
                 secRoleDao.persist(secRole);
                 RoleCache.reload();
 
-                msg = encodedRoleName + " is added.<br>" + searchFirst;
+                msg = encodedRoleName + " " + oscarRec.getString("admin.provideraddrole.msgAdded") + "<br>" + searchFirst;
                 action = "search";
                 prop.setProperty("role_name", role_name);
                 LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, role_name, ip);
             } else {
-                msg = "You can <font color='red'>NOT</font> save the role  - " + encodedRoleName + ". Please search the role name first.";
+                msg = oscarRec.getString("admin.provideraddrole.msgCannotSave") + " - " + encodedRoleName + ". " + oscarRec.getString("admin.provideraddrole.msgSearchFirst");
                 action = "search";
                 prop.setProperty("role_name", role_name);
             }
         } else {
-            msg = "You can <font color='red'>NOT</font> save the role. Please search the role name first.";
+            msg = oscarRec.getString("admin.provideraddrole.msgCannotSave") + ". " + oscarRec.getString("admin.provideraddrole.msgSearchFirst");
         }
     } else if (request.getParameter("submit") != null && request.getParameter("submit").equals("Search")) {
         // check the input data
         if (role_name == null || role_name.length() < 2) {
-            msg = "Please type in a role name.";
+            msg = oscarRec.getString("admin.provideraddrole.msgTypeRole");
         } else {
             SecRole secRole = null;
             try {
@@ -129,11 +130,11 @@
 
             if (secRole != null) {
                 prop.setProperty("role_name", secRole.getName());
-                msg = "You can edit the role. (Please note: The change of the role may affect data in other tables.)";
+                msg = oscarRec.getString("admin.provideraddrole.msgCanEdit");
                 action = "edit" + role_name;
             } else {
                 prop.setProperty("role_name", role_name);
-                msg = "It is a NEW role. You can add it.";
+                msg = oscarRec.getString("admin.provideraddrole.msgNewRole");
                 action = "add" + role_name;
             }
         }
@@ -178,7 +179,7 @@
                     //ret = checkAllFields();
                 }
                 if (ret == true) {
-                    ret = confirm("Are you sure you want to save?");
+                    ret = confirm("<fmt:message key='admin.provideraddrole.confirmSave'/>");
                 }
                 return ret;
             }
@@ -209,10 +210,10 @@
                 var b = true;
                 if (document.forms[0].last_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"Last Name\" is empty.");
+                    alert("<fmt:message key='admin.provideraddrole.lastNameEmpty'/>");
                 } else if (document.forms[0].first_name.value.length <= 0) {
                     b = false;
-                    alert("The field \"First Name\" is empty.");
+                    alert("<fmt:message key='admin.provideraddrole.firstNameEmpty'/>");
                 }
                 return b;
             }
@@ -237,7 +238,7 @@
                     List<SecRole> secRoles = secRoleDao.findAll();
                     for(SecRole secRole:secRoles) {
                         %>
-                    "<%=Encode.forHtmlAttribute(secRole.getName())%>",
+                    "<e:forJavaScriptBlock value='<%= secRole.getName() %>' />",
                     <%}%>
                     ""
                 ];
@@ -257,21 +258,21 @@
     <span style="display: inline-block; width:100%; margin:auto; text-align:center;" class="alert"><%=msg%></span>
     <br><br>
     <div class="card card-body bg-body-tertiary">
-        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/ProviderAddRole.do" class="">
+        <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/ProviderAddRole" class="">
             <div class="mb-3">
                 <label class="form-label" for="role_name"><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>
                     <input type="text" name="role_name" id="role_name"
-                           value="<%=Encode.forHtmlAttribute(prop.getProperty("role_name", ""))%>"
+                           value="<e:forHtmlAttribute value='<%= prop.getProperty("role_name", "") %>' />"
                            maxlength='30'>
-                    <input type="submit" name="submit" value="Search" class="btn btn-secondary"
+                    <input type="submit" name="submit" value="<fmt:message key="admin.provideraddrole.search"/>" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
                 </div>
             </div>
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<%=Encode.forHtmlAttribute(action)%>'/> <% if (!"search".equals(action)) {%>
+                            type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();"> <% }%>

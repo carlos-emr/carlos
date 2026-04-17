@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 %>
 
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.BatchUpdateException" %>
 <%@ page import="java.sql.*" %>
@@ -88,6 +88,7 @@
     RecycleBinDao recycleBinDao = SpringUtils.getBean(RecycleBinDao.class);
     String curUser_no = (String) session.getAttribute("user");
     String ip = request.getRemoteAddr();
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 
 <%
@@ -182,7 +183,7 @@
             if (secExceptionMsg.length() > 0)
                 msg += Encode.forHtml(secExceptionMsg);
             else {
-                msg += "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is added. ";
+                msg += java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgAdded"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
                 LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + encodedObjectName + "|" + privilege, ip);
             }
         }
@@ -237,10 +238,10 @@
             sop.setPrivilege(privilege);
             sop.setPriority(Integer.parseInt(priority));
             secObjPrivilegeDao.merge(sop);
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is updated. ";
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdated"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName + "|" + privilege, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> updated!!! ";
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdateFailed"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
         }
 
     }
@@ -263,7 +264,7 @@
             priority = String.valueOf(sop.getPriority());
             provider_no = sop.getProviderNo();
             secObjPrivilegeDao.remove(sop.getId());
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is deleted. ";
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleted"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
 
             RecycleBin recycleBin = new RecycleBin();
             recycleBin.setProviderNo(curUser_no);
@@ -277,7 +278,7 @@
             recycleBinDao.persist(recycleBin);
             LogAction.addLog(curUser_no, LogConst.DELETE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName, ip);
         } else {
-            msg = "Role/Obj/Rights " + encodedRoleUserGroup + "/" + encodedObjectName + "/" + Encode.forHtml(privilege) + " is <span style='color:red'>NOT</span> deleted!!! ";
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleteFailed"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
         }
     }
 
@@ -286,7 +287,7 @@
 %>
 <html>
 <head>
-    <title>PROVIDER</title>
+    <title><fmt:message key="admin.providerPrivilege.title"/></title>
 
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
           rel="stylesheet">
@@ -396,17 +397,17 @@
 </head>
 <body>
 
-<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
+<form name="myform" action="${pageContext.request.contextPath}/admin/ProviderPrivilege" method="POST">
     <table width="100%">
         <tr>
             <th><% if (msg.length() > 1) {%>
                 <div class="alert" style="width:100%; text-align:center"><%=msg%>
                 </div>
                 <% } %></th>
-            <th style="width: 600px">Object Name/Role Name: <input type="text" name="keyword"
-                                                                   value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
+            <th style="width: 600px"><fmt:message key="admin.providerPrivilege.objectNameRoleName"/> <input type="text" name="keyword"
+                                                                   value="<e:forHtmlAttribute value='<%= keyword %>' />"> <input
                     type="submit" name="search" class="btn btn-secondary"
-                    value="Filter"></th>
+                    value="<fmt:message key="admin.providerPrivilege.filter"/>"></th>
         </tr>
     </table>
 </form>
@@ -433,16 +434,16 @@
 
 %>
 
-<h4>Role/Privilege List</h4>
+<h4><fmt:message key="admin.providerPrivilege.rolePrivilegeList"/></h4>
 <div class="card card-body bg-body-tertiary">
     <table id="tblpp" class="table table-sm">
         <thead>
         <tr>
-            <th style="width:300px">Role</th>
-            <th style="width:200px">Object ID</th>
-            <th style="width:300px">Privilege</th>
-            <th>Priority</th>
-            <th>Action</th>
+            <th style="width:300px"><fmt:message key="admin.providerPrivilege.role"/></th>
+            <th style="width:200px"><fmt:message key="admin.providerPrivilege.objectId"/></th>
+            <th style="width:300px"><fmt:message key="admin.providerPrivilege.privilege"/></th>
+            <th><fmt:message key="admin.providerPrivilege.priority"/></th>
+            <th><fmt:message key="admin.providerPrivilege.action"/></th>
         </tr>
         </thead>
         <tbody>
@@ -455,7 +456,7 @@
                 String roleUserName = vecProviderNo.contains(roleUser) ? Encode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
-        <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do"
+        <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege"
               method="POST">
             <tr style="background-color:<%=bgColor%>">
                 <td><%= roleUserName %>
@@ -471,9 +472,9 @@
                                 out.print("</br>");
                                 bSet = false;
                             }
-                    %> <input type="checkbox" name="privilege<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"
+                    %> <input type="checkbox" name="privilege<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"
                     <%=priv.indexOf(((String)vecRightsName.get(j)))>=0?"checked":""%> >
-                    <%=Encode.forHtml(((String) vecRightsDesc.get(j)).replaceAll("Only", "O"))%>
+                    <e:forHtmlContent value='<%= ((String) vecRightsDesc.get(j)).replaceAll("Only", "O") %>' />
                     <% }%> <!--input type="text" name="privilege" value="<%--= priv--%>" /-->
                 </td>
                 <td><select name="priority" class="input-min" style="width:50px">
@@ -486,11 +487,11 @@
                 </select></td>
                 <td style="text-align:center">
                     <% if (!roleUser.equals("admin") && !obj.equals("_admin")) { %> <input
-                        type="hidden" name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>"> <input
+                        type="hidden" name="keyword" value="<e:forHtmlAttribute value='<%= keyword %>' />"> <input
                         type="hidden" name="objectName" value="<%=obj %>"> <input
                         type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
-                        type="submit" name="buttonUpdate" value="Update" class="btn btn-secondary"> <input
-                        type="submit" name="submit" value="Delete" class="btn btn-secondary"> <% } %>
+                        type="submit" name="buttonUpdate" value="<fmt:message key="admin.providerPrivilege.update"/>" class="btn btn-secondary"> <input
+                        type="submit" name="submit" value="<fmt:message key="admin.providerPrivilege.delete"/>" class="btn btn-secondary"> <% } %>
                 </td>
             </tr>
         </form>
@@ -500,21 +501,21 @@
 </div>
 
 
-<h4>Add Role/Privilege</h4>
+<h4><fmt:message key="admin.providerPrivilege.addRolePrivilege"/></h4>
 <div class="card card-body bg-body-tertiary">
-    <form name="myform2" action="${pageContext.request.contextPath}/admin/ProviderPrivilege.do" method="POST">
-        For:
+    <form name="myform2" action="${pageContext.request.contextPath}/admin/ProviderPrivilege" method="POST">
+        <fmt:message key="admin.providerPrivilege.for"/>
         <select name="roleUserGroup"
                 onChange="onChangeSelect()">
             <option value="">-</option>
             <% for (int j = 0; j < vecRoleName.size(); j++) {%>
-            <option value="<%=Encode.forHtmlAttribute(vecRoleName.get(j).toString())%>"><%= Encode.forHtmlContent(vecRoleName.get(j).toString()) %>
+            <option value="<e:forHtmlAttribute value='<%= vecRoleName.get(j).toString() %>' />"><e:forHtmlContent value='<%= vecRoleName.get(j).toString() %>' />
             </option>
             <% }%>
-        </select> or <select name="roleUserGroup1">
+        </select> <fmt:message key="admin.providerPrivilege.or"/> <select name="roleUserGroup1">
         <option value="">-</option>
         <% for (int j = 0; j < vecProviderNo.size(); j++) {%>
-        <option value="<%=Encode.forHtmlAttribute(vecProviderNo.get(j).toString())%>"><%= Encode.forHtmlContent((String) vecProviderName.get(j)) %>
+        <option value="<e:forHtmlAttribute value='<%= vecProviderNo.get(j).toString() %>' />"><e:forHtmlContent value='<%= (String) vecProviderName.get(j) %>' />
         </option>
         <% }%>
         <option value="_principal">_principal</option>
@@ -523,11 +524,11 @@
         <table id="addtbl" style="width: 100%" class="table table-striped table-sm">
             <thead>
             <tr>
-                <th style="width:300px">Role</th>
-                <th style="width:200px">Object ID</th>
-                <th style="width:300px">Privilege</th>
-                <th>Priority</th>
-                <th>Action</th>
+                <th style="width:300px"><fmt:message key="admin.providerPrivilege.role"/></th>
+                <th style="width:200px"><fmt:message key="admin.providerPrivilege.objectId"/></th>
+                <th style="width:300px"><fmt:message key="admin.providerPrivilege.privilege"/></th>
+                <th><fmt:message key="admin.providerPrivilege.priority"/></th>
+                <th><fmt:message key="admin.providerPrivilege.action"/></th>
             </tr>
             </thead>
             <tbody>
@@ -550,7 +551,7 @@
                     %> <input type="text" name="object$<%=objName%>" value=""> <% } else {
 
                     objName = (String) vecObjectId.get(i);
-                %> <input type="checkbox" name="object$<%=Encode.forHtmlAttribute(objName)%>"> <%= Encode.forHtml(vecObjectId.get(i).toString()) %>
+                %> <input type="checkbox" name="object$<e:forHtmlAttribute value='<%= objName %>' />"> <e:forHtmlContent value='<%= vecObjectId.get(i).toString() %>' />
                     <% if (objName.startsWith("_queue.")) {
                         String d = null;
                         SecObjectName son = secObjectNameDao.find(objName);
@@ -565,7 +566,7 @@
                         }
                     %>
 
-                    <%=Encode.forHtml(d)%>
+                    <e:forHtmlContent value='<%= d %>' />
                     <%
                             }
                         }
@@ -580,10 +581,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$<%=Encode.forHtmlAttribute(objName)%>$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"/> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
+                              name="privilege$<e:forHtmlAttribute value='<%= objName %>' />$<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"/> <e:forHtmlContent value='<%= vecRightsDesc.get(j).toString() %>' />
                     <% }%>
                 </td>
-                <td><select name="priority$<%=Encode.forHtmlAttribute(objName)%>" style="width:50px;">
+                <td><select name="priority$<e:forHtmlAttribute value='<%= objName %>' />" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -593,7 +594,7 @@
                 </select></td>
                 <td>
                     <input type="submit"
-                           name="submit" value="Add" class="btn btn-secondary"></td>
+                           name="submit" value="<fmt:message key="admin.providerPrivilege.add"/>" class="btn btn-secondary"></td>
             </tr>
             <% }%>
 
@@ -608,7 +609,7 @@
 
                 </td>
                 <td style="width:200px">
-                    <input type="text" name="object$Name1" value="" placeholder="new security object">
+                    <input type="text" name="object$Name1" value="" placeholder="<fmt:message key="admin.providerPrivilege.newSecurityObject"/>">
                 </td>
                 <td style="width:300px">
                     <%
@@ -619,10 +620,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$Name1$<%=Encode.forHtmlAttribute(vecRightsName.get(j).toString())%>"> <%=Encode.forHtml(vecRightsDesc.get(j).toString())%>
+                              name="privilege$Name1$<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"> <e:forHtmlContent value='<%= vecRightsDesc.get(j).toString() %>' />
                     <% }%>
                 </td>
-                <td>Priority <select name="priority$Name1" style="width:50px;">
+                <td><fmt:message key="admin.providerPrivilege.priority"/> <select name="priority$Name1" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -631,13 +632,13 @@
                     <% }%>
                 </select></td>
                 <td><input type="submit"
-                           name="submit" value="Add" class="btn btn-secondary"></td>
+                           name="submit" value="<fmt:message key="admin.providerPrivilege.add"/>" class="btn btn-secondary"></td>
 
             </tr>
             </tbody>
         </table>
         <input type="hidden"
-               name="keyword" value="<%=Encode.forHtmlAttribute(keyword)%>">
+               name="keyword" value="<e:forHtmlAttribute value='<%= keyword %>' />">
 
     </form>
 </div>

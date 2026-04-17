@@ -1553,7 +1553,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         sb.append("<div id='patient-label'>");
         sb.append("<div id='patient-full-name'>");
-        String editHref = contextPath + "/demographic/DemographicEdit.do?demographic_no="
+        String editHref = contextPath + "/demographic/DemographicEdit?demographic_no="
                 + Encode.forUriComponent(String.valueOf(getDemographicNo()));
         sb.append("<h1><a href='").append(Encode.forHtmlAttribute(editHref));
         sb.append("' target='_blank'>");
@@ -1678,7 +1678,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> next appointment date
         sb.append("<div id='patient-next-appointment'>");
         sb.append("<div class='label'>");
-        String apptHref = contextPath + "/demographic/DemographicApptHistory.do?demographic_no="
+        String apptHref = contextPath + "/demographic/DemographicApptHistory?demographic_no="
                 + Encode.forUriComponent(String.valueOf(getDemographicNo()))
                 + "&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25";
         sb.append("<a href=\"").append(Encode.forHtmlAttribute(apptHref))

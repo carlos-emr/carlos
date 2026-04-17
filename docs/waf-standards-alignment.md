@@ -40,7 +40,7 @@ Rate limiting runs first because it is the cheapest check (counter increment) an
 | **A02** | Cryptographic Failures | Bouncy Castle / Spring Security Crypto for password hashing; PHI encryption. |
 | **A03** | Injection | Parameterized queries throughout; `WafFilter` SQLi rule group 942xxx. *(WafFilter not yet implemented)* |
 | **A05** | Security Misconfiguration | All WAF components disabled by default; opt-in activation via `carlos.properties`. |
-| **A07** | Identification and Authentication Failures | `RateLimitFilter` brute-force protection on `/login.do` (10 req/60s) and `/mfa/` (10 req/60s); MFA enabled by default. |
+| **A07** | Identification and Authentication Failures | `RateLimitFilter` brute-force protection on `/login` (10 req/60s) and `/mfa/` (10 req/60s); MFA enabled by default. |
 
 ---
 
@@ -58,7 +58,7 @@ Rate limiting runs first because it is the cheapest check (counter increment) an
 
 | Section | Requirement | CARLOS Implementation |
 |---------|-------------|-----------------------|
-| **§11.1.4** | Rate limiting on authentication endpoints | `RateLimitFilter` path tier `/login.do=10/60` and `/mfa/=10/60`. |
+| **§11.1.4** | Rate limiting on authentication endpoints | `RateLimitFilter` path tier `/login=10/60` and `/mfa/=10/60`. |
 
 ---
 
@@ -79,11 +79,11 @@ All configuration via `carlos.properties`. See also `src/main/webapp/WEB-INF/waf
 **Default path tiers (`WAF_RATE_LIMIT_PATHS`):**
 
 ```
-/login.do=10/60            — brute force protection
+/login=10/60               — brute force protection
 /mfa/=10/60                — MFA brute force protection
-/forcepasswordreset.jsp=5/60 — password reset abuse prevention
-/lab/CMLlabUpload.do=30/60  — external lab integration
-/lab/newLabUpload.do=30/60  — external lab integration
+/forcepasswordreset=5/60   — password reset abuse prevention
+/lab/CMLlabUpload=30/60    — external lab integration
+/lab/newLabUpload=30/60    — external lab integration
 /ws/=200/60                — API traffic patterns
 ```
 

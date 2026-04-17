@@ -2599,7 +2599,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     public List<Demographic> getDemographicByRosterStatus(String rosterStatus, String patientStatus) {
-        if (patientStatus == null || patientStatus == "") {
+        if (StringUtils.isEmpty(patientStatus)) {
             patientStatus = "AC";
         }
         String queryStr = " FROM Demographic d where d.RosterStatus=?1 and d.PatientStatus = ?2";

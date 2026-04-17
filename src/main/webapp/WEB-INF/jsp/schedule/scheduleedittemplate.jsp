@@ -1,0 +1,286 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%
+
+%>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page
+        import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+
+<jsp:useBean id="myTempBean" class="io.github.carlos_emr.ScheduleTemplateBean" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplatePrimaryKey" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
+<%
+    ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
+    ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String opEdit = bundle.getString("schedule.scheduleedittemplate.btnEdit");
+    String opSave = bundle.getString("schedule.scheduleedittemplate.btnSave");
+    String opDelete = bundle.getString("schedule.scheduleedittemplate.btnDelete");
+%>
+<% //save or delete the settings
+    int rowsAffected = 0;
+    CarlosProperties props = CarlosProperties.getInstance();
+    int STEP = request.getParameter("step") != null && !request.getParameter("step").equals("") ? Integer.parseInt(request.getParameter("step")) : (props.getProperty("template_time", "").length() > 0 ? Integer.parseInt(props.getProperty("template_time", "")) : 15);
+    if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").equals(opSave) || request.getParameter("dboperation").equals(opDelete))) {
+        String pre = request.getParameter("providerid").equals("Public") && !request.getParameter("name").startsWith("P:") ? "P:" : "";
+
+        scheduleTemplateDao.remove(new ScheduleTemplatePrimaryKey(request.getParameter("providerid"), request.getParameter("name")));
+
+        if (request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(opSave)) {
+            ScheduleTemplate scheduleTemplate = new ScheduleTemplate();
+            scheduleTemplate.setId(new ScheduleTemplatePrimaryKey());
+            scheduleTemplate.getId().setName(pre + request.getParameter("name"));
+            scheduleTemplate.getId().setProviderNo(request.getParameter("providerid"));
+            scheduleTemplate.setSummary(request.getParameter("summary"));
+            scheduleTemplate.setTimecode(SxmlMisc.createDataString(request, "timecode", "_", 300));
+            scheduleTemplateDao.persist(scheduleTemplate);
+        }
+    }
+
+%>
+
+<html>
+    <head>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <title><fmt:message key="schedule.scheduleedittemplate.title"/></title>
+        <!--link rel="stylesheet" href="<%= request.getContextPath() %>/www.css" /-->
+
+        <script language="JavaScript">
+            <!--
+            function setfocus() {
+                this.focus();
+                document.addtemplatecode.name.focus();
+                document.addtemplatecode.name.select();
+            }
+
+            function go() {
+                var s = document.reportform.startDate.value.replace('/', '-');
+                s = s.replace('/', '-');
+                var e = document.reportform.endDate.value.replace('/', '-');
+                e = e.replace('/', '-');
+                var u = '<%= request.getContextPath() %>/report/ViewReportedblist?startDate=' + encodeURIComponent(s) + '&endDate=' + encodeURIComponent(e);
+                popupPage(600, 750, u);
+            }
+
+            function upCaseCtrl(ctrl) {
+                ctrl.value = ctrl.value.toUpperCase();
+            }
+
+            function checkInput() {
+                if (document.schedule.holiday_name.value == "") {
+                    alert('<fmt:message key="schedule.scheduleedittemplate.msgCheckInput"/>');
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+
+            function changeGroup(s) {
+                var newGroupNo = s.options[s.selectedIndex].value;
+                newGroupNo = s.options[s.selectedIndex].value;
+                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate?providerid=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+
+            }
+
+            //-->
+        </script>
+    </head>
+    <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
+          topmargin="0" leftmargin="0" rightmargin="0">
+
+    <table border="0" width="100%">
+        <tr>
+            <td width="50" bgcolor="#009966">&nbsp;</td>
+            <td align="center">
+
+                <form name="addtemplatecode1" method="post"
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="5">
+                        <input type="hidden" name="dboperation" value="">
+                        <input type="hidden" name="step" value="">
+                        <tr bgcolor="#CCFFCC">
+                            <td nowrap>
+                                <p><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />
+                                </p>
+                            </td>
+                            <td align='right'><select name="name">
+                                <%
+                                    boolean bEdit = request.getParameter("dboperation") != null && request.getParameter("dboperation").equals(opEdit) ? true : false;
+
+                                    if (bEdit) {
+                                        for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNoAndName(request.getParameter("providerid"), request.getParameter("name"))) {
+                                            myTempBean.setScheduleTemplateBean(st.getId().getProviderNo(), st.getId().getName(), st.getSummary(), st.getTimecode());
+                                        }
+                                    }
+
+                                    for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("providerid"))) {
+
+                                %>
+                                <option value="<%=st.getId().getName()%>"><%=st.getId().getName() + " |" + st.getSummary()%>
+                                </option>
+                                <%
+                                    }
+                                %>
+                            </select> <input type="hidden" name="providerid"
+                                             value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                                    type="hidden" name="providername"
+                                    value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />">
+                            <td align='right'><input type="button"
+                                                     value='<fmt:message key="schedule.scheduleedittemplate.btnEdit"/>'
+                                                     onclick="document.forms['addtemplatecode1'].dboperation.value='<%= opEdit %>'; document.forms['addtemplatecode1'].submit();">
+                            </td>
+                        </tr>
+                    </table>
+                </form>
+
+                <form name="addtemplatecode2" method="post"
+                      action="${pageContext.request.contextPath}/schedule/EditTemplate">
+                    <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="95%">
+                        <tr>
+                            <td width="50%" align="right">&nbsp; <select name="step1"
+                                                                         onChange="changeGroup(this)">
+                                <% for (int i = 5; i < 35; i += 5) {
+                                    if (i == 25) continue;%>
+                                <option value="<%=i%>" <%=STEP == i ? "selected" : ""%>><%=i%>
+                                </option>
+                                <% } %>
+                            </select> <input type="hidden" name="providerid"
+                                             value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                                    type="hidden" name="providername"
+                                    value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />"> <input
+                                    type="button" value='<fmt:message key="encounter.Index.btnGo"/>'
+                                    onclick="document.forms['addtemplatecode1'].step.value=document.forms[1].step1.options[document.forms[1].step1.selectedIndex].value; document.forms['addtemplatecode1'].submit();">
+                            </td>
+            </td>
+        </tr>
+    </table>
+    </form>
+    <form name="addtemplatecode" method="post"
+          action="${pageContext.request.contextPath}/schedule/EditTemplate">
+        <table width="95%" border="1" cellspacing="0" cellpadding="2"
+               bgcolor="silver">
+            <tr bgcolor="#FOFOFO" align="center">
+                <td colspan=3><font FACE="VERDANA,ARIAL,HELVETICA" SIZE="2"
+                                    color="red"><fmt:message key="schedule.scheduleedittemplate.msgMainLabel"/></font></td>
+            </tr>
+            <tr bgcolor='ivory'>
+                <td nowrap><fmt:message key="schedule.scheduleedittemplate.formTemplateName"/>:
+                </td>
+                <td><input type="text" name="name" size="30" maxlength="20"
+                        <%=bEdit?("value='"+myTempBean.getName()+"'"):"value=''"%>>
+                    <font size='-2'><fmt:message key="schedule.scheduleedittemplate.msgLessTwentyChars"/></font></td>
+                <td></td>
+            </tr>
+            <tr bgcolor='ivory'>
+                <td><fmt:message key="schedule.scheduleedittemplate.formSummary"/>:
+                </td>
+                <td><input type="text" name="summary" size="30" maxlength="30"
+                        <%=bEdit?("value='"+myTempBean.getSummary()+"'"):"value=''"%>></td>
+                <td nowrap><a href=#
+                              title="	<%
+					
+					List<ScheduleTemplateCode> stcs = scheduleTemplateCodeDao.findAll();
+					Collections.sort(stcs,ScheduleTemplateCode.CodeComparator);
+					
+   for (ScheduleTemplateCode stc:stcs) {   %>
+ <%=String.valueOf(stc.getCode())+" - "+stc.getDescription()%>  <%}	%>
+             "><fmt:message key="schedule.scheduleedittemplate.formTemplateCode"/></a></td>
+            </tr>
+            <tr bgcolor='ivory'>
+                <td colspan='3' align='center'>
+                    <table>
+                        <%
+                            int cols = 4, rows = 6, step = bEdit ? myTempBean.getStep() : STEP;
+
+                            int icols = 60 / step, n = 0;
+                            for (int i = 0; i < rows; i++) {
+                        %>
+                        <tr>
+                            <% for (int j = 0; j < cols; j++) { %>
+                            <td bgcolor='silver'><%=(n < 10 ? "0" : "") + n + ":00"%>
+                            </td>
+                            <% for (int k = 0; k < icols; k++) { %>
+                            <td><input type="text"
+                                       name="timecode<%=i*(cols*icols)+j*icols+k%>" size="1"
+                                       maxlength="1"
+                                    <%=bEdit?("value='"+myTempBean.getTimecodeCharAt(i*(cols*icols)+j*icols+k)+"'"):"value=''"%>>
+                            </td>
+                            <% }
+                                n++;
+                            }%>
+                        </tr>
+                        <%} %>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+
+        <table width="100%" border="0" cellspacing="0" cellpadding="2"
+               bgcolor="silver">
+            <tr bgcolor="#FOFOFO">
+                <td><input type="button"
+                           value='<fmt:message key="schedule.scheduleedittemplate.btnDelete"/>'
+                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= opDelete %>'; document.forms['addtemplatecode'].submit();">
+                </td>
+                <td align="right"><input type="hidden" name="providerid"
+                                         value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                        type="hidden" name="providername"
+                        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />"> <input
+                        type="hidden" name="dboperation" value=""> <input
+                        type="button"
+                        value='<fmt:message key="schedule.scheduleedittemplate.btnSave"/>'
+                        onclick="document.forms['addtemplatecode'].dboperation.value='<%= opSave %>'; document.forms['addtemplatecode'].submit();">
+                    <input type="button" name="Button"
+                           value='<fmt:message key="global.btnExit"/>'
+                           onclick="window.close()"></td>
+            </tr>
+        </table>
+    </form>
+
+    </td>
+    </tr>
+    </table>
+
+    </body>
+</html>

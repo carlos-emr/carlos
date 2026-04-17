@@ -132,7 +132,7 @@ public class CustomInterfaceTag extends TagSupport {
         sb.append("issueNoteUrls = {");
         boolean flag = false, row1 = false, row2 = false;
         if (!bean.getSocialHxPosition().equals("")) {
-            sb.append("div" + bean.getSocialHxPosition() + ":    ctx + \"/CaseManagementView.do?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=SocHistory&title=\" + socHistoryLabel + \"&cmd=div" + bean.getSocialHxPosition() + "\"");
+            sb.append("div" + bean.getSocialHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=SocHistory&title=\" + socHistoryLabel + \"&cmd=div" + bean.getSocialHxPosition() + "\"");
             flag = true;
             if (bean.getSocialHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -145,7 +145,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getMedicalHxPosition() + ":    ctx + \"/CaseManagementView.do?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=MedHistory&title=\" + medHistoryLabel + \"&cmd=div" + bean.getMedicalHxPosition() + "\"");
+            sb.append("div" + bean.getMedicalHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=MedHistory&title=\" + medHistoryLabel + \"&cmd=div" + bean.getMedicalHxPosition() + "\"");
             flag = true;
             if (bean.getMedicalHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -158,7 +158,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getOngoingConcernsPosition() + ":    ctx + \"/CaseManagementView.do?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Concerns&title=\" + onGoingLabel + \"&cmd=div" + bean.getOngoingConcernsPosition() + "\"");
+            sb.append("div" + bean.getOngoingConcernsPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Concerns&title=\" + onGoingLabel + \"&cmd=div" + bean.getOngoingConcernsPosition() + "\"");
             flag = true;
             if (bean.getOngoingConcernsPosition().startsWith("R1")) {
                 row1 = true;
@@ -171,7 +171,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getRemindersPosition() + ":    ctx + \"/CaseManagementView.do?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Reminders&title=\" + remindersLabel + \"&cmd=div" + bean.getRemindersPosition() + "\"");
+            sb.append("div" + bean.getRemindersPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Reminders&title=\" + remindersLabel + \"&cmd=div" + bean.getRemindersPosition() + "\"");
             flag = true;
             if (bean.getRemindersPosition().startsWith("R1")) {
                 row1 = true;

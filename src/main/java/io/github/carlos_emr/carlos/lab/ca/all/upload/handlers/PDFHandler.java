@@ -34,15 +34,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -90,8 +89,12 @@ public class PDFHandler implements MessageHandler {
 
         String providerNo = "-1";
         String filePath = fileName;
+        if (fileName == null || fileName.isBlank()) {
+            logger.error("Document filename is null or empty");
+            return null;
+        }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
-            logger.error("Document " + fileName + "does not have pdf extension");
+            logger.error("Document {} does not have pdf extension", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } else {
             int fileNameIdx = fileName.lastIndexOf("/");
@@ -114,7 +117,7 @@ public class PDFHandler implements MessageHandler {
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + filePath);
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
@@ -122,13 +125,13 @@ public class PDFHandler implements MessageHandler {
             filePath = targetFile.getCanonicalPath();
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: " + filePath);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (IOException e) {
-            logger.error("Error validating file path: " + filePath, e);
+            logger.error("Error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (Exception e) {
-            logger.error("Unexpected error validating file path: " + filePath, e);
+            logger.error("Unexpected error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
 
@@ -137,10 +140,7 @@ public class PDFHandler implements MessageHandler {
 
         newDoc.setDocPublic("0");
 
-        InputStream fis = null;
-
         try {
-            fis = new FileInputStream(filePath);
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
@@ -174,20 +174,11 @@ public class PDFHandler implements MessageHandler {
                 }
             }
         } catch (FileNotFoundException e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("File not found: {}", LogSanitizer.sanitize(filePath), e);
             return null;
         } catch (Exception e) {
-            logger.info("An unexpected error has occurred:" + e.toString(), e);
+            logger.error("Error uploading PDF: {}", LogSanitizer.sanitize(filePath), e);
             return null;
-        } finally {
-            try {
-                if (fis != null) {
-                    fis.close();
-                }
-            } catch (IOException e1) {
-                logger.info("An unexpected error has occurred:" + e1.toString(), e1);
-                return null;
-            }
         }
 
         return "success";

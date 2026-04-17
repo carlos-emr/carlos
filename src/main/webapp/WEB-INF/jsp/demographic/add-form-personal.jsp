@@ -3,7 +3,6 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
@@ -75,28 +74,28 @@
 
 <%-- === Original content === --%>
                       onsubmit="return aSubmit()" autocomplete="off">
-                    <input type="hidden" name="fromAppt" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("fromAppt"))) %>">
-                    <input type="hidden" name="originalPage" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("originalPage"))) %>">
-                    <input type="hidden" name="bFirstDisp" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("bFirstDisp"))) %>">
-                    <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("provider_no"))) %>">
-                    <input type="hidden" name="start_time" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time"))) %>">
-                    <input type="hidden" name="end_time" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time"))) %>">
-                    <input type="hidden" name="duration" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("duration"))) %>">
-                    <input type="hidden" name="year" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year"))) %>">
-                    <input type="hidden" name="month" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month"))) %>">
-                    <input type="hidden" name="day" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day"))) %>">
-                    <input type="hidden" name="appointment_date" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date"))) %>">
-                    <input type="hidden" name="notes" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("notes"))) %>">
-                    <input type="hidden" name="reason" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason"))) %>">
-                    <input type="hidden" name="location" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("location"))) %>">
-                    <input type="hidden" name="resources" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("resources"))) %>">
-                    <input type="hidden" name="type" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("type"))) %>">
-                    <input type="hidden" name="style" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("style"))) %>">
-                    <input type="hidden" name="billing" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billing"))) %>">
-                    <input type="hidden" name="status" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status"))) %>">
-                    <input type="hidden" name="createdatetime" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("createdatetime"))) %>">
-                    <input type="hidden" name="creator" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("creator"))) %>">
-                    <input type="hidden" name="remarks" value="<%= Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("remarks"))) %>">
+                    <input type="hidden" name="fromAppt" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("fromAppt")) %>' />">
+                    <input type="hidden" name="originalPage" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("originalPage")) %>' />">
+                    <input type="hidden" name="bFirstDisp" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("bFirstDisp")) %>' />">
+                    <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("provider_no")) %>' />">
+                    <input type="hidden" name="start_time" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' />">
+                    <input type="hidden" name="end_time" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")) %>' />">
+                    <input type="hidden" name="duration" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("duration")) %>' />">
+                    <input type="hidden" name="year" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' />">
+                    <input type="hidden" name="month" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' />">
+                    <input type="hidden" name="day" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' />">
+                    <input type="hidden" name="appointment_date" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' />">
+                    <input type="hidden" name="notes" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("notes")) %>' />">
+                    <input type="hidden" name="reason" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")) %>' />">
+                    <input type="hidden" name="location" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("location")) %>' />">
+                    <input type="hidden" name="resources" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("resources")) %>' />">
+                    <input type="hidden" name="type" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("type")) %>' />">
+                    <input type="hidden" name="style" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("style")) %>' />">
+                    <input type="hidden" name="billing" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billing")) %>' />">
+                    <input type="hidden" name="status" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' />">
+                    <input type="hidden" name="createdatetime" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("createdatetime")) %>' />">
+                    <input type="hidden" name="creator" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("creator")) %>' />">
+                    <input type="hidden" name="remarks" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("remarks")) %>' />">
 
 
                     <table id="addDemographicTbl" bgcolor="#EEEEFF">
@@ -148,14 +147,14 @@
                                     style="color:red;">:</span> </b></td>
                             <td id="lastName" align="left">
                                 <input type="text" name="last_name" id="last_name" onBlur="upCaseCtrl(this)"
-                                       value="<%=Encode.forHtmlAttribute(lastNameVal)%>">
+                                       value="<e:forHtmlAttribute value='<%= lastNameVal %>' />">
 
                             </td>
                             <td align="right" id="firstNameLbl"><b><fmt:message key="demographic.demographicaddrecordhtm.formFirstName"/><span
                                     style="color:red;">:</span> </b></td>
                             <td id="firstName" align="left">
                                 <input type="text" name="first_name" id="first_name" onBlur="upCaseCtrl(this)"
-                                       value="<%=Encode.forHtmlAttribute(firstNameVal)%>">
+                                       value="<e:forHtmlAttribute value='<%= firstNameVal %>' />">
                             </td>
                         </tr>
                         <tr>
@@ -1167,7 +1166,7 @@
                         <tr valign="top">
                                 <%-- TOGGLE FIRST NATIONS MODULE --%>
                             <oscar:oscarPropertiesCheck value="true" defaultVal="false" property="FIRST_NATIONS_MODULE">
-                                <jsp:include page="/demographic/manageFirstNationsModule.jsp" flush="true">
+                                <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp" flush="true">
                                     <jsp:param name="demo" value="0"/>
                                 </jsp:include>
                             </oscar:oscarPropertiesCheck>

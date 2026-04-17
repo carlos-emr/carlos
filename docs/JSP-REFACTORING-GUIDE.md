@@ -16,7 +16,7 @@ This document provides a step-by-step process for refactoring legacy JSP files i
 Before refactoring, understand these non-negotiable constraints:
 
 1. **Preserve ALL field names** - Form field `name` attributes must remain identical
-2. **Preserve form action URLs** - Do not change where forms submit to
+2. **Preserve canonical action URLs** - Keep the real workflow target, but do not introduce or retain public JSP targets or `.do` routes in migrated code
 3. **Preserve hidden fields** - Many forms have hidden state fields that must be maintained
 4. **CSRF tokens are auto-injected** - CSRFGuard 4.5 auto-injects tokens via JavaScript (no manual handling needed)
 5. **Preserve window relationships** - Many pages are popups; don't break `window.opener`
@@ -110,7 +110,7 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <% authed = false; %>
-    <% response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment"); %>
+    <% response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment"); %>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -274,7 +274,7 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${variable}` (for system data) or `<c:out value="${variable}"/>` |
+| `<%= variable %>` | `${e:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
@@ -283,10 +283,10 @@ If JSTL cannot handle the logic, document why:
 
 **Taglib declaration** (add to taglib block at top of JSP):
 ```jsp
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 ```
 
-For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The `encoder-jsp` EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
+For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The Jakarta EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
 
 | Context | EL Function (Preferred) | Scriptlet Alternative |
 |---------|------------------------|----------------------|
@@ -380,7 +380,7 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 ```jsp
 <c:forEach items="${allStatuses}" var="status" varStatus="loop">
     <option value="${status.status}">
-        <c:out value="${status.description}"/>
+        ${e:forHtml(status.description)}
     </option>
 </c:forEach>
 ```
@@ -422,7 +422,7 @@ Then use in view:
 
 Alternative using `<c:url>` tag (preferred for URLs with parameters):
 ```jsp
-<a href="<c:url value='/appointment/view.do'><c:param name='id' value='${apptId}'/></c:url>">View</a>
+<a href="<c:url value='/appointment/view'><c:param name='id' value='${apptId}'/></c:url>">View</a>
 ```
 
 ### Step 2.6: Internationalization (i18n) Setup
@@ -570,7 +570,7 @@ CARLOS EMR uses OWASP CSRFGuard 4.5 (configured in `web.xml` and `Owasp.CsrfGuar
 - The injected `csrfguard.js` handles form injection, XHR interception, and dynamic DOM node token injection
 
 ```jsp
-<form id="appointmentForm" action="${ctx}/appointment/addappointment.do" method="post">
+<form id="appointmentForm" action="${ctx}/appointment/addappointment" method="post">
     <%-- CSRF Token - AUTOMATICALLY INJECTED by csrfguard.js
          No taglib or manual hidden input required. The CsrfGuardScriptInjectionFilter
          injects the csrfguard script, which auto-adds the CSRF-TOKEN hidden field
@@ -768,7 +768,7 @@ See `docs/csrf-protection-architecture.md` for full architecture details.
 // csrfguard.js patches XMLHttpRequest — no manual CSRF handling needed
 $.ajax({
     type: "POST",
-    url: contextPath + "/someAction.do",
+    url: contextPath + "/someAction",
     data: { param1: value1 },
     dataType: 'json',
     success: function(data) {
@@ -796,7 +796,7 @@ async function submitData() {
             'CSRF-TOKEN': getCsrfToken()
         });
 
-        const response = await fetch(contextPath + '/someAction.do', {
+        const response = await fetch(contextPath + '/someAction', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -900,7 +900,7 @@ Legacy code often uses `document.forms['FORMNAME']`. When adding `id`, keep the 
 
 ```html
 <%-- Keep BOTH name and id for backward compatibility --%>
-<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment.do" method="post">
+<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment" method="post">
 ```
 
 This allows:
@@ -983,7 +983,7 @@ value='<%=request.getParameter("start_time")%>'
 ${pageContext.request.contextPath}
 
 <%-- JSTL tag --%>
-<c:out value="${ reason.label }"/>
+${e:forHtml(reason.label)}
 ```
 
 #### 3. Table-Based Layout

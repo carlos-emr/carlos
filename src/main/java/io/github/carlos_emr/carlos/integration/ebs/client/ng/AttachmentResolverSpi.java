@@ -6,7 +6,8 @@ import java.net.URLDecoder;
 import java.util.Collection;
 
 import org.apache.cxf.message.Attachment;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.xml.security.signature.XMLSignatureInput;
 import org.apache.xml.security.signature.XMLSignatureStreamInput;
 import org.apache.xml.security.utils.resolver.ResourceResolverContext;
@@ -45,7 +46,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 	private static final String SUPPORTED_URI_PREFIX = "cid:urn";
 	private static final String ATTACHMENT_PREFIX = "cid:";
 
-	private static Logger logger = Logger.getLogger(AttachmentResolverSpi.class);
+	private static final Logger logger = LoggerFactory.getLogger(AttachmentResolverSpi.class);
 	
 	private Collection<Attachment> attachments;
 

@@ -53,7 +53,7 @@ import java.util.Objects;
  * group) and a seed {@link CtlDiagCode} entry. Unlike the Ontario-specific variant, this
  * root version performs no duplicate-ID check and does not persist a
  * {@code CtlBillingType} record. On validation failure the browser is redirected back
- * to {@code manageBillingform.jsp} with error details in the query string.
+ * to {@code ManageBillingform} with error details in the query string.
  *
  * @since 2026-04-05
  */
@@ -127,12 +127,12 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/manageBillingform.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform");
         return NONE;
     }
 
     /**
-     * Redirects back to {@code manageBillingform.jsp} with the error message and current
+     * Redirects back to {@code ManageBillingform} with the error message and current
      * field values encoded as query parameters so the UI can repopulate the form.
      *
      * @param errMessage human-readable validation error
@@ -145,7 +145,7 @@ public class DbManageBillingformAdd2Action extends ActionSupport {
      */
     private void redirectWithError(String errMessage, String typeid, String type,
                                    String group1, String group2, String group3) throws Exception {
-        String url = request.getContextPath() + "/billing/manageBillingform.jsp"
+        String url = request.getContextPath() + "/billing/CA/ON/ManageBillingform"
                 + "?errorMessage=" + URLEncoder.encode(errMessage, StandardCharsets.UTF_8)
                 + "&type=" + URLEncoder.encode(type, StandardCharsets.UTF_8)
                 + "&typeid=" + URLEncoder.encode(typeid, StandardCharsets.UTF_8)

@@ -38,8 +38,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ page
-        import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+        import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%
 
     List<File> toEdt = ActionUtils.getUploadList();
@@ -95,7 +94,7 @@
             var files = document.getElementsByClassName("fileNames");
             var progress = document.getElementsByClassName("progress");
             var status = document.getElementsByClassName("status");
-            var connection = '<%= Encode.forJavaScript(connection) %>';
+            var connection = '<e:forJavaScriptBlock value='<%= connection %>' />';
             if (connection != "failed") {
                 for (var i = 0; i < files.length; i++) {
                     // Step 1 set all the available statuses
@@ -158,7 +157,7 @@
             ShowSpin(true);
             var method = jQuery("#method");
             method.val(methodType);
-            var url = "<%= request.getContextPath()%>/mcedt/autoUpload.do";
+            var url = "<%= request.getContextPath()%>/mcedt/autoUpload";
             var form = jQuery("#form");
             form.attr('action', url);
             form.submit();
@@ -214,14 +213,14 @@
     <div class="center">
         <h1>Uploading Claims from CARLOS to MCEDT</h1>
         <div>
-            <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass.do" method="POST"> --%>
-            <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass.do" method="post" id="form">
+            <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass" method="POST"> --%>
+            <%-- <form action="<%=request.getContextPath() %>/mcedt/kaichpass" method="post" id="form">
             <input id="method" name="method" type="hidden" value="" />
             </form> --%>
             <div>
-                <form action="${pageContext.request.contextPath}/mcedt/autoUpload.do" method="post" id="form">
-                    <jsp:include page="/mcedt/messages.jsp"/>
-                    <jsp:include page="/mcedt/mailbox/spinner.jsp" flush="true"/>
+                <form action="${pageContext.request.contextPath}/mcedt/autoUpload" method="post" id="form">
+                    <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
+                    <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/spinner.jsp" flush="true"/>
                     <input id="method" name="method" type="hidden" value=""/>
                     <input type="hidden" id="description" name="description" value=""/>
                     <input type="hidden" id="fileName" name="fileName" value='<%=fileUpload %>'/>

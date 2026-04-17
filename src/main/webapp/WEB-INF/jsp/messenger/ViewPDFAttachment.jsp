@@ -61,7 +61,7 @@
  * 3. Submits selected file ID to ViewPDFFile action for download
  *
  * Form Integration:
- * - Posts to ViewPDFFile.do action with file_id parameter
+ * - Posts to ViewPDFFile action with file_id parameter
  * - Passes attachment data as hidden form field
  *
  * @since 2003
@@ -74,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -83,7 +84,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -93,12 +94,12 @@
 
 
 <c:if test="${empty msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty msgSessionBean}">
     <c:set var="bean" value="${msgSessionBean}" scope="session"/>
     <c:if test="${bean.valid == 'false'}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 
@@ -113,7 +114,7 @@
         session.setAttribute("PDFAttachment", pdfAttch);
     %>
 
-    <title>Document Transfer</title>
+    <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
 </head>
 
 
@@ -124,15 +125,15 @@
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">CARLOS Messenger</td>
+        <td class="MainTableTopRowLeftColumn"><fmt:message key="messenger.ViewPDFAttachment.headerMessenger"/></td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td>CARLOS Messenger Attachment</td>
+                    <td><fmt:message key="messenger.ViewPDFAttachment.headerAttachment"/></td>
                     <td></td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')">About</a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')">License</a></td>
+                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkAbout"/></a> | <a
+                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="messenger.ViewPDFAttachment.linkLicense"/></a></td>
                 </tr>
             </table>
         </td>
@@ -142,7 +143,7 @@
     <tr>
         <td class="MainTableBottomRowLeftColumn"></td>
 
-        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile.do" method="post">
+        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile" method="post">
             <td class="MainTableBottomRowRightColumn">
                 <table cellspacing=3>
                     <tr>
@@ -152,7 +153,7 @@
                                     <td class="messengerButtonsA"><a href="#"
                                                                      onclick="javascript:top.window.close()"
                                                                      class="messengerButtons">
-                                        Close Attachment </a></td>
+                                        <fmt:message key="messenger.ViewPDFAttachment.btnCloseAttachment"/> </a></td>
                                 </tr>
                             </table>
                         </td>
@@ -170,7 +171,7 @@
                         </td>
                         <td bgcolor="#DDDDFF"><input type=submit
                                                      onclick=" document.forms[0].file_id.value = <%=i%>"
-                                                     value="Download"/></td>
+                                                     value="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>"/></td>
                     </tr>
                             <% }  %>
                         <input type="hidden" name="file_id" id="file_id"/>

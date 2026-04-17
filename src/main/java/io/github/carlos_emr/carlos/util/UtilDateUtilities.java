@@ -111,7 +111,7 @@ public class UtilDateUtilities {
     }
 
     public static Date calcDate(String s, String s1, String s2) {
-        if (s == null || s1 == null || s2 == null || s == "" || s1 == "" || s2 == "") return (null);
+        if (s == null || s1 == null || s2 == null || s.isEmpty() || s1.isEmpty() || s2.isEmpty()) return (null);
 
         int i = Integer.parseInt(s);
         int j = Integer.parseInt(s1) - 1;

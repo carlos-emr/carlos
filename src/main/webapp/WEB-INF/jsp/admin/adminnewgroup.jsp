@@ -34,7 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
-<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*,java.sql.*,java.util.ResourceBundle" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
@@ -90,10 +90,10 @@
                             checked = true;
                         }
                     }
-                    if (checked == false) {
-                        alert('You must choose a providers');
-                        return false;
-                    }
+                if (checked == false) {
+                    alert("<fmt:message key='admin.adminnewgroup.msgChooseProviders'/>");
+                    return false;
+                }
                     return true;
                 }
             }
@@ -125,17 +125,17 @@
         }
     %>
 
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup.do" onsubmit="return validate();">
+    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="${pageContext.request.contextPath}/admin/AdminSaveMyGroup" onsubmit="return validate();">
 
         <%if (request.getParameter("submit") != null && request.getParameter("submit").equals(properties.getString("admin.admindisplaymygroup.btnSubmit1"))) { %>
         <br>
         <div class="alert alert-success">
-            <strong>Success!</strong> record(s) have been deleted.
+            <strong><fmt:message key="admin.adminnewgroup.msgSuccess"/></strong> <fmt:message key="admin.adminnewgroup.msgDeleteSuccess"/>
         </div>
 
-        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-primary">View Group List</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-primary"><fmt:message key="admin.admindisplaymygroup.btnViewGroupList"/></a>
 
-        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup.do" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
+        <a href="${pageContext.request.contextPath}/admin/AdminNewGroup" class="btn btn-secondary"><fmt:message key="admin.admindisplaymygroup.btnSubmit2"/></a>
         <%} else {%>
 
         <h3><fmt:message key="admin.adminnewgroup.description"/></h3>
@@ -143,8 +143,8 @@
 
         <input type="text" name="mygroup_no" size="10" maxlength="10"
                placeholder="<fmt:message key="admin.adminmygroup.formGroupNo"/>"
-               title="Enter an existing or new group name.">
-        <small>(Max. 10 chars.)</small>
+               title="<fmt:message key='admin.adminnewgroup.titleGroupName'/>">
+        <small><fmt:message key="admin.adminnewgroup.msgMaxChars"/></small>
 
         <table class="table table-sm table-hover">
             <thead>
@@ -187,7 +187,7 @@
         <input type="submit" name="Submit" class="btn btn-primary"
                value="<fmt:message key="admin.adminnewgroup.btnSubmit"/>">
 
-        <a href="${pageContext.request.contextPath}/admin/admindisplaymygroup.jsp" class="btn btn-secondary">Cancel</a>
+        <a href="${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup" class="btn btn-secondary"><fmt:message key="global.btnCancel"/></a>
 
     </FORM>
 

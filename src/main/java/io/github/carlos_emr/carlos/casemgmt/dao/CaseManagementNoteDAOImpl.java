@@ -51,6 +51,7 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Hibernate;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
@@ -744,7 +745,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {
         // HBM-mapped Provider uses PascalCase property names (ProviderNo, LastName,
         // FirstName) per Provider.hbm.xml; HQL must reference the HBM name attribute.
-        Query<CaseManagementNoteListDTO> query = currentSession().createQuery("""
+        TypedQuery<CaseManagementNoteListDTO> query = entityManager().createQuery("""
                 SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(
                     cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no,
                     cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type,
@@ -758,7 +759,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 """,
                 CaseManagementNoteListDTO.class);
         query.setParameter("demoNo", demographicNo);
-        return query.list();
+        return query.getResultList();
     }
 
     /**

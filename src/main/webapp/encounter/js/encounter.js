@@ -175,7 +175,7 @@ function onSplit() {
 }
 
 function getAnotherEncounter(newAppointmentNo) {
-    location = "./IncomingEncounter.do?appointmentList=true&appointmentNo=" + newAppointmentNo;
+    location = "./IncomingEncounter?appointmentList=true&appointmentNo=" + newAppointmentNo;
 }
 
 function measurementLoaded(name) {
@@ -247,7 +247,7 @@ function writeToEncounterNote(request) {
 
 function ajaxInsertTemplate(varpage) {
     if (varpage != 'null') {
-        var page = encounterConfig.ctx + "/encounter/InsertTemplate.do";
+        var page = encounterConfig.ctx + "/encounter/InsertTemplate";
         var params = "templateName=" + varpage + "&version=2";
         CarlosAjax.request(page, {
             method: 'post',

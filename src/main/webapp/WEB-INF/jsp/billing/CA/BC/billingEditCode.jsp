@@ -1,0 +1,215 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing,_admin" rights="w" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
+<html>
+
+    <%@ page
+            import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.model.*" %>
+    <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+    <%BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class); %>
+
+    <head>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
+        <title>Edit Billing Code</title>
+        <link rel="stylesheet" type="text/css"
+              href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
+        <script type="text/javascript">
+            function setValues() {
+
+            }
+
+
+        </script>
+
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    </head>
+
+    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <!--  -->
+    <table class="MainTable" id="scrollNumber1" name="encounterTable">
+        <tr class="MainTableTopRow">
+            <td class="MainTableTopRowLeftColumn">billing</td>
+            <td class="MainTableTopRowRightColumn">
+
+
+                <table class="TopStatusBar">
+                    <tr>
+                        <td>Edit Billing Code <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
+                        </td>
+                        <td>&nbsp;</td>
+                        <td style="text-align: right">
+                            <a href="javascript:popupStart(300,400,'Help.jsp')"><fmt:message key="global.help"/></a> |
+                            <a href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
+                            |
+                            <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="MainTableLeftColumn" valign="top">&nbsp; &nbsp;</td>
+            <td class="MainTableRightColumn">
+                <table border="1" width="600px">
+                    <tr>
+                        <th colspan="5"><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>#</th>
+                            <%-- th></th --%>
+                        <th>Value</th>
+                        <th>Billing Service Date</th>
+                        <th>Termination Date</th>
+                        <th>&nbsp;</th>
+                    </tr>
+                    <%
+                        List<BillingService> bills = billingServiceDao.findBillingCodesByCode(request.getParameter("code"), "BC");
+                        int i = 0;
+                        for (BillingService bs : bills) {
+                            i++;
+                    %>
+                    <tr>
+
+                        <td><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />
+                            <input type="hidden" name="id<%=i%>" id="id<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />"/>
+                        </td>
+                            <%-- td><%=bs.getDescription()%></td --%>
+                        <td><span id="val<%=i%>"><e:forHtmlContent value='<%= bs.getValue() %>' /></span>
+                            <input type="text" name="value" id="ival<%=i%>" value="<e:forHtmlAttribute value='<%= bs.getValue() %>' />"
+                                   style="display:none;"/>
+                        </td>
+                        <td><span id="billservice<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceDate()) %>' /></span>
+                            <input type="text" name="billservice" id="ibillservice<%=i%>"
+                                   value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />" style="display:none;"/>
+                        </td>
+                        <td><span id="termdate<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getTerminationDate()) %>' /></span>
+                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />"
+                                   style="display:none;"/>
+                        </td>
+                        <td><a id="edit<%=i%>" href="javascript: void(0);"
+                               onclick="editCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">edit</a>
+                            <a id="save<%=i%>" style="display:none;" href="javascript: void(0);"
+                               onclick="saveCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">save</a>
+                            <span id="working<%=i%>" style="display:none;">...</span>
+                        </td>
+                    </tr>
+                    <%}%>
+                </table>
+
+
+                <form action="${pageContext.request.contextPath}/billing/CA/BC/billingEditCode" method="post">
+                    <input type="hidden" name="whereTo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("whereTo")) %>' />"/>
+                    <input type="hidden" name="method" value="returnToSearch"/>
+                    <input type="submit" name="submit" value="Back"/>
+                </form>
+
+
+                <script type="text/javascript">
+                    function editCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
+                        document.getElementById('val' + id).style.display = 'none';
+                        document.getElementById('ival' + id).style.display = '';
+                        document.getElementById('billservice' + id).style.display = 'none';
+                        document.getElementById('ibillservice' + id).style.display = '';
+                        document.getElementById('termdate' + id).style.display = 'none';
+                        document.getElementById('itermdate' + id).style.display = '';
+                        document.getElementById('edit' + id).style.display = 'none';
+                        document.getElementById('save' + id).style.display = '';
+
+                    }
+
+
+                    function saveCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
+                        var url = ('billingEditCode?method=ajaxCodeUpdate');
+                        document.getElementById('save' + id).style.display = 'none';
+                        document.getElementById('working' + id).style.display = '';
+
+                        var ran_number = Math.round(Math.random() * 1000000);
+                        var params = "&codeId=" + document.getElementById('id' + id).value + "&id=" + id + "&val=" + document.getElementById('ival' + id).value + "&billService=" + document.getElementById('ibillservice' + id).value + "&termDate=" + document.getElementById('itermdate' + id).value + "&rand=" + ran_number;
+                        CarlosAjax.request(url, {
+                            method: 'post', parameters: params, onSuccess: function (transport) {
+                                var data = JSON.parse(transport.responseText);
+                                var id = data.id;
+                                document.getElementById('val' + id).textContent = data.value;
+                                var d = new Date(data.billingserviceDate.time);
+                                document.getElementById('billservice' + id).textContent =
+                                    d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                                var t = new Date(data.terminationDate.time);
+                                document.getElementById('termdate' + id).textContent =
+                                    t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+                                document.getElementById('val' + id).style.display = '';
+                                document.getElementById('ival' + id).style.display = 'none';
+                                document.getElementById('billservice' + id).style.display = '';
+                                document.getElementById('ibillservice' + id).style.display = 'none';
+                                document.getElementById('termdate' + id).style.display = '';
+                                document.getElementById('itermdate' + id).style.display = 'none';
+                                document.getElementById('edit' + id).style.display = '';
+                                document.getElementById('working' + id).style.display = 'none';
+                            }
+                        });
+
+
+                    }
+
+
+                </script>
+
+            </td>
+        </tr>
+        <tr>
+            <td class="MainTableBottomRowLeftColumn"></td>
+            <td class="MainTableBottomRowRightColumn"></td>
+        </tr>
+    </table>
+    </body>
+</html>

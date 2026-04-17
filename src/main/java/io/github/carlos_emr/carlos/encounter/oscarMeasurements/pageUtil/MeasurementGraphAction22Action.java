@@ -110,7 +110,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");
         if (userrole == null) {
-            response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {

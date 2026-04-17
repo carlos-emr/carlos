@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import ca.uhn.hl7v2.HL7Exception;
@@ -548,7 +549,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
             // if accessionNum can't be found in the OBR record of the first observation,
             //  look for it in subsequent observation records
-            if (accessionNum != "") {
+            if (StringUtils.isNotEmpty(accessionNum)) {
                 return (accessionNum);
             }
 
@@ -558,7 +559,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
                 } else {
                     accessionNum = getString(msg23.getRESPONSE().getORDER_OBSERVATION(j).getOBR().getFillerOrderNumber().getEntityIdentifier().getValue());
                 }
-                if (accessionNum != "") {
+                if (StringUtils.isNotEmpty(accessionNum)) {
                     return (accessionNum);
                 }
             }

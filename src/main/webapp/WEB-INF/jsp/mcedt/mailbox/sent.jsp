@@ -1,0 +1,464 @@
+<%--
+
+    Copyright (c) 2014-2015. KAI Innovations Inc. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+    
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+    
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%--
+    KAI Innovations Inc.
+    KAIInnovations.com
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<!DOCTYPE html>
+
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <style type="text/css">
+        .web_dialog_overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background: #000000;
+            opacity: .15;
+            filter: alpha(opacity=15);
+            -moz-opacity: .15;
+            z-index: 101;
+            display: none;
+        }
+
+        .web_dialog {
+            display: none;
+            position: fixed;
+            width: 380px;
+            height: 280px;
+            top: 50%;
+            left: 50%;
+            margin-left: -190px;
+            margin-top: -100px;
+            background-color: #ffffff;
+            border: 1px solid #191919;
+            padding: 20px;
+            z-index: 102;
+        }
+
+        .web_dialog_title {
+            background-color: #6EC864;
+            padding: 5px;
+            color: #fff;
+        }
+
+        .web_dialog_title a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .align_right {
+            text-align: right;
+        }
+
+        .Level2HeadingStyle {
+            font-weight: 700;
+            font-size: 15pt;
+        }
+    </style>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+
+    <script language="javascript">
+        $(window).on('load', function () {
+            $('input[type="checkbox"]').click(function () {
+                var pass = 5; //5 files at a time
+                var numOfFiles = $('input[type="checkbox"]:checked').length;
+                if (numOfFiles == pass) {
+                    $('input[type="checkbox"]').not(':checked').prop('disabled', true);
+                } else {
+                    $('input[type="checkbox"]').not(':checked').prop('disabled', false);
+                }
+
+                if (numOfFiles > 0) {
+                    $("#unSelSent").prop('disabled', false);
+                    $("#deleteBtn").prop('disabled', false);
+                } else {
+                    $("#unSelSent").prop('disabled', true);
+                    $("#deleteBtn").prop('disabled', true);
+                }
+            })
+
+            $("#unSelSent").click(function () {
+                $('input[type="checkbox"]').filter(':checked').prop('checked', false);
+                $('input[type="checkbox"]').filter(':disabled').prop('disabled', false);
+                $("#unSelSent").prop('disabled', true);
+                $("#deleteBtn").prop('disabled', true);
+            })
+        });
+
+        window.onload = function () {
+
+            return displayInfo();
+        }
+
+        function displayInfo() {
+            var info = '<%= session.getAttribute("info") %>';
+            if (info == 'true') {
+                ShowDialog(true);
+            }
+
+        }
+
+        function getInfo(resourceId, control) {
+            if (control) {
+                control.disabled = true;
+            }
+            var temp = jQuery("#serviceId").val();
+            window.location.href = "<%= request.getContextPath() %>/mcedt/resourceInfo?resourceId=" + encodeURIComponent(resourceId) + "&serviceId=" + encodeURIComponent(jQuery("#serviceId").val());
+            return false;
+
+        }
+
+        function reSubmit(resourceId, control) {
+            if (control) {
+                control.disabled = true;
+            }
+
+            var form = document.getElementById('reSubmitForm');
+            if (!form) {
+                form = document.createElement('form');
+                form.id = 'reSubmitForm';
+                form.method = 'post';
+                form.style.display = 'none';
+                var input1 = document.createElement('input');
+                input1.type = 'hidden';
+                input1.name = 'resourceId';
+                form.appendChild(input1);
+                var input2 = document.createElement('input');
+                input2.type = 'hidden';
+                input2.name = 'serviceId';
+                form.appendChild(input2);
+                document.body.appendChild(form);
+            }
+            form.action = "<%= request.getContextPath() %>/mcedt/reSubmit";
+            form.elements['resourceId'].value = resourceId;
+            form.elements['serviceId'].value = jQuery("#serviceId").val();
+            form.submit();
+            return false;
+
+        }
+
+        function deleteFiles() {
+
+            if (!confirm("Please confirm that you would like to delete the selected files")) {
+                return false;
+            }
+            ShowSpin(true);
+            var method = jQuery("#methodSent");
+            method.val('deleteFiles');
+
+            var form = jQuery("#formSent");
+            form.submit();
+            return true;
+        }
+
+        function changeDisplay(control) {
+            //submitFormSent("changeDisplay", control);
+            var method = jQuery("#methodSent");
+            method.val('changeDisplay');
+
+            var form = jQuery("#formSent");
+            form.submit();
+            return true;
+        }
+
+        function submitFormSent(methodType, control) {
+
+
+            var method = jQuery("#methodSent");
+            method.val(methodType);
+
+            var form = jQuery("#formSent");
+            form.submit();
+            return true;
+        }
+
+        /* function setPageNumber(pageNo)
+        {
+            var element = document.getElementById('pageNo');
+            element.value = pageNo;
+        } */
+
+        /* for dialogbox */
+        $(document).ready(function () {
+            $("#btnShowSimple").click(function (e) {
+                ShowDialog(false);
+                e.preventDefault();
+            });
+
+            $("#btnShowModal").click(function (e) {
+                ShowDialog(true);
+                e.preventDefault();
+            });
+
+            $("#btnClose").click(function (e) {
+                HideDialog();
+                e.preventDefault();
+            });
+
+            $("#btnSubmit").click(function (e) {
+
+                /* var brand = $("#brands input:radio:checked").val();
+                $("#output").html("<b>Your favorite mobile brand: </b>" + brand); */
+                HideDialog();
+                e.preventDefault();
+            });
+        });
+
+        function ShowDialog(modal) {
+            $("#overlay").show();
+            $("#dialog").fadeIn(300);
+
+            if (modal) {
+                $("#overlay").unbind("click");
+            } else {
+                $("#overlay").click(function (e) {
+                    HideDialog();
+                });
+            }
+        }
+
+        function HideDialog() {
+            $("#overlay").hide();
+            $("#dialog").fadeOut(300);
+            <% session.removeAttribute("info");%>
+        }
+
+    </script>
+
+
+    <title>Sent</title>
+</head>
+<body>
+<c:set var="resourceListSent" value="${sessionScope.resourceListSent}"/>
+<c:set var="resultSize" value="${sessionScope.resultSize}"/>
+
+<form action="${pageContext.request.contextPath}/mcedt/resourceInfo" method="post" id="formSent">
+    <jsp:include page="/WEB-INF/jsp/mcedt/messages.jsp"/>
+    <input id="methodSent" name="method" type="hidden" value=""/>
+    <div>
+
+        <div>
+
+            Billing Number:
+            <select name="serviceIdSent" id="serviceIdSent" class="serviceIdSent">
+                <c:forEach var="r" items="${serviceIds}">
+                    <option value="${r}" ${r == serviceIdSent ? 'selected="selected"' : ''}>
+                        ${e:forHtml(r)}
+                    </option>
+                </c:forEach>
+            </select>
+
+            Resource Type:
+            <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
+                <option value="" ${resourceType == '' ? 'selected="selected"' : ''}> - All - </option>
+                <c:forEach var="r" items="${mcedtTypeList.data}">
+                    <option value="${r.resourceType}" ${r.resourceType == resourceType ? 'selected="selected"' : ''}>
+                        ${e:forHtml(r.resourceType)} -
+                        ${e:forHtml(r.access)} -
+                        ${e:forHtml(r.descriptionEn)}
+                    </option>
+                </c:forEach>
+            </select>
+
+            Status:
+            <select name="status" id="status"> <!-- onchange="setPageNumber(1)" -->
+                <option value="" ${status == '' ? 'selected="selected"' : ''}> - All - </option>
+                <c:forEach var="i" items="${resourceStatusValues}">
+                    <option value="${i}" ${i == status ? 'selected="selected"' : ''}>${i}</option>
+                </c:forEach>
+            </select>
+
+            Page #:
+            <select name="pageNo" id="pageNo">
+                <c:forEach var="i" begin="1" end="${resultSize}">
+                    <option value="${i}" ${i == pageNo ? 'selected="selected"' : ''}>
+                        ${e:forHtml(i)}
+                    </option>
+                </c:forEach>
+            </select>
+            
+            <button class="noBorder blackBox flatLink font12 small" onclick="ShowSpin(true); return changeDisplay();">
+                Load Page
+            </button>
+        </div>
+        * You may select a maximum of 5 files at a time to delete from MC-EDT
+        <br/>** Only files with upload status can be deleted or submitted from/to MC-EDT.
+        <c:choose>
+            <c:when test="${not empty resourceListSent}">
+                <table class="table scrollable whiteBox" width="100%" border="0" cellspacing="0" cellpadding="5"
+                       style="margin:5px 0 15px;">
+                    <thead>
+                    <tr class="greenBox">
+                        <th>Select</th>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <!-- <th>Result</th>
+                        <th>Status</th> -->
+                        <th>File Name</th>
+                        <th>Status</th>
+                        <th>Re Submit</th>
+                        <th>File Info</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <c:forEach var="r" items="${resourceListSent}" varStatus="loopStatus">
+                        <tr bgcolor="${loopStatus.index % 2 == 0 ? '#FFF' : '#EEE'}">
+                            <td>
+                                <c:if test="${r.status == 'UPLOADED'}">
+                                    <input type="checkbox" value="${r.resourceID}" name="resourceId"/>
+                                </c:if>
+                            </td>
+                            <td>${e:forHtml(r.resourceID)}</td>
+                            <td>
+                                <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
+                            </td>
+                            <td>${e:forHtml(r.resourceType)}</td>
+                            <td>${e:forHtml(r.description)}</td>
+                            <td>${e:forHtml(r.status)}</td>
+                            <td>
+                                <c:if test="${r.status == 'UPLOADED'}">
+                                    <button class="noBorder blackBox flatLink font12 small"
+                                            onclick="ShowSpin(true);return reSubmit(${r.resourceID}, this);">Submit
+                                    </button>
+                                </c:if>
+                            </td>
+                            <td>
+                                <button class="noBorder blackBox flatLink font12 small"
+                                        onclick="ShowSpin(true);return getInfo(${r.resourceID}, this)">Display Info
+                                </button>
+                            </td>
+                        </tr>
+                    </c:forEach>
+                    </tbody>
+                </table>
+            </c:when>
+            <c:otherwise>
+                <h3>No documents found.</h3>
+            </c:otherwise>
+        </c:choose>
+    </div>
+    <div>
+        <button type="button" id="unSelSent" class="noBorder blackBox flatLink font12 rightMargin5" disabled="true">
+            Un-Select All
+        </button>
+        <button class="noBorder blackBox flatLink font12" id="deleteBtn" disabled="true" onclick="return deleteFiles()">
+            Delete Selected
+        </button>
+    </div>
+</form>
+
+<!-- -----------------------dialog box start---------------------------------------------- -->
+
+
+<%-- <input type="button" id="btnShowSimple" value="Simple Dialog" />
+<input type="button" id="btnShowModal" value="Modal Dialog" /> --%>
+
+<br/><br/>
+
+<div id="output"></div>
+
+<div id="overlay" class="web_dialog_overlay"></div>
+
+<div id="dialog" class="web_dialog">
+    <table style="width: 100%; border: 0px;" cellpadding="5" cellspacing="0">
+
+        <c:forEach var="d" items="${detail.data}">
+            <tr>
+                <td class="web_dialog_title">File Info</td>
+                <td class="web_dialog_title align_right">
+                    <a href="javascript:void(0);" id="btnClose">X</a>
+                </td>
+            </tr>
+            <tr>
+                <td>ID</td>
+                <td>${e:forHtml(d.resourceID)}</td>
+            </tr>
+            <tr>
+                <td>Created</td>
+                <td><fmt:formatDate value="${i:toDate(d.createTimestamp)}"/>
+                </td>
+            </tr>
+            <tr>
+                <td>Description</td>
+                <td>${e:forHtml(d.description)}</td>
+            </tr>
+            <tr>
+                <td>Resource type</td>
+                <td>${e:forHtml(d.resourceType)}</td>
+            </tr>
+            <tr>
+                <td>Modified</td>
+                <td><fmt:formatDate value="${i:toDate(d.modifyTimestamp)}"/>
+                </td>
+            </tr>
+            <tr>
+                <td>Result</td>
+                <td>${e:forHtml(d.result.code)} - ${e:forHtml(d.result.msg)}</td>
+            </tr>
+            <tr>
+                <td>Status</td>
+                <td>${e:forHtml(d.status)}</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: center;">
+                    <button id="btnSubmit" type="button" class="noBorder blackBox flatLink">Close</button>
+                </td>
+            </tr>
+        </c:forEach>
+    </table>
+
+</div>
+
+
+<!-- ------------------------------------------------------------------------------- -->
+</body>
+</html>

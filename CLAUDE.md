@@ -617,18 +617,18 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 **Struts.xml Mapping**
 ```xml
 <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
-    <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
-    <result name="failure">/logout.jsp</result>
+    <result name="provider" type="redirect">/provider/providercontrol</result>
+    <result name="failure">/WEB-INF/jsp/login/logout.jsp</result>
 </action>
 ```
-- Maintains `.do` extension for backward compatibility
+- Uses extensionless action routes
 - Spring object factory integration: `<constant name="struts.objectFactory" value="spring"/>`
-- Mixed namespace support for gradual migration
+- View JSPs live under `/WEB-INF/jsp/**`
 
 **URL Compatibility**
-- Legacy URLs ending in `.do` continue to work
-- No changes required to existing JSP forms and links
-- Seamless user experience during migration
+- New code must use extensionless Struts routes
+- New view pages should not be exposed as public JSP entrypoints
+- Caller updates must target actions, not JSP files
 
 #### **Best Practices for 2Action Development**
 **1. Security First**
@@ -653,7 +653,21 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Leverage existing Spring-managed services
 - Maintain transactional boundaries
 
-**4. Healthcare Context**
+**4. View / Endpoint Design**
+- Put new JSP views under `src/main/webapp/WEB-INF/jsp/**`
+- Add new page entrypoints as Struts actions in the correct `struts-*.xml` file
+- Use extensionless routes such as `/login`, `/form/setupSelect`, `/eform/efmshowform_data`
+- Point action results at internal `WEB-INF` JSPs or other extensionless actions, not public JSP paths
+- For view-only pages, prefer a small gate action that enforces security and then forwards internally
+- When migrating a former public `index.jsp`, decide whether the old clean section-root URL
+  (for example `/administration/`) was part of the user-facing contract. Check nav links,
+  popup targets, generated menu URLs, and relative links, not just explicit `index.jsp`
+  references.
+- If that clean section-root URL was part of the contract, preserve it with a small
+  explicit compatibility mapping. Do not make `/section/index` the new preferred public URL,
+  and do not use a generic catch-all `append /index` rewrite.
+
+**5. Healthcare Context**
 - Include audit logging for patient data access
 - Follow PHI protection patterns
 - Use healthcare-specific validation
@@ -677,6 +691,8 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
   - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
+  - Canonical action routes are extensionless (`struts.action.extension=""`)
+  - Static assets are excluded from Struts by `struts.action.excludePattern`
 - **Database Configuration**:
   - Custom MySQL dialect: `OscarMySQL5Dialect`
   - Connection tracking: `OscarTrackingBasicDataSource`
@@ -1167,6 +1183,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 # Project Documentation
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
+docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```
@@ -1178,3 +1195,4 @@ README.md                                          # Project setup and overview
 - **Provincial Variations**: Study `billing/CA/BC/` vs `billing/CA/ON/` implementations
 - **Spring Configuration**: Reference the multiple `applicationContext*.xml` files
 - **2Action Migration**: Compare legacy Action classes with their 2Action equivalents
+- **New JSP-backed pages**: Follow `docs/struts-web-endpoints.md`
