@@ -780,8 +780,11 @@ public final class Login2Action extends ActionSupport {
             // session and facility setup. Only reachable here for single-facility and
             // no-facility providers; multi-facility providers were already redirected to
             // select_facility.jsp above and will land on the default post-login page.
+            // postLoginRedirect is validated by RedirectValidationUtils.isValidRelativeRedirect()
+            // at line ~457 before reaching this branch (only relative, same-origin paths allowed;
+            // absolute URIs, protocol-relative URLs, backslash bypasses and path-traversal rejected).
             if (postLoginRedirect != null) {
-                response.sendRedirect(postLoginRedirect);
+                response.sendRedirect(postLoginRedirect); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by RedirectValidationUtils.isValidRelativeRedirect() before entering this branch // lgtm[java/unvalidated-url-redirection]
                 return NONE;
             }
 
