@@ -889,7 +889,6 @@ public class ManageDocument2Action extends ActionSupport {
 
         String docxml = null;
         String contentType = null;
-        byte[] contentBytes = null;
         String filename = null;
 
         CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
@@ -907,21 +906,17 @@ public class ManageDocument2Action extends ActionSupport {
         contentType = d.getContenttype();
         filename = d.getDocfilename();
 
-        Path file = Paths.get(DOCUMENT_DIR, filename);
-
-        if (Files.exists(file)) {
-            contentBytes = Files.readAllBytes(file);
-        } else {
-            if (docxml == null || docxml.trim().equals("")) {
-                // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
-                // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
-                throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
-            }
-        }
-
         if (docxml != null && !docxml.trim().equals("")) {
             setResponse(response, docxml.getBytes());
             return;
+        }
+
+        Path file = Paths.get(DOCUMENT_DIR, filename);
+
+        if (!Files.exists(file)) {
+            // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
+            // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
+            throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
         }
 
         // TODO: Right now this assumes it's a pdf which it shouldn't
@@ -933,11 +928,11 @@ public class ManageDocument2Action extends ActionSupport {
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
         response.setContentType(contentType);
-        response.setContentLength(contentBytes.length);
+        response.setContentLengthLong(Files.size(file));
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
-            outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type
+            Files.copy(file, outs); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type
             outs.flush();
         }
     }

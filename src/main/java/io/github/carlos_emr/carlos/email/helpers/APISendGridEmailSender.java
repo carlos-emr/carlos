@@ -1,14 +1,12 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -21,6 +19,7 @@ import org.apache.hc.core5.ssl.SSLContexts;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.Base64StreamingUtils;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -248,7 +247,7 @@ public class APISendGridEmailSender {
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = Paths.get(emailAttachment.getFilePath());
-                jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
+                jsonAttachment.put("content", Base64StreamingUtils.encode(path));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 jsonAttachment.put("type", "application/pdf");
                 jsonAttachment.put("disposition", "attachment");

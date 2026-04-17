@@ -14,6 +14,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.utility.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.Base64StreamingUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,7 +31,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -560,17 +560,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs while reading the PDF file
      */
     public String convertPDFToBase64(Path renderedDocument) throws PDFGenerationException {
-        String base64 = "";
         if (renderedDocument == null) {
-            return base64;
+            return "";
         }
         try {
-            byte[] bytes = Files.readAllBytes(renderedDocument);
-            base64 = Base64.getEncoder().encodeToString(bytes);
+            return Base64StreamingUtils.encode(renderedDocument);
         } catch (IOException e) {
             throw new PDFGenerationException("An error occurred while processing the PDF file", e);
         }
-        return base64 != null ? base64 : "";
     }
 
     private Path renderDocument(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, DocumentType documentType, Integer documentId) throws PDFGenerationException {

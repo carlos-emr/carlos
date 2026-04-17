@@ -48,6 +48,7 @@ import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.Base64StreamingUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -147,7 +148,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 if (!Files.isReadable(filePath)) {
                     throw new FaxProviderException("Fax document file is not readable (check permissions)");
                 }
-                faxJob.setDocument(Base64Utility.encode(Files.readAllBytes(filePath)));
+                faxJob.setDocument(Base64StreamingUtils.encode(filePath));
             }
 
             if (faxJob.getDocument() == null || faxJob.getDocument().isEmpty()) {
