@@ -240,14 +240,14 @@
             function onSave() {
                 document.forms[0].submit.value = "save";
                 reset();
-                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
+                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
                 reset();
-                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
+                var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
 
