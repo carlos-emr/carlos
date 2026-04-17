@@ -130,6 +130,8 @@ public class LogReport2Action extends ActionSupport {
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to load provider list for log report", e);
+            // Fail closed: if we cannot determine the allowed provider set for site-restricted users,
+            // use an empty list so no cross-site log rows are returned.
             providers = List.of();
         }
 
@@ -188,7 +190,8 @@ public class LogReport2Action extends ActionSupport {
                     prop.setProperty("demographic_no", logEntry.getDemographicId() == null ? "" : logEntry.getDemographicId().toString());
                     // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
                     // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
-                    // to preserve the injected markup.
+                    // to preserve the injected markup. The injected <br/> is constant application markup
+                    // and does not include any user-controlled content.
                     prop.setProperty("data",
                             Encode.forHtml(defaultString(logEntry.getData())).replace("\n", "<br/>"));
                     vec.add(prop);

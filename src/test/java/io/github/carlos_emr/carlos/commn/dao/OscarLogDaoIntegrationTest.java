@@ -79,6 +79,8 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         log.setContentId(contentId);
         dao.persist(log);
         entityManager.flush();
+        // OscarLog does not expose a mutable timestamp setter and production writes use the current time,
+        // so the test updates the stored timestamp directly to create deterministic ordering assertions.
         entityManager.createNativeQuery("update log set dateTime = ?1 where id = ?2")
                 .setParameter(1, new Timestamp(created.getTime()))
                 .setParameter(2, log.getId())
@@ -212,6 +214,26 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(result).extracting(OscarLog::getId)
                     .containsExactly(matchingLog.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should treat plain content values as exact-match like patterns")
+        void shouldTreatPlainContentValues_asExactMatchLikePatterns() throws Exception {
+            Date now = new Date();
+
+            OscarLog exactMatch = createOscarLog(301, "prov1", "read", "admin", "1", now);
+            createOscarLog(302, "prov1", "read", "admin-extra", "2", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "admin",
+                    null,
+                    null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(exactMatch.getId());
         }
     }
 }
