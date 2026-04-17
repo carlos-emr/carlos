@@ -59,7 +59,17 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     public List<Tickler> findByTicklerNoDemo(Integer ticklerNo, Integer demoNo);
 
+    /**
+     * Finds non-deleted ticklers for the specified tickler IDs and demographic.
+     */
+    public List<Tickler> findByTicklerNosDemo(List<Integer> ticklerNos, Integer demoNo);
+
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo);
+
+    /**
+     * Finds non-deleted ticklers for the specified tickler IDs, assignee, and demographic.
+     */
+    public List<Tickler> findByTicklerNosAssignedTo(List<Integer> ticklerNos, String assignedTo, Integer demoNo);
 
     /**
      * Retrieves a list of Tickler objects based on demographic ID, assigned task, and message.

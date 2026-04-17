@@ -147,6 +147,20 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @SuppressWarnings("unchecked")
     @Override
+    public List<Tickler> findByTicklerNosDemo(List<Integer> ticklerNos, Integer demoNo) {
+        if (ticklerNos == null || ticklerNos.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
+        query.setParameter(1, ticklerNos);
+        query.setParameter(2, demoNo);
+
+        return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo) {
 
         Query query = entityManager.createQuery("select t from Tickler t where t.id = ?1 AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
@@ -157,6 +171,21 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = query.getResultList();
 
         return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Tickler> findByTicklerNosAssignedTo(List<Integer> ticklerNos, String assignedTo, Integer demoNo) {
+        if (ticklerNos == null || ticklerNos.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
+        query.setParameter(1, ticklerNos);
+        query.setParameter(2, assignedTo);
+        query.setParameter(3, demoNo);
+
+        return query.getResultList();
     }
 
     /**

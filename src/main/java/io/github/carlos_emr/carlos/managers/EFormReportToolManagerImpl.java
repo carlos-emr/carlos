@@ -32,8 +32,11 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
@@ -127,6 +130,15 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
 
             //get all fdid for this fid
             List<Object[]> fdidList = eformDataDao.findMetaFieldsByFormId(eft.getEformId());
+            List<Integer> fdids = new java.util.ArrayList<>(fdidList.size());
+            for (Object[] data : fdidList) {
+                fdids.add((Integer) data[0]);
+            }
+
+            Map<Integer, List<EFormValue>> valuesByFormDataId = new HashMap<>();
+            for (EFormValue value : eformValueDao.findByFormDataIdList(fdids)) {
+                valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new java.util.ArrayList<>()).add(value);
+            }
 
             Date dateStarted = new Date();
 
@@ -136,7 +148,7 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
                 Integer demographicNo = (Integer) data[1];
                 Date dateFormCreated = createDateFromDateAndTime((Date) data[2], (Date) data[3]);
                 String providerNo = (String) data[4];
-                List<EFormValue> values = eformValueDao.findByFormDataId(fdid);
+                List<EFormValue> values = valuesByFormDataId.getOrDefault(fdid, Collections.emptyList());
 
                 if (values.isEmpty()) {
                     continue;

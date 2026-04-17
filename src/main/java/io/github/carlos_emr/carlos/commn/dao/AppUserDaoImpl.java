@@ -57,4 +57,16 @@ public class AppUserDaoImpl extends AbstractDaoImpl<AppUser> implements AppUserD
 
         return list.get(0);
     }
+
+    @Override
+    public List<AppUser> findForProviderByAppIds(List<Integer> appIds, String providerNo) {
+        if (appIds == null || appIds.isEmpty()) {
+            return List.of();
+        }
+
+        Query query = entityManager.createQuery("select x from AppUser x where x.appId in (?1) and x.providerNo = ?2");
+        query.setParameter(1, appIds);
+        query.setParameter(2, providerNo);
+        return query.getResultList();
+    }
 }
