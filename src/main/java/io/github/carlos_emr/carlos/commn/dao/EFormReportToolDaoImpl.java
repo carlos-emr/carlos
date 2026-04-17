@@ -39,7 +39,6 @@ import java.util.regex.Pattern;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
