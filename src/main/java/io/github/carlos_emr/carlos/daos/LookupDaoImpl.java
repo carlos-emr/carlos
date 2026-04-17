@@ -410,8 +410,6 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         copy.setGenericIdx(source.getGenericIdx());
         copy.setFieldIndex(source.getFieldIndex());
         copy.setFieldLength(source.getFieldLength());
-        copy.setVal(source.getVal());
-        copy.setValDesc(source.getValDesc());
         return copy;
     }
 

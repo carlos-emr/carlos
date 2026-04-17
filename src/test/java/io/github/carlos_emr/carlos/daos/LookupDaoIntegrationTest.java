@@ -760,7 +760,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
 
             // When
-            List<?> result = lookupDao.GetCodeFieldValues(tableDef);
+            @SuppressWarnings("unchecked")
+            List<List<FieldDefValue>> result = (List<List<FieldDefValue>>) (List<?>) lookupDao.GetCodeFieldValues(tableDef);
 
             // Then
             assertThat(result).isNotNull();
@@ -789,21 +790,17 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
             // When
             @SuppressWarnings("unchecked")
-            List<List> result = lookupDao.GetCodeFieldValues(tableDef);
+            List<List<FieldDefValue>> result = (List<List<FieldDefValue>>) (List<?>) lookupDao.GetCodeFieldValues(tableDef);
 
             // Then
             assertThat(result).hasSize(2);
 
-            @SuppressWarnings("unchecked")
             List<FieldDefValue> firstRow = result.stream()
-                .map(row -> (List<FieldDefValue>) row)
                 .filter(row -> "A".equals(row.get(0).getVal()))
                 .findFirst()
                 .orElseThrow();
 
-            @SuppressWarnings("unchecked")
             List<FieldDefValue> secondRow = result.stream()
-                .map(row -> (List<FieldDefValue>) row)
                 .filter(row -> "B".equals(row.get(0).getVal()))
                 .findFirst()
                 .orElseThrow();
