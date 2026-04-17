@@ -28,8 +28,8 @@ import org.apache.struts2.ActionSupport;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ServletActionContext;
@@ -135,7 +135,14 @@ public class MoveMOHFiles2Action extends ActionSupport {
         if (isValid) {
             String folderPath = getFolderPath(folderParam);
             for (String fileName : fileNames) {
-                File file = getFile(folderPath, fileName);
+                File file;
+                try {
+                    file = getFile(folderPath, fileName);
+                } catch (SecurityException e) {
+                    logger.warn("Invalid file path {}", LogSanitizer.sanitize(fileName));
+                    errors.append("Invalid file path: ").append(Encode.forHtml(fileName)).append(".<br/>");
+                    continue;
+                }
                 if (file == null) {
                     logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
@@ -223,16 +230,19 @@ public class MoveMOHFiles2Action extends ActionSupport {
      * @param fileName String representing the URL-encoded filename to retrieve
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
-    private File getFile(String folderPath, String fileName) {
-    try {
-        fileName = URLDecoder.decode(fileName, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-        logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
-        return null;
-    }
-
-    return new File(folderPath, fileName);
-    }
+     private File getFile(String folderPath, String fileName) {
+        try {
+            String decodedFileName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+            File validatedFile = PathValidationUtils.validatePath(decodedFileName, new File(folderPath));
+            if (!validatedFile.getName().equals(decodedFileName)) {
+                throw new SecurityException("Invalid file path");
+            }
+            return validatedFile;
+        } catch (IllegalArgumentException e) {
+            logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
+            return null;
+        }
+     }
 
     /**
      * Moves a MOH billing file to the archive directory.

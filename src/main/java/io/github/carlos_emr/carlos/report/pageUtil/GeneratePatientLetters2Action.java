@@ -185,7 +185,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
                 }
 
                 fileName = newDoc.getFileName();
-                File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+                File validatedFile = validateDocumentFile(fileName, documentDir);
                 // Sync the EDoc filename with the validated (sanitized) name so the DB
                 // record matches the actual file on disk.
                 newDoc.setFileName(validatedFile.getName());
@@ -245,6 +245,14 @@ public class GeneratePatientLetters2Action extends ActionSupport {
             log.trace("End of GeneratePatientLetters Action");
         }
         return null;
+    }
+
+    private File validateDocumentFile(String fileName, File documentDir) {
+        File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+        if (!validatedFile.getName().equals(fileName)) {
+            throw new SecurityException("Invalid document file path");
+        }
+        return validatedFile;
     }
 
 }

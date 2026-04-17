@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.eform;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -201,9 +202,9 @@ public class EFormExportZip {
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
         //first runthrough, get the properties files, construct eforms, cache files
         while ((ze = zis.getNextEntry()) != null) {
-            File file = new File(ze.getName());
-            _log.info("Unzipping..." + LogSanitizer.sanitize(file.getName()));
-            if (file.getName().equalsIgnoreCase("eform.properties")) {
+            String entryFileName = sanitizeZipEntryFileName(ze.getName());
+            _log.info("Unzipping..." + LogSanitizer.sanitize(entryFileName));
+            if (entryFileName.equalsIgnoreCase("eform.properties")) {
                 Properties properties = new Properties();
                 properties.load(zis);
                 EForm newEForm = this.createEFormFromProperties(properties);
@@ -229,10 +230,8 @@ public class EFormExportZip {
                 _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
             } else {
                 //store temp files on HD
-                File tempFile = new File(imageTempFolderDir, file.getName());
-                // Zip Slip prevention: ensure extracted file stays within the temp extraction directory
-                tempFile = PathValidationUtils.validateExistingPath(tempFile, imageTempFolderDir);
-                tempFiles.put(file.getName(), tempFile); //reference so we can find it later
+                File tempFile = PathValidationUtils.validatePath(entryFileName, imageTempFolderDir);
+                tempFiles.put(entryFileName, tempFile); //reference so we can find it later
                 FileOutputStream fos = new FileOutputStream(tempFile);
                 inputToOutput(zis, fos);
                 fos.close();
@@ -262,9 +261,7 @@ public class EFormExportZip {
                 //do not save file if eform fails
             } else {
                 FileInputStream fis = new FileInputStream(tempFile.getValue());
-                File imageFile = new File(ImageUpload2Action.getImageFolder(), tempFile.getKey());
-                // Zip Slip prevention: ensure the image destination stays within the image folder
-                imageFile = PathValidationUtils.validateExistingPath(imageFile, ImageUpload2Action.getImageFolder());
+                File imageFile = PathValidationUtils.validatePath(tempFile.getKey(), ImageUpload2Action.getImageFolder());
                 if (imageFile.exists()) {
                     errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
                     _log.info("EForm Import: Image with name '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
@@ -305,6 +302,30 @@ public class EFormExportZip {
         eForm.setShowLatestFormOnly(Boolean.valueOf(properties.getProperty("form.showLatestFormOnly")));
         eForm.setPatientIndependent(Boolean.valueOf(properties.getProperty("form.patientIndependent")));
         return eForm;
+    }
+
+    private String sanitizeZipEntryFileName(String entryName) {
+        if (entryName == null || entryName.trim().isEmpty()) {
+            throw new SecurityException("Invalid zip entry");
+        }
+
+        String normalizedEntryName = entryName.replace('\\', '/');
+        if (normalizedEntryName.startsWith("/") || normalizedEntryName.matches("^[A-Za-z]:.*")) {
+            throw new SecurityException("Invalid zip entry: " + entryName);
+        }
+
+        for (String segment : normalizedEntryName.split("/")) {
+            if ("..".equals(segment)) {
+                throw new SecurityException("Invalid zip entry: " + entryName);
+            }
+        }
+
+        String sanitizedName = FilenameUtils.getName(normalizedEntryName);
+        if (sanitizedName.isEmpty() || sanitizedName.startsWith(".")) {
+            throw new SecurityException("Invalid zip entry: " + entryName);
+        }
+
+        return sanitizedName;
     }
 
 }
