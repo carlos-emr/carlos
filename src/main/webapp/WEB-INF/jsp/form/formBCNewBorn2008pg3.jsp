@@ -1056,8 +1056,6 @@
                         </td>
                         <td><fmt:message key='form.bcnewborn.signature'/><br><input type="text" name="SIGNATUREPg3" id="SIGNATUREPg3"
                                                 value="<%= props.getProperty("SIGNATURE", "") %>" @oscar.formDB/><br>
-                        <td><fmt:message key='form.bcnewborn.signature'/><br><input type="text" name="SIGNATUREPg3" id="SIGNATUREPg3"
-                                                value="<%= props.getProperty("SIGNATURE", "") %>" @oscar.formDB/><br>
                             <fmt:message key='form.bcnewborn.mdRm'/>
                         </td>
                     </tr>
