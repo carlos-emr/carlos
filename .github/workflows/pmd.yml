@@ -53,6 +53,7 @@ permissions:
   security-events: write
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PMD_VERSION: '7.13.0'
   PMD_HOME: 'pmd-bin-7.13.0'
 

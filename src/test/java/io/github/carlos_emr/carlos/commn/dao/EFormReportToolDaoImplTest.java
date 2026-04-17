@@ -118,8 +118,7 @@ class EFormReportToolDaoImplTest {
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockEntityManager).createNativeQuery(sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue()).contains("?1,?2,?3,?4,0,now(),?5");
-        verify(mockQuery).setParameter(4, "null");
+        assertThat(sqlCaptor.getValue()).contains(",'null',0,now(),");
     }
 
     @Test
@@ -136,8 +135,8 @@ class EFormReportToolDaoImplTest {
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockEntityManager).createNativeQuery(sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue()).contains("?1,?2,?3,?4,0,now(),?5");
-        verify(mockQuery).setParameter(4, "P12345");
+        assertThat(sqlCaptor.getValue()).contains(",'P12345',0,now(),");
+        assertThat(sqlCaptor.getValue()).doesNotContain(",'null',0,now(),");
     }
 
     private static EFormValue buildValue(String varName, String varValue) {

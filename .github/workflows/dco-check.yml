@@ -55,6 +55,7 @@ jobs:
         if: github.event_name == 'issue_comment'
         id: pr_details
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.issue.pull_request.url }}
         run: |
@@ -71,6 +72,7 @@ jobs:
       - name: Verify DCO sign-off on all commits
         id: dco_check
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || steps.pr_details.outputs.base_sha }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || steps.pr_details.outputs.head_sha }}
         run: |
@@ -140,6 +142,7 @@ jobs:
         if: steps.dco_check.outputs.commits_missing == 'true'
         id: manual_check
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || steps.pr_details.outputs.pr_number }}
           REPO: ${{ github.repository }}
@@ -204,6 +207,7 @@ jobs:
       - name: Report result
         if: always() && steps.dco_check.outputs.commits_missing == 'true'
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           MANUAL_CONFIRMED: ${{ steps.manual_check.outputs.manual_confirmed }}
           CONFIRMING_USER: ${{ steps.manual_check.outputs.confirming_user }}
           CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
