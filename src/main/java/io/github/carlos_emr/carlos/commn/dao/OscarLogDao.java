@@ -61,6 +61,19 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn);
 
+    /**
+     * Finds audit log entries for the admin log report using the supplied filters.
+     *
+     * @param startDate Date inclusive lower bound for the log timestamp
+     * @param endDate Date inclusive upper bound for the log timestamp
+     * @param content String SQL-like content filter (for example {@code admin}, {@code login}, or {@code %})
+     * @param providerNo String specific provider number to filter by, or {@code null} for all providers
+     * @param siteProviderNos List<String> provider numbers allowed by site-access privacy, or {@code null} when unrestricted
+     * @return List<OscarLog> matching log entries ordered by newest first
+     */
+    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+                                        List<String> siteProviderNos);
+
     public int purgeLogEntries(Date maxDateToRemove);
 
 }

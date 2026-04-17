@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Field;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -57,8 +59,16 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
 
     private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
                                      String content, String contentId) throws Exception {
+        return createOscarLog(demographicId, providerNo, action, content, contentId, new Date());
+    }
+
+    private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
+                                     String content, String contentId, Date created) throws Exception {
         OscarLog log = new OscarLog();
         EntityDataGenerator.generateTestDataForModelClass(log);
+        Field createdField = OscarLog.class.getDeclaredField("created");
+        createdField.setAccessible(true);
+        createdField.set(log, created);
         log.setDemographicId(demographicId);
         log.setProviderNo(providerNo);
         log.setAction(action);
@@ -145,6 +155,54 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("findForReport")
+    class FindForReport {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return matching logs when filtered by site providers")
+        void shouldReturnMatchingLogs_whenFilteredBySiteProviders() throws Exception {
+            Date now = new Date();
+
+            OscarLog newestMatch = createOscarLog(101, "prov1", "read", "admin", "1", new Date(now.getTime() + 1_000));
+            OscarLog olderMatch = createOscarLog(102, "prov2", "read", "admin", "2", new Date(now.getTime() - 1_000));
+            createOscarLog(103, "prov3", "read", "admin", "3", now);
+            createOscarLog(104, "prov1", "read", "login", "4", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "admin",
+                    null,
+                    List.of("prov1", "prov2"));
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(newestMatch.getId(), olderMatch.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return provider logs when specific provider is requested")
+        void shouldReturnProviderLogs_whenSpecificProviderIsRequested() throws Exception {
+            Date now = new Date();
+
+            createOscarLog(201, "prov1", "read", "admin", "1", now);
+            OscarLog matchingLog = createOscarLog(202, "prov2", "read", "login", "2", now);
+            createOscarLog(203, "prov2", "read", "admin", "3", now);
+
+            List<OscarLog> result = dao.findForReport(
+                    new Date(now.getTime() - 10_000),
+                    new Date(now.getTime() + 10_000),
+                    "login",
+                    "prov2",
+                    null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(matchingLog.getId());
         }
     }
 }

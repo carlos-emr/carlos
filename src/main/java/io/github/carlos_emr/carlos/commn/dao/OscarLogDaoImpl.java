@@ -224,6 +224,48 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
+    @Override
+    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+                                        List<String> siteProviderNos) {
+        if (siteProviderNos != null && siteProviderNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        StringBuilder sqlCommand = new StringBuilder("select x from ");
+        sqlCommand.append(modelClass.getSimpleName());
+        sqlCommand.append(" x where x.created <= ?1 and x.created >= ?2 and x.content like ?3");
+
+        int nextParameterIndex = 4;
+        if (providerNo != null) {
+            sqlCommand.append(" and x.providerNo = ?").append(nextParameterIndex++);
+        }
+
+        if (siteProviderNos != null) {
+            sqlCommand.append(" and x.providerNo in (?").append(nextParameterIndex).append(")");
+        }
+
+        sqlCommand.append(" order by x.created desc");
+
+        Query query = entityManager.createQuery(sqlCommand.toString());
+        query.setParameter(1, endDate);
+        query.setParameter(2, startDate);
+        query.setParameter(3, content);
+
+        int currentParameterIndex = 4;
+        if (providerNo != null) {
+            query.setParameter(currentParameterIndex++, providerNo);
+        }
+
+        if (siteProviderNos != null) {
+            query.setParameter(currentParameterIndex, siteProviderNos);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<OscarLog> results = query.getResultList();
+
+        return results;
+    }
+
     /*
      * Warning. Don't use this. It's only for the log purging feature.
      */
