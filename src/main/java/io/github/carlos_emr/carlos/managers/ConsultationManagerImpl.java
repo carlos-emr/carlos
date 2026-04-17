@@ -695,7 +695,10 @@ public class ConsultationManagerImpl implements ConsultationManager {
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocuments.size());
         Map<Integer, HashMap<String, ? extends Object>> hrmDocumentById = new HashMap<>(allHRMDocuments.size());
         for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-            hrmDocumentById.put((Integer) hrmDocument.get("id"), hrmDocument);
+            Integer hrmDocumentId = getHrmDocumentId(hrmDocument);
+            if (hrmDocumentId != null) {
+                hrmDocumentById.put(hrmDocumentId, hrmDocument);
+            }
         }
 
         for (ConsultDocs attachedHRMDocument : attachedHRMDocuments) {
@@ -706,6 +709,21 @@ public class ConsultationManagerImpl implements ConsultationManager {
         }
         //return the subset of listHRMDocuments that is attached
         return filteredHRMDocuments;
+    }
+
+    private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument) {
+        Object hrmDocumentId = hrmDocument.get("id");
+        if (hrmDocumentId instanceof Number) {
+            return ((Number) hrmDocumentId).intValue();
+        }
+        if (hrmDocumentId instanceof String) {
+            try {
+                return Integer.valueOf((String) hrmDocumentId);
+            } catch (NumberFormatException e) {
+                logger.debug("Unable to parse HRM document id {}", hrmDocumentId);
+            }
+        }
+        return null;
     }
 
     @Override

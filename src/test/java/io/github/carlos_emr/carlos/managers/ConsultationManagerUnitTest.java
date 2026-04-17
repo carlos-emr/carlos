@@ -632,7 +632,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
         private HashMap<String, Object> createHrmDocument(Integer id) {
             HashMap<String, Object> hrmDocument = new HashMap<>();
-            hrmDocument.put("id", Integer.valueOf(id));
+            hrmDocument.put("id", id);
             return hrmDocument;
         }
     }
