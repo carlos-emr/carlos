@@ -1526,10 +1526,10 @@
             step: 1
         });
         Calendar.setup({
-            inputField: "Section8<fmt:message key='form.bcnewborn.date'/>",
+            inputField: "Section8Date",
             ifFormat: "%d/%m/%Y",
             showsTime: false,
-            button: "Section8<fmt:message key='form.bcnewborn.date'/>_cal",
+            button: "Section8Date_cal",
             singleClick: true,
             step: 1
         });

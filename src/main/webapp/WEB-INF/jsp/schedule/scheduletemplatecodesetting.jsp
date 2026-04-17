@@ -151,7 +151,7 @@
                     }
                 %>
             </select>
-            <input type="hidden" name="dboperation" value="<%= opEdit %>">
+            <input type="hidden" name="dboperation" value="<%= Encode.forHtmlAttribute(opEdit) %>">
             <input type="submit" class="btn btn-secondary" value='<fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
@@ -239,10 +239,10 @@
                 <div style="text-align:right">
                     <br>
                     <input type="button" class="btn btn-secondary"
-                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= opDelete %>'; document.forms['addtemplatecode'].submit();"
+                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opDelete) %>'; document.forms['addtemplatecode'].submit();"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"
-                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= opSave %>'; document.forms['addtemplatecode'].submit();}"
+                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnSave"/>'>
                     <input type="button" name="Button" class="btn btn-link"
                            value='<fmt:message key="global.btnExit"/>'

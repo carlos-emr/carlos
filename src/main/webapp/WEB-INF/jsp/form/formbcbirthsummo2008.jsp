@@ -589,7 +589,7 @@
                     <table class="headline" width="100%" border="0" cellspacing="0"
                            cellpadding="0">
                         <tr>
-                            <th><%=bView ? "<font color='yellow'><fmt:message key='form.bcbirthsummo.viewPage'/> </font>" : ""%>
+                            <th><% if (bView) { %><font color='yellow'><fmt:message key='form.bcbirthsummo.viewPage'/> </font><% } %>
                                 <fmt:message key='form.bcbirthsummo.recordTitle'/>
                             </th>
                         </tr>

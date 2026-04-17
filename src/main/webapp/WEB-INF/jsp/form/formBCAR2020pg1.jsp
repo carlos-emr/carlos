@@ -2232,10 +2232,10 @@
                                                         <tr>
                                                             <td>
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthers<fmt:message key="form.formBCAR2020pg1.label.cocaine"/>" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthers<fmt:message key="form.formBCAR2020pg1.label.cocaine"/>", "").equals("X") ? "checked" : "" %>' /> />
+                                                                       name="c_substanceOthersCocaine" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersCocaine", "").equals("X") ? "checked" : "" %>' /> />
                                                                 <fmt:message key="form.formBCAR2020pg1.label.cocaine"/>
                                                                 <input type="checkbox"
-                                                                       name="c_substanceOthers<fmt:message key="form.formBCAR2020pg1.label.opioids"/>" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthers<fmt:message key="form.formBCAR2020pg1.label.opioids"/>", "").equals("X") ? "checked" : "" %>' /> />
+                                                                       name="c_substanceOthersOpioids" <e:forHtmlAttribute value='<%= props.getProperty("c_substanceOthersOpioids", "").equals("X") ? "checked" : "" %>' /> />
                                                                 <fmt:message key="form.formBCAR2020pg1.label.opioids"/>
                                                             </td>
                                                             <td>
