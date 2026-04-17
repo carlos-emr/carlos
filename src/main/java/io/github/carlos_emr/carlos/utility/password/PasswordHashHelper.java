@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
 public class PasswordHashHelper {
 
     private static final PasswordEncoder PASSWORD_ENCODER = PasswordHashHelper.getDelegatingPasswordEncoder();
-    // DelegatingPasswordEncoder BCrypt format: {bcrypt} + $2[aby]$ + fixed-width two-character cost (for example 04 or 10) + $ + 53-char salt/hash payload.
+    // DelegatingPasswordEncoder BCrypt format: {bcrypt} + $2[aby]$ + fixed-width two-character cost field (bcrypt implementations typically use 04-31) + $ + 53-char salt/hash payload.
     private static final Pattern BCRYPT_HASH_PATTERN = Pattern.compile("^\\{bcrypt}\\$2[aby]\\$\\d\\d\\$[./A-Za-z0-9]{53}$");
 
     /**
