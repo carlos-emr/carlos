@@ -477,7 +477,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      * @return Returns the drugs found
      */
     @NativeSql("drugs")
-    @SuppressWarnings({"unchecked", "java:S2077"})
+    @SuppressWarnings({"unchecked", "java:S2077", "java:S5644"})
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
         if (parameter != null && parameter.matches(".*[;'\"\\\\`].*")) {
