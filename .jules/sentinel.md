@@ -1,0 +1,4 @@
+## 2024-04-17 - Prevent SQL Injection in dynamic Drug parameter queries
+**Vulnerability:** The `findByParameter` method in `DrugDaoImpl` concatenated the `parameter` (column name) and `value` arguments directly into a NativeQuery, leading to a critical SQL injection vulnerability.
+**Learning:** Native queries cannot parameterize column names. To prevent SQL injection when the column name must be dynamically generated, the column parameter must be validated against a strict allowlist of allowed columns before being used. The values themselves should always be parameterized (e.g., `?1`).
+**Prevention:** Use an allowlist to validate dynamic column inputs and always parameterize input values via `query.setParameter(...)`. Fail securely by throwing an `IllegalArgumentException` on invalid inputs.
