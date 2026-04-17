@@ -590,7 +590,6 @@
                            cellpadding="0">
                         <tr>
                             <th><% if (bView) { %><font color='yellow'><fmt:message key='form.bcbirthsummo.viewPage'/> </font><% } %>
-                            <th><% if (bView) { %><font color='yellow'><fmt:message key='form.bcbirthsummo.viewPage'/> </font><% } %>
                                 <fmt:message key='form.bcbirthsummo.recordTitle'/>
                             </th>
                         </tr>

@@ -152,7 +152,6 @@
                 %>
             </select>
             <input type="hidden" name="dboperation" value="<%= Encode.forHtmlAttribute(opEdit) %>">
-            <input type="hidden" name="dboperation" value="<%= Encode.forHtmlAttribute(opEdit) %>">
             <input type="submit" class="btn btn-secondary" value='<fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
@@ -241,9 +240,6 @@
                     <br>
                     <input type="button" class="btn btn-secondary"
                            onclick="document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opDelete) %>'; document.forms['addtemplatecode'].submit();"
-                           value='<fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
-                    <input type="button" class="btn btn-primary"
-                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"
                            onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
