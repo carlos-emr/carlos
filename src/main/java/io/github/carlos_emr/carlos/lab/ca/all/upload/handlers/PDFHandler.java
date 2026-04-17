@@ -34,10 +34,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -138,7 +136,7 @@ public class PDFHandler implements MessageHandler {
 
         newDoc.setDocPublic("0");
 
-        try (InputStream fis = new FileInputStream(filePath)) {
+        try {
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
