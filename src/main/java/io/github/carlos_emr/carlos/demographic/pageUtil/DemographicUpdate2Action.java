@@ -69,7 +69,7 @@ import java.util.List;
  * duplicate is detected (for a different patient), {@code "methodNotAllowed"}
  * for non-POST requests, and {@code "success"} on normal completion. On the
  * success path the action may also issue a redirect to
- * {@code DemographicEdit.do} when no waiting-list interaction is required.</p>
+ * {@code DemographicEdit} when no waiting-list interaction is required.</p>
  *
  * @since 2026-04-04
  */
@@ -415,7 +415,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                     listIdInt = Integer.parseInt(listId);
                 } catch (NumberFormatException e) {
                     logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
                     return null;
                 }
                 List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
@@ -431,15 +431,15 @@ public class DemographicUpdate2Action extends ActionSupport {
                     request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
                     return SUCCESS;
                 } else {
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
                     return null;
                 }
             } else {
-                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
                 return null;
             }
         } else {
-            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit.do?demographic_no=" + demographicNo);
+            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
             return null;
         }
     }

@@ -1,0 +1,1174 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%--
+    ================================================================================
+    showDocument.jsp
+    ================================================================================
+    Purpose:
+        Document viewer and management interface for the CARLOS EMR document inbox.
+        Renders incoming documents (image or PDF) alongside assignment tools, patient
+        linking, and provider routing. Supports multi-format display, acknowledgement
+        workflows, lab macro quick-actions, and tickler (follow-up reminder) alerts.
+
+    Key Features:
+        - Multi-format document display: image page navigation and inline PDF rendering
+        - Document acknowledgement with optional comment dialog
+        - Lab macro dropdown: one-click pre-configured acknowledgement templates
+        - Tickler alert banner: shows pending ticklers for linked patient
+        - Patient (demographic) search and assignment with MRP auto-population
+        - Provider routing: flag document to multiple providers with removal support
+        - Document metadata editing: type, description, observation date
+        - Queue management: refile to configured incoming document queues
+        - Appointment history panel for linked patient
+        - Document splitting, rotation, and first-page deletion tools
+        - OWASP XSS encoding for all user inputs and database outputs
+        - CSRF protection via OWASP CSRFGuard 4.5 auto-injected tokens
+        - Bootstrap 5 components for dropdowns and alert banners
+
+    Architecture:
+        - Included by inboxManage.jsp and other document inbox entry points
+        - Document data loaded via EDocUtil and IncomingDocUtil
+        - Acknowledgement status from AcknowledgementData (lab-style status tracking)
+        - Lab macros loaded from UserProperty.LAB_MACRO_JSON (JSON array)
+        - Tickler alerts fetched via TicklerManager.search_tickler()
+        - Provider routing via ProviderInboxRoutingDao
+        - Appointment history via OscarAppointmentDao
+
+    Lab Macro Integration:
+        - Loads provider's configured macros from UserProperty.LAB_MACRO_JSON
+        - Renders macro names as dropdown items in Bootstrap 5 dropdown
+        - Clicking a macro calls runDocMacro() which verifies demographic link,
+          then invokes /oscarMDS/RunMacro with macro name and patient context
+        - Supports closeOnSuccess flag to auto-close popup on success
+
+    Tickler Alert Integration:
+        - Requires "_tickler" READ privilege (SecurityInfoManager check)
+        - Queries ticklers for linked patient within a 6-week window
+        - Displays dismissible Bootstrap 5 alert-info banner with count and links
+        - Each tickler message links via /tickler/ViewTicklerEdit for quick review
+
+    Parameters:
+        @param segmentID   String the document ID to display
+        @param demoName    String optional patient name hint (overridden from DB if linked)
+        @param inQueue     String optional queue indicator flag
+        @param inWindow    String if "true", renders full HTML page wrapper (html/head/body)
+
+    Security:
+        - Requires "_edoc" READ privilege via security:oscarSec tag
+        - Requires "_tickler" READ privilege for the tickler alert panel
+        - All JSP outputs escaped with OWASP Encoder for XSS prevention
+        - Audit logging via LogAction for all document views
+        - CSRF tokens auto-injected by CSRFGuard 4.5 filter
+
+    Dependencies:
+        - Document utilities: io.github.carlos_emr.carlos.documentManager.EDocUtil
+        - Inbox routing: io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao
+        - User properties: io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
+        - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
+        - Macros: Jackson ObjectMapper for JSON parsing
+        - Security: OWASP Encoder, SecurityInfoManager
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
+
+    @since 2003 (Macro and Tickler improvements 2026-02)
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@ page import="com.fasterxml.jackson.databind.JsonNode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
+
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+
+<%@ page import="java.text.SimpleDateFormat"%>
+<%@ page import="java.time.LocalDate" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.owasp.encoder.Encode"%>
+<%@ page import="org.springframework.web.context.WebApplicationContext"%>
+<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils"%>
+
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%
+    ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
+    UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
+    OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+
+    LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
+    String providerNo = loggedInInfo.getLoggedInProviderNo();
+    UserProperty uProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_ACK_COMMENT);
+    boolean skipComment = false;
+
+    if (uProp != null && uProp.getValue().equalsIgnoreCase("yes")) {
+        skipComment = true;
+    }
+
+    uProp = userPropertyDAO.getProp(providerNo, UserProperty.DISPLAY_DOCUMENT_AS);
+    String displayDocumentAs = UserProperty.IMAGE;
+    if (uProp != null && uProp.getValue().equals(UserProperty.PDF)) {
+        displayDocumentAs = UserProperty.PDF;
+    }
+
+    String demoName = request.getParameter("demoName");
+    String documentNo = request.getParameter("segmentID");
+
+    String inQueue = request.getParameter("inQueue");
+
+    boolean inQueueB = false;
+    if (inQueue != null) {
+        inQueueB = true;
+    }
+
+    String defaultQueue = IncomingDocUtil.getAndSetIncomingDocQueue(providerNo, null);
+    QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
+    List<Hashtable> queues = queueDao.getQueues();
+    int queueId = 1;
+    if (defaultQueue != null) {
+        defaultQueue = defaultQueue.trim();
+        queueId = Integer.parseInt(defaultQueue);
+    }
+
+    String creator = (String) session.getAttribute("user");
+    ArrayList doctypes = EDocUtil.getActiveDocTypes("demographic");
+    EDoc curdoc = EDocUtil.getDoc(documentNo);
+
+    String demographicID = curdoc.getModuleId();
+    String mrpProviderName = "";
+    if ((demographicID != null) && !demographicID.isEmpty() && !demographicID.equals("-1")) {
+        DemographicDao demographicDao = (DemographicDao)SpringUtils.getBean(DemographicDao.class);
+        Demographic demographic = demographicDao.getDemographic(demographicID);
+        if (demographic != null) {
+            demoName = demographic.getLastName()+","+demographic.getFirstName();
+            mrpProviderName = demographic.getProviderNo() == null || demographic.getProviderNo().isEmpty() ? "Unknown" : providerDao.getProviderNameLastFirst(demographic.getProviderNo());
+            mrpProviderName = " (MRP: " + mrpProviderName + ")";
+        }
+    } else {
+      demoName = EDocUtil.getProviderName(providerNo);
+    }
+    LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, documentNo, request.getRemoteAddr(),demographicID);
+    String docId = curdoc.getDocId();
+    String ackFunc;
+    if(skipComment) {
+      ackFunc = "updateStatus('acknowledgeForm_" + Encode.forJavaScript(docId) + "'," + inQueueB + ");";
+    } else {
+      ackFunc = "getDocComment('" + Encode.forJavaScript(docId) + "','" + Encode.forJavaScript(providerNo) + "'," + inQueueB + ");";
+    }
+
+    int slash = 0;
+    String contentType = "";
+    if ((slash = curdoc.getContentType().indexOf('/')) != -1) {
+        contentType = curdoc.getContentType().substring(slash + 1);
+    }
+    String dStatus = "";
+    if ((curdoc.getStatus() + "").compareTo("A") == 0) {
+        dStatus = "active";
+    } else if ((curdoc.getStatus() + "").compareTo("H") == 0) {
+        dStatus = "html";
+    }
+    int numOfPage = curdoc.getNumberOfPages();
+    String numOfPageStr = "";
+    if (numOfPage == 0)
+        numOfPageStr = "unknown";
+    else
+        numOfPageStr = (new Integer(numOfPage)).toString();
+    String cp = request.getContextPath();
+    String url = cp + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + docId + "&curPage=1";
+    String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
+    String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+
+    Integer docCurrentFiledQueue = null;
+
+    request.setAttribute("mrpProviderName", mrpProviderName);
+    request.setAttribute("demoName", demoName);
+%>
+<%
+    // Tickler alert: load pending ticklers for the linked patient
+    String tickler_note = "";
+    Integer demoI = 0;
+    Integer numTickler = 0;
+    boolean isLinkedToDemographic = demographicID != null && !demographicID.isEmpty()
+                                    && !demographicID.equals("-1") && !demographicID.equalsIgnoreCase("null");
+    if (isLinkedToDemographic) {
+        try {
+            demoI = Integer.parseInt(demographicID);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid demographicID in showDocument: " + demographicID, e);
+        }
+    }
+
+    LocalDate nearFuture = LocalDate.now().plusWeeks(6);
+    DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    String strDate = nearFuture.format(dtFormatter);
+
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+
+    if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
+        // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
+        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ViewTicklerEdit?tickler_no=";
+        List<String> notes = new java.util.ArrayList<>();
+        List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
+        for (Tickler t : ticklers) {
+            if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
+                notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+            }
+        }
+        numTickler = notes.size();
+        tickler_note = String.join(", ", notes);
+    }
+
+    // Lab macro: load provider's configured macros for document acknowledgment
+    UserProperty labMacroProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_MACRO_JSON);
+%>
+
+
+<c:if test="${param.inWindow eq 'true'}">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title><fmt:message key="global.Document"/></title>
+    <script type="text/javascript">
+        const ctx = "${pageContext.servletContext.contextPath}";
+        </script>
+        <!-- include jQuery Bootstrap jQueryUI fontawesome standard styles -->
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
+
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
+        <!-- language for the calendar -->
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
+        <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
+        <!-- calendar stylesheet -->
+        <link rel="stylesheet" type="text/css" media="all"
+              href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1">
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/js/documentDescriptionTypeahead.js"></script>
+
+        <script type="text/javascript">
+
+            function renderCalendar(id, inputFieldId) {
+                Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
+
+            }
+
+            function handleDocSave(docid, action) {
+                var url = contextpath + "/documentManager/inboxManage";
+                var params = new URLSearchParams({method: 'isDocumentLinkedToDemographic', docId: docid, 'CSRF-TOKEN': getCsrfToken()});
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: params.toString()
+                })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(json) {
+                    if (json != null) {
+                        var success = json.isLinkedToDemographic;
+                        var demoid = '';
+
+                        if (success) {
+                            if (action == 'addTickler') {
+                                demoid = json.demoId;
+                                if (demoid != null && demoid.length > 0)
+                                    popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler?docType=DOC&docId=' + encodeURIComponent(docid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
+                            }
+                        } else {
+                            alert("Make sure demographic is linked and document changes saved!");
+                        }
+                    }
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                });
+            }
+
+
+            function rotate90(id) {
+                var btn = document.getElementById('rotate90btn_' + id);
+                if (btn) btn.disabled = true;
+
+                fetch(contextpath + "/documentManager/SplitDocument", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: "method=rotate90&document=" + encodeURIComponent(id) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken())
+                })
+                .then(function(response) {
+                    if (btn) btn.disabled = false;
+                    var img = document.getElementById('docImg_' + id);
+                    if (img) img.src = contextpath + "/documentManager/ManageDocument?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
+                })
+                .catch(function(error) {
+                    console.error('Error:', error);
+                    if (btn) btn.disabled = false;
+                });
+            }
+
+
+            function split(id, demoName) {
+                var loc = "${pageContext.servletContext.contextPath}";
+                loc = loc + "/oscarMDS/ViewSplit?document=";
+                loc = loc + id;
+                loc = loc + "&queueID=";
+                <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.defaultString(inQueue) %>' /></c:set>
+                loc = loc + "<e:forJavaScriptBlock value='${__enc_1}' />";
+                loc = loc + "&demoName=" + encodeURIComponent(demoName);
+                popupStart(1400, 1400, loc, "Splitter");
+            }
+
+        </script>
+
+    </head>
+
+    <body>
+</c:if>
+<script type="text/javascript">
+    var _in_window = <%=( "true".equals(request.getParameter("inWindow")) ? "true" : "false" )%>;
+    var contextpath = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
+</script>
+<div id="labdoc_<%=docId%>" class="content">
+    <%
+        ArrayList ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
+        ReportStatus reportStatus = null;
+        String docCommentTxt = "";
+        String rptStatus = "";
+        boolean ackedOrFiled = false;
+        for (int idx = 0; idx < ackList.size(); ++idx) {
+            reportStatus = (ReportStatus) ackList.get(idx);
+
+            if (reportStatus.getOscarProviderNo() != null && reportStatus.getOscarProviderNo().equals(providerNo)) {
+                docCommentTxt = reportStatus.getComment();
+                if (docCommentTxt == null) {
+                    docCommentTxt = "";
+                }
+
+                rptStatus = reportStatus.getStatus();
+
+                if (rptStatus != null) {
+                    ackedOrFiled = rptStatus.equalsIgnoreCase("A") ? true : rptStatus.equalsIgnoreCase("F") ? true : false;
+                }
+                break;
+            }
+        }
+    %>
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<e:forJavaScriptAttribute value='<%= ackFunc %>' />" method="post"
+          action="javascript:void(0);">
+        <input type="hidden" name="CSRF-TOKEN" value="">
+        <input type="hidden" name="segmentID" value="<e:forHtmlAttribute value='<%= docId %>' />">
+        <input type="hidden" name="multiID" value="<e:forHtmlAttribute value='<%= docId %>' />">
+        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+        <input type="hidden" name="status" value="A" id="status_<%=docId%>">
+        <input type="hidden" name="labType" value="DOC">
+        <input type="hidden" name="ajaxcall" value="yes">
+        <input type="hidden" name="comment" id="comment_<%=docId%>" value="<e:forHtmlAttribute value='<%= docCommentTxt %>' />">
+        <%
+            if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
+        %>
+        <div class="dropdown macro-dropdown d-inline-block" style="position:relative;">
+            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false"><fmt:message key="showDocument.btnMacros"/></button>
+            <ul class="dropdown-menu">
+                <%
+                    try {
+                        ObjectMapper macroMapper = new ObjectMapper();
+                        JsonNode macros = macroMapper.readTree(labMacroProp.getValue());
+                        if (macros != null && macros.isArray()) {
+                            for (int mx = 0; mx < macros.size(); mx++) {
+                                JsonNode macro = macros.get(mx);
+                                String macroName = macro.get("name").asText();
+                                boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
+                %>
+                <li><a class="dropdown-item" href="javascript:void(0);"
+                       onclick="runDocMacro('<e:forJavaScriptAttribute value='<%= macroName %>' />','acknowledgeForm_<e:forJavaScriptAttribute value='<%= docId %>' />',<%=closeOnSuccess%>)"><e:forHtmlContent value='<%= macroName %>' /></a></li>
+                <%
+                            }
+                        }
+                    } catch (Exception e) {
+                        MiscUtils.getLogger().warn("Invalid JSON for lab macros in document viewer", e);
+                    }
+                %>
+            </ul>
+        </div>
+        <% } %>
+        <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
+        <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
+               value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= providerNo %>' />')">
+
+        <%}%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
+               onClick="ForwardSelectedRows(<e:forJavaScriptAttribute value='<%= docId %>' /> + ':DOC', null, null);">
+        <%if (!ackedOrFiled) { %>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
+               onclick="fileDoc('<e:forJavaScriptAttribute value='<%= docId %>' />');">
+        <%} %>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
+               onClick="window.close()">
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
+               onClick="popup(700,960,'<%=url2%>','file download')">
+        <%
+            String btnDisabled = "disabled";
+            if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
+                btnDisabled = "";
+            }
+
+        %>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage?demographic_no=','msg', '<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+
+        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<e:forHtmlAttribute value='<%= docId %>' />" value="Tickler" onclick="handleDocSave('<e:forJavaScriptAttribute value='<%= docId %>' />','addTickler')"/-->
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler?', 'Tickler','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+        <%
+                                                            String refileBtnVisibility = "";
+                                                            for (Hashtable ht : queues) {
+                                                                int id = (Integer) ht.get("id");
+
+                                                                if (EDocUtil.isDocumentAlreadyRefiledInQueue(curdoc.getDescription(), id)) {
+                                                                    docCurrentFiledQueue = id;
+                                                                    if (id == queueId) {
+                                                                        refileBtnVisibility = "disabled";
+                                                                        break;
+                                                                    }
+                                                                }
+                                                            }
+                                                        %>
+
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
+               value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit?demographic_no=','master','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
+               value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
+               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<e:forJavaScriptAttribute value='<%= docId %>' />');" <%=refileBtnVisibility%> >
+
+        <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
+                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<e:forJavaScriptAttribute value='<%= docId %>' />'), '<e:forJavaScriptAttribute value='<%= String.valueOf(docCurrentFiledQueue) %>' />')">
+            <%
+                for (Hashtable ht : queues) {
+                    int id = (Integer) ht.get("id");
+                    String qName = (String) ht.get("queue");
+            %>
+            <option value="<e:forHtmlAttribute value='<%= String.valueOf(id) %>' />" <%=((id == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= qName %>' />
+            </option>
+            <%}%>
+        </select>
+
+    </form>
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+        <% if (numTickler > 0 && isLinkedToDemographic) { %>
+        <table style="width:100%;">
+            <tr>
+                <td class="alert alert-info alert-dismissible fade show">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <strong><fmt:message key="showDocument.ticklerAlertLabel"/></strong> <fmt:message key="showDocument.ticklerAlertFollowing"/> <%=numTickler%>
+                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<e:forJavaScript value='<%= request.getContextPath() %>' />/tickler/ViewTicklerDemoMain?demoview=<e:forUriComponent value='<%= demographicID %>' />', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
+                    <fmt:message key="showDocument.ticklerAlertPending"/>: <%=tickler_note%>
+                </td>
+            </tr>
+        </table>
+        <% } %>
+    </security:oscarSec>
+    <table class="docTable">
+        <tr>
+            <td class="pdfPreviewColumn" style="vertical-align: top;">
+                <div style="text-align: right;font-weight: bold">
+                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
+                    <a id="firstP_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);"
+                       onclick="nextPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);"
+                       onclick="lastPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <%} %>
+                </div>
+                <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
+                <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
+                                                         onerror="this.src='<e:forJavaScriptAttribute value='<%= request.getContextPath() %>' />/images/icon_alert.gif'"/></a>
+                <%} else {%>
+                <div id="docDispPDF_<%=docId%>"></div>
+                <%}%>
+                <div style="text-align: right;font-weight: bold">
+                    <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
+                    <a id="firstP2_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP2_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP2_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);" onclick="nextPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP2_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);" onclick="lastPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <%} %>
+                </div>
+            </td>
+
+            <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">
+                <fieldset>
+                    <legend><fmt:message key="inboxmanager.document.PatientMsg"/><span
+                            id="assignedPId_<%=docId%>"><e:forHtmlContent value='${demoName}' /></span></legend>
+                    <table>
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
+                            <td><e:forHtmlContent value='<%= curdoc.getDateTimeStamp() %>' />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.ContentType"/></td>
+                            <td><e:forHtmlContent value='<%= contentType %>' />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.NumberOfPages"/></td>
+                            <td>
+                                <input id="shownPage_<%=docId %>" type="hidden" value="1">
+                                <%if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
+                                <span id="viewedPage_<%=docId%>"
+                                      class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">1</span>&nbsp; of
+                                &nbsp;<%}%>
+                                <span id="numPages_<%=docId %>"
+                                      class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"><%=numOfPageStr%></span>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td></td>
+                            <td>
+                                <% boolean updatableContent = true; %>
+                                <oscar:oscarPropertiesCheck property="ALLOW_UPDATE_DOCUMENT_CONTENT" value="false"
+                                                            defaultVal="false">
+                                    <%
+                                        if (!demographicID.equals("-1")) {
+                                            updatableContent = false;
+                                        }
+                                    %>
+                                </oscar:oscarPropertiesCheck>
+                                <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
+                                    <input onclick="split('<e:forJavaScriptAttribute value='<%= docId %>' />','${e:forJavaScript(demoName)}')"
+                                           type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
+                                    <input id="rotate180btn_<e:forHtmlAttribute value='<%= docId %>' />" onclick="rotate180('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                           type="button" class=" btn btn-light btn-sm"
+                                           value="<fmt:message key="inboxmanager.document.rotate180"/>">
+                                    <input id="rotate90btn_<e:forHtmlAttribute value='<%= docId %>' />" onclick="rotate90('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                            type="button" class=" btn btn-light btn-sm"
+                                           value="<fmt:message key="inboxmanager.document.rotate90"/>">
+                                    <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<e:forHtmlAttribute value='<%= docId %>' />"
+                                            onclick="removeFirstPage('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                            type="button" class=" btn btn-light btn-sm"
+                                            value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
+                                </div>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                    <form id="forms_<e:forHtmlAttribute value='<%= docId %>' />" method="post" onsubmit="return updateDocument('forms_<e:forJavaScriptAttribute value='<%= docId %>' />');">
+                        <input type="hidden" name="method" value="documentUpdateAjax">
+                        <input type="hidden" name="documentId" value="<e:forHtmlAttribute value='<%= docId %>' />">
+                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+                        <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
+                        <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
+                               value="<%=numOfPage%>">
+                        <input type="hidden" name="displayDocumentAs_<%=docId%>" id="displayDocumentAs_<%=docId%>"
+                               value="<e:forHtmlAttribute value='<%= displayDocumentAs %>' />">
+                        <table>
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
+                                <td><e:forHtmlContent value='<%= curdoc.getCreatorName() %>' />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgDocType"/>:</td>
+                                <td>
+                                    <select name="docType" id="docType_<%=docId%>">
+                                        <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
+                                        <%
+                                            for (int j = 0; j < doctypes.size(); j++) {
+                                                String doctype = (String) doctypes.get(j);
+                                        %>
+                                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                                        </option>
+                                        <%}%>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
+                                <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
+                                           value="<e:forHtmlAttribute value='<%= curdoc.getDescription() %>' />"
+                                           onfocus="this.select(); this.setAttribute('data-original-value', this.value)"
+                                           onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"></td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="inboxmanager.document.ObservationDateMsg"/></td>
+                                <td id="observation-calendar">
+                                    <input class="input-field" id="observationDate<%=docId%>" name="observationDate"
+                                           type="text" value="<e:forHtmlAttribute value='<%= curdoc.getObservationDate() %>' />">
+                                    <a class="calendar-icon" id="obsdate<%=docId%>"
+                                       onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
+                                       href="javascript:void(0);">
+                                        <img class="calendar-image" title="Calendar"
+                                             src="<%=request.getContextPath()%>/images/cal.gif" alt="Calendar">
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="inboxmanager.document.DemographicMsg"/></td>
+                                <td><%
+                                    if (!demographicID.equals("-1")) {%>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="true">
+                                    <input type="hidden" value="<e:forHtmlAttribute value='<%= demographicID %>' />" name="demog"
+                                           id="demofind<%=docId%>">
+                                    <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
+                                           id="demofindName<%=docId%>">
+                                    <e:forHtmlContent value='${demoName}' /><e:forHtmlContent value='${mrpProviderName}' /><%} else {%>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="false">
+                                    <input type="hidden" name="demog" value="<e:forHtmlAttribute value='<%= demographicID %>' />"
+                                           id="demofind<%=docId%>">
+                                    <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
+                                           id="demofindName<%=docId%>">
+
+                                    <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
+                                           value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
+                                    <fmt:message key="showDocument.placeholderSearchDemographic" var="placeholderSearchDemographic"/>
+                                    <input type="text" id="autocompletedemo<%=docId%>"
+                                           onchange="checkSave('<e:forJavaScriptAttribute value='<%= docId %>' />');" name="demographicKeyword"
+                                           placeholder="${fn:escapeXml(placeholderSearchDemographic)}">
+                                    <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
+
+                                    <%}%>
+                                    <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
+                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/ViewDemographicAddARecordHtm','demographic')">
+
+                                    <input id="saved_<%=docId%>" type="hidden" value="false">
+                                    <br><input id="mrp_<%=docId%>" style="display: none;" type="checkbox"
+                                               onclick="sendMRP(this)" name="demoLink">
+                                    <a id="mrp_fail_<%=docId%>"
+                                       style="color:red;font-style: italic;display: none;"><fmt:message key="inboxmanager.document.SendToMRPFailedMsg"/></a>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="vertical-align: top;"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
+                                <td>
+                                    <input type="hidden" name="provi" id="provfind<%=docId%>">
+                                    <fmt:message key="showDocument.placeholderSearchProvider" var="placeholderSearchProvider"/>
+                                    <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
+                                           placeholder="${fn:escapeXml(placeholderSearchProvider)}">
+                                    <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
+
+
+                                    <div class="provider-list-additions" id="providerList<%=docId%>"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 30%; text-align: left;"><a id="saveSucessMsg_<%=docId%>"
+                                                                            style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
+                                <td style="width: 30%; text-align: left;"><%if(demographicID.equals("-1")){%>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<e:forHtmlAttribute value='<%= docId %>' />"
+                                           onclick="saveNext(<e:forJavaScriptAttribute value='<%= docId %>' />)" disabled
+                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
+                                        <%}
+            else{%>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<e:forJavaScriptAttribute value='<%= docId %>' />)"
+                                           id="saveNext<e:forHtmlAttribute value='<%= docId %>' />"
+                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
+
+                                        <%}%>
+
+                            </tr>
+
+                            <tr>
+                                <td colspan="2">
+                                    <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
+                                    <%
+                                        Properties p = (Properties) session.getAttribute("providerBean");
+                                        List<ProviderInboxItem> routeList = Collections.emptyList();
+                                        if (docId != null) {
+                                            routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        }
+                                    %>
+                                    <ul>
+                                        <%
+                                            for (ProviderInboxItem pItem : routeList) {
+                                                String s = p.getProperty(pItem.getProviderNo(), pItem.getProviderNo());
+
+                                                if (!s.equals("0") && !s.equals("null") && !pItem.getStatus().equals("X")) {
+                                        %>
+                                        <li><e:forHtmlContent value='<%= s %>' /><a href="#"
+                                                     onclick="removeLink('DOC', '<e:forJavaScriptAttribute value='<%= docId %>' />', '<e:forJavaScriptAttribute value='<%= pItem.getProviderNo() %>' />', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
+                                        <%
+                                                }
+                                            }
+                                        %>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </form>
+                </fieldset>
+
+
+                <%
+
+                    if (ackList.size() > 0) {%>
+                <fieldset>
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="text-align: center; background-color: white;">
+                                <div class="FieldData">
+                                    <% for (int i = 0; i < ackList.size(); i++) {
+                                        ReportStatus report = (ReportStatus) ackList.get(i); %>
+                                    <e:forHtmlContent value='<%= report.getProviderName() %>' /> :
+
+                                    <% String ackStatus = report.getStatus() == null ? "" : report.getStatus();
+                                        String ackStatusKey;
+                                        if ("A".equals(ackStatus)) {
+                                            ackStatusKey = "showDocument.statusAcknowledged";
+                                        } else if ("F".equals(ackStatus)) {
+                                            ackStatusKey = "showDocument.statusFiledNotAck";
+                                        } else {
+                                            ackStatusKey = "showDocument.statusNotAck";
+                                        }
+                                        pageContext.setAttribute("ackStatusKey", ackStatusKey);
+                                    %>
+                                    <span style="color: red;"><fmt:message key="${ackStatusKey}"/>
+                                    </span>
+                                    <span id="timestamp_<e:forHtmlAttribute value='<%= docId + "_" + report.getOscarProviderNo() %>' />"><%= report.getTimestamp() == null ? "&nbsp;" : Encode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
+                                    <fmt:message key="inboxmanager.document.Comment"/> <span
+                                        id="comment_<e:forHtmlAttribute value='<%= docId + "_" + report.getOscarProviderNo() %>' />"><% if (report.getComment() == null || report.getComment().isEmpty()) { %><fmt:message key="showDocument.noComment"/><% } else { %><e:forHtmlContent value='<%= report.getComment() %>' /><% } %></span>
+
+                                    <br>
+                                    <% }
+                                        if (ackList.size() == 0) {
+                                    %><span style="color: red;"><fmt:message key="showDocument.msgNA"/></span><%
+                                    }
+                                %>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </fieldset>
+                <%
+                    }
+
+                %>
+
+                <fieldset>
+                    <legend><span class="FieldData"><i><fmt:message key="inboxmanager.document.NextAppointmentMsg"/> <oscar:nextAppt
+                            demographicNo="<%=demographicID%>"/></i></span></legend>
+                    <%
+                        int iPageSize = 5;
+                        Provider prov;
+                        boolean HighlightUserAppt = false;
+                        if (demographicID != null && !demographicID.isEmpty() && !demographicID.equals("-1")) {
+
+                            List<Appointment> appointmentList = appointmentDao.getAppointmentHistory(Integer.parseInt(demographicID), 0, iPageSize);
+                            if (appointmentList != null && appointmentList.size() > 0) {
+                    %>
+
+                    <table style="background-color: #c0c0c0; margin: 0 auto;">
+                        <tr style="background-color: #ccccff;">
+                            <th colspan="4"><fmt:message key="appointment.addappointment.msgOverview"/></th>
+                        </tr>
+                        <tr style="background-color: #ccccff;">
+                            <th><fmt:message key="Appointment.formDate"/></th>
+                            <th><fmt:message key="Appointment.formStartTime"/></th>
+                            <th><fmt:message key="appointment.addappointment.msgProvider"/></th>
+                            <th><fmt:message key="appointment.addappointment.msgComments"/></th>
+                        </tr>
+                        <%
+                            for (Appointment a : appointmentList) {
+                                prov = providerDao.getProvider(a.getProviderNo());
+                                HighlightUserAppt = false;
+                                if (creator.equals(a.getProviderNo())) {
+                                    HighlightUserAppt = true;
+                                }
+                        %>
+                        <tr style="background-color: <%=HighlightUserAppt == false ? "#FFFFFF" : "#CCFFCC"%>;">
+                            <td><e:forHtmlContent value='<%= ConversionUtils.toDateString(a.getAppointmentDate()) %>' />
+                            </td>
+                            <td><e:forHtmlContent value='<%= ConversionUtils.toTimeString(a.getStartTime()) %>' />
+                            </td>
+                            <td><% if (prov == null) { %><fmt:message key="showDocument.msgNA"/><% } else { %><e:forHtmlContent value='<%= prov.getFormattedName() %>' /><% } %>
+                            </td>
+                            <td><% if (a.getStatus() == null) {%>
+                                "" <% } else if (a.getStatus().startsWith("N")) {%><fmt:message key="oscar.appt.ApptStatusData.msgNoShow"/><% } else if (a.getStatus().startsWith("C")) {%><fmt:message key="oscar.appt.ApptStatusData.msgCanceled"/> <%}%>
+                            </td>
+                        </tr>
+                        <%}%>
+                    </table>
+                    <%
+                            }
+                        }
+                    %>
+                    <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>" method="post">
+                        <input type="hidden" name="flaggedLabs" value="<e:forHtmlAttribute value='<%= docId %>' />">
+                        <input type="hidden" name="selectedProviders" value="">
+                        <input type="hidden" name="labType" value="DOC">
+                        <input type="hidden" name="labType<e:forHtmlAttribute value='<%= docId %>' />DOC" value="imNotNull">
+                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+                        <input type="hidden" name="favorites" value="">
+                        <input type="hidden" name="ajax" value="yes">
+                    </form>
+                </fieldset>
+            </td>
+        </tr>
+
+        <tr>
+            <td colspan="2">
+                <hr style="width: 100%; border-color: red;">
+            </td>
+        </tr>
+    </table>
+</div>
+
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
+<script type="text/javascript" src="showDocument.js"></script>
+<script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/csrfTokenFetch.js"></script>
+<script type="text/javascript">
+    /**
+     * Override removeLink for the single-document popup view.
+     *
+     * oscarMDSIndex.js defines removeLink() to post the unlink request and then call
+     * updateDocLabData(), which updates inbox navigation counters using the global
+     * docType hashtable. That hashtable is only initialised in the inbox list view
+     * (documentsInQueues.jsp) and is undefined in this popup context, causing:
+     *   ReferenceError: docType is not defined (checkType -> updateDocLabData -> removeLink)
+     *
+     * In the single-document popup no inbox state needs to be updated, so this
+     * override simply POSTs the unlink request and removes the DOM element.
+     *
+     * @param {string} docTypeStr - Document type string, e.g. 'DOC'
+     * @param {string} docId - The document ID
+     * @param {string} providerNo - The provider number to unlink
+     * @param {HTMLElement} e - The clicked anchor element
+     */
+    if (_in_window) {
+        /**
+         * Override removeLink for the single-document popup view only.
+         * Only active when _in_window is true (inWindow=true parameter).
+         * The inbox list view keeps its original removeLink from oscarMDSIndex.js.
+         */
+        window.removeLink = function(docTypeStr, docId, providerNo, e) {
+            var data = new URLSearchParams({
+                method: 'removeLinkFromDocument',
+                docType: docTypeStr,
+                docId: docId,
+                providerNo: providerNo,
+                'CSRF-TOKEN': getCsrfToken()
+            });
+            fetch(contextpath + '/documentManager/ManageDocument', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: data.toString()
+            }).then(function(response) {
+                if (response.ok) {
+                    if (e && e.parentNode) {
+                        e.parentNode.remove();
+                    }
+                } else {
+                    console.error('Error removing provider link: ' + response.statusText);
+                }
+            }).catch(function(error) {
+                console.error('Error removing provider link:', error);
+            });
+        };
+    }
+
+    var displayDocAsEl = document.getElementById('displayDocumentAs_<%=docId%>');
+    if (displayDocAsEl && displayDocAsEl.value == "<%=UserProperty.PDF%>") {
+        showPDF('<%=docId%>', contextpath);
+    }
+
+    function setupDemoAutoCompletion() {
+        var inputEl = document.getElementById('autocompletedemo<%=docId%>');
+        var dropdownEl = document.getElementById('autocomplete_choices<%=docId%>');
+        var activeOnlyEl = document.getElementById('activeOnly<%=docId%>');
+        if (!inputEl || !dropdownEl) return;
+
+        inputEl.setAttribute('autocomplete', 'off');
+        var abortCtrl = null;
+
+        inputEl.addEventListener('input', function () {
+            var term = inputEl.value.trim();
+            // Clear any previous demographic selection to prevent saving against wrong chart
+            document.getElementById('demofind<%=docId%>').value = '';
+            document.getElementById('demofindName<%=docId%>').value = '';
+            ['save<%=docId%>', 'saveNext<%=docId%>', 'msgBtn_<%=docId%>', 'mainTickler_<%=docId%>', 'mainEchart_<%=docId%>', 'mainMaster_<%=docId%>', 'mainApptHistory_<%=docId%>']
+                .forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.disabled = true;
+                });
+            if (term.length < 2) {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+                return;
+            }
+            var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
+            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic';
+            var csrfToken = getCsrfToken();
+            var body = 'jqueryJSON=true&activeOnly=' + encodeURIComponent(String(activeOnly)) + '&term=' + encodeURIComponent(term);
+            if (abortCtrl) { abortCtrl.abort(); }
+            abortCtrl = new AbortController();
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'CSRF-TOKEN': csrfToken
+                },
+                body: body,
+                credentials: 'same-origin',
+                signal: abortCtrl.signal
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    dropdownEl.innerHTML = '';
+                    if (!items || items.length === 0) {
+                        dropdownEl.style.display = 'none';
+                        return;
+                    }
+                    items.forEach(function (item) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.textContent = item.label;
+                        div.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            inputEl.value = item.label;
+                            document.getElementById('demofind<%=docId%>').value = item.value;
+                            document.getElementById('demofindName<%=docId%>').value = item.formattedName;
+                            selectedDemos.push(item.label);
+                            if (item.providerNo !== undefined && item.providerNo !== null && item.providerNo !== '' && item.providerNo !== 'null') {
+                                addDocToList(item.providerNo, item.provider + ' (MRP)', '<%=docId%>');
+                            }
+                            // enable Save button whenever a selection is made
+                            document.getElementById('save<%=docId%>').disabled = false;
+                            document.getElementById('saveNext<%=docId%>').disabled = false;
+                            document.getElementById('msgBtn_<%=docId%>').disabled = false;
+                            document.getElementById('mainTickler_<%=docId%>').disabled = false;
+                            document.getElementById('mainEchart_<%=docId%>').disabled = false;
+                            document.getElementById('mainMaster_<%=docId%>').disabled = false;
+                            document.getElementById('mainApptHistory_<%=docId%>').disabled = false;
+                            dropdownEl.innerHTML = '';
+                            dropdownEl.style.display = 'none';
+                        });
+                        dropdownEl.appendChild(div);
+                    });
+                    dropdownEl.style.display = 'block';
+                })
+                .catch(function () {});
+        });
+
+        inputEl.addEventListener('blur', function () {
+            setTimeout(function () {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+            }, 200);
+        });
+    }
+
+    setupDemoAutoCompletion();
+
+    function setupProviderAutoCompletion() {
+        var inputEl = document.getElementById('autocompleteprov<%=docId%>');
+        var dropdownEl = document.getElementById('autocomplete_choicesprov<%=docId%>');
+        if (!inputEl || !dropdownEl) return;
+
+        inputEl.setAttribute('autocomplete', 'off');
+        var baseUrl = '${pageContext.servletContext.contextPath}/provider/SearchProvider?method=labSearch';
+        var abortCtrl = null;
+
+        inputEl.addEventListener('input', function () {
+            var term = inputEl.value.trim();
+            if (term.length < 2) {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+                return;
+            }
+            if (abortCtrl) { abortCtrl.abort(); }
+            abortCtrl = new AbortController();
+            fetch(baseUrl + '&term=' + encodeURIComponent(term), { signal: abortCtrl.signal })
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    dropdownEl.innerHTML = '';
+                    if (!items || items.length === 0) {
+                        dropdownEl.style.display = 'none';
+                        return;
+                    }
+                    items.forEach(function (item) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.textContent = item.label;
+                        div.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            inputEl.value = '';
+                            document.getElementById('provfind<%=docId%>').value = item.value;
+                            addDocToList(item.value, item.label, '<%=docId%>');
+                            dropdownEl.innerHTML = '';
+                            dropdownEl.style.display = 'none';
+                        });
+                        dropdownEl.appendChild(div);
+                    });
+                    dropdownEl.style.display = 'block';
+                })
+                .catch(function () {});
+        });
+
+        inputEl.addEventListener('blur', function () {
+            setTimeout(function () {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+            }, 200);
+        });
+    }
+
+    setupProviderAutoCompletion();
+    setupDocDescriptionTypeahead('<e:forJavaScriptBlock value='<%= docId %>' />');
+
+    // Macro support: check if document is linked to patient, then apply macro
+    function runDocMacro(name, formid, closeOnSuccess) {
+        var url = '<e:forJavaScript value='<%= request.getContextPath() %>' />/documentManager/inboxManage';
+        var data = 'method=isDocumentLinkedToDemographic&docId=<e:forJavaScript value='<%= docId %>' />&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: data
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(json) {
+            if (json != null) {
+                var success = json.isLinkedToDemographic;
+                var demoid = '';
+                if (success) {
+                    demoid = json.demoId;
+                }
+                runDocMacroInternal(name, formid, closeOnSuccess, demoid);
+            }
+        });
+    }
+
+    function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
+        var url = '<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var formEl = document.getElementById(formid);
+        var params = new URLSearchParams(new FormData(formEl));
+        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: params.toString()
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                console.error('Macro execution failed: ' + response.status + ' ' + response.statusText);
+                alert('Macro execution failed. Please try again.');
+                return;
+            }
+            if (closeOnSuccess) {
+                window.close();
+            }
+        })
+        .catch(function(err) {
+            console.error('Error executing macro:', err);
+            alert('Macro execution failed. Please try again.');
+        });
+    }
+
+    // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
+    fetchCsrfToken('<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />');
+
+</script>
+<jsp:include page="/images/spinner.jsp"/>
+<c:if test="${param.inWindow eq 'true'}">
+    </body>
+    </html>
+</c:if>

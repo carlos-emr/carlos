@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -92,7 +92,7 @@
             var ff = eval("document.forms[0].elements['pref.<%=UserProperty.DEFAULT_DX_CODE%>']");
             var f0 = ff.value;
             var f1 = escape("document.forms[0].elements[\'pref.<%=UserProperty.DEFAULT_DX_CODE%>\'].value");
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/billingDigSearch.jsp?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 600, 600, 1);
             awnd.focus();
         }
     </script>
@@ -153,7 +153,7 @@
 </head>
 
 <body style="font-family:sans-serif;margin:0px 5px 0px 5px">
-<form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference.do" method="post"
+<form id="preferenceForm" action="<%=request.getContextPath()%>/provider/UserPreference" method="post"
       onSubmit="return validateForm();">
     <input type="hidden" name="method" value="saveGeneral"/>
     <div style="background-color:#CCCCFF;text-align:center;font-weight:bold;">
@@ -183,7 +183,7 @@
 
 
         <div id="general" class="pref_pane">
-            <h3 style="text-align:center">General Settings</h3>
+            <h3 style="text-align:center"><fmt:message key="provider.pref.section.general"/></h3>
             <!-- change password -->
             <br/><br/>
             <div style="float:left;clear:left;width:48%">

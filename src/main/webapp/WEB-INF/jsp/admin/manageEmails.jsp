@@ -1,12 +1,15 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.email" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.email");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.email");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -19,7 +22,7 @@
 <html>
 <head>
 
-    <title>Manage Faxes</title>
+    <title><fmt:message key="admin.manageEmails.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
@@ -144,8 +147,15 @@
     </style>
 
     <script type="text/javascript">
+        const manageEmailsNoData = "<fmt:message key='admin.manageEmails.noData'/>";
+        const manageEmailsFetchFailed = "<fmt:message key='admin.manageEmails.fetchFailed'/>";
+        const manageEmailsResolveConfirm = "<fmt:message key='admin.manageEmails.resolveConfirm'/>";
+        const manageEmailsResolved = "<fmt:message key='admin.manageEmails.resolved'/>";
+        const manageEmailsResolveError = "<fmt:message key='admin.manageEmails.resolveError'/>";
+        const manageEmailsServerError = "<fmt:message key='admin.manageEmails.serverError'/>";
+
         $(document).ready(function () {
-            var searchDemoUrl = "${ctx}/demographic/SearchDemographic.do";
+            var searchDemoUrl = "${ctx}/demographic/SearchDemographic";
             $("#autocompletedemo").autocomplete({
                 source: function (req, res) {
                     $.ajax({
@@ -187,13 +197,13 @@
                         $("#results").empty().append(resultdata);
                         document.querySelectorAll('#results [data-bs-toggle="popover"]').forEach(function(el) { new bootstrap.Popover(el); });
                     } else {
-                        $("#results").empty().append("<p>No data available.</p>");
+                        $("#results").empty().append("<p>" + manageEmailsNoData + "</p>");
                     }
                 });
 
                 post.fail(function (jqXHR, textStatus, errorThrown) {
                     HideSpin();
-                    alert("Failed to fetch emails. Please try again later.");
+                    alert(manageEmailsFetchFailed);
                 });
 
                 return false;
@@ -201,7 +211,7 @@
         });
 
         function resolve(emailLogId) {
-            const answer = confirm("Are you sure you want to mark this failed email as resolved?");
+            const answer = confirm(manageEmailsResolveConfirm);
             if (!answer) {
                 return false;
             }
@@ -219,7 +229,7 @@
                     $('#emailStatus' + emailLogId).removeClass('status-tag-failed').addClass('status-tag-resolved');
                     $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed').addClass('vertical-status-divider-resolved');
                     $("#btnResolve" + emailLogId).remove();
-                    $('#emailStatus' + emailLogId).text("RESOLVED");
+                    $('#emailStatus' + emailLogId).text(manageEmailsResolved);
                     HideSpin();
                 },
                 error: function (xhr, status, error) {
@@ -227,7 +237,7 @@
                     if (xhr.responseJSON) {
                         alert(xhr.responseJSON.errorMessage);
                     } else {
-                        alert("500 Internal Server Error: The server encountered an unexpected condition that prevented it from fulfilling the request.");
+                        alert(manageEmailsServerError);
                     }
                 }
             });
@@ -252,55 +262,53 @@
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn" class="col-sm-12">
 
-        <form id="emailSearchForm" action="${ctx}/admin/ManageEmails.do" onsubmit="ShowSpin(true);">
+        <form id="emailSearchForm" action="${ctx}/admin/ManageEmails" onsubmit="ShowSpin(true);">
 
             <input type="hidden" name="method" value="fetchEmails"/>
             <fieldset class="search-email-menu border px-3 pb-3">
-                <legend class="float-none w-auto p-2">Search Emails</legend>
+                <legend class="float-none w-auto p-2"><fmt:message key="admin.manageEmails.searchLegend"/></legend>
                 <div class="row">
                     <div class="col-sm-3 mb-3">
-                        <label for="dateBegin">From</label>
+                        <label for="dateBegin"><fmt:message key="admin.manageEmails.from"/></label>
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
-                                   placeholder="YYYY-MM-DD" id="dateBegin" name="dateBegin" required/>
+                                   placeholder="<fmt:message key='admin.manageEmails.datePlaceholder'/>" id="dateBegin" name="dateBegin" required/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                     <div class="col-sm-3 mb-3">
-                        <label for="dateEnd">To</label>
+                        <label for="dateEnd"><fmt:message key="admin.manageEmails.to"/></label>
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
-                                   placeholder="YYYY-MM-DD" id="dateEnd" name="dateEnd" required/>
+                                   placeholder="<fmt:message key='admin.manageEmails.datePlaceholder'/>" id="dateEnd" name="dateEnd" required/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                     <div class="col-sm-6 mb-3">
-                        <label for="autocompletedemo">Patient Name</label>
-                        <input class="form-control" type="text" placeholder="Last, First" id="autocompletedemo"/>
+                        <label for="autocompletedemo"><fmt:message key="admin.manageEmails.patientName"/></label>
+                        <input class="form-control" type="text" placeholder="<fmt:message key='admin.manageEmails.patientPlaceholder'/>" id="autocompletedemo"/>
                         <input type="hidden" id="demographic_no" name="demographic_no" value="">
                     </div>
                 </div>
                 <div class="row mt-3">
                     <div class="col-sm-8 mb-3">
-                        <label for="senderEmailAddress">Sender</label>
+                        <label for="senderEmailAddress"><fmt:message key="admin.manageEmails.sender"/></label>
                         <select class="form-select" name="senderEmailAddress" id="senderEmailAddress">
-                            <option value="-1">All</option>
+                            <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ senderAccountList }" var="senderAccount">
                                 <option value="${ senderAccount.senderEmail }">
-                                    <c:out value="${ senderAccount.senderFirstName }"/> <c:out
-                                        value="${ senderAccount.senderLastName }"/> <c:out
-                                        value="(${ senderAccount.senderEmail })"/>
+                                    ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} (${e:forHtml(senderAccount.senderEmail)})
                                 </option>
                             </c:forEach>
                         </select>
                     </div>
                     <div class="col-sm-4 mb-3">
-                        <label for="emailStatus">Status</label>
+                        <label for="emailStatus"><fmt:message key="admin.manageEmails.status"/></label>
                         <select class="form-select" name="emailStatus" id="emailStatus">
-                            <option value="-1">All</option>
+                            <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ emailStatusList }" var="status">
                                 <option value="${ status }">
-                                    <c:out value="${ status }"/>
+                                    ${e:forHtml(status)}
                                 </option>
                             </c:forEach>
                         </select>
@@ -308,14 +316,14 @@
                 </div>
                 <div class="row mt-3">
                     <div class="col-sm-12">
-                        <button type="submit" id="btnFetch" class="btn btn-primary btn-md" value="Fetch">
+                        <button type="submit" id="btnFetch" class="btn btn-primary btn-md" value="<fmt:message key='admin.manageEmails.fetch'/>">
                             <span class="btn-label"><i class="fa-solid fa-magnifying-glass"></i></span>
-                            Fetch Emails
+                            <fmt:message key="admin.manageEmails.fetch"/>
                         </button>
-                        <button class="btn btn-secondary btn-md" value="Reset" type="reset"
+                        <button class="btn btn-secondary btn-md" value="<fmt:message key='global.reset'/>" type="reset"
                                 onclick="return resetForm();">
                             <span class="btn-label"><i class="fa-solid fa-repeat"></i></span>
-                            Reset
+                            <fmt:message key="global.reset"/>
                         </button>
                     </div>
                 </div>

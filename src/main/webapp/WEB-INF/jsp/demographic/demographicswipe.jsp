@@ -30,13 +30,15 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -51,14 +53,14 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>PATIENT DETAIL INFO</title>
+    <title><fmt:message key="demographic.demographicswipe.title"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
     <script LANGUAGE="JavaScript">
         <!--
 
 
         function Attach(lname, fname, hin, yob, mob, dob, vercode, sex, effyear, effmonth, effdate, endyear, endmonth, enddate) {
-            if (confirm("You are about to replace the existing patient's information, are you sure?")) {
+            if (confirm("<fmt:message key='demographic.demographicswipe.confirmReplace'/>")) {
 
                 self.close();
                 self.opener.document.updatedelete.last_name.value = lname;
@@ -86,8 +88,7 @@
 <body topmargin="0" onLoad="setfocus();" leftmargin="0" rightmargin="0">
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
-        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF">PATIENT'S
-            DETAIL RECORD</font></th>
+        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="demographic.demographicswipe.heading"/></font></th>
     </tr>
 </table>
 <table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
@@ -149,21 +150,21 @@
     %>
 
     <tr>
-        <td align="left"><font size="-1"><b>Validation result: </b></font></td>
+        <td align="left"><font size="-1"><b><fmt:message key="demographic.demographicswipe.validationResult"/> </b></font></td>
         <td><font size="-1"><%=responseDescription%>
         </font></td>
     </tr>
     <tr>
-        <td align="left"><font size="-1"><b>Response action: </b></font></td>
+        <td align="left"><font size="-1"><b><fmt:message key="demographic.demographicswipe.responseAction"/> </b></font></td>
         <td><font size="-1">(<%=responseCode%>) <%=responseAction%>
         </font></td>
     </tr>
 
     <tr>
-        <td align="right"><b>Last Name: </b></td>
+        <td align="right"><b><fmt:message key="demographic.demographicswipe.lastName"/> </b></td>
         <td align="left"><input type="text" name="last_name"
                                 value="<%=lastName%>"></td>
-        <td align="right"><b>First Name: </b></td>
+        <td align="right"><b><fmt:message key="demographic.demographicswipe.firstName"/> </b></td>
         <td align="left"><input type="text" name="first_name"
                                 value="<%=firstName%>"></td>
     </tr>
@@ -189,14 +190,14 @@
         </td>
     </tr>
     <tr valign="top">
-        <td align="right"><b>HIN: </b></td>
+        <td align="right"><b><fmt:message key="demographic.demographicswipe.hin"/> </b></td>
         <td align="left"><input type="text" name="hin" value="<%=hcMagneticStripe.getHealthNumber()%>"></td>
         <td align="right"><b>Ver.</b></td>
         <td align="left"><input type="text" name="ver"
                                 value="<%=hcMagneticStripe.getCardVersion().toUpperCase()%>"></td>
     </tr>
     <tr valign="top">
-        <td align="right"><b>EFF Date:</b></td>
+        <td align="right"><b><fmt:message key="demographic.demographicswipe.effDate"/></b></td>
         <td align="left">
             <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
@@ -211,7 +212,7 @@
                 </tr>
             </table>
         </td>
-        <td align="right"><b>Renew Date:</b></td>
+        <td align="right"><b><fmt:message key="demographic.demographicswipe.renewDate"/></b></td>
         <td align="left">
             <table border="0" cellpadding="0" cellspacing="0">
                 <tr>
@@ -233,11 +234,11 @@
 
 <br>
 <br>
-<form><input type="button" name="Button1" value="Confirm"
+<form><input type="button" name="Button1" value="<fmt:message key='demographic.demographicswipe.confirm'/>"
              onclick="javascript:Attach('<%=lastName%>','<%=firstName%>','<%=hcMagneticStripe.getHealthNumber()%>','<%=dobyear%>'
                      ,'<%=dobmonth%>','<%=dobdate%>', '<%=hcMagneticStripe.getCardVersion().toUpperCase()%>','<%=gender%>', '<%=effyear%>', '<%=effmonth%>', '<%=effdate%>'
                      , '<%=endyear%>', '<%=endmonth%>', '<%=enddate%>');"><input
-        type="button" name="Button" value="Cancel" onclick=self.close();>
+        type="button" name="Button" value="<fmt:message key='demographic.demographicswipe.cancel'/>" onclick=self.close();>
 </form>
 </body>
 </html>

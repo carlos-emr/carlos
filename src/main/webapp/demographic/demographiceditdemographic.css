@@ -460,7 +460,7 @@ table#editDemographic tr td input[type="number"]:focus,
 table#editDemographic tr td input[type="date"]:focus,
 table#editDemographic tr td input:not([type]):focus,
 table#editDemographic tr td select:focus,
-table#editDemographic tr td textarea:focus {
+table#editDemographic tr td textare:focus {
     border-color: #80bdff;
     outline: 0;
     box-shadow: 0 0 0 0.2rem rgba(51,122,183,0.25);

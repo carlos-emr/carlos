@@ -1,0 +1,61 @@
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<c:forEach items="${ emailStatusResults }" var="emailStatusResult" varStatus="loop">
+<!-- Email Card -->
+<div class="card email-status-card mt-1">
+    <div class="card-body vertical-status-divider vertical-status-divider-${fn:toLowerCase(emailStatusResult.status)}" id="cardBody${emailStatusResult.logId}">
+        <table class="email-info-table table table-borderless">
+            <tr>
+                <th>Subject</th>
+                <td>${e:forHtml(emailStatusResult.subject)}</td>                      
+            </tr>
+            <tr>
+                <th>From</th>
+                <td>${e:forHtml(emailStatusResult.senderFullName)} &lt;${e:forHtml(emailStatusResult.senderEmail)}&gt;</td>
+            </tr>
+            <tr>
+                <th>To</th>
+                <td>${e:forHtml(emailStatusResult.recipientFullName)} &lt;${e:forHtml(emailStatusResult.recipientEmail)}&gt;</td>
+            </tr>
+            <tr>
+                <th>Encryption</th>
+                <td>
+                <c:choose>
+                    <c:when test="${emailStatusResult.isEncrypted}">
+                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${e:forHtml(emailStatusResult.password)}</b>
+                    </c:when>
+                    <c:otherwise>
+                        <i class="fa-solid fa-unlock"></i> Unencrypted
+                    </c:otherwise>
+                </c:choose>
+                </td>
+            </tr>
+        </table>
+        
+        <table class="table table-borderless">
+            <tr>
+                <td class="status-and-date">
+                    <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}" 
+                        ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${emailStatusResult.errorMessage}">
+                        ${e:forHtml(emailStatusResult.status)}
+                    </div>
+                    <div class="date-time text-muted">
+                        ${e:forHtml(emailStatusResult.createdDate)} &#x2022; ${e:forHtml(emailStatusResult.createdTime)} 
+                        <c:if test="${not empty emailStatusResult.providerFullName}">
+							by ${e:forHtml(emailStatusResult.providerFullName)}
+						</c:if>
+                    </div>
+                </td>
+                <td class="action-menu">
+                    <c:if test="${emailStatusResult.status eq 'FAILED'}">
+                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
+                    </c:if>
+                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+<!-- End Email Card -->
+</c:forEach>

@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <h3>Why This Exists</h3>
  * <p>Prior to 2026.3.0, the RTL eForm's {@code fpreventions()} JavaScript function
- * built a raw SQL string on the client side and sent it to {@code RptByExample.do},
+ * built a raw SQL string on the client side and sent it to {@code RptByExample},
  * which executed it directly against the database — a critical SQL injection
  * vulnerability. This action replaces that pattern with a safe server-side endpoint
  * that uses {@link PreventionManager} and returns pre-rendered, encoded HTML.</p>
@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <h3>Struts Mapping</h3>
  * <p>Mapped as {@code eform/rtlPreventions} in {@code struts.xml}. The RTL
- * eForm calls it via {@code $.ajax({url: "../eform/rtlPreventions.do", ...})}.</p>
+ * eForm calls it via {@code $.ajax({url: "../eform/rtlPreventions", ...})}.</p>
  *
  * @see io.github.carlos_emr.carlos.managers.PreventionManager#getPreventionsByDemographicNo
  * @since 2026-03-22

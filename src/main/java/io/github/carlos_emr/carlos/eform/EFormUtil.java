@@ -1388,7 +1388,7 @@ public class EFormUtil {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
         String[] efields = {"name", "subject", "patient", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data.jsp?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
+        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
 
         String tag = "$te{";
         String nwTemplate = "";

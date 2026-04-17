@@ -118,16 +118,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
         boolean isConfidentialityNotePrinted = false;
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        if (isExcluded(httpRequest)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         try {
             // check if we are the first to print the request here
             isConfidentialityNotePrinted = isConfidentialtyNotePrinted(httpRequest);
 
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
             chain.doFilter(request, delegatingServletResponse);
-
-            if (isExcluded(httpRequest)) {
-                return;
-            }
 
             if (isConfidentialityNotePrinted)
                 return;
@@ -159,14 +161,28 @@ public class PrivacyStatementAppendingFilter implements Filter {
             return false;
         }
 
-        servletPath = servletPath.toLowerCase().trim();
+        servletPath = normalizeServletPath(servletPath);
 
         for (String ex : exclusions) {
-            if (servletPath.startsWith(ex)) {
+            if (matchesExcludedPath(servletPath, ex)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private String normalizeServletPath(String servletPath) {
+        return servletPath.toLowerCase().trim();
+    }
+
+    private boolean matchesExcludedPath(String servletPath, String exclusion) {
+        if (servletPath.equals(exclusion)) {
+            return true;
+        }
+        if (exclusion.endsWith("/")) {
+            return servletPath.startsWith(exclusion);
+        }
+        return servletPath.startsWith(exclusion + "/");
     }
 
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {

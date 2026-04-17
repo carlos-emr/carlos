@@ -48,7 +48,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -84,7 +84,7 @@
                 var docType = document.getElementById('docType').options[document.getElementById('docType').selectedIndex].value;
                 var docDescription = document.docDescriptionForm.docDescription.value;
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var providerNo = document.docDescriptionForm.providerNo.value;
                 var data = 'method=addDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&providerNo=' + providerNo;
                 fetch(url, {
@@ -111,7 +111,7 @@
                 var docDescription = document.docDescriptionForm.docDescription.value;
                 var docShortcut = document.docDescriptionForm.docDescriptionShortcut.value;
                 var providerNo = document.docDescriptionForm.providerNo.value;
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=updateDocumentDescription&description=' + docDescription + '&shortcut=' + docShortcut + '&doctype=' + docType + '&id=' + id + '&providerNo=' + providerNo;
                 fetch(url, {
                     method: 'POST',
@@ -133,7 +133,7 @@
         function deletedocDescription() {
             if (document.docDescriptionForm.docDescription.value.length > 0 && document.docDescriptionForm.docDescriptionShortcut.value.length > 0) {
                 var id = document.docDescriptionForm.descriptionId.value;
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=deleteDocumentDescription&id=' + id;
                 fetch(url, {
                     method: 'POST',
@@ -180,7 +180,7 @@
 
             adoc = document.createElement('div');
             docDescriptionList.appendChild(adoc);
-            var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+            var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
             var data = 'method=getDocumentDescriptionFromDocType&doctype=' + docType + "&providerNo=" + providerNo + "&useDocumentDescriptionTemplateType=" + useDocumentDescriptionTemplateType;
             fetch(url, {
                 method: 'POST',
@@ -230,7 +230,7 @@
                 document.docDescriptionForm.docDescriptionShortcut.value = "";
             } else {
                 var id = document.getElementById('docDescList').options[document.getElementById('docDescList').selectedIndex].value;
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=getDocumentDescriptionFromId&id=' + id;
                 fetch(url, {
                     method: 'POST',
@@ -263,7 +263,7 @@
                 document.docDescriptionForm.updateDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.deleteDescription.style.visibility = 'hidden';
                 document.docDescriptionForm.addDescription.style.visibility = 'hidden';
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=<%=UserProperty.CLINIC%>';
                 fetch(url, {
                     method: 'POST',
@@ -277,7 +277,7 @@
                 });
             } else {
                 useDocumentDescriptionTemplateType = document.docDescriptionForm.providerNo.value != "null" ? "<%=UserProperty.USER%>" : "<%=UserProperty.CLINIC%>";
-                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate.do";
+                var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
                 var data = 'method=saveDocumentDescriptionTemplatePreference&defaultShortcut=' + useDocumentDescriptionTemplateType;
                 fetch(url, {
                     method: 'POST',
@@ -304,7 +304,7 @@
         providerNo = null;
     }
 %>
-<form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do">
+<form method="post" name="docDescriptionForm" action="${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate">
     <div id="usefault" style="<%=providerNo==null? "visibility:hidden" : ""%>">
         <input type="checkbox" name="useclinicdefault" <%=clinicDefault == true ? "checked='checked'" : ""%>
                id="useclinicdefault" onclick="checkClinicDefault()"><fmt:message key="provider.setDocumentDescriptionTemplate.useClinicDefault"/>

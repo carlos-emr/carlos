@@ -145,9 +145,9 @@ specification. All state-changing operations must use POST/PUT/DELETE/PATCH.
 
 ```properties
 org.owasp.csrfguard.unprotected.Soap=%servletContext%/ws/*
-org.owasp.csrfguard.unprotected.Login=%servletContext%/index.jsp
-org.owasp.csrfguard.unprotected.LoginDo=%servletContext%/login.do
-org.owasp.csrfguard.unprotected.Logout=%servletContext%/logout.jsp
+org.owasp.csrfguard.unprotected.Login=%servletContext%/index
+org.owasp.csrfguard.unprotected.LoginDo=%servletContext%/login
+org.owasp.csrfguard.unprotected.Logout=%servletContext%/logoutPage
 org.owasp.csrfguard.unprotected.Rest=%servletContext%/ws/rs/*
 org.owasp.csrfguard.unprotected.IconFiles=*.ico
 ```
@@ -165,7 +165,7 @@ When a CSRF violation is detected:
    ```
    CSRF violation: (user:%user%, ip:%remote_ip%, method:%request_method%, uri:%request_uri%, error:%exception_message%)
    ```
-2. **Redirect action** sends the user to `/errorpage.jsp`
+2. **Redirect action** sends the user to `/errorpage`
 
 The `CarlosCsrfGuardFilter` logs a WARN and returns (the configured actions have already
 executed by the time `CsrfValidator.isValid()` returns `false`).
@@ -296,7 +296,7 @@ CSRF-related log messages (including violation warnings) are lost.
 tokens via `TokenService.generateTokensIfAbsent()` on each request, but if the first request
 to a protected page is a POST, no token exists yet.
 
-**Fix**: Ensure `index.jsp` and `login.do` are in the unprotected pages list (they are).
+**Fix**: Ensure `index` and `login` are in the unprotected pages list (they are).
 The login flow creates the session and generates tokens on the first GET to a protected page.
 
 ### Forms not submitting (403 or redirect to error page)

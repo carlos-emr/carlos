@@ -49,7 +49,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.MissingResourceException;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 public class FrmBCAR2020Record extends FrmRecord {
@@ -189,15 +192,35 @@ public class FrmBCAR2020Record extends FrmRecord {
     }
 
     public String createToggleOption(Properties props, String fieldName, String description) {
+        return createToggleOption(props, fieldName, description, Locale.getDefault());
+    }
+
+    public String createToggleOption(Properties props, String fieldName, String description, Locale locale) {
+        String resolvedDescription = resolveLabel(description, locale);
         return "<tr><td>\n" +
                 "<input type=\"checkbox\" name=\"c_" + fieldName + "No\" " + Encode.forHtmlAttribute(props.getProperty("c_" + fieldName + "No", "").equals("X") ? "checked" : "") + " />\n" +
                 "</td><td>\n" +
                 "<input type=\"checkbox\" name=\"c_" + fieldName + "Yes\" " + Encode.forHtmlAttribute(props.getProperty("c_" + fieldName + "Yes", "").equals("X") ? "checked" : "") + " />\n" +
                 "</td><td>\n" +
                 "<div class=\"divFlex\">\n" +
-                "" + description + "\n" +
+                "" + resolvedDescription + "\n" +
                 "<input type=\"text\" name=\"t_" + fieldName + "Details\" size=\"10\" maxlength=\"150\" value=\"" + UtilMisc.htmlEscape(props.getProperty("t_" + fieldName + "Details", "")) + "\" />\n" +
                 "</div></td></tr>";
+    }
+
+    private String resolveLabel(String keyOrText, Locale locale) {
+        if (keyOrText == null || keyOrText.isEmpty()) {
+            return "";
+        }
+        if (!keyOrText.startsWith("form.") && !keyOrText.startsWith("global.")) {
+            return keyOrText;
+        }
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale == null ? Locale.getDefault() : locale)
+                    .getString(keyOrText);
+        } catch (MissingResourceException ex) {
+            return keyOrText;
+        }
     }
 
     public String createPrenatalVisitRow(Properties props, String rowCount) {

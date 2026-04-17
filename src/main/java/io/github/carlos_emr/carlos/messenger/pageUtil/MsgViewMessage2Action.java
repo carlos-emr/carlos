@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -140,11 +139,16 @@ public class MsgViewMessage2Action extends ActionSupport {
      *   <li>boxType - Type of message box (inbox/sent/deleted)</li>
      * </ul>
      * 
-     * @return NONE as the method performs a redirect instead of forwarding
-     * @throws IOException if there's an error with the redirect
+     * @return {@link #SUCCESS} on the happy path (forwards to the ViewMessage JSP
+     *         via the Struts result mapping); {@link #NONE} when an invalid
+     *         {@code messageID} or a not-found message triggers an early redirect
+     *         to {@code DisplayMessages}
+     * @throws IOException if the early-return redirect cannot be written
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if user lacks read permissions
+     * @throws SecurityException if the session is missing or the user lacks
+     *         {@code _msg} read privilege
      */
+    @Override
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -204,7 +208,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
         if (parsedMessageNo <= 0) {
             MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -214,7 +218,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         // Early return if message not found
         if (msgDisplayMessage == null) {
             MiscUtils.getLogger().warn("Message not found: ID=" + parsedMessageNo);
-            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
             return NONE;
         }
 
@@ -271,17 +275,10 @@ public class MsgViewMessage2Action extends ActionSupport {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yyyy");
         request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis()))); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated formatted date from system clock
 
-        // Validate boxType against allowlist before using in redirect URL
-        if (!boxType.matches("[0-3]?")) {
-            boxType = "";
-        }
-
-        // Redirect to the message viewing page with encoded parameters
-        String actionforward = request.getContextPath() + "/messenger/ViewMessage.jsp?boxType="
-                + Encode.forUriComponent(boxType) + "&linkMsgDemo=" + Encode.forUriComponent(linkMsgDemo != null ? linkMsgDemo : "");
-        response.sendRedirect(actionforward);
-
-        // Return NONE since we're redirecting rather than forwarding
-        return NONE;
+        // Forward to the secured JSP via the Struts "success" result mapping;
+        // a self-redirect to ViewMessage would drop messageID and bounce the
+        // user back to DisplayMessages. Request params (messageID, boxType,
+        // linkMsgDemo) remain available to the JSP on the forwarded request.
+        return SUCCESS;
     }
 }

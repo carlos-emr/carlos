@@ -73,7 +73,7 @@ public final class UserActivityFilter implements Filter {
             Long now = (new Date()).getTime();
 
             HttpSession session = httpRequest.getSession(false);
-            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logout.jsp")) {
+            if (session != null && !httpRequest.getRequestURL().toString().contains(httpRequest.getContextPath() + "/logoutPage")) {
                 Long lastActivity = (Long) session.getAttribute(LAST_USER_ACTIVITY);
 
                 if (lastActivity == null) {
@@ -92,7 +92,7 @@ public final class UserActivityFilter implements Filter {
         }
         if (redirectToLogout) {
             HttpServletResponse httpResponse = (HttpServletResponse) response;
-            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logout.jsp?autoLogout=true&errorMessage=logged out due to inactivity");
+            httpResponse.sendRedirect(((HttpServletRequest) request).getContextPath() + "/logoutPage?autoLogout=true&errorMessage=logged out due to inactivity");
         } else {
             chain.doFilter(request, response);
         }

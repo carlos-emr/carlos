@@ -43,7 +43,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -65,7 +65,7 @@
                     <c:if test="${printReceipt}">
                     popupPage(350, 750, 'printappointment.jsp?appointment_no=${e:forJavaScript(appointmentNo)}');
                     </c:if>
-                    self.opener.refresh();
+                    try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();
                 </script>
             </c:when>

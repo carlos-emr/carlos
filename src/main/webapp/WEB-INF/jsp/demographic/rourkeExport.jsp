@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,7 +50,9 @@
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
-<%@include file="/casemgmt/taglibs.jsp" %>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     DemographicSets ds = new DemographicSets();
@@ -59,71 +61,71 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-    <title>Rourke Export</title>
+    <title><fmt:message key="rourkeExport.title"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 <div class="container-fluid card card-body bg-body-tertiary">
-    <form action="${pageContext.request.contextPath}/demographic/eRourkeExport.do" method="post">
+    <form action="${pageContext.request.contextPath}/demographic/eRourkeExport" method="post">
 
-        <h3>Vendor Information</h3>
+        <h3><fmt:message key="rourkeExport.vendorInformation"/></h3>
         <table class="table-sm">
             <tr>
-                <td>Organization Name</td>
+                <td><fmt:message key="rourkeExport.organizationName"/></td>
                 <td><input type="text" name="orgName" class="right" /></td>
             </tr>
             <tr>
-                <td>Contact Last Name</td>
+                <td><fmt:message key="rourkeExport.contactLastName"/></td>
                 <td><input type="text" name="contactLName" class="right" /></td>
             </tr>
             <tr>
-                <td>Contact First Name</td>
+                <td><fmt:message key="rourkeExport.contactFirstName"/></td>
                 <td><input type="text" name="contactFName" class="right" /></td>
             </tr>
             <tr>
-                <td>Contact Phone</td>
+                <td><fmt:message key="rourkeExport.contactPhone"/></td>
                 <td><input type="text" name="contactPhone" class="right" /></td>
             </tr>
             <tr>
-                <td>Contact Email</td>
+                <td><fmt:message key="rourkeExport.contactEmail"/></td>
                 <td><input type="text" name="contactEmail" class="right" /></td>
             </tr>
             <tr>
-                <td>Contact Username</td>
+                <td><fmt:message key="rourkeExport.contactUsername"/></td>
                 <td><input type="text" name="contactUserName" class="right" /></td>
             </tr>
             <tr>
-                <td>Vendor Business Name</td>
+                <td><fmt:message key="rourkeExport.vendorBusinessName"/></td>
                 <td><input type="text" name="vendorBusinessName" class="right" /></td>
             </tr>
             <tr>
-                <td>Vendor ID</td>
+                <td><fmt:message key="rourkeExport.vendorId"/></td>
                 <td><input type="text" name="vendorId" class="right" readonly="true" /></td>
             </tr>
             <tr>
-                <td>Vendor Common Name</td>
+                <td><fmt:message key="rourkeExport.vendorCommonName"/></td>
                 <td><input type="text" name="vendorCommonName" class="right" readonly="true" /></td>
             </tr>
             <tr>
-                <td>Vendor Software</td>
+                <td><fmt:message key="rourkeExport.vendorSoftware"/></td>
                 <td><input type="text" name="vendorSoftware" class="right" readonly="true" /></td>
             </tr>
             <tr>
-                <td>Vendor Software Common Name</td>
+                <td><fmt:message key="rourkeExport.vendorSoftwareCommonName"/></td>
                 <td><input type="text" name="vendorSoftwareCommonName" class="right" readonly="true" /></td>
             </tr>
             <tr>
-                <td>Vendor Software Ver</td>
+                <td><fmt:message key="rourkeExport.vendorSoftwareVer"/></td>
                 <td><input type="text" name="vendorSoftwareVer" class="right" readonly="true" /></td>
             </tr>
             <tr>
-                <td>Vendor Install Date</td>
+                <td><fmt:message key="rourkeExport.vendorInstallDate"/></td>
                 <td><input type="text" name="installDate" class="right" readonly="true" /></td>
             </tr>
 
             <tr>
                 <td>
-                    Extract Type
+                    <fmt:message key="rourkeExport.extractType"/>
                 </td>
                 <td>
                     <select name="extractType" id="extractType">
@@ -135,11 +137,11 @@
 
             <tr>
                 <td>
-                    Patient Set
+                    <fmt:message key="rourkeExport.patientSet"/>
                 </td>
                 <td>
                     <select name="patientSet" id="patientSet">
-                        <option value="-1">--Select Set--</option>
+                        <option value="-1"><fmt:message key="rourkeExport.selectSet"/></option>
                         <%
                             String setName;
                             for (int idx = 0; idx < setsList.size(); ++idx) {
@@ -157,18 +159,18 @@
             <tr>
                 <td colspan="2" align="right">
 
-                    <input class="btn btn-primary" type="submit" value="Run Report"/>
+                    <input class="btn btn-primary" type="submit" value="<fmt:message key='rourkeExport.runReport'/>"/>
                 </td>
             </tr>
         </table>
 
-        <h3>Previous Reports</h3>
+        <h3><fmt:message key="rourkeExport.previousReports"/></h3>
         <table class="table table-striped  table-sm">
             <tr>
-                <th>Run Date</th>
-                <th>File</th>
-                <th>User</th>
-                <th>Type</th>
+                <th><fmt:message key="rourkeExport.runDate"/></th>
+                <th><fmt:message key="rourkeExport.file"/></th>
+                <th><fmt:message key="rourkeExport.user"/></th>
+                <th><fmt:message key="rourkeExport.type"/></th>
             </tr>
             <%
                 List<DataExport> dataExportList = (List<DataExport>) request.getAttribute("dataExportList");
@@ -180,7 +182,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='<c:out value="${ctx}/demographic/eRourkeExport.do"></c:out>?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<%=file%>'><%=file %>
                     </a></td>
                 <td><%=dataExport.getUser()%>
                 <td><%=dataExport.getType()%>

@@ -73,6 +73,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
@@ -135,21 +136,21 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-        printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-        printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel?demographic_no=";
     } else {
-        printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
-        printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
-        printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
+        printEnvelope = rootContextPath + "/report/GenerateEnvelopes?demos=";
+        printLbl = demoPath + "printDemoLabelAction?demographic_no=";
+        printAddressLbl = demoPath + "printDemoAddressLabelAction?demographic_no=";
+        printChartLbl = demoPath + "printDemoChartLabelAction?demographic_no=";
+        printSexHealthLbl = demoPath + "printDemoChartLabelAction?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
     String wLReadonly = "";
@@ -628,7 +629,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <select id="PHU" name="PHU">
-                                                                <option value="">Select Below</option>
+                                                                <option value=""><fmt:message key="demographic.demographiceditdemographic.optSelectBelow"/></option>
                                                                 <%
                                                                     if (phuLookupList != null) {
                                                                         for (LookupListItem llItem : phuLookupList.getItems()) {
@@ -823,7 +824,7 @@
                                                             for (int k = 0; k < propDemoExt.length; k = k + 2) {
                                                     %>
                                                     <tr valign="top">
-                                                        <td align="right"><b><%=Encode.forHtmlContent(propDemoExt[k])%>
+                                                        <td align="right"><b><e:forHtmlContent value='<%= propDemoExt[k] %>' />
                                                             : </b></td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
@@ -834,8 +835,8 @@
                                                                 }
                                                             } else { %>
                                                             <input type="text"
-                                                                   name="<%= Encode.forHtmlAttribute(propDemoExt[k].replace(' ', '_')) %>"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))))%>"/>
+                                                                   name="<e:forHtmlAttribute value='<%= propDemoExt[k].replace(\" \", \"_\") %>' />"
+                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(\" \", \"_\"))) %>' />"/>
                                                             <% } %>
                                                             <input type="hidden"
                                                                    name="<%=propDemoExt[k].replace(' ', '_')%>Orig"
@@ -853,11 +854,11 @@
                                                                     out.println(propDemoExtForm[k + 1].replaceAll("value=\"\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\""));
                                                                 }
                                                             } else { %> <input type="text"
-                                                                               name="<%=Encode.forHtmlAttribute(propDemoExt[k+1].replace(' ', '_'))%>"
-                                                                               value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(' ', '_'))))%>"/>
+                                                                               name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />"
+                                                                               value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
                                                             <% } %> <input type="hidden"
-                                                                           name="<%=Encode.forHtmlAttribute(propDemoExt[k+1].replace(' ', '_'))%>Orig"
-                                                                           value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(' ', '_'))))%>"/>
+                                                                           name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />Orig"
+                                                                           value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
                                                         </td>
                                                         <% } else {%>
                                                         <td>&nbsp;</td>
@@ -957,7 +958,7 @@
                                                                                 <td class="alignRight"
                                                                                     style="width:16%;vertical-align:top;">
                                                                                     <div style="font-weight:bold;white-space:nowrap;">
-                                                                                        <c:out value="${ consentType.name }"/>
+                                                                                        ${e:forHtml(consentType.name)}
                                                                                     </div>
 
                                                                                     <c:if test="${ not empty patientConsent and not empty patientConsent.optout }">
@@ -965,15 +966,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    Opted Out:<c:out
-                                                                                                        value="${ patientConsent.optoutDate }"/>
+                                                                                                    Opted Out:${e:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented:<c:out
-                                                                                                        value="${ patientConsent.consentDate }"/>
+                                                                                                    Consented:${e:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -982,7 +981,7 @@
 
                                                                                 <td colspan="2"
                                                                                     style="padding-left:10px;vertical-align:top;">
-                                                                                    <c:out value="${ consentType.description }"/>
+                                                                                    ${e:forHtml(consentType.description)}
                                                                                 </td>
 
                                                                                 <td id="consentStatusDate"
@@ -992,23 +991,23 @@
                                                                                            id="optin_${ consentType.type }"
                                                                                            value="0"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                ${e:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optin_${ consentType.type }">Opt-In</label>
+                                                                                    <label for="optin_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optIn"/></label>
                                                                                     <input type="radio"
                                                                                            name="${ consentType.type }"
                                                                                            id="optout_${ consentType.type }"
                                                                                            value="1"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
-                                                                                                <c:out value="checked"/>
+                                                                                                ${e:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optout_${ consentType.type }">Opt-Out</label>
+                                                                                    <label for="optout_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optOut"/></label>
                                                                                     <input type="button"
                                                                                            name="clearRadio_${consentType.type}_btn"
                                                                                            onclick="consentClearBtn('${consentType.type}')"
-                                                                                           value="Clear"/>
+                                                                                           value="<fmt:message key='demographic.demographiceditdemographic.clear'/>"/>
 
                                                                                         <%-- Was this consent set by the user? Or by the database?  --%>
                                                                                     <input type="hidden"
@@ -1170,9 +1169,9 @@
                                                             value="true">
                                                         <tr>
                                                             <td colspan="4">
-                                                                <jsp:include page="/demographic/manageHealthCareTeam.jsp">
+                                                                <jsp:include page="/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -1224,7 +1223,7 @@
 
                                                                         </td>
 
-                                                                        <td><b>Service Programs</b></td>
+                                        <td><b><fmt:message key="demographic.demographiceditdemographic.servicePrograms"/></b></td>
 
                                                                         <td>
                                                                             <ul>
@@ -1272,7 +1271,7 @@
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="alignRight">
-                                                                        <strong>Level</strong>
+                                                                        <strong><fmt:message key="demographic.demographiceditdemographic.level"/></strong>
                                                                     </td>
                                                                     <td>
                                                                         <input type="hidden"
@@ -1281,19 +1280,19 @@
                                                                         <select id="rxInteractionWarningLevel"
                                                                                 name="rxInteractionWarningLevel">
                                                                             <option value="0" <%=(warningLevel.equals("0") ? "selected=\"selected\"" : "") %>>
-                                                                                Not Specified
+                                                                                <fmt:message key="demographic.demographiceditdemographic.notSpecified"/>
                                                                             </option>
                                                                             <option value="1" <%=(warningLevel.equals("1") ? "selected=\"selected\"" : "") %>>
-                                                                                Low
+                                                                                <fmt:message key="demographic.demographiceditdemographic.low"/>
                                                                             </option>
                                                                             <option value="2" <%=(warningLevel.equals("2") ? "selected=\"selected\"" : "") %>>
-                                                                                Medium
+                                                                                <fmt:message key="demographic.demographiceditdemographic.medium"/>
                                                                             </option>
                                                                             <option value="3" <%=(warningLevel.equals("3") ? "selected=\"selected\"" : "") %>>
-                                                                                High
+                                                                                <fmt:message key="demographic.demographiceditdemographic.high"/>
                                                                             </option>
                                                                             <option value="4" <%=(warningLevel.equals("4") ? "selected=\"selected\"" : "") %>>
-                                                                                None
+                                                                                <fmt:message key="demographic.demographiceditdemographic.none"/>
                                                                             </option>
                                                                         </select>
                                                                     </td>
@@ -1311,7 +1310,7 @@
                                                                    id="demographicPatientNotes">
                                                                 <tr id="paitientNotesHeading"
                                                                     class="category_table_heading">
-                                                                    <th colspan="4" class="alignLeft">Patient Notes</th>
+                                                                    <th colspan="4" class="alignLeft"><fmt:message key="demographic.demographiceditdemographic.patientNotes"/></th>
                                                                 </tr>
 
                                                                 <tr>
@@ -1356,17 +1355,18 @@
                                                         <security:oscarSec roleName="<%=roleName$%>" objectName="_demographicExport" rights="r" reverse="<%=false%>">
                                                             <input type="button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
-                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/demographicExport.jsp?demographicNo=<%=demographic.getDemographicNo()%>');"/>
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
+                                                        <c:set var="__enc_1"><e:forUriComponent value='<%= demographic.getDemographicNo().toString() %>' /></c:set>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<%= Encode.forJavaScriptAttribute(request.getContextPath()) %>/demographic/demographicAudit.jsp?demographic_no=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic.getDemographicNo().toString())) %>');"/>
+                                                               onclick="window.open('<e:forJavaScriptAttribute value='<%= request.getContextPath() %>' />/demographic/ViewDemographicAudit?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
                                                             <input type="button" name="Button" class="btn-toolbar-secondary"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
-                                                                   onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
+                                                                   onclick="window.open('<%= request.getContextPath() %>/demographic/ViewZdemographicSwipe','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                                         </span>
                                                         <div class="dropdown">
                                                             <button class="btn-toolbar-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -1374,7 +1374,7 @@
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<%=Encode.forUriComponent(appointment != null ? appointment : "")%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<e:forUriComponent value='<%= appointment != null ? appointment : "" %>' />');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>

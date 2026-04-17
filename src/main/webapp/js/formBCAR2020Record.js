@@ -580,7 +580,7 @@ function toggleFieldRules(fieldName) {
 
 function reset() {
     document.forms[0].target = "";
-    document.forms[0].action = "../form/BCAR2020.do";
+    document.forms[0].action = "../form/BCAR2020";
 }
 
 function onSave() {
@@ -1175,7 +1175,7 @@ function dialogs(page) {
                 $("#printPg6").val($("#print_att").prop('checked'));
 
                 if ($("#printPg1").val() === "true" || $("#printPg2").val() === "true" || $("#printPg3").val() === "true" || $("#printPg4").val() === "true" || $("#printPg5").val() === "true" || $("#printPg6").val() === "true") {
-                    document.forms[0].action = "../form/BCAR2020.do?method=print";
+                    document.forms[0].action = "../form/BCAR2020?method=print";
                     $("#printBtn").trigger('click');
                 }
 

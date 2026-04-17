@@ -125,8 +125,9 @@ The following actions were removed as their corresponding Java classes no longer
 
 1. **Naming Convention**: All action classes use the `*2Action` suffix, following the Struts 1.x to 2.x migration pattern
 2. **Package Structure**: Actions are organized by functional module under the `io.github.carlos_emr.carlos.*` package
-3. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
-4. **JSP Integration**: Actions primarily forward to JSP pages for view rendering
+3. **Route Shape**: Canonical action URLs are extensionless; new code should not introduce `.do` routes
+4. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
+5. **JSP Integration**: User-addressable JSPs should be behind Struts and rendered from `/WEB-INF/jsp/**`, not exposed as public JSP entrypoints
 
 ## Configuration Architecture
 

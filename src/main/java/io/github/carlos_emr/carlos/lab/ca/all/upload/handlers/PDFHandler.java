@@ -89,8 +89,12 @@ public class PDFHandler implements MessageHandler {
 
         String providerNo = "-1";
         String filePath = fileName;
+        if (fileName == null || fileName.isBlank()) {
+            logger.error("Document filename is null or empty");
+            return null;
+        }
         if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
-            logger.error("Document " + fileName + "does not have pdf extension");
+            logger.error("Document {} does not have pdf extension", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } else {
             int fileNameIdx = fileName.lastIndexOf("/");
@@ -113,7 +117,7 @@ public class PDFHandler implements MessageHandler {
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + filePath);
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 return null;
             }
 
@@ -121,13 +125,13 @@ public class PDFHandler implements MessageHandler {
             filePath = targetFile.getCanonicalPath();
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected: " + filePath);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (IOException e) {
-            logger.error("Error validating file path: " + filePath, e);
+            logger.error("Error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         } catch (Exception e) {
-            logger.error("Unexpected error validating file path: " + filePath, e);
+            logger.error("Unexpected error validating file path: {}", LogSanitizer.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return null;
         }
 

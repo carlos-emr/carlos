@@ -688,9 +688,9 @@ Preventive care management.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| oscarPrevention/AddPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action | Adds prevention records |
-| oscarPrevention/PreventionReport | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action | Generates prevention reports |
-| oscarPrevention/printPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action | Prints prevention records |
+| prevention/AddPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action | Adds prevention records |
+| prevention/PreventionReport | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action | Generates prevention reports |
+| prevention/printPrevention | io.github.carlos_emr.carlos.prevention.pageUtil.PreventionPrint2Action | Prints prevention records |
 
 ## Oscar Report Module
 

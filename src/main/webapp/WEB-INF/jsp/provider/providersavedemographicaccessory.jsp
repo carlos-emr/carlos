@@ -1,0 +1,107 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+%>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
+<%
+    DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
+    java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<html>
+<head>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+</head>
+<body>
+<center>
+    <table border="0" cellspacing="0" cellpadding="0" width="90%">
+        <tr bgcolor="#486ebd">
+            <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
+                <%= bundle.getString("provider.providersavedemographicaccessory.title") %></font></th>
+        </tr>
+    </table>
+    <%
+        String content = SxmlMisc.createXmlDataString(request, "xml_");
+
+        String[] param = new String[2];
+        param[0] = request.getParameter("demographic_no");
+        param[1] = content;
+
+        String[] param1 = new String[2];
+        param1[0] = content;
+        param1[1] = param[0];
+
+        long numRecord = 1, rowsAffected = 0;
+        numRecord = demographicAccessoryDao.findCount(Integer.parseInt(request.getParameter("demographic_no")));
+
+        if (numRecord == 0) {
+            DemographicAccessory da = new DemographicAccessory();
+            da.setContent(content);
+            demographicAccessoryDao.persist(da);
+        } else {
+            DemographicAccessory da = demographicAccessoryDao.find(Integer.parseInt(param[0]));
+            da.setContent(content);
+            demographicAccessoryDao.merge(da);
+        }
+
+    %>
+    <p>
+    <h1><%= bundle.getString("provider.providersavedemographicaccessory.success") %></h1>
+    </p>
+    <script LANGUAGE="JavaScript">
+        //self.history.go(-1);return false;//this.location.reload();	//self.opener.refresh();
+        function dunescape(s) {
+            while (s.indexOf('+') > 0) {
+                s = s.replace('+', ' ');
+            }
+            return (unescape(s));
+        }
+
+        self.close();
+        self.opener.document.encounter.xml_Problem_List.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Problem_List"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Medication.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Medication"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Alert.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Alert"), StandardCharsets.UTF_8)%>");
+        self.opener.document.encounter.xml_Family_Social_History.value = dunescape("<%=URLEncoder.encode(request.getParameter("xml_Family_Social_History"), StandardCharsets.UTF_8)%>");
+    </script>
+
+    <p></p>
+    <hr width="90%"/>
+    <form><input type="button" value="<%= bundle.getString("provider.providersavedemographicaccessory.closeWindow") %>"
+                 onClick="self.close()"></form>
+</center>
+</body>
+</html>

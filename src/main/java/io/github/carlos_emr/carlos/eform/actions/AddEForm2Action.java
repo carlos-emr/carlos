@@ -275,7 +275,7 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction.do");
+                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
                 faxForward.append("?method=").append("prepareFax");
                 faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
                 faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
@@ -327,7 +327,7 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
+                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     fdid,
@@ -376,7 +376,7 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction.do");
+                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
                 faxForward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
                 faxForward.append("&transactionId=").append(URLEncoder.encode(prev_fdid, StandardCharsets.UTF_8));
                 faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
@@ -429,7 +429,7 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction.do?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
+                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     prev_fdid,

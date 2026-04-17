@@ -36,8 +36,8 @@
     entry fields and a code search button. Center panel has Add/Remove buttons.
     Right panel shows current items in the list as a multi-select.
 
-    Submits to dxResearchUpdateQuickList.do which processes add/remove actions
-    and redirects back to dxResearchLoadQuickListItems.do to reload this page.
+    Submits to dxResearchUpdateQuickList which processes add/remove actions
+    and redirects back to dxResearchLoadQuickListItems to reload this page.
 
     Request Attributes:
     - quickListName: Name of the quick list being edited
@@ -50,12 +50,12 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
         <script type="text/javascript">
             function setfocus() {
@@ -89,7 +89,7 @@
                 var t3 = encodeURIComponent(document.forms[0].xml_research4.value);
                 var t4 = encodeURIComponent(document.forms[0].xml_research5.value);
                 var codeType = document.forms[0].selectedCodingSystem.value;
-                awnd = rs('att', 'dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
+                awnd = rs('att', 'dxResearchCodeSearch?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
                 awnd.focus();
             }
 
@@ -121,13 +121,13 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= org.owasp.encoder.Encode.forHtml(error) %></li>
+                    <li><e:forHtmlContent value='<%= error %>' /></li>
                 <% } %>
             </ul>
         </div>
 <% } %>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" method="post">
             <input type="hidden" name="forward" value="none"/>
             <input type="hidden" name="quickListName" value="${e:forHtmlAttribute(quickListName)}"/>
 

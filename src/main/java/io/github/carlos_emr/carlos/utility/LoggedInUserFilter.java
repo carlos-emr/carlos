@@ -41,20 +41,49 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 
+/**
+ * Rebuilds {@link LoggedInInfo} from the authenticated HTTP session before
+ * Struts action execution.
+ *
+ * <p>The filter intentionally uses {@link HttpServletRequest#getSession(boolean)}
+ * so anonymous or static requests do not create new sessions. Only sessions
+ * that already contain the canonical authenticated markers are enriched with a
+ * derived {@link LoggedInInfo} object.</p>
+ *
+ * @since 2026-04-15
+ */
 public class LoggedInUserFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Logs filter startup for container diagnostics.
+     *
+     * @param filterConfig servlet filter config supplied by the container
+     * @throws ServletException if the filter cannot be initialized
+     */
     public void init(FilterConfig filterConfig) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
     }
 
+    /**
+     * Populates {@link LoggedInInfo} only for already-authenticated sessions,
+     * then continues the request chain.
+     *
+     * @param tmpRequest servlet request
+     * @param tmpResponse servlet response
+     * @param chain downstream filter chain
+     * @throws IOException if downstream processing fails with I/O errors
+     * @throws ServletException if downstream processing fails at servlet level
+     */
     public void doFilter(ServletRequest tmpRequest, ServletResponse tmpResponse, FilterChain chain) throws IOException, ServletException {
         logger.debug("Entering LoggedInUserFilter.doFilter()");
 
-        // set new / current data
         HttpServletRequest request = (HttpServletRequest) tmpRequest;
-        LoggedInInfo x = generateLoggedInInfoFromSession(request);
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), x);
+        HttpSession session = request.getSession(false);
+        if (hasAuthenticatedSession(session)) {
+            LoggedInInfo loggedInInfo = generateLoggedInInfoFromSession(request, session);
+            LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+        }
 
         logger.debug("LoggedInUserFilter chainning");
         chain.doFilter(tmpRequest, tmpResponse);
@@ -64,8 +93,26 @@ public class LoggedInUserFilter implements jakarta.servlet.Filter {
         // can't think of anything to do right now.
     }
 
+    /**
+     * Derives a {@link LoggedInInfo} object from the current authenticated
+     * session, or returns {@code null} when the request has no authenticated
+     * session.
+     *
+     * @param request current HTTP request
+     * @return derived logged-in info, or {@code null} for anonymous/incomplete sessions
+     */
     public static LoggedInInfo generateLoggedInInfoFromSession(HttpServletRequest request) {
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(false);
+        if (!hasAuthenticatedSession(session)) {
+            return null;
+        }
+        return generateLoggedInInfoFromSession(request, session);
+    }
+
+    /**
+     * Builds the derived logged-in wrapper from canonical session attributes.
+     */
+    private static LoggedInInfo generateLoggedInInfoFromSession(HttpServletRequest request, HttpSession session) {
 
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         loggedInInfo.setSession(session);
@@ -77,5 +124,16 @@ public class LoggedInUserFilter implements jakarta.servlet.Filter {
         loggedInInfo.setIp(request.getRemoteAddr());
 
         return (loggedInInfo);
+    }
+
+    /**
+     * Checks whether the session has the minimum authenticated markers needed
+     * to derive {@link LoggedInInfo} safely.
+     */
+    private static boolean hasAuthenticatedSession(HttpSession session) {
+        return session != null
+                && session.getAttribute("user") != null
+                && session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER) != null
+                && session.getAttribute(SessionConstants.LOGGED_IN_SECURITY) != null;
     }
 }
