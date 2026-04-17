@@ -319,6 +319,7 @@
 
         <script type="text/javascript">
             function onPrint() {
+                let ret;
                 document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
