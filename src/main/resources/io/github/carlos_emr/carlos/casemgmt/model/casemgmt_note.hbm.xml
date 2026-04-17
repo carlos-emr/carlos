@@ -61,7 +61,7 @@
 		<property name="create_date" type="java.util.Date"
 			formula="(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)" />
 
-		<property name="password" type="string" column="password" />
+		<property name="password" type="string" column="password" access="field" />
 		<property name="locked" type="boolean" column="locked" />
                 <property name="archived" type="boolean" column="archived" />
                 <property name="position" type="integer" column="position" />

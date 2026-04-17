@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.PMmodule.utility.RoleCache;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.ProviderNotFoundException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -1819,14 +1821,23 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             return false;
         }
         CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
-        if (note != null) {
-            if (note.isLocked() && note.getPassword() != null && MessageDigest.isEqual(
-                    note.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    password.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
-                return true;
-            }
+        if (note == null || !note.isLocked() || note.getPassword() == null) {
+            return false;
         }
-        return false;
+
+        String storedPassword = note.getPassword();
+        if (StringUtils.startsWith(storedPassword, "{bcrypt}")) {
+            return EncryptionUtils.verify(password, storedPassword);
+        }
+
+        boolean matched = MessageDigest.isEqual(
+                storedPassword.getBytes(StandardCharsets.UTF_8),
+                password.getBytes(StandardCharsets.UTF_8));
+        if (matched) {
+            note.setPassword(password);
+            this.caseManagementNoteDAO.updateNote(note);
+        }
+        return matched;
     }
 
     @Override
