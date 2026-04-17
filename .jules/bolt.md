@@ -1,0 +1,3 @@
+## 2026-04-17 - Pre-compiling Regex Patterns in Loops
+**Learning:** Instantiating `Pattern.compile()` dynamically inside a loop or mapping a statically defined array of regex strings dynamically every iteration creates significant performance bottlenecks and CPU waste. Benchmarks demonstrated an over 9x overhead in execution time.
+**Action:** Extract the static regex definitions and use a static initializer block (`static { ... }`) to pre-compile the `Pattern` objects (e.g., `Pattern[] DURATION_UNITS_PATTERNS = new Pattern[...]`). For frequently used single regexes like `\d+`, initialize them as `private static final Pattern` constants.

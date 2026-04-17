@@ -48,6 +48,21 @@ import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 
 public class RxUtil {
 
+    private static final Pattern DIGITS_PATTERN = Pattern.compile("\\d+");
+    private static final Pattern NUMBERS_PATTERN = Pattern.compile("[0-9]+");
+
+    private static final String[] DURATION_UNITS = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
+            "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", "^[0-9]+(?i)days$", "^[0-9]+(?i)weeks$",
+            "^[0-9]+(?i)months$", "^[0-9]+(?i)day$", "^[0-9]+(?i)week$", "^[0-9]+(?i)month$", "^[0-9]+(?i)d$", "^[0-9]+(?i)w$", "^[0-9]+(?i)m$", "^[0-9]+(?i)mo$", "^[0-9]+\\s+(?i)days$", "^[0-9]+\\s+(?i)weeks$", "^[0-9]+\\s+(?i)months$", "^[0-9]+\\s+(?i)day$", "^[0-9]+\\s+(?i)week$", "^[0-9]+\\s+(?i)month$", "^[0-9]+\\s+(?i)d$", "^[0-9]+\\s+(?i)w$", "^[0-9]+\\s+(?i)m$", "^[0-9]+\\s+(?i)mo$"};
+
+    private static final Pattern[] DURATION_UNITS_PATTERNS = new Pattern[DURATION_UNITS.length];
+
+    static {
+        for (int i = 0; i < DURATION_UNITS.length; i++) {
+            DURATION_UNITS_PATTERNS[i] = Pattern.compile(DURATION_UNITS[i]);
+        }
+    }
+
     private static String defaultPattern = "yyyy/MM/dd";
     private static Locale locale = Locale.CANADA;
     private static String defaultQuantity = "30";
@@ -265,8 +280,7 @@ public class RxUtil {
 
     public static String getUnitNameFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
+            Matcher m1 = DIGITS_PATTERN.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
                 //get the quantity unit
@@ -281,8 +295,7 @@ public class RxUtil {
 
     public static String getQuantityFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
+            Matcher m1 = DIGITS_PATTERN.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
                 return qNum;
@@ -293,11 +306,7 @@ public class RxUtil {
 
     public static boolean isMitte(String qStr) {
         boolean isMitte = false;
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", "^[0-9]+(?i)days$", "^[0-9]+(?i)weeks$",
-                "^[0-9]+(?i)months$", "^[0-9]+(?i)day$", "^[0-9]+(?i)week$", "^[0-9]+(?i)month$", "^[0-9]+(?i)d$", "^[0-9]+(?i)w$", "^[0-9]+(?i)m$", "^[0-9]+(?i)mo$", "^[0-9]+\\s+(?i)days$", "^[0-9]+\\s+(?i)weeks$", "^[0-9]+\\s+(?i)months$", "^[0-9]+\\s+(?i)day$", "^[0-9]+\\s+(?i)week$", "^[0-9]+\\s+(?i)month$", "^[0-9]+\\s+(?i)d$", "^[0-9]+\\s+(?i)w$", "^[0-9]+\\s+(?i)m$", "^[0-9]+\\s+(?i)mo$"};
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : DURATION_UNITS_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
@@ -314,15 +323,11 @@ public class RxUtil {
 
     public static String getDurationFromQuantityText(String qStr) {
         String retStr = "";
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : DURATION_UNITS_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
-                Matcher m2 = p2.matcher(foundStr);
+                Matcher m2 = NUMBERS_PATTERN.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
                     retStr = duration;
@@ -335,15 +340,11 @@ public class RxUtil {
 
     public static String getDurationUnitFromQuantityText(String qStr) {
         String retStr = "";
-        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
-                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", };
-        for (String s : durationUnits) {
-            Pattern p = Pattern.compile(s);
+        for (Pattern p : DURATION_UNITS_PATTERNS) {
             Matcher m = p.matcher(qStr);
             if (m.find()) {
                 String foundStr = (qStr.substring(m.start(), m.end())).trim();
-                Pattern p2 = Pattern.compile("[0-9]+");
-                Matcher m2 = p2.matcher(foundStr);
+                Matcher m2 = NUMBERS_PATTERN.matcher(foundStr);
                 if (m2.find()) {
                     String duration = (foundStr.substring(m2.start(), m2.end())).trim();
                     String durationUnit = foundStr.replace(duration, "").trim();
