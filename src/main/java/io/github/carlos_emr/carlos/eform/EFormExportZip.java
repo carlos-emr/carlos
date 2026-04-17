@@ -310,7 +310,7 @@ public class EFormExportZip {
         }
 
         String normalizedEntryName = entryName.replace('\\', '/');
-        if (normalizedEntryName.startsWith("/") || normalizedEntryName.matches("^[A-Za-z]:.*")) {
+        if (normalizedEntryName.startsWith("/") || normalizedEntryName.matches("^[A-Za-z]:[\\\\/].*")) {
             throw new SecurityException("Invalid zip entry");
         }
 

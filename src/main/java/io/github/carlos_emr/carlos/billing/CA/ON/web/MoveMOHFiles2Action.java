@@ -241,7 +241,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
             }
             return validatedFile;
         } catch (IllegalArgumentException e) {
-            logger.error("Unable to decode {}", LogSanitizer.sanitize(fileName), e);
+            logger.error("Invalid encoded file name {}", LogSanitizer.sanitize(fileName), e);
             return null;
         }
      }
