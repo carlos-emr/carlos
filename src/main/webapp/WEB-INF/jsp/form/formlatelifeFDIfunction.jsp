@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -73,7 +76,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Late Life FDI: Function component</title>
+        <title><fmt:message key="form.lateLifeFDI.function.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -360,7 +363,7 @@
                            height="10%">
                         <tr>
                             <th class="lefttopCell" width="17%">&nbsp;</th>
-                            <th class="subject">Late Life FDI: Function Component <br>
+                            <th class="subject"><fmt:message key="form.lateLifeFDI.function.heading"/> <br>
                                 <table style="display: none" id="subject2">
                                     <tr>
                                         <th class="subject" style="border: 0px">For those who use
@@ -381,7 +384,7 @@
                 style="border-right: 2px solid #A9A9A9;">
                 <table>
                     <tr>
-                        <td class="leftcol"><a href="javascript: goToInstructions();">Instructions</a></td>
+                        <td class="leftcol"><a href="javascript: goToInstructions();"><fmt:message key="form.lateLifeFDI.function.instructions"/></a></td>
                     </tr>
                     <tr>
                         <td></td>
@@ -401,7 +404,7 @@
                         <td></td>
                     </tr>
                     <tr>
-                        <td class="leftcol"><a href="javascript: showSubtitle();">Questionnaire</a></td>
+                        <td class="leftcol"><a href="javascript: showSubtitle();"><fmt:message key="form.lateLifeFDI.function.questionnaire"/></a></td>
                     </tr>
                     <tr>
                         <td>
@@ -435,7 +438,7 @@
                                         <table width="100%" height="590px" border="0" cellspacing="0"
                                                cellpadding="0">
                                             <tr class="title">
-                                                <th colspan="6">Instruction for Function Questions</th>
+                                                <th colspan="6"><fmt:message key="form.lateLifeFDI.function.instructions"/></th>
                                             </tr>
                                             <tr>
                                                 <td>In this following section, I will ask you about your
@@ -484,44 +487,44 @@
                                             </tr>
                                             <tr>
                                                 <td><br>
-                                                    [Show visual aid to interviewee] <br>
+                                                    <fmt:message key="form.lateLifeFDI.function.showVisualAid"/> <br>
                                                     <br>
                                                     <table>
                                                         <tr>
                                                             <td width="10%"></td>
-                                                            <td colspan="2">Please choose from these answers:</td>
+                                                            <td colspan="2"><fmt:message key="form.lateLifeFDI.function.chooseAnswers"/></td>
                                                         </tr>
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold">None</font>
+                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.none"/></font>
                                                         </tr>
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold">A Little</font>
+                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.aLittle"/></font>
                                                         </tr>
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold">Some</font>
+                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.some"/></font>
                                                         </tr>
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold">Quite a lot</font>
+                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.quiteALot"/></font>
                                                         </tr>
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold">Cannot do</font>
+                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font>
                                                         </tr>
                                                     </table>
                                                     <br>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td>Let's begin...</td>
+                                                <td><fmt:message key="form.lateLifeFDI.function.letsBegin"/></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -537,14 +540,11 @@
                                                 <th colspan="7">
                                                     <table border="0" cellspacing="0" cellpadding="0">
                                                         <tr class="title">
-                                                            <th>How much difficulty do you have...?</th>
+                                                            <th><fmt:message key="form.lateLifeFDI.function.questionPrompt"/></th>
                                                         </tr>
                                                         <tr class="title">
                                                             <th align="left"><font
-                                                                    style="font-size: 65%; text-align: left;">(Remember
-                                                                this is without the help of someone else and without the
-                                                                use
-                                                                of any assistive walking device.)</font>
+                                                                    style="font-size: 65%; text-align: left;"><fmt:message key="form.lateLifeFDI.function.withoutAssistiveDevice"/></font>
                                                         </tr>
                                                 </th>
                                         </table>
@@ -749,7 +749,7 @@
                                     <th colspan="7">
                                         <table border="0" cellspacing="0" cellpadding="0">
                                             <tr class="title">
-                                                <th>How much difficulty do you have...?</th>
+                                                <th><fmt:message key="form.lateLifeFDI.function.questionPrompt"/></th>
                                             </tr>
                                             <tr class="title">
                                                 <th align="left"><font
@@ -961,13 +961,11 @@
                             <th colspan="7">
                                 <table border="0" cellspacing="0" cellpadding="0">
                                     <tr class="title">
-                                        <th>How much difficulty do you have...?</th>
+                                        <th><fmt:message key="form.lateLifeFDI.function.questionPrompt"/></th>
                                     </tr>
                                     <tr class="title">
                                         <th align="left"><font
-                                                style="font-size: 65%; text-align: left;">(Remember
-                                            this is without the help of someone else and without the use
-                                            of any assistive walking device.)</font>
+                                                style="font-size: 65%; text-align: left;"><fmt:message key="form.lateLifeFDI.function.withoutAssistiveDevice"/></font>
                                     </tr>
                             </th>
                     </table>
@@ -975,14 +973,11 @@
             </tr>
             <tr class="title">
                 <td colspan="2"></td>
-                <td width="5%"><font style="font-size: 65%;">None</font></td>
-                <td width="5%"><font style="font-size: 65%;">A
-                    little</font></td>
-                <td width="5%"><font style="font-size: 65%;">Some</font></td>
-                <td width="5%"><font style="font-size: 65%;">Quite
-                    a lot</font></td>
-                <td width="5%"><font style="font-size: 65%;">Cannot
-                    do</font></td>
+                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.none"/></font></td>
+                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.aLittle"/></font></td>
+                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.some"/></font></td>
+                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.quiteALot"/></font></td>
+                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font></td>
             </tr>
             <tr>
                 <td class="question" valign="top" width="5%">F17.</td>
@@ -1173,7 +1168,7 @@
                             <th colspan="7">
                                 <table border="0" cellspacing="0" cellpadding="0">
                                     <tr class="title">
-                                        <th>How much difficulty do you have...?</th>
+                                        <th><fmt:message key="form.lateLifeFDI.function.questionPrompt"/></th>
                                     </tr>
                                     <tr class="title">
                                         <th align="left"><font
@@ -1284,7 +1279,7 @@
             </tr>
             <tr>
                 <td class="question" valign="top" width="5%">F29.</td>
-                <td class="question" valign="top">Walking several blocks</td>
+                <td class="question" valign="top"><fmt:message key="form.lateLifeFDI.function.walkingSeveralBlocks"/></td>
                 <td bgcolor="white" align="center"><input type="checkbox"
                                                           class="checkbox" name="F29None"
                         <%= props.getProperty("F29None", "") %> /></td>
@@ -1368,10 +1363,8 @@
         </td>
         </tr>
         <tr class="subject">
-            <td align="left"><a href="javascript: backToPage3();"><<
-                Previous Page</a></td>
-            <td align="right"><a href="javascript: calculateScore();">
-                Calculate Total Score</a></td>
+            <td align="left"><a href="javascript: backToPage3();"><fmt:message key="global.previousPage"/></a></td>
+            <td align="right"><a href="javascript: calculateScore();"><fmt:message key="form.lateLifeFDI.function.calculateTotalScore"/></a></td>
         </tr>
         </table>
         <table border="0" cellspacing="0" cellpadding="0"
@@ -1384,7 +1377,7 @@
                             <th>
                                 <table border="0" cellspacing="0" cellpadding="0">
                                     <tr class="title">
-                                        <th>How much difficulty do you have...?</th>
+                                        <th><fmt:message key="form.lateLifeFDI.function.questionPrompt"/></th>
                                     </tr>
                                     <tr class="title">
                                         <th align="left"><font
@@ -1397,8 +1390,7 @@
                     </th>
             </tr>
             <tr>
-                <td class="question" valign="top" width="5%">Your total
-                    raw score is: <input class="finalScore" type="text"
+                    <td class="question" valign="top" width="5%"><fmt:message key="form.lateLifeFDI.function.totalRawScore"/> <input class="finalScore" type="text"
                                          readonly="true" name="score"/></td>
             </tr>
             <tr>
@@ -1414,8 +1406,7 @@
         </td>
         </tr>
         <tr class="subject">
-            <td align="left"><a href="javascript: backToPage4();"><<
-                Previous Page</a></td>
+                            <td align="left"><a href="javascript: backToPage4();"><fmt:message key="global.previousPage"/></a></td>
             <td align="right">&nbsp;</td>
         </tr>
         </table>
@@ -1429,8 +1420,7 @@
                             <th colspan="7">
                                 <table border="0" cellspacing="0" cellpadding="0">
                                     <tr class="title">
-                                        <th>When you use your cane, walker, or other walking
-                                            device, how much difficulty do you have...?
+                                        <th><fmt:message key="form.lateLifeFDI.function.walkingWithDevicePrompt"/>
                                         </th>
                                     </tr>
                                 </table>
@@ -1438,14 +1428,11 @@
                         </tr>
                         <tr class="title">
                             <td colspan="2"></td>
-                            <td width="5%"><font style="font-size: 65%;">None</font></td>
-                            <td width="5%"><font style="font-size: 65%;">A
-                                little</font></td>
-                            <td width="5%"><font style="font-size: 65%;">Some</font></td>
-                            <td width="5%"><font style="font-size: 65%;">Quite
-                                a lot</font></td>
-                            <td width="5%"><font style="font-size: 65%;">Cannot
-                                do</font></td>
+                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.none"/></font></td>
+                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.aLittle"/></font></td>
+                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.some"/></font></td>
+                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.quiteALot"/></font></td>
+                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font></td>
                         </tr>
                         <tr>
                             <td class="question" valign="top" width="5%">FD7.</td>
@@ -1555,7 +1542,7 @@
                         </tr>
                         <tr>
                             <td class="question" valign="top" width="5%">FD29.</td>
-                            <td class="question" valign="top">Walking several blocks</td>
+                            <td class="question" valign="top"><fmt:message key="form.lateLifeFDI.function.walkingSeveralBlocks"/></td>
                             <td bgcolor="white" align="center"><input type="checkbox"
                                                                       class="checkbox" name="FD29None"
                                     <%= props.getProperty("FD29None", "") %> /></td>
@@ -1632,15 +1619,15 @@
                         <td align="left">
                             <%
                                 if (!bView) {
-                            %> <input type="submit" value="Save"
+                            %> <input type="submit" value="<fmt:message key='global.save'/>"
                                       onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                      value="Save and Exit"
+                                                                                      value="<fmt:message key='global.saveExit'/>"
                                                                                       onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                             <%
                                 }
-                            %> <input type="button" value="Exit"
+                            %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                       onclick="javascript:return onExit();"/> <input type="button"
-                                                                                     value="Print"
+                                                                                     value="<fmt:message key='global.btnPrint'/>"
                                                                                      onclick="javascript:window.print();"/>
                         </td>
                         <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>

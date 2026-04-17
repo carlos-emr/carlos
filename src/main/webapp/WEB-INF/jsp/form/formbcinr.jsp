@@ -1,6 +1,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -69,7 +70,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -149,7 +150,7 @@
             }
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -162,7 +163,7 @@
             }
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -291,7 +292,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -316,7 +317,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -344,7 +345,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -425,14 +426,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:window.print();return false()"/>
                 </td>
             </tr>
@@ -444,34 +445,34 @@
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
-                            <th><font size="+2">INR RECORD</font></th>
+                            <th><font size="+2"><fmt:message key="form.bcINR.title"/></font></th>
                         </tr>
                     </table>
 
                     <table width="100%" border="1" cellspacing="0" cellpadding="1">
                         <tr>
-                            <td>Given Name: <input type="text" name="c_givenName"
+                            <td><fmt:message key="form.bcINR.givenName"/> <input type="text" name="c_givenName"
                                                    size="12" maxlength="30"
                                                    value="<%= props.getProperty("c_givenName", "") %>" @oscar.formDB/>
-                                Surname: <input type="text" name="c_surname" size="12"
+                                <fmt:message key="form.bcINR.surname"/> <input type="text" name="c_surname" size="12"
                                                 maxlength="30" value="<%= props.getProperty("c_surname", "") %>"
                                                 @oscar.formDB/> <br/>
-                                Phone #1: <input type="text" name="c_phone1" size="20"
+                                <fmt:message key="form.bcINR.phone1"/> <input type="text" name="c_phone1" size="20"
                                                  maxlength="30" value="<%= props.getProperty("c_phone1", "") %>"
                                                  @oscar.formDB/> <br/>
-                                Phone #2: <input type="text" name="c_phone2" size="20"
+                                <fmt:message key="form.bcINR.phone2"/> <input type="text" name="c_phone2" size="20"
                                                  maxlength="30" value="<%= props.getProperty("c_phone2", "") %>"
                                                  @oscar.formDB/> <br/>
-                                Phone #3: <input type="text" name="c_phone3" size="20"
+                                <fmt:message key="form.bcINR.phone3"/> <input type="text" name="c_phone3" size="20"
                                                  maxlength="30" value="<%= props.getProperty("c_phone3", "") %>"
                                                  @oscar.formDB/> <br/>
-                                <b><font size="+1">Indication:</font></b> <input type="text"
+                                <b><font size="+1"><fmt:message key="form.bcINR.indication"/></font></b> <input type="text"
                                                                                  name="indication" size="20"
                                                                                  maxlength="30"
                                                                                  value="<%= props.getProperty("indication", "") %>"
                                                                                  @oscar.formDB/>
                                 <br/>
-                                Target INR Range:<br>
+                                <fmt:message key="form.bcINR.targetInrRange"/><br>
                                 <input type="checkbox" name="targetINR1"
                                         <%= props.getProperty("targetINR1", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/> 2.0-3.0 &nbsp;&nbsp; <input type="checkbox"
@@ -481,39 +482,39 @@
                                 &nbsp;&nbsp; <input type="checkbox"
                                                     name="targetINR3"
                                         <%= props.getProperty("targetINR3", "") %> @oscar.formDB
-                                                    dbType="tinyint(1)"/> Other <input type="text"
+                                                    dbType="tinyint(1)"/> <fmt:message key="form.bcINR.other"/> <input type="text"
                                                                                        name="targetINROther" size="6"
                                                                                        maxlength="30"
                                                                                        value="<%= props.getProperty("targetINROther", "") %>"
                                                                                        @oscar.formDB/> <br/>
-                                Duration: <input type="checkbox" name="duration1"
+                                <fmt:message key="form.bcINR.duration"/> <input type="checkbox" name="duration1"
                                         <%= props.getProperty("duration1", "") %> @oscar.formDB
-                                                 dbType="tinyint(1)"/> 3 mos &nbsp;&nbsp; <input type="checkbox"
+                                                 dbType="tinyint(1)"/> <fmt:message key="form.bcINR.duration3Months"/> &nbsp;&nbsp; <input type="checkbox"
                                                                                                  name="duration2"
                                         <%= props.getProperty("duration2", "") %> @oscar.formDB
                                                                                                  dbType="tinyint(1)"/>
-                                lifelong &nbsp;&nbsp; <input
+                                <fmt:message key="form.bcINR.durationLifelong"/> &nbsp;&nbsp; <input
                                         type="checkbox" name="duration3"
                                         <%= props.getProperty("duration3", "") %> @oscar.formDB
-                                        dbType="tinyint(1)"/> Other <input type="text"
+                                        dbType="tinyint(1)"/> <fmt:message key="form.bcINR.other"/> <input type="text"
                                                                            name="durationOther" size="10" maxlength="30"
                                                                            value="<%= props.getProperty("durationOther", "") %>"
                                                                            @oscar.formDB/> <br/>
-                                Date Started: <input type="text" name="dateStart" id="dateStart"
+                                <fmt:message key="form.bcINR.dateStarted"/> <input type="text" name="dateStart" id="dateStart"
                                                      size="10" maxlength="10"
                                                      value="<%= props.getProperty("dateStart", "") %>" @oscar.formDB
                                                      dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="dateStart_cal">
                                 <br/>
-                                Coumadin Strength on Hand: <input type="text" name="coumadin"
+                                <fmt:message key="form.bcINR.coumadinStrengthOnHand"/> <input type="text" name="coumadin"
                                                                   size="20" maxlength="20"
                                                                   value="<%= props.getProperty("coumadin", "") %>"
                                                                   @oscar.formDB/>
                                 <br/>
-                                Other Anticoagulant: <input type="text" name="anticoagulant"
+                                <fmt:message key="form.bcINR.otherAnticoagulant"/> <input type="text" name="anticoagulant"
                                                             size="20" maxlength="20"
                                                             value="<%= props.getProperty("anticoagulant", "") %>"
                                                             @oscar.formDB/> <br/>
-                                Tablet Strengths: <br/>
+                                <fmt:message key="form.bcINR.tabletStrengths"/> <br/>
                                 1-pink &nbsp; 2-lavender &nbsp; 2.5-green &nbsp; 3-tan &nbsp;
                                 4-blue &nbsp; <br/>
                                 5-peach &nbsp; 6-teal &nbsp; 7-yellow &nbsp; 10-white
@@ -527,56 +528,49 @@
 
                     <table width="100%" border="1" cellspacing="0" cellpadding="2">
                         <tr>
-                            <th valign="top" colspan="2">Dosage Adjustments for Warfarin
-                                Maintenance Target INR 2.0-3.0
+                            <th valign="top" colspan="2"><fmt:message key="form.bcINR.dosageAdjustmentsForWarfarin"/>
+                                <fmt:message key="form.bcINR.maintenanceTargetInr"/>
                             </th>
                         </tr>
                         <tr>
                             <th width="20%">INR</th>
-                            <th>Dosage Adjustment</th>
+                            <th><fmt:message key="form.bcINR.dosageAdjustment"/></th>
                         </tr>
                         <tr>
                             <td>&nbsp; &lt; 1.5</td>
-                            <td>Increase weekly dose by 20% and give one time top-up
-                                additional amount equal to 20% of weekly dose
-                            </td>
+                            <td><fmt:message key="form.bcINR.increase20"/></td>
                         </tr>
                         <tr>
                             <td>&nbsp; 1.5 - 1.9</td>
-                            <td>Increase weekly dose by 10%</td>
+                            <td><fmt:message key="form.bcINR.increase10"/></td>
                         </tr>
                         <tr>
                             <td>&nbsp; 2.0 - 3.0</td>
-                            <td>No change</td>
+                            <td><fmt:message key="form.bcINR.noChange"/></td>
                         </tr>
             </tr>
             <tr>
                 <td>&nbsp; 3.1 - 3.9</td>
-                <td>No change - recheck in one week.<br/>
-                    If persistent, decrease weekly dose by 10-20%
+                <td><fmt:message key="form.bcINR.noChangeRecheckOneWeek"/><br/>
+                    <fmt:message key="form.bcINR.decrease10to20"/>
                 </td>
             </tr>
             </tr>
             <tr>
                 <td>&nbsp; 4.0 - 5.0</td>
-                <td>Omit 1 dose; decrease weekly dose by 10-20% and recheck in
-                    2-5 days
-                </td>
+                <td><fmt:message key="form.bcINR.omitOneDose"/></td>
             </tr>
             </tr>
             <tr>
                 <td>&nbsp; &gt; 5.0</td>
-                <td>See <br/>
+                <td><fmt:message key="form.bcINR.see"/> <br/>
                     <a href=#
                        onclick='popupPage("http://www.healthservices.gov.bc.ca/msp/protoguides/gps/overanticoag.pdf"); return false;'>
                         http://www.healthservices.gov.bc.ca/msp/<br/>
                         protoguides/gps/overanticoag.pdf</a></td>
             </tr>
             <tr>
-                <td colspan="2">Note: * Changes in warfarin dosage may take
-                    several days to affect INR. Hence, frequent dosage adjustment is
-                    not recommended.
-                </td>
+                <td colspan="2"><fmt:message key="form.bcINR.note"/></td>
             </tr>
         </table>
 
@@ -587,13 +581,13 @@
         <center>
             <table width="80%" border="1" cellspacing="0" cellpadding="1">
                 <tr>
-                    <th>Date</th>
+                    <th><fmt:message key="form.bcINR.date"/></th>
                     <th>INR</th>
-                    <th>Was On</th>
-                    <th>Change To</th>
-                    <th>Repeat</th>
-                    <th>Notified</th>
-                    <th>Bill</th>
+                    <th><fmt:message key="form.bcINR.wasOn"/></th>
+                    <th><fmt:message key="form.bcINR.changeTo"/></th>
+                    <th><fmt:message key="form.bcINR.repeat"/></th>
+                    <th><fmt:message key="form.bcINR.notified"/></th>
+                    <th><fmt:message key="form.bcINR.bill"/></th>
                 </tr>
 
                 <%
@@ -666,15 +660,15 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/>
-                    <!-- input type="submit" value="Print" onclick="javascript:return onPrint();return false()"/ -->
-                    <input type="button" value="Print"
+                    <!-- input type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();return false()"/ -->
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:window.print();return false()"/></td>
             </tr>
         </table>

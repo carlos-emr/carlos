@@ -44,11 +44,14 @@
     }
 %>
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <html>
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Late Life FDI: Disability component</title>
+        <title><fmt:message key="form.lateLifeFDI.disability.title"/></title>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -71,7 +74,7 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="600px"
                        height="10%">
                     <tr>
-                        <th class="subject">Late Life FDI: Disability Component</th>
+                        <th class="subject"><fmt:message key="form.lateLifeFDI.disability.heading"/></th>
                     </tr>
                 </table>
             </td>
@@ -89,11 +92,10 @@
                                         <table width="100%" height="650px" border="0" cellspacing="1"
                                                cellpadding="2">
                                             <tr class="title">
-                                                <th colspan="5">Disability Visual Aid #2</th>
+                                                <th colspan="5"><fmt:message key="form.lateLifeFDI.disability.visualAid2"/></th>
                                             </tr>
                                             <tr>
-                                                <td class="question" colspan="5">To what extent do you feel
-                                                    limited in...? <br>
+                                                <td class="question" colspan="5"><fmt:message key="form.lateLifeFDI.disability.limitedQuestion"/> <br>
                                                     <br>
                                                 </td>
                                             </tr>
@@ -115,21 +117,12 @@
                                                         align="center" border='0'/></td>
                                             </tr>
                                             <tr bgcolor="white" height="80px">
-                                                <td align="center" valign="center" width="10%">No
-                                                    Limitations
-                                                </td>
-                                                <td align="center" valign="center" width="20%">Slight
-                                                    Limitations
-                                                </td>
-                                                <td align="center" valign="center" width="25%">Moderate
-                                                    Limitations
-                                                </td>
-                                                <td align="center" valign="center" width="31%">Heavy
-                                                    Limitations
-                                                </td>
-                                                <td align="center" valign="center" width="34%">Total
-                                                    Limitation <br>
-                                                    Cannot do
+                                                <td align="center" valign="center" width="10%"><fmt:message key="form.lateLifeFDI.disability.noLimitations"/></td>
+                                                <td align="center" valign="center" width="20%"><fmt:message key="form.lateLifeFDI.disability.slightLimitations"/></td>
+                                                <td align="center" valign="center" width="25%"><fmt:message key="form.lateLifeFDI.disability.moderateLimitations"/></td>
+                                                <td align="center" valign="center" width="31%"><fmt:message key="form.lateLifeFDI.disability.heavyLimitations"/></td>
+                                                <td align="center" valign="center" width="34%"><fmt:message key="form.lateLifeFDI.disability.totalLimitation"/> <br>
+                                                    <fmt:message key="form.lateLifeFDI.disability.cannotDo"/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -140,14 +133,13 @@
                                                     <table>
                                                         <tr>
                                                             <td width="3%"></td>
-                                                            <td><font style="text-decoration: underline">Examples
-                                                                of limiting factors that may restrict you:</font> <br>
-                                                                <li>Mental or Physical Energy</li>
-                                                                <li>Too much effort</li>
-                                                                <li>Social and economic circumstances</li>
-                                                                <li>Transportation problems</li>
-                                                                <li>Accessibility issues</li>
-                                                                <li>Health</li>
+                                                            <td><font style="text-decoration: underline"><fmt:message key="form.lateLifeFDI.disability.examplesTitle"/></font> <br>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.energy"/></li>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.effort"/></li>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.socialEconomic"/></li>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.transportation"/></li>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.accessibility"/></li>
+                                                                <li><fmt:message key="form.lateLifeFDI.disability.example.health"/></li>
                                                             </td>
                                                         </tr>
                                                     </table>
@@ -171,8 +163,7 @@
                             <table class="Head" valign="bottom" width="100%" height="15%"
                                    id="copyRight">
                                 <tr>
-                                    <td><font style="font-size: 70%">&copy; Copyright 2002
-                                        Trustees of Boston University, All Right Reserved</font></td>
+                                    <td><font style="font-size: 70%">&copy; <fmt:message key="form.lateLifeFDI.disability.copyright"/></font></td>
                                 </tr>
                             </table>
                         </td>

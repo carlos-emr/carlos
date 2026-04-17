@@ -75,7 +75,7 @@
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <input type="checkbox" name="eDocBrowserInDocumentReportProperty.checked" <c:if test="${eDocBrowserInDocumentReportProperty.checked}">checked</c:if> /><fmt:message key="provider.setEDocBrowserInDocumentReport.msgEnableLink"/>
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

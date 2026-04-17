@@ -1,6 +1,6 @@
 <%--
 
-    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of <fmt:message key="form.rourke.family"/> Medicine, McMaster University. <fmt:message key="form.rourke.all"/> Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
     This software was written for the
-    Department of Family Medicine
+    Department of <fmt:message key="form.rourke.family"/> Medicine
     McMaster University
     Hamilton
     Ontario, Canada
@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -88,7 +89,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Rourke2006 Record 1</title>
+        <title><fmt:message key="form.rourke.title2006Page1"/></title>
         <link rel="stylesheet" type="text/css" href="rourkeStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -99,7 +100,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -220,7 +221,7 @@
                 for (var elemIdx = 0; elemIdx < measurements[dateIdx].length; ++elemIdx) {
                     var elem = measurements[dateIdx][elemIdx];
                     if ($F(elem).length > 0 && (isNaN($F(elem)) || $F(date).length == 0)) {
-                        alert('<fmt:message key="encounter.formRourke2006.frmError"/>');
+                        alert('<fmt:message key='encounter.formRourke2006.frmError'/>');
                         return false;
                     }
                 }
@@ -235,7 +236,7 @@
             if (checkMeasures()) {
                 document.forms[0].submit.value = "save";
                 reset();
-                return confirm("Are you sure you want to save this form?");
+                return confirm("<fmt:message key='global.msgWannaSave'/>");
             }
 
             return false;
@@ -246,7 +247,7 @@
             if (checkMeasures()) {
                 document.forms[0].submit.value = "exit";
                 reset();
-                return confirm("Are you sure you wish to save and close this window?");
+                return confirm("<fmt:message key='global.msgSaveExit'/>");
             }
 
             return false;
@@ -277,7 +278,7 @@
                     return false;
                 }
             }
-            // All characters are numbers.
+            // <fmt:message key="form.rourke.all"/> characters are numbers.
             return true;
         }
 
@@ -356,17 +357,17 @@
         <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
             <tr>
                 <td nowrap="true"><input type="submit"
-                                         value="<fmt:message key="encounter.formRourke1.btnSave"/>"
+                                         value="<fmt:message key='encounter.formRourke1.btnSave'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="<fmt:message key="encounter.formRourke1.btnSaveExit"/>"
+                                                                                        value="<fmt:message key='encounter.formRourke1.btnSaveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input type="submit"
-                           value="<fmt:message key="encounter.formRourke1.btnExit"/>"
+                           value="<fmt:message key='encounter.formRourke1.btnExit'/>"
                            onclick="javascript:return onExit();"> <input type="submit"
-                                                                         value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
+                                                                         value="<fmt:message key='encounter.formRourke1.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/> <input
                             type="submit"
-                            value="<fmt:message key="encounter.formRourke2006.btnPrintAll"/>"
+                            value="<fmt:message key='encounter.formRourke2006.btnPrintAll'/>"
                             onclick="javascript:return onPrintAll();"/> <input type="button"
                                                                                value="About"
                                                                                onclick="javascript:return popPage('form/formRourke2006intro','About Rourke');"/>
@@ -374,83 +375,83 @@
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length" href="#"
                                                onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');return false;">
-                    <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
+                    <fmt:message key='encounter.formRourke1.btnGraphLenghtWeight'/></a><br>
                     <a name="headCirc" href="#"
                        onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');return false;">
-                        <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
+                        <fmt:message key='encounter.formRourke1.btnGraphHead'/></a> <% } else { %>
                     &nbsp; <% } %>
                 </td>
-                <td nowrap="true"><a><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p4?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
+                <td nowrap="true"><a><fmt:message key='encounter.formRourke2006.Pg1'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg2'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg3'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p4?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg4'/></a></td>
             </tr>
         </table>
 
         <table cellpadding="0" cellspacing="0" border="0" width="100%">
             <tr class="titleBar">
-                <th><fmt:message key="encounter.formRourke1.msgRourkeBabyRecord"/></th>
+                <th><fmt:message key='encounter.formRourke1.msgRourkeBabyRecord'/></th>
             </tr>
         </table>
 
         <table cellpadding="0" cellspacing="0" width="100%" border="0">
             <tr valign="top">
-                <td align="center"><fmt:message key="encounter.formRourke1.formBirhtRemarks"/><br>
+                <td align="center"><fmt:message key='encounter.formRourke1.formBirhtRemarks'/><br>
                     <textarea wrap="physical" id="c_birthRemarks" name="c_birthRemarks"
                               rows="2" cols="17"><%= props.getProperty("c_birthRemarks", "") %></textarea>
                 </td>
-                <td nowrap align="center"><fmt:message key="encounter.formRourke1.formRiksFactors"/><br>
+                <td nowrap align="center"><fmt:message key='encounter.formRourke1.formRiksFactors'/><br>
                     <textarea id="c_riskFactors" name="c_riskFactors" rows="2"
                               cols="17"><%= props.getProperty("c_riskFactors", "") %></textarea>
                 </td>
                 <td width="65%" nowrap align="center">
-                    <p><fmt:message key="encounter.formRourke1.msgName"/>: <input
+                    <p><fmt:message key='encounter.formRourke1.msgName'/>: <input
                             type="text" name="c_pName" maxlength="60" size="30"
                             value="<%= props.getProperty("c_pName", "") %>" readonly="true"/>
-                        &nbsp;&nbsp; <fmt:message key="encounter.formRourke1.msgBirthDate"/> (d/m/yyyy): <input
+                        &nbsp;&nbsp; <fmt:message key='encounter.formRourke1.msgBirthDate'/> (d/m/yyyy): <input
                                 type="text" name="c_birthDate" size="10" maxlength="10"
                                 value="<%= props.getProperty("c_birthDate", "") %>" readonly="true">
                         &nbsp;&nbsp; <% if (!((FrmRourke2006Record) rec).isFemale(demoNo)) {
-                        %><fmt:message key="encounter.formRourke1.msgMale"/> <input type="hidden"
+                        %><fmt:message key='encounter.formRourke1.msgMale'/> <input type="hidden"
                                                                                   name="c_male" value="x"> <%
                         } else {
-                        %><fmt:message key="encounter.formRourke1.msgFemale"/> <input type="hidden"
+                        %><fmt:message key='encounter.formRourke1.msgFemale'/> <input type="hidden"
                                                                                     name="c_female" value="x"> <%
                             }
                         %>
                     </p>
-                    <p><fmt:message key="encounter.formRourke1.msgLenght"/>: <input
+                    <p><fmt:message key='encounter.formRourke1.msgLenght'/>: <input
                             type="text" ondblclick="htEnglish2Metric(this);" name="c_length"
                             size="6" maxlength="6"
-                            value="<%= props.getProperty("c_length", "") %>"/> <fmt:message key="encounter.formRourke1.msgLenghtUnit"/> &nbsp;&nbsp; <fmt:message key="encounter.formRourke1.msgHeadCirc"/>: <input type="text"
+                            value="<%= props.getProperty("c_length", "") %>"/> <fmt:message key='encounter.formRourke1.msgLenghtUnit'/> &nbsp;&nbsp; <fmt:message key='encounter.formRourke1.msgHeadCirc'/>: <input type="text"
                                                                                    ondblclick="htEnglish2Metric(this);"
                                                                                    name="c_headCirc" size="6"
                                                                                    maxlength="6"
                                                                                    value="<%= props.getProperty("c_headCirc", "") %>"/>
-                        <fmt:message key="encounter.formRourke1.msgHeadCircUnit"/>
-                        &nbsp;&nbsp; <fmt:message key="encounter.formRourke1.msgBirthWt"/>: <input type="text"
+                        <fmt:message key='encounter.formRourke1.msgHeadCircUnit'/>
+                        &nbsp;&nbsp; <fmt:message key='encounter.formRourke1.msgBirthWt'/>: <input type="text"
                                                                                       ondblclick="wtEnglish2Metric(this);"
                                                                                       name="c_birthWeight" size="6"
                                                                                       maxlength="7"
                                                                                       value="<%= props.getProperty("c_birthWeight", "") %>"/>
-                        <fmt:message key="encounter.formRourke1.msgBirthWtUnit"/>
-                        &nbsp;&nbsp; <fmt:message key="encounter.formRourke1.msgDischargeWt"/>: <input
+                        <fmt:message key='encounter.formRourke1.msgBirthWtUnit'/>
+                        &nbsp;&nbsp; <fmt:message key='encounter.formRourke1.msgDischargeWt'/>: <input
                                 type="text" ondblclick="wtEnglish2Metric(this);"
                                 name="c_dischargeWeight" size="6" maxlength="7"
-                                value="<%= props.getProperty("c_dischargeWeight", "") %>"> <fmt:message key="encounter.formRourke1.msgDischargeWtUnit"/></p>
+                                value="<%= props.getProperty("c_dischargeWeight", "") %>"> <fmt:message key='encounter.formRourke1.msgDischargeWtUnit'/></p>
                 </td>
             </tr>
         </table>
 
         <table cellpadding="0" cellspacing="0" width="100%" border="1">
             <tr align="center">
-                <td class="column"><a><fmt:message key="encounter.formRourke2006_1.visitDate"/></a></td>
-                <td colspan="3" class="row"><fmt:message key="encounter.formRourke1.msgWithin"/> <a><fmt:message key="encounter.formRourke1.btn1Week"/></a></td>
-                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke1.btn2Weeks"/></a> <fmt:message key="encounter.formRourke1.msgOptional"/></td>
-                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke1.btn1month"/></a> <fmt:message key="encounter.formRourke1.msgOptional"/></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke2006_1.visitDate'/></a></td>
+                <td colspan="3" class="row"><fmt:message key='encounter.formRourke1.msgWithin'/> <a><fmt:message key='encounter.formRourke1.btn1Week'/></a></td>
+                <td colspan="3" class="row"><a><fmt:message key='encounter.formRourke1.btn2Weeks'/></a> <fmt:message key='encounter.formRourke1.msgOptional'/></td>
+                <td colspan="3" class="row"><a><fmt:message key='encounter.formRourke1.btn1month'/></a> <fmt:message key='encounter.formRourke1.msgOptional'/></td>
             </tr>
             <tr align="center">
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgDate"/></a></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgDate'/></a></td>
                 <td colspan="3"><input readonly type="text" id="p1_date1w"
                                        name="p1_date1w" size="10" ondblclick="resetDate(this)"
                                        value="<%=UtilMisc.htmlEscape(props.getProperty("p1_date1w", ""))%>"/>
@@ -465,17 +466,17 @@
                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="p1_date1m_cal"></td>
             </tr>
             <tr align="center">
-                <td class="column" rowspan="2"><a><fmt:message key="encounter.formRourke1.btnGrowth"/>*<br/>
-                    <fmt:message key="encounter.formRourke2006_1.btnGrowthmsg"/></a></td>
-                <td><fmt:message key="encounter.formRourke1.formHt"/></td>
-                <td><fmt:message key="encounter.formRourke1.formWt"/></td>
-                <td><fmt:message key="encounter.formRourke1.formHdCirc"/></td>
-                <td><fmt:message key="encounter.formRourke1.formHt"/></td>
-                <td><fmt:message key="encounter.formRourke1.formWt"/></td>
-                <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
-                <td><fmt:message key="encounter.formRourke1.formHt"/></td>
-                <td><fmt:message key="encounter.formRourke1.formWt"/></td>
-                <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+                <td class="column" rowspan="2"><a><fmt:message key='encounter.formRourke1.btnGrowth'/>*<br/>
+                    <fmt:message key='encounter.formRourke2006_1.btnGrowthmsg'/></a></td>
+                <td><fmt:message key='encounter.formRourke1.formHt'/></td>
+                <td><fmt:message key='encounter.formRourke1.formWt'/></td>
+                <td><fmt:message key='encounter.formRourke1.formHdCirc'/></td>
+                <td><fmt:message key='encounter.formRourke1.formHt'/></td>
+                <td><fmt:message key='encounter.formRourke1.formWt'/></td>
+                <td><fmt:message key='encounter.formRourke2006_3.formHdCirc'/></td>
+                <td><fmt:message key='encounter.formRourke1.formHt'/></td>
+                <td><fmt:message key='encounter.formRourke1.formWt'/></td>
+                <td><fmt:message key='encounter.formRourke2006_3.formHdCirc'/></td>
             </tr>
             <tr align="center">
                 <td><input type="text" class="wide"
@@ -507,7 +508,7 @@
                            maxlength="5" value="<%= props.getProperty("p1_hc1m", "") %>"></td>
             </tr>
             <tr align="center">
-                <td class="column"><a><fmt:message key="encounter.formRourke1.formParentalConcerns"/></a></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.formParentalConcerns'/></a></td>
                 <td colspan="3"><textarea id="p1_pConcern1w"
                                           name="p1_pConcern1w" style="width: 100%" cols="10"
                                           rows="5"><%= props.getProperty("p1_pConcern1w", "") %></textarea>
@@ -523,7 +524,7 @@
             </tr>
             <tr align="center">
 
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgNutrition"/>:</a></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgNutrition'/>:</a></td>
 
                 <td colspan="3" valign="top">
                     <table cellpadding="0" cellspacing="0" width="100%">
@@ -532,23 +533,23 @@
                                                     name="p1_breastFeeding1w"
                                     <%= props.getProperty("p1_breastFeeding1w", "") %> /></td>
                             <td><b><a href="javascript:showNotes()"
-                                      onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                      onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
+                                      onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                      onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.btnBreastFeeding'/><br/>
                             </a><span
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                    onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.msgBreastFeedingDescr"/></span></b></td>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                    onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.msgBreastFeedingDescr'/></span></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding1w"
                                     <%= props.getProperty("p1_formulaFeeding1w", "") %> /></td>
-                            <td><fmt:message key="encounter.formRourke2006_1.msgFormulaFeeding"/></td>
+                            <td><fmt:message key='encounter.formRourke2006_1.msgFormulaFeeding'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine1w"
                                     <%= props.getProperty("p1_stoolUrine1w", "") %> /></td>
-                            <td><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formStoolPatern'/></td>
                         </tr>
                     </table>
 
@@ -560,23 +561,23 @@
                                                     name="p1_breastFeeding2w"
                                     <%= props.getProperty("p1_breastFeeding2w", "") %>></td>
                             <td><b><a
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key='encounter.formRourke2006_1.btnBreastFeeding'/></a><br/>
                                 <span
-                                        onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.msgBreastFeedingDescr"/></span></b></td>
+                                        onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                        onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.msgBreastFeedingDescr'/></span></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding2w"
                                     <%= props.getProperty("p1_formulaFeeding2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke2006_1.msgFormulaFeeding"/></td>
+                            <td><fmt:message key='encounter.formRourke2006_1.msgFormulaFeeding'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine2w"
                                     <%= props.getProperty("p1_stoolUrine2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formStoolPatern'/></td>
                         </tr>
                     </table>
                 </td>
@@ -587,31 +588,31 @@
                                                     name="p1_breastFeeding1m"
                                     <%= props.getProperty("p1_breastFeeding1m", "") %>></td>
                             <td><b><a
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/></a><br/>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key='encounter.formRourke2006_1.btnBreastFeeding'/></a><br/>
                                 <span
-                                        onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                        onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.msgBreastFeedingDescr"/></span></b></td>
+                                        onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                        onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.msgBreastFeedingDescr'/></span></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_formulaFeeding1m"
                                     <%= props.getProperty("p1_formulaFeeding1m", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke2006_1.msgFormulaFeedingShort"/></td>
+                            <td><fmt:message key='encounter.formRourke2006_1.msgFormulaFeedingShort'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_stoolUrine1m"
                                     <%= props.getProperty("p1_stoolUrine1m", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formStoolPatern"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formStoolPatern'/></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgEducational"/></a><br/>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgEducational'/></a><br/>
                     <br/>
-                    <img height="15" width="20" src="form/graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2006.msgEducationalLegend"/></td>
+                    <img height="15" width="20" src="form/graphics/Checkmark_Lwhite.gif"><fmt:message key='encounter.formRourke2006.msgEducationalLegend'/></td>
                 <td colspan="9" valign="top">
                     <table style="font-size: 9pt;" cellpadding="0" cellspacing="0"
                            width="100%">
@@ -619,7 +620,7 @@
                             <td colspan="12">&nbsp;</td>
                         </tr>
                         <tr>
-                            <td valign="top" colspan="12"><fmt:message key="encounter.formRourke2006_1.formInjuryPrev"/></td>
+                            <td valign="top" colspan="12"><fmt:message key='encounter.formRourke2006_1.formInjuryPrev'/></td>
                         </tr>
                         <tr>
                             <td style="padding-right: 5pt" valign="top"><img height="15"
@@ -651,8 +652,8 @@
                                                     name="p1_carSeatNo" onclick="onCheck(this,'p1_carSeat')"
                                     <%= props.getProperty("p1_carSeatNo", "") %>></td>
                             <td valign="top"><b><a
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key="encounter.formRourke1.formCarSeat"/></a>*</b></td>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                    onMouseOut="hideLayer()" href="javascript:showNotes()"><fmt:message key='encounter.formRourke1.formCarSeat'/></a>*</b></td>
                             <td valign="top"><input type="radio" id="p1_sleepPosOk"
                                                     name="p1_sleepPosOk" onclick="onCheck(this,'p1_sleepPos')"
                                     <%= props.getProperty("p1_sleepPosOk", "") %>></td>
@@ -660,8 +661,8 @@
                                                     name="p1_sleepPosNo" onclick="onCheck(this,'p1_sleepPos')"
                                     <%= props.getProperty("p1_sleepPosNo", "") %>></td>
                             <td valign="top"><b><a href="javascript:showNotes()"
-                                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formSleepPos"/></a></b></td>
+                                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formSleepPos'/></a></b></td>
                             <td valign="top"><input type="radio" id="p1_cribSafetyOk"
                                                     name="p1_cribSafetyOk" onclick="onCheck(this,'p1_cribSafety')"
                                     <%= props.getProperty("p1_cribSafetyOk", "") %>></td>
@@ -669,8 +670,8 @@
                                                     name="p1_cribSafetyNo" onclick="onCheck(this,'p1_cribSafety')"
                                     <%= props.getProperty("p1_cribSafetyNo", "") %>></td>
                             <td valign="top"><b><a href="javascript:showNotes()"
-                                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke1.formCribSafety"/>*</a></b></td>
+                                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke1.formCribSafety'/>*</a></b></td>
                             <td valign="top"><input type="radio" id="p1_firearmSafetyOk"
                                                     name="p1_firearmSafetyOk"
                                                     onclick="onCheck(this,'p1_firearmSafety')"
@@ -680,8 +681,8 @@
                                                     onclick="onCheck(this,'p1_firearmSafety')"
                                     <%= props.getProperty("p1_firearmSafetyNo", "") %>></td>
                             <td valign="top"><b><a href="javascript:showNotes()"
-                                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formFireArm"/>*</a></b></td>
+                                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formFireArm'/>*</a></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="radio" id="p1_smokeSafetyOk"
@@ -691,8 +692,8 @@
                                                     name="p1_smokeSafetyNo" onclick="onCheck(this,'p1_smokeSafety')"
                                     <%= props.getProperty("p1_smokeSafetyNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formSmokeSafety"/>*</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formSmokeSafety'/>*</a></td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
                             <td>&nbsp;</td>
@@ -703,8 +704,8 @@
                                                     name="p1_hotWaterNo" onclick="onCheck(this,'p1_hotWater')"
                                     <%= props.getProperty("p1_hotWaterNo", "") %>></td>
                             <td valign="top"><i><a href="javascript:showNotes()"
-                                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formHotWater"/>*</a></i></td>
+                                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formHotWater'/>*</a></i></td>
                             <td valign="top"><input type="radio" id="p1_safeToysOk"
                                                     name="p1_safeToysOk" onclick="onCheck(this,'p1_safeToys')"
                                     <%= props.getProperty("p1_safeToysOk", "") %>></td>
@@ -712,8 +713,8 @@
                                                     name="p1_safeToysNo" onclick="onCheck(this,'p1_safeToys')"
                                     <%= props.getProperty("p1_safeToysNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formSafeToys"/>*</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formSafeToys'/>*</a></td>
                         </tr>
 
                         <tr>
@@ -739,7 +740,7 @@
                             <td colspan="12">&nbsp;</td>
                         </tr>
                         <tr>
-                            <td valign="top" colspan="12"><fmt:message key="encounter.formRourke2006_1.formBehaviour"/></td>
+                            <td valign="top" colspan="12"><fmt:message key='encounter.formRourke2006_1.formBehaviour'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="radio" id="p1_sleepCryOk"
@@ -749,15 +750,15 @@
                                                     name="p1_sleepCryNo" onclick="onCheck(this,'p1_sleepCry')"
                                     <%= props.getProperty("p1_sleepCryNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote2"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formsleepCry"/>**</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote2'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formsleepCry'/>**</a></td>
                             <td valign="top"><input type="radio" id="p1_soothabilityOk"
                                                     name="p1_soothabilityOk" onclick="onCheck(this,'p1_soothability')"
                                     <%= props.getProperty("p1_soothabilityOk", "") %>></td>
                             <td valign="top"><input type="radio" id="p1_soothabilityNo"
                                                     name="p1_soothabilityNo" onclick="onCheck(this,'p1_soothability')"
                                     <%= props.getProperty("p1_soothabilityNo", "") %>></td>
-                            <td valign="top"><fmt:message key="encounter.formRourke2006_1.formSoothability"/></td>
+                            <td valign="top"><fmt:message key='encounter.formRourke2006_1.formSoothability'/></td>
                             <td valign="top"><input type="radio" id="p1_homeVisitOk"
                                                     name="p1_homeVisitOk" onclick="onCheck(this,'p1_homeVisit')"
                                     <%= props.getProperty("p1_homeVisitOk", "") %>></td>
@@ -766,8 +767,8 @@
                                     <%= props.getProperty("p1_homeVisitNo", "") %>></td>
                             <td colspan="4" valign="top"><b><a
                                     href="javascript:showNotes()"
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote2"/>')"
-                                    onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formHomeVisit"/>**</a></b></td>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote2'/>')"
+                                    onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formHomeVisit'/>**</a></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="radio" id="p1_bondingOk"
@@ -776,7 +777,7 @@
                             <td valign="top"><input type="radio" id="p1_bondingNo"
                                                     name="p1_bondingNo" onclick="onCheck(this,'p1_bonding')"
                                     <%= props.getProperty("p1_bondingNo", "") %>></td>
-                            <td valign="top"><fmt:message key="encounter.formRourke2006_1.formBonding"/></td>
+                            <td valign="top"><fmt:message key='encounter.formRourke2006_1.formBonding'/></td>
                             <td valign="top"><input type="radio" id="p1_pFatigueOk"
                                                     name="p1_pFatigueOk" onclick="onCheck(this,'p1_pFatigue')"
                                     <%= props.getProperty("p1_pFatigueOk", "") %>></td>
@@ -784,22 +785,22 @@
                                                     name="p1_pFatigueNo" onclick="onCheck(this,'p1_pFatigue')"
                                     <%= props.getProperty("p1_pFatigueNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote2"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formParentFatigue"/>**</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote2'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formParentFatigue'/>**</a></td>
                             <td valign="top"><input type="radio" id="p1_famConflictOk"
                                                     name="p1_famConflictOk" onclick="onCheck(this,'p1_famConflict')"
                                     <%= props.getProperty("p1_famConflictOk", "") %>></td>
                             <td valign="top"><input type="radio" id="p1_famConflictNo"
                                                     name="p1_famConflictNo" onclick="onCheck(this,'p1_famConflict')"
                                     <%= props.getProperty("p1_famConflictNo", "") %>></td>
-                            <td valign="top"><fmt:message key="encounter.formRourke2006_1.formFamConflict"/></td>
+                            <td valign="top"><fmt:message key='encounter.formRourke2006_1.formFamConflict'/></td>
                             <td valign="top"><input type="radio" id="p1_siblingsOk"
                                                     name="p1_siblingsOk" onclick="onCheck(this,'p1_siblings')"
                                     <%= props.getProperty("p1_siblingsOk", "") %>></td>
                             <td valign="top"><input type="radio" id="p1_siblingsNo"
                                                     name="p1_siblingsNo" onclick="onCheck(this,'p1_siblings')"
                                     <%= props.getProperty("p1_siblingsNo", "") %>></td>
-                            <td valign="top"><fmt:message key="encounter.formRourke2006_1.formSiblings"/></td>
+                            <td valign="top"><fmt:message key='encounter.formRourke2006_1.formSiblings'/></td>
                         </tr>
                         <tr>
                             <td colspan="3" class="edcol" colspan="2" valign="top"><input
@@ -825,7 +826,7 @@
                             <td colspan="12">&nbsp;</td>
                         </tr>
                         <tr>
-                            <td valign="top" colspan="12"><fmt:message key="encounter.formRourke2006_1.formOtherIssues"/></td>
+                            <td valign="top" colspan="12"><fmt:message key='encounter.formRourke2006_1.formOtherIssues'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="radio" id="p1_2ndSmokeOk"
@@ -835,8 +836,8 @@
                                                     name="p1_2ndSmokeNo" onclick="onCheck(this,'p1_2ndSmoke')"
                                     <%= props.getProperty("p1_2ndSmokeNo", "") %>></td>
                             <td valign="top"><b><a href="javascript:showNotes()"
-                                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke1.formSecondHandSmoke"/>*</a></b></td>
+                                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke1.formSecondHandSmoke'/>*</a></b></td>
                             <td valign="top"><input type="radio" id="p1_altMedOk"
                                                     name="p1_altMedOk" onclick="onCheck(this,'p1_altMed')"
                                     <%= props.getProperty("p1_altMedOk", "") %>></td>
@@ -844,8 +845,8 @@
                                                     name="p1_altMedNo" onclick="onCheck(this,'p1_altMed')"
                                     <%= props.getProperty("p1_altMedNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formAltMed"/>*</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formAltMed'/>*</a></td>
                             <td valign="top"><input type="radio" id="p1_pacifierOk"
                                                     name="p1_pacifierOk" onclick="onCheck(this,'p1_pacifier')"
                                     <%= props.getProperty("p1_pacifierOk", "") %>></td>
@@ -854,8 +855,8 @@
                                     <%= props.getProperty("p1_pacifierNo", "") %>></td>
                             <td colspan="4" valign="top"><b><a
                                     href="javascript:showNotes()"
-                                    onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                    onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formPacifierUse"/>*</a></b></td>
+                                    onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                    onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formPacifierUse'/>*</a></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="radio" id="p1_feverOk"
@@ -865,8 +866,8 @@
                                                     name="p1_feverNo" onclick="onCheck(this,'p1_fever')"
                                     <%= props.getProperty("p1_feverNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formFever"/>*</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formFever'/>*</a></td>
                             <td valign="top"><input type="radio" id="p1_tmpControlOk"
                                                     name="p1_tmpControlOk" onclick="onCheck(this,'p1_tmpControl')"
                                     <%= props.getProperty("p1_tmpControlOk", "") %>></td>
@@ -874,8 +875,8 @@
                                                     name="p1_tmpControlNo" onclick="onCheck(this,'p1_tmpControl')"
                                     <%= props.getProperty("p1_tmpControlNo", "") %>></td>
                             <td valign="top"><a href="javascript:showNotes()"
-                                                onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formTempCtrl"/>*</a></td>
+                                                onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formTempCtrl'/>*</a></td>
                             <td valign="top"><input type="radio" id="p1_sunExposureOk"
                                                     name="p1_sunExposureOk" onclick="onCheck(this,'p1_sunExposure')"
                                     <%= props.getProperty("p1_sunExposureOk", "") %>></td>
@@ -883,8 +884,8 @@
                                                     name="p1_sunExposureNo" onclick="onCheck(this,'p1_sunExposure')"
                                     <%= props.getProperty("p1_sunExposureNo", "") %>></td>
                             <td colspan="4" valign="top"><a href="javascript:showNotes()"
-                                                            onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                                            onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formSunExposure"/>*</a></td>
+                                                            onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                                            onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formSunExposure'/>*</a></td>
                         </tr>
                         <tr>
                             <td class="edcol" colspan="3" valign="top"><input
@@ -905,9 +906,9 @@
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgDevelopment"/>**</a><br>
-                    <fmt:message key="encounter.formRourke2006_1.msgDevelopmentDesc"/><br/>
-                    <img height="15" width="20" src="form/graphics/Checkmark_Lwhite.gif"><fmt:message key="encounter.formRourke2006_1.msgDevelopmentLegend"/></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgDevelopment'/>**</a><br>
+                    <fmt:message key='encounter.formRourke2006_1.msgDevelopmentDesc'/><br/>
+                    <img height="15" width="20" src="form/graphics/Checkmark_Lwhite.gif"><fmt:message key='encounter.formRourke2006_1.msgDevelopmentLegend'/></td>
                 <td colspan="3" valign="top" align="center">
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr align="center">
@@ -948,7 +949,7 @@
                                     <%= props.getProperty("p1_focusGaze1mOk", "") %>></td>
                             <td><input type="radio" id="p1_focusGaze1mNo"
                                        name="p1_focusGaze1mNo" onclick="onCheck(this,'p1_focusGaze1m')"
-                                    <%= props.getProperty("p1_focusGaze1mNo", "") %>><fmt:message key="encounter.formRourke1.formFocusesGaze"/></td>
+                                    <%= props.getProperty("p1_focusGaze1mNo", "") %>><fmt:message key='encounter.formRourke1.formFocusesGaze'/></td>
                         </tr>
                         <tr>
                             <td valign="top" class="edcol" colspan="2"><input
@@ -961,7 +962,7 @@
                                     <%= props.getProperty("p1_startles1mOk", "") %>></td>
                             <td><input type="radio" id="p1_startles1mNo"
                                        name="p1_startles1mNo" onclick="onCheck(this,'p1_startles1m')"
-                                    <%= props.getProperty("p1_startles1mNo", "") %>><fmt:message key="encounter.formRourke1.formSuddenNoise"/></td>
+                                    <%= props.getProperty("p1_startles1mNo", "") %>><fmt:message key='encounter.formRourke1.formSuddenNoise'/></td>
                         </tr>
                         <tr>
                             <td valign="top" class="edcol" colspan="2"><input
@@ -974,7 +975,7 @@
                                     <%= props.getProperty("p1_sucks1mOk", "") %>></td>
                             <td><input type="radio" id="p1_sucks1mNo" name="p1_sucks1mNo"
                                        onclick="onCheck(this,'p1_sucks1m')"
-                                    <%= props.getProperty("p1_sucks1mNo", "") %>><fmt:message key="encounter.formRourke1.formSucksWell"/></td>
+                                    <%= props.getProperty("p1_sucks1mNo", "") %>><fmt:message key='encounter.formRourke1.formSucksWell'/></td>
                         </tr>
                         <tr>
                             <td valign="top" class="edcol" colspan="2"><input
@@ -989,7 +990,7 @@
                             <td><input type="radio" id="p1_noParentsConcerns1mNo"
                                        name="p1_noParentsConcerns1mNo"
                                        onclick="onCheck(this,'p1_noParentsConcerns1m')"
-                                    <%= props.getProperty("p1_noParentsConcerns1mNo", "") %>><fmt:message key="encounter.formRourke1.formNoparentConcerns"/></td>
+                                    <%= props.getProperty("p1_noParentsConcerns1mNo", "") %>><fmt:message key='encounter.formRourke1.formNoparentConcerns'/></td>
                         </tr>
                         <tr>
                             <td valign="top" class="edcol" colspan="2"><input
@@ -1000,8 +1001,8 @@
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgPhysicalExamination"/></a><br>
-                    <fmt:message key="encounter.formRourke1.msgPhysicalExaminationDesc"/>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgPhysicalExamination'/></a><br>
+                    <fmt:message key='encounter.formRourke1.msgPhysicalExaminationDesc'/>
                     </div>
                 </td>
                 <td colspan="3" valign="top">
@@ -1012,66 +1013,66 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_skin1w" <%= props.getProperty("p1_skin1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formDrySkin'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles1w"
                                     <%= props.getProperty("p1_fontanelles1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formFontanelles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_eyes1w" <%= props.getProperty("p1_eyes1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_ears1w" <%= props.getProperty("p1_ears1w", "") %>></td>
-                            <td><i><fmt:message key="encounter.formRourke2006_1.formEarDrums"/></i></td>
+                            <td><i><fmt:message key='encounter.formRourke2006_1.formEarDrums'/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_heartLungs1w"
                                     <%= props.getProperty("p1_heartLungs1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formHeart"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formHeart'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_umbilicus1w"
                                     <%= props.getProperty("p1_umbilicus1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formUmbilicus'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_femoralPulses1w"
                                     <%= props.getProperty("p1_femoralPulses1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formFemoralPulses'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hips1w" <%= props.getProperty("p1_hips1w", "") %>></td>
-                            <td><i><fmt:message key="encounter.formRourke1.formHips"/></i></td>
+                            <td><i><fmt:message key='encounter.formRourke1.formHips'/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_muscleTone1w"
                                     <%= props.getProperty("p1_muscleTone1w", "") %>></td>
                             <td><a href="javascript:showNotes()"
-                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formMuscleTone'/>*</a></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_testicles1w"
                                     <%= props.getProperty("p1_testicles1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formTescicles"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formTescicles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_maleUrinary1w"
                                     <%= props.getProperty("p1_maleUrinary1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formMaleUrinaryStream'/></td>
                         </tr>
                     </table>
                 </td>
@@ -1083,67 +1084,67 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_skin2w" <%= props.getProperty("p1_skin2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formDrySkin"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formDrySkin'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles2w"
                                     <%= props.getProperty("p1_fontanelles2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formFontanelles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_eyes2w" <%= props.getProperty("p1_eyes2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formRedReflex"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_ears2w" <%= props.getProperty("p1_ears2w", "") %>></td>
-                            <td><i><fmt:message key="encounter.formRourke2006_1.formEarDrums"/></i></td>
+                            <td><i><fmt:message key='encounter.formRourke2006_1.formEarDrums'/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_heartLungs2w"
                                     <%= props.getProperty("p1_heartLungs2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formHeart"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formHeart'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_umbilicus2w"
                                     <%= props.getProperty("p1_umbilicus2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formUmbilicus"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formUmbilicus'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_femoralPulses2w"
                                     <%= props.getProperty("p1_femoralPulses2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formFemoralPulses"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formFemoralPulses'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hips2w" <%= props.getProperty("p1_hips2w", "") %>></td>
-                            <td><i><fmt:message key="encounter.formRourke2006_1.formHips"/></i></td>
+                            <td><i><fmt:message key='encounter.formRourke2006_1.formHips'/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_muscleTone2w"
                                     <%= props.getProperty("p1_muscleTone2w", "") %>></td>
                             <td><a href="javascript:showNotes()"
-                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formMuscleTone'/>*</a></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_testicles2w"
                                     <%= props.getProperty("p1_testicles2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formTescicles"/><br>
+                            <td><fmt:message key='encounter.formRourke1.formTescicles'/><br>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_maleUrinary2w"
                                     <%= props.getProperty("p1_maleUrinary2w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formMaleUrinaryStream"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formMaleUrinaryStream'/></td>
                         </tr>
                     </table>
                 </td>
@@ -1156,54 +1157,54 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_fontanelles1m"
                                     <%= props.getProperty("p1_fontanelles1m", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formFontanelles"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formFontanelles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_eyes1m" <%= props.getProperty("p1_eyes1m", "") %>></td>
                             <td><a href="javascript:showNotes()"
-                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke1.formRedReflex"/>*</a></td>
+                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke1.formRedReflex'/>*</a></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_corneal1m" <%= props.getProperty("p1_corneal1m", "") %>>
                             </td>
                             <td><i><a href="javascript:showNotes()"
-                                      onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                      onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formCornealReflex"/>*</a></i></td>
+                                      onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                      onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formCornealReflex'/>*</a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hearing1m" <%= props.getProperty("p1_hearing1m", "") %>>
                             </td>
                             <td><i><a href="javascript:showNotes()"
-                                      onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                      onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formHearingInquiry"/>*</a></i></td>
+                                      onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                      onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formHearingInquiry'/>*</a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_heart1m" <%= props.getProperty("p1_heart1m", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formHeart1"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formHeart1'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hips1m" <%= props.getProperty("p1_hips1m", "") %>></td>
-                            <td><i><fmt:message key="encounter.formRourke2006_1.formHips"/></i></td>
+                            <td><i><fmt:message key='encounter.formRourke2006_1.formHips'/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_muscleTone1m"
                                     <%= props.getProperty("p1_muscleTone1m", "") %>></td>
                             <td><a href="javascript:showNotes()"
-                                   onMouseOver="popLayer('<fmt:message key="encounter.formRourke2006.footnote1"/>')"
-                                   onMouseOut="hideLayer()"><fmt:message key="encounter.formRourke2006_1.formMuscleTone"/>*</a></td>
+                                   onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
+                                   onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.formMuscleTone'/>*</a></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgProblemsAndPlans"/></a></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgProblemsAndPlans'/></a></td>
                 <td colspan="3" valign="top">
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr align="center">
@@ -1216,13 +1217,13 @@
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_pkuThyroid1w"
                                     <%= props.getProperty("p1_pkuThyroid1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke1.formThyroid"/></td>
+                            <td><fmt:message key='encounter.formRourke1.formThyroid'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p1_hemoScreen1w"
                                     <%= props.getProperty("p1_hemoScreen1w", "") %>></td>
-                            <td><b><a href="javascript:showNotes()"><fmt:message key="encounter.formRourke1.formHemoglobinopathy"/></a> (if at
+                            <td><b><a href="javascript:showNotes()"><fmt:message key='encounter.formRourke1.formHemoglobinopathy'/></a> (if at
                                 risk)*</b></td>
                         </tr>
                     </table>
@@ -1249,49 +1250,49 @@
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.msgImmunization"/></a><br>
-                    <fmt:message key="encounter.formRourke1.msgImmunizationDesc"/>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.msgImmunization'/></a><br>
+                    <fmt:message key='encounter.formRourke1.msgImmunizationDesc'/>
                 </td>
                 <td colspan="3" valign="top">
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
-                            <td style="text-align: center" colspan="2"><b><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
-                                <fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitis"/>
+                            <td style="text-align: center" colspan="2"><b><fmt:message key='encounter.formRourke2006_1.msgImmunizationColTitle'/></b><br/>
+                                <fmt:message key='encounter.formRourke2006_1.msgImmunizationHepatitis'/>
                             </td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" class="chk"
                                        name="p1_hepatitisVaccine1w"
                                     <%= props.getProperty("p1_hepatitisVaccine1w", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
+                            <td><fmt:message key='encounter.formRourke2006_1.msgImmunizationHepatitisVaccine'/></td>
                         </tr>
                     </table>
                 </td>
                 <td colspan="3" valign="top">
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
-                            <td style="text-align: center"><b><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b></td>
+                            <td style="text-align: center"><b><fmt:message key='encounter.formRourke2006_1.msgImmunizationColTitle'/></b></td>
                         </tr>
                     </table>
                 </td>
                 <td colspan="3" valign="top">
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
-                            <td style="text-align: center" colspan="2"><b><fmt:message key="encounter.formRourke2006_1.msgImmunizationColTitle"/></b><br/>
-                                <fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitis"/>
+                            <td style="text-align: center" colspan="2"><b><fmt:message key='encounter.formRourke2006_1.msgImmunizationColTitle'/></b><br/>
+                                <fmt:message key='encounter.formRourke2006_1.msgImmunizationHepatitis'/>
                             </td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" class="chk"
                                        name="p1_hepatitisVaccine1m"
                                     <%= props.getProperty("p1_hepatitisVaccine1m", "") %>></td>
-                            <td><fmt:message key="encounter.formRourke2006_1.msgImmunizationHepatitisVaccine"/></td>
+                            <td><fmt:message key='encounter.formRourke2006_1.msgImmunizationHepatitisVaccine'/></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a><fmt:message key="encounter.formRourke1.formSignature"/></a></td>
+                <td class="column"><a><fmt:message key='encounter.formRourke1.formSignature'/></a></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p1_signature1w"
                                        value="<%= props.getProperty("p1_signature1w", "") %>"/></td>
@@ -1308,17 +1309,17 @@
         <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
             <tr>
                 <td nowrap="true"><input type="submit"
-                                         value="<fmt:message key="encounter.formRourke1.btnSave"/>"
+                                         value="<fmt:message key='encounter.formRourke1.btnSave'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="<fmt:message key="encounter.formRourke1.btnSaveExit"/>"
+                                                                                        value="<fmt:message key='encounter.formRourke1.btnSaveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input type="submit"
-                           value="<fmt:message key="encounter.formRourke1.btnExit"/>"
+                           value="<fmt:message key='encounter.formRourke1.btnExit'/>"
                            onclick="javascript:return onExit();"> <input type="submit"
-                                                                         value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
+                                                                         value="<fmt:message key='encounter.formRourke1.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/> <input
                             type="submit"
-                            value="<fmt:message key="encounter.formRourke2006.btnPrintAll"/>"
+                            value="<fmt:message key='encounter.formRourke2006.btnPrintAll'/>"
                             onclick="javascript:return onPrintAll();"/> <input type="button"
                                                                                value="About"
                                                                                onclick="javascript:return popPage('form/formRourke2006intro','About Rourke');"/>
@@ -1326,19 +1327,19 @@
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length" href="#"
                                                onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Growth+Graph1&__cfgfile=<%=growthCharts[0]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');return false;">
-                    <fmt:message key="encounter.formRourke1.btnGraphLenghtWeight"/></a><br>
+                    <fmt:message key='encounter.formRourke1.btnGraphLenghtWeight'/></a><br>
                     <a name="headCirc" href="#"
                        onclick="onGraph('<%=request.getContextPath()%>/form/formname?submit=graph&form_class=Rourke2006&__title=Baby+Head+Circumference&__cfgfile=<%=growthCharts[1]%>&demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');return false;">
-                        <fmt:message key="encounter.formRourke1.btnGraphHead"/></a> <% } else { %>
+                        <fmt:message key='encounter.formRourke1.btnGraphHead'/></a> <% } else { %>
                     &nbsp; <% } %>
                 </td>
-                <td nowrap="true"><a><fmt:message key="encounter.formRourke2006.Pg1"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg2"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg3"/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourke2006p4?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="encounter.formRourke2006.Pg4"/></a></td>
+                <td nowrap="true"><a><fmt:message key='encounter.formRourke2006.Pg1'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg2'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg3'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourke2006p4?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='encounter.formRourke2006.Pg4'/></a></td>
             </tr>
         </table>
-        <p style="font-size: 8pt;"><fmt:message key="encounter.formRourke2006.footer"/><br/>
+        <p style="font-size: 8pt;"><fmt:message key='encounter.formRourke2006.footer'/><br/>
         </p>
 
     </form>

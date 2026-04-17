@@ -86,7 +86,7 @@
         <input type="hidden" id="method" name="method"/>
 
         <%if (request.getAttribute("saved") != null) { %>
-        <span style="color:red">Preference has been saved</span>
+        <span style="color:red"><fmt:message key="admin.grouppref.msgSaved"/></span>
         <% } %>
         <!--Header-->
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
@@ -173,4 +173,3 @@
     </body>
 </html>
     
-

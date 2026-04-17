@@ -58,13 +58,16 @@
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="global.btnAdd" var="manageContactsAdd"/>
+<fmt:message key="global.btnSubmit" var="manageContactsSubmit"/>
+<fmt:message key="global.btnCancel" var="manageContactsCancel"/>
 
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Demographic Contact Manager</title>
+        <title><fmt:message key="demographic.manageContacts.title"/></title>
         <!--I18n-->
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
@@ -339,7 +342,7 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Manage Contacts</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="demographic.manageContacts.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
@@ -354,31 +357,31 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; <a
-                    href="javascript:window.close();">Close Window</a></td>
+                    href="javascript:window.close();"><fmt:message key="demographic.manageContacts.closeWindow"/></a></td>
             <td valign="top" class="MainTableRightColumn">
 
                 <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact">
                     <input type="hidden" name="method" value="saveManage"/>
                     <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
 
-                    <b>Personal Contacts:</b>
+                    <b><fmt:message key="demographic.manageContacts.personalContacts"/></b>
                     <br/>
                     <div id="contact_container"></div>
                     <input type="hidden" id="contact_num" name="contact_num" value="0"/>
-                    <a href="#" onclick="addContact();">[ADD]</a>
+                    <a href="#" onclick="addContact();">[${manageContactsAdd}]</a>
 
                     <br/><br/>
-                    <b>Professional Contacts:</b>
+                    <b><fmt:message key="demographic.manageContacts.professionalContacts"/></b>
                     <br/>
                     <div id="procontact_container"></div>
                     <input type="hidden" id="procontact_num" name="procontact_num" value="0"/>
-                    <a href="#" onclick="addProContact();">[ADD]</a>
+                    <a href="#" onclick="addProContact();">[${manageContactsAdd}]</a>
 
                     <br/>
 
-                    <input type="submit" value="Submit"/>
+                    <input type="submit" value="${manageContactsSubmit}"/>
                     &nbsp;&nbsp;
-                    <input type="button" name="cancel" value="Cancel" onclick="window.close()"/>
+                    <input type="button" name="cancel" value="${manageContactsCancel}" onclick="window.close()"/>
 
                 </form>
 

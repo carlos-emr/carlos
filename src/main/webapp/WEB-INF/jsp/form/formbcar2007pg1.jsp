@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -94,7 +96,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Antenatal Record 1</title>
+        <title><fmt:message key="form.bcar.titlePage1"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%=bView?"bcArStyleView.css" : "bcAr2007Style.css"%>">
         <!-- calendar stylesheet -->
@@ -106,7 +108,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -393,7 +395,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -403,7 +405,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -530,7 +532,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -555,7 +557,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -982,14 +984,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" style="width: 40px;" value="Save"
+                    %> <input type="submit" style="width: 40px;" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" style="width: 40px;" value="Exit"
+                %> <input type="submit" style="width: 40px;" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         style="width: 50px;" value="Print"
+                                                                         style="width: 50px;" value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/> <input
                         type="submit"
                         style="width: 75px;" value="Print Risk"
@@ -1004,7 +1006,7 @@
                 <td><a href="javascript: function myFunction() {return false; }"
                        title="Double click shaded fields for drop down or calculation"
                        onClick="showHideBox('Instrdiv',1);return false;"><font
-                        color='red'>Instruction</font></a></td>
+                        color='red'><fmt:message key="form.bcar.instruction"/></font></a></td>
 
                 <td align="right"><!-- font size=-2><b>View:</b> </font>
             <a href="javascript: popupPage('form/formbcarpg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"><font size=-2>AR2 (pg.1)</font></a> |
@@ -1028,7 +1030,7 @@
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                British Columbia Antenatal Record Part 1 <font size="-2">BCPHP
+                                <fmt:message key="form.bcar.recordTitlePart1"/> <font size="-2">BCPHP
                                     (HLTH) 1582-1 Rev. 2007/06/05</font></th>
                         </tr>
                     </table>
@@ -2340,7 +2342,7 @@
                                         <td><a href="javascript: function myFunction() {return false; }"
                                                onclick="showHideBox('BMIdiv',1); return false;"
                                                title='The height and weight MUST be in metric for the BMI to calculate when you double click in the shaded cell.  If putting in weight or height in Standard measurement, double click each cell to convert to metric. Then, double click in the BMI cell to calculate. Do not put any text in the height or weight cells (kg.) or it will not calculate the BMI.'>
-                                            <font color='red'><b>Pre-pregnant BMI</b></color></a></td>
+                                            <font color='red'><b><fmt:message key="form.bcar.prePregnantBMI"/></b></color></a></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" name="pg1_examination" id="pg1_examination"
@@ -2508,7 +2510,7 @@
                         <tr>
                             <td colspan="4" align="right">SIGNATURE:
                                 <input type="text" name="pg1_signature" size="35" maxlength="40"
-                                       value="<%= props.getProperty("pg1_signature", "") %>" @oscar.formDB/> MD/RM
+                                       value="<%= props.getProperty("pg1_signature", "") %>" @oscar.formDB/> <fmt:message key="form.bcar.mdRm"/>
                             </td>
                         </tr>
 
@@ -2523,13 +2525,13 @@
                     <%
                         if (!bView) {
                     %>
-                    <input type="submit" style="width:40px;" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <%
                         }
                     %>
-                    <input type="submit" style="width:40px;" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" style="width:50px;" value="Print" onclick="javascript:return onPrint();"/>
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" style="width:50px;" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
                     <input type="submit" style="width:75px;" value="Print Risk"
                            onclick="javascript:return onPrintRisk();"/>
                     <input type="submit" value="Print AR1 & AR2" onclick="javascript:return onPrint12();"/>
@@ -2587,7 +2589,7 @@
                                         <td><input type="checkbox" name="ar2_riskPriCesBirth"
                                                 <%= props.getProperty("ar2_riskPriCesBirth", "") %> @oscar.formDB
                                                    dbType="tinyint(1)"/></td>
-                                        <td>Cesarean birth (uterine surgery)</td>
+                                        <td><fmt:message key="form.bcar.cesarean"/> birth (uterine surgery)</td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="ar2_riskHabitAbort"
@@ -2763,13 +2765,13 @@
                                         <td><input type="checkbox" name="ar2_riskUnderweight"
                                                 <%= props.getProperty("ar2_riskUnderweight", "") %> @oscar.formDB
                                                    dbType="tinyint(1)"/></td>
-                                        <td>BMI less than 18.5 (Underweight)</td>
+                                        <td><fmt:message key="form.bcar.bmiUnderweight"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="ar2_riskObesity"
                                                 <%= props.getProperty("ar2_riskObesity", "") %> @oscar.formDB
                                                    dbType="tinyint(1)"/></td>
-                                        <td>BMI over 30 (Obesity)</td>
+                                        <td><fmt:message key="form.bcar.bmiObesity"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="ar2_riskDepre"
@@ -2923,7 +2925,7 @@
                                         <td><input type="checkbox" name="ar2_riskAdmPreterm"
                                                 <%= props.getProperty("ar2_riskAdmPreterm", "") %> @oscar.formDB
                                                    dbType="tinyint(1)"/></td>
-                                        <td>Preterm labour</td>
+                                        <td><fmt:message key="form.bcar.pretermLabour"/></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox" name="ar2_riskProte1"

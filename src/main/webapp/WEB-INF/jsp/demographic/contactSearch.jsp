@@ -78,7 +78,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Search Contacts</title>
+        <title><fmt:message key="demographic.contactSearch.title"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script type="text/javascript">
 
@@ -127,25 +127,25 @@
     <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewContactSearch" onSubmit="return check();">
         <table bgcolor="#CCCCFF" width="100%">
             <tr>
-                <td class="searchTitle" colspan="4">Search Contacts</td>
+                <td class="searchTitle" colspan="4"><fmt:message key="demographic.contactSearch.title"/></td>
             </tr>
             <tr>
                 <td class="blueText" width="10%" nowrap>
-                    <input type="radio" name="search_mode" value="search_name" checked="checked"> Name
+                    <input type="radio" name="search_mode" value="search_name" checked="checked"> <fmt:message key="demographic.contactSearch.searchByName"/>
                 </td>
                 <td valign="middle" rowspan="2" align="left">
                     <input type="text" name="keyword" value="" size="17" maxlength="100">
                     <input type="hidden" name="orderby" value="c.lastName, c.firstName">
                     <input type="hidden" name="limit1" value="0">
                     <input type="hidden" name="limit2" value="10">
-                    <input type="hidden" name="submit" value='Search'>
-                    <input type="submit" value='Search'>
+                    <input type="hidden" name="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
+                    <input type="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
                 </td>
             </tr>
         </table>
         <table>
             <tr>
-                <td align="left">Results based on keyword(s): <%=keyword == null ? "" : Encode.forHtml(keyword)%>
+                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <%=keyword == null ? "" : Encode.forHtml(keyword)%>
                 </td>
             </tr>
         </table>
@@ -156,10 +156,10 @@
 
     <table bgcolor="#C0C0C0" width="100%">
         <tr class="title">
-            <th>Specialty</th>
-            <th>Last Name</th>
-            <th>First Name</th>
-            <th>Phone</th>
+            <th><fmt:message key="demographic.contactSearch.specialty"/></th>
+            <th><fmt:message key="demographic.contactSearch.lastName"/></th>
+            <th><fmt:message key="demographic.contactSearch.firstName"/></th>
+            <th><fmt:message key="demographic.contactSearch.phone"/></th>
         </tr>
 
         <c:forEach var="contact" items="${ contacts }" varStatus="i">
@@ -238,6 +238,6 @@
     %>
     </form>
     <br>
-    <a href="<%= request.getContextPath() %>/demographic/Contact?method=addContact">Add/Edit Contact</a>
+    <a href="<%= request.getContextPath() %>/demographic/Contact?method=addContact"><fmt:message key="demographic.contactSearch.addEditContact"/></a>
     </body>
 </html>

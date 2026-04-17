@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -51,7 +53,7 @@
 
 <html>
     <head>
-        <title>Manage Letters</title>
+        <title><fmt:message key="report.ManageLetters.title"/></title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -71,7 +73,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
                 </svg>
-                &nbsp;Manage Letters
+                &nbsp;<fmt:message key="report.ManageLetters.heading"/>
             </h4>
         </div>
 
@@ -80,7 +82,7 @@
             <input type="hidden" name="goto" value="<e:forHtmlAttribute value='<%= StringUtils.defaultString(request.getParameter("goto")) %>' />"/>
             <table class="table table-sm" style="font-size:13px;">
                 <tr>
-                    <td style="width:120px; font-weight:bold;">Select Letter:</td>
+                    <td style="width:120px; font-weight:bold;"><fmt:message key="report.ManageLetters.label.selectLetter"/></td>
                     <td>
                         <input type="file" name="reportFile" value="upload"/>
                         <span title="<fmt:message key="global.uploadWarningBody"/>"
@@ -90,12 +92,12 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="font-weight:bold;">Report Name:</td>
+                    <td style="font-weight:bold;"><fmt:message key="report.ManageLetters.label.reportName"/></td>
                     <td><input type="text" name="reportName" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
                 </tr>
             </table>
             <div style="padding:5px 0 15px 0;">
-                <input type="submit" value="Upload" class="btn btn-sm btn-primary"/>
+                <input type="submit" value="<fmt:message key='report.ManageLetters.btnUpload'/>" class="btn btn-sm btn-primary"/>
             </div>
         </form>
 
@@ -108,11 +110,11 @@
         <table class="table table-sm table-striped" style="font-size:13px;">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Provider</th>
-                    <th>Report Name</th>
-                    <th>File</th>
-                    <th>Date</th>
+                    <th><fmt:message key="report.ManageLetters.header.id"/></th>
+                    <th><fmt:message key="report.ManageLetters.header.provider"/></th>
+                    <th><fmt:message key="report.ManageLetters.header.reportName"/></th>
+                    <th><fmt:message key="report.ManageLetters.header.file"/></th>
+                    <th><fmt:message key="report.ManageLetters.header.date"/></th>
                     <th></th>
                 </tr>
             </thead>
@@ -130,7 +132,7 @@
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"/>
-                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        <button type="submit" class="btn btn-sm btn-danger"><fmt:message key="report.ManageLetters.btnDelete"/></button>
                         </form>
                     </td>
                 </tr>

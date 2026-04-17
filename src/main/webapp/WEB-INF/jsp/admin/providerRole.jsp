@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle" %>
+<%@ page import="java.text.MessageFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="org.springframework.util.StringUtils" %>
@@ -174,7 +175,7 @@
             if (secUserRole != null) {
                 secUserRole.setRoleName(roleNew);
                 secUserRoleDao.updateRoleName(Integer.parseInt(roleId), roleNew);
-                msg = "Role " + encodedRoleNew + " is updated. (" + Encode.forHtml(number) + ")";
+                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgUpdated"), encodedRoleNew, Encode.forHtml(number));
 
                 RecycleBin recycleBin = new RecycleBin();
                 recycleBin.setProviderNo(curUser_no);
@@ -199,7 +200,7 @@
                 }
 
             } else {
-                msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> updated!!! (" + Encode.forHtml(number) + ")";
+                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"), encodedRoleNew, Encode.forHtml(number));
             }
         }
 
@@ -217,7 +218,7 @@
             secUserRole.setRoleName(roleNew);
             secUserRole.setActiveyn(1);
             secUserRoleDao.save(secUserRole);
-            msg = "Role " + encodedRoleNew + " is added. (" + Encode.forHtml(number) + ")";
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgAdded"), encodedRoleNew, Encode.forHtml(number));
             LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, number + "|" + roleNew, ip);
 	    if( newCaseManagement && caisiProgram != null) {
                 ProgramProvider programProvider = programProviderDao.getProgramProvider(number, Long.valueOf(caisiProgram));
@@ -230,7 +231,7 @@
                 programProviderDao.saveProgramProvider(programProvider);
             }
         } else {
-            msg = "Role " + encodedRoleNew + " is <span style='text-color: red;'>NOT</span> added!!! (" + Encode.forHtml(number) + ")";
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotAdded"), encodedRoleNew, Encode.forHtml(number));
         }
 
     }
@@ -253,7 +254,7 @@
             if(secUserRole.getId() == Integer.parseInt(roleId)) {
 
             secUserRoleDao.deleteById(secUserRole.getId());
-            msg = "Role " + encodedRoleOld + " is deleted. (" + Encode.forHtml(number) + ")";
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgDeleted"), encodedRoleOld, Encode.forHtml(number));
                 listIterator.remove();
 
             RecycleBin recycleBin = new RecycleBin();
@@ -302,7 +303,7 @@
         }
 
         } else {
-            msg = "Role " + encodedRoleOld + " is <span style='text-color: red;'>NOT</span> deleted!!! (" + Encode.forHtml(number) + ")";
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotDeleted"), encodedRoleOld, Encode.forHtml(number));
         }
 
     }
@@ -498,7 +499,7 @@
             <div class="input-group">
                 <input type="text" placeholder="<fmt:message key="admin.providerrole.formSearch"/>" name="keyword"
                        value="<e:forHtmlContent value='<%= keyword %>' />"/>
-                <input type="submit" class="btn btn-primary" name="search" value="Filter" >
+                <input type="submit" class="btn btn-primary" name="search" value="<fmt:message key='admin.providerrole.filter'/>" >
             </div>
         </div>
 
@@ -523,7 +524,7 @@
             <fmt:message key="role"/>
         </th>
         <%} %>
-        <th>Action</th>
+        <th><fmt:message key="admin.providerrole.action"/></th>
     </tr>
     </thead>
     <tbody>
@@ -602,7 +603,7 @@
                 <td>
                     <label class="form-label" for="primaryRoleProvider"><fmt:message key="admin.admin.provider"/>:</label>
                     <select id="primaryRoleProvider" name="primaryRoleProvider" onChange="primaryRoleChooseProvider()">
-                        <option value="">Select Below</option>
+                        <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                         <%
                             List<String> temp1 = new ArrayList<String>();
                             for (Properties prop : vec) {

@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import java.security.MessageDigest;
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.StringUtils;
@@ -1816,7 +1817,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public boolean unlockNote(int noteId, String password) {
         CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
         if (note != null) {
-            if (note.isLocked() && note.getPassword().equals(password)) {
+            if (note.isLocked() && MessageDigest.isEqual(
+                    note.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    password.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
                 return true;
             }
         }

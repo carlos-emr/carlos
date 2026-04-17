@@ -451,7 +451,7 @@
 
                                 <select name="numerator<%=i %>" id="numerator<%=i %>"
                                         onchange="javascript:processExtraFieldsNumerator<%=i %>(this)">
-                                    <option value="">Select Below</option>
+                                    <option value=""><fmt:message key="report.ClinicalReports.selectBelow"/></option>
                                     <%
                                         for (Numerator n : numeratorList) {
                                             if (n.hasReplaceableValues()) {
@@ -511,7 +511,7 @@
                             <% } %>
                             <!-- end of extra numerators -->
 
-                            <input type="button" value="Add Numerator" onClick="showNextNumerator()"
+                            <input type="button" value="<fmt:message key='report.ClinicalReports.btnAddNumerator'/>" onClick="showNextNumerator()"
                                    id="addNumeratorBtn"/>
                             <br/>
                             <br/>

@@ -48,6 +48,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
+    ResourceBundle scheduleBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
+    String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
 %>
 <html>
     <head>
@@ -77,7 +80,7 @@
             scheduleDateDao.merge(sd);
         }
         //add R schedule date if it is available
-        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(" Delete ")) {
+        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(submitDelete)) {
             if (scheduleRscheduleBean.getDateAvail(dateParam)) {
                 sd = new ScheduleDate();
                 sd.setDate(MyDateFormat.getSysDate(dateParam));
@@ -93,7 +96,7 @@
         }
         scheduleDateBean.remove(dateParam);
 
-        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(" Save ")) {
+        if (request.getParameter("Submit") != null && request.getParameter("Submit").equals(submitSave)) {
 
             if (available == null || available.isEmpty()) {
                 throw new IllegalArgumentException("missing required parameter: available");

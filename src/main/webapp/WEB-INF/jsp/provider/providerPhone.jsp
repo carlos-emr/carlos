@@ -91,10 +91,10 @@
                 %> <form action="${pageContext.request.contextPath}/EditPhoneNum" method="post">
 
 			
-			<span style="color:blue">By entering in a value, you will 
+				<span style="color:blue"><fmt:message key='provider.editRxPhone.msgInstructions'/>
 			<ul>
-			<li>Override the phone # in prescriptions</li>
-			<li> When choosing your letterhead in consult requests, the clinic phone# and your provider record's work phone # will be overridden
+			<li><fmt:message key='provider.editRxPhone.msgOverridePrescription'/></li>
+			<li><fmt:message key='provider.editRxPhone.msgOverrideConsult'/>
 			</li>
 			</ul>
 			</span>
@@ -105,7 +105,7 @@
                 <br>
 
                 <input type="submit" onclick="return validate();"
-                       value="<fmt:message key="provider.editRxFax.btnSubmit"/>"/>
+                       value="<fmt:message key='provider.editRxFax.btnSubmit'/>"/>
             </form> <%
             } else if (((String) request.getAttribute("status")).equals("complete")) {
             %> <fmt:message key="provider.editRxPhone.msgSuccess"/> <br>

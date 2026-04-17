@@ -29,22 +29,26 @@
 
 --%>
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <%
     String user_no = (String) session.getAttribute("user");
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
+<% java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()); %>
 
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>ANTENATAL CHECK LIST</title>
+    <title><%= bundle.getString("provider.obarrisk.title") %></title>
     <link rel="stylesheet" href="antenatalrecord.css">
     <script language="JavaScript">
         <!--
         function onExit() {
-            if (confirm("Are you sure to exit WITHOUT saving the form?")) window.close();
+            if (confirm("<%= bundle.getString("provider.obarrisk.confirmExit") %>")) window.close();
         }
 
         //-->
@@ -69,13 +73,13 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align=CENTER><font face="Arial, Helvetica, sans-serif"
-                                   color="#FFFFFF">Antenatal Add-On Risk List</font></th>
+                                   color="#FFFFFF"><%= bundle.getString("provider.obarrisk.heading") %></font></th>
             <th width="25%" nowrap>
                 <div align="right"><a href=#
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
-                        color="#FFFF66">View Risk Number</font></a> <input type="button"
+                        color="#FFFF66"><%= bundle.getString("provider.obarrisk.viewRiskNumber") %></font></a> <input type="button"
                                                                            name="Button"
-                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarrisk.exit"):bundle.getString("provider.obarrisk.cancel")%>&nbsp;"
                                                                            onClick="onExit();">&nbsp;
                 </div>
             </th>

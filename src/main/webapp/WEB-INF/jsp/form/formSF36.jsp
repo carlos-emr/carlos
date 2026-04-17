@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -49,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "SF36";
     String formLink = "formSF36.jsp";
@@ -71,8 +74,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Appendix K: Health Status Quetionnaire (SF36) - Health
-            and Daily Activities</title>
+        <title><fmt:message key="form.sf36.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -233,12 +235,11 @@
                     <table border="0" cellspacing="0" cellpadding="0" width="740px"
                            height="10%">
                         <tr>
-                            <th class="subject">Appendix K: Health Status Quetionnaire
-                                (SF36)
+                            <th class="subject"><fmt:message key="form.sf36.title"/>
                             </th>
                         </tr>
                         <tr class="title">
-                            <th colspan="4">Health and Daily Activities</th>
+                            <th colspan="4"><fmt:message key="form.sf36.heading"/></th>
                         </tr>
                     </table>
                 </td>
@@ -252,56 +253,49 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr>
-                                        <td colspan="4">This survey asks for your views about your
-                                            health. This information will be summarized in your medical
-                                            record and will help keep track of how you feel and how card card-body bg-body-tertiary you
-                                            are able to do your usual activities.
+                                        <td colspan="4"><fmt:message key="form.sf36.intro1"/>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td colspan="4">Answer every question by selecting the
-                                            appropriate checkbox. If you unsure about how to answer a
-                                            question, please give the best answer you can and make a comment
-                                            in the text box below each question.
+                                        <td colspan="4"><fmt:message key="form.sf36.intro2"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th>1.</th>
-                                        <th colspan="3" class="question">In general, would you say
-                                            your health is:
+                                        <th colspan="3" class="question"><fmt:message key="form.sf36.q1Prompt"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q1Ex"
                                                 <%= props.getProperty("Q1Ex", "") %> /></td>
-                                        <td width="45%">Excellent</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.excellent"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q1F"
                                                 <%= props.getProperty("Q1F", "") %> /></td>
-                                        <td width="45%">Fair</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.fair"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q1VG"
                                                 <%= props.getProperty("Q1VG", "") %> /></td>
-                                        <td width="45%">Very Good</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.veryGood"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q1P"
                                                 <%= props.getProperty("Q1P", "") %> /></td>
-                                        <td width="45%">Poor</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.poor"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q1G"
                                                 <%= props.getProperty("Q1G", "") %> /></td>
-                                        <td width="45%">Good</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.good"/></td>
                                         <td width="5%"></td>
                                         <td width="45%"></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="3">Comments: <input type="text" class="textbox"
+                                        <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          size="80" name="Q1Cmt"
                                                                          value="<%= props.getProperty("Q1Cmt", "") %>"/>
                                         </td>
@@ -309,42 +303,40 @@
                                     <tr>
                                         <th>2.</th>
                                         <th colspan="3" class="question"><font
-                                                style="text-decoration: underline">Compare to one year
-                                            ago</font>, how would you rate your health in general <font
-                                                style="text-decoration: underline">now</font>?
+                                                style="text-decoration: underline"><fmt:message key="form.sf36.q2CompareToOneYearAgo"/></font>, <fmt:message key="form.sf36.q2Prompt"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q2MuchBetter"
                                                 <%= props.getProperty("Q2MuchBetter", "") %> /></td>
-                                        <td width="45%">Much better now than one year ago</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.muchBetter"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q2Worse"
                                                 <%= props.getProperty("Q2Worse", "") %> /></td>
-                                        <td width="45%">Somewhat worse now than one year ago</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.somewhatWorse"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q2Better"
                                                 <%= props.getProperty("Q2Better", "") %> /></td>
-                                        <td width="45%">Somewhat better now than one year ago</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.somewhatBetter"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q2MuchWorse"
                                                 <%= props.getProperty("Q2MuchWorse", "") %> /></td>
-                                        <td width="45%">Much worse now than one year ago</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.muchWorse"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q2Same"
                                                 <%= props.getProperty("Q2Same", "") %> /></td>
-                                        <td width="45%">About the same</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.same"/></td>
                                         <td width="5%"></td>
                                         <td width="45%"></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="3">Comments: <input type="text" class="textbox"
+                                        <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          size="80" name="Q2Cmt"
                                                                          value="<%= props.getProperty("Q2Cmt", "") %>"/>
                                         </td>
@@ -354,8 +346,7 @@
                         </tr>
                         <tr class="subject">
                             <td></td>
-                            <td align="right"><a href="javascript: goToPage2();">Next
-                                Page >></a></td>
+                            <td align="right"><a href="javascript: goToPage2();"><fmt:message key="form.sf36.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -367,10 +358,7 @@
                                        cellpadding="0">
                                     <tr>
                                         <th width="3%" valign="top">3.</th>
-                                        <th valign="top" class="question">The following questions
-                                            are about activities you might do during a typical day. Does <font
-                                                    style="text-decoration: underline">your health</font> limit you
-                                            in these activities? If so, how much?
+                                        <th valign="top" class="question"><fmt:message key="form.sf36.q3Prompt"/>
                                         </th>
                                     </tr>
                                     <tr>
@@ -382,15 +370,14 @@
                                                 <tr class="question">
                                                     <th width="3%"></th>
                                                     <th width="36%"></th>
-                                                    <th width="12%" align="center">Yes, Limited a lot</th>
-                                                    <th width="12%" align="center">Yes, Limited a Little</th>
-                                                    <th width="12%" align="center">No, Not Limited at All</th>
-                                                    <th width="25%" align="center">Comments</th>
+                                                    <th width="12%" align="center"><fmt:message key="form.sf36.opt.yesLimitedALot"/></th>
+                                                    <th width="12%" align="center"><fmt:message key="form.sf36.opt.yesLimitedALittle"/></th>
+                                                    <th width="12%" align="center"><fmt:message key="form.sf36.opt.noNotLimitedAtAll"/></th>
+                                                    <th width="25%" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">a.</td>
-                                                    <td><font style='text-decoration: underline'>Vigorous
-                                                        activities</font>, such as running, lifting heavy objects,
+                                                    <td><font style='text-decoration: underline'><fmt:message key="form.sf36.q3a"/></font>, such as running, lifting heavy objects,
                                                         participating in strenuous sports
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
@@ -412,8 +399,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">b.</td>
-                                                    <td><font style='text-decoration: underline'>Moderate
-                                                        activities</font>, such as moving a table, pushing a vacuum
+                                                    <td><font style='text-decoration: underline'><fmt:message key="form.sf36.q3b"/></font>, such as moving a table, pushing a vacuum
                                                         cleaner,
                                                         bowling, or playing golf
                                                     </td>
@@ -436,7 +422,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">c.</td>
-                                                    <td valign="center">Lifting or carrying groceries</td>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3c"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q3cYesLot"
@@ -456,9 +442,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">d.</td>
-                                                    <td valign="center">Climbing <font
-                                                            style="text-decoration: underline">several</font> flights of
-                                                        stairs
+                                                    <td valign="center"><fmt:message key="form.sf36.q3d"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -479,9 +463,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">e.</td>
-                                                    <td valign="center">Climbing <font
-                                                            style="text-decoration: underline">one</font> flight of
-                                                        stairs
+                                                    <td valign="center"><fmt:message key="form.sf36.q3e"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -502,7 +484,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">f.</td>
-                                                    <td valign="center">Bending, kneeling, or stooping</td>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3f"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q3fYesLot"
@@ -522,8 +504,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">g.</td>
-                                                    <td valign="center">Walking <font
-                                                            style="text-decoration: underline">more than a mile</font>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3g"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -544,8 +525,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">h.</td>
-                                                    <td valign="center">Walking <font
-                                                            style="text-decoration: underline">several blocks</font>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3h"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -566,8 +546,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">i.</td>
-                                                    <td valign="center">Walking <font
-                                                            style="text-decoration: underline">one blocks</font></td>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3i"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q3iYesLot"
@@ -587,7 +566,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">j.</td>
-                                                    <td valign="center">Bathing and dressing yourself</td>
+                                                    <td valign="center"><fmt:message key="form.sf36.q3j"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q3jesLot"
@@ -612,10 +591,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage1();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage3();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage1();"><fmt:message key="form.sf36.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage3();"><fmt:message key="form.sf36.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -642,12 +619,12 @@
                                                 <tr class="question">
                                                     <th width="3%"></th>
                                                     <th width="35%"></th>
-                                                    <th width="8%" align="center">All of the time</th>
-                                                    <th width="8%" align="center">Most of the time</th>
-                                                    <th width="8%" align="center">Some of the time</th>
-                                                    <th width="8%" align="center">A little of the time</th>
-                                                    <th width="8%" align="center">None of the time</th>
-                                                    <th width="22%" align="center">Comments</th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.allOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.mostOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.someOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.aLittleOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.noneOfTheTime"/></th>
+                                                    <th width="22%" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">a.</td>
@@ -682,8 +659,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">b.</td>
-                                                    <td><font style='text-decoration: underline'>Accomplished
-                                                        less</font> than you would like
+                                                    <td><fmt:message key="form.sf36.q4b"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -712,9 +688,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">c.</td>
-                                                    <td>Were limited in the <font
-                                                            style='text-decoration: underline'>kind</font> of work or
-                                                        other activities
+                                                    <td><fmt:message key="form.sf36.q4c"/>
                                                     </td>
 
                                                     <td align="center" bgcolor="white"><input type="checkbox"
@@ -744,9 +718,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">d.</td>
-                                                    <td>Had <font style='text-decoration: underline'>difficulty</font>
-                                                        performing the work or other activities (for example, it took
-                                                        extra effort)
+                                                    <td><fmt:message key="form.sf36.q4d"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -778,12 +750,7 @@
                                     </tr>
                                     <tr>
                                         <th width="3%" valign="top">5.</th>
-                                        <th valign="top" class="question">During the <font
-                                                style="text-decoration: underline">past 4 weeks</font>, how much
-                                            of the time have you had any of the following problmes with your
-                                            work or other regular daily activities <font
-                                                    style="text-decoration: underline">as a result of any
-                                                emotional problems</font> (such as feeling depressed or anxious)?
+                                        <th valign="top" class="question"><fmt:message key="form.sf36.q4Prompt"/>
                                         </th>
                                     </tr>
 
@@ -793,12 +760,12 @@
                                                 <tr class="question">
                                                     <th width="3%"></th>
                                                     <th width="35%"></th>
-                                                    <th width="8%" align="center">All of the time</th>
-                                                    <th width="8%" align="center">Most of the time</th>
-                                                    <th width="8%" align="center">Some of the time</th>
-                                                    <th width="8%" align="center">A little of the time</th>
-                                                    <th width="8%" align="center">None of the time</th>
-                                                    <th width="22%" align="center">Comments</th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.allOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.mostOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.someOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.aLittleOfTheTime"/></th>
+                                                    <th width="8%" align="center"><fmt:message key="form.sf36.opt.noneOfTheTime"/></th>
+                                                    <th width="22%" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">a.</td>
@@ -833,8 +800,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">b.</td>
-                                                    <td><font style='text-decoration: underline'>Accomplished
-                                                        less</font> than you would like
+                                                    <td><fmt:message key="form.sf36.q4b"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -863,8 +829,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">c.</td>
-                                                    <td>Didn't do work or other activities as <font
-                                                            style='text-decoration: underline'>carefully</font> as usual
+                                                    <td><fmt:message key="form.sf36.q5c"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -898,10 +863,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage2();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage4();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage2();"><fmt:message key="form.sf36.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage4();"><fmt:message key="form.sf36.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -913,133 +876,122 @@
                                        cellpadding="0">
                                     <tr>
                                         <th valign="top">6.</th>
-                                        <th valign="top" colspan="3" class="question">During the <font
-                                                style="text-decoration: underline">past 4 weeks</font>, to what
-                                            extent has your physical health or emotional problems interfered
-                                            with your normal social activities with family, friends,
-                                            neighbours, or groups?
+                                        <th valign="top" colspan="3" class="question"><fmt:message key="form.sf36.q6Prompt"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q6NotAtAll"
                                                 <%= props.getProperty("Q6NotAtAll", "") %> /></td>
-                                        <td width="45%">Not at all</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.notAtAll"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q6QuiteABit"
                                                 <%= props.getProperty("Q6QuiteABit", "") %> /></td>
-                                        <td width="45%">Quite a bit</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.quiteABit"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q6Slightly"
                                                 <%= props.getProperty("Q6Slightly", "") %> /></td>
-                                        <td width="45%">Slightly</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.slightly"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q6Extremely"
                                                 <%= props.getProperty("Q6Extremely", "") %> /></td>
-                                        <td width="45%">Extremely</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.extremely"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q6Moderately"
                                                 <%= props.getProperty("Q6Moderately", "") %> /></td>
-                                        <td width="45%">Moderately</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.moderately"/></td>
                                         <td width="5%"></td>
                                         <td width="45%"></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="3">Comments: <input type="text" class="textbox"
+                                        <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          class="textbox" size="80" name="Q6Cmt"
                                                                          value="<%= props.getProperty("Q6Cmt", "") %>"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th>7.</th>
-                                        <th colspan="3" class="question">How much <font
-                                                style="text-decoration: underline">bodily</font> pain have you
-                                            had during the <font style="text-decoration: underline">past
-                                                4 weeks</font>?
+                                        <th colspan="3" class="question"><fmt:message key="form.sf36.q7Prompt"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7None"
                                                 <%= props.getProperty("Q7None", "") %> /></td>
-                                        <td width="45%">None</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.none"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7Moderate"
                                                 <%= props.getProperty("Q7Moderate", "") %> /></td>
-                                        <td width="45%">Moderate</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.moderate"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7VeryMild"
                                                 <%= props.getProperty("Q7VeryMild", "") %> /></td>
-                                        <td width="45%">Very Mild</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.veryMild"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7Severe"
                                                 <%= props.getProperty("Q7Severe", "") %> /></td>
-                                        <td width="45%">Severe</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.severe"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7Mild"
                                                 <%= props.getProperty("Q7Mild", "") %> /></td>
-                                        <td width="45%">Mild</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.mild"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q7VerySevere"
                                                 <%= props.getProperty("Q7VerySevere", "") %> /></td>
-                                        <td width="45%">Very Severe</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.verySevere"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="3">Comments: <input type="text" class="textbox"
+                                        <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          size="80" name="Q7Cmt"
                                                                          value="<%= props.getProperty("Q7Cmt", "") %>"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th valign="top">8.</th>
-                                        <th valign="top" colspan="3" class="question">During the <font
-                                                style="text-decoration: underline">past 4 weeks</font>, how much
-                                            did <font style="text-decoration: underline">pain</font>
-                                            interfere with your normal work (including work both outside the
-                                            home and housework)?
+                                        <th valign="top" colspan="3" class="question"><fmt:message key="form.sf36.q8Prompt"/>
                                         </th>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q8NotAtAll"
                                                 <%= props.getProperty("Q8NotAtAll", "") %> /></td>
-                                        <td width="45%">Not at all</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.notAtAll"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q8QuiteABit"
                                                 <%= props.getProperty("Q8QuiteABit", "") %> /></td>
-                                        <td width="45%">Quite a bit</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.quiteABit"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q8Slightly"
                                                 <%= props.getProperty("Q8Slightly", "") %> /></td>
-                                        <td width="45%">A little bit</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.aLittleBit"/></td>
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q8Extremely"
                                                 <%= props.getProperty("Q8Extremely", "") %> /></td>
-                                        <td width="45%">Extremely</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.extremely"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"><input type="checkbox"
                                                                             class="bigCheckbox" name="Q8Moderately"
                                                 <%= props.getProperty("Q8Moderately", "") %> /></td>
-                                        <td width="45%">Moderately</td>
+                                        <td width="45%"><fmt:message key="form.sf36.opt.moderately"/></td>
                                         <td width="5%"></td>
                                         <td width="45%"></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td colspan="3">Comments: <input type="text" class="textbox"
+                                        <td colspan="3"><fmt:message key="form.sf36.opt.comments"/>: <input type="text" class="textbox"
                                                                          class="textbox" size="80" name="Q8Cmt"
                                                                          value="<%= props.getProperty("Q8Cmt", "") %>"/>
                                         </td>
@@ -1057,10 +1009,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage3();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage5();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage3();"><fmt:message key="form.sf36.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage5();"><fmt:message key="form.sf36.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -1086,22 +1036,16 @@
                                                 <tr class="question">
                                                     <th width="2%"></th>
                                                     <th width="35%"></th>
-                                                    <th width="8%" valign="top" align="center">All of the Time</th>
-                                                    <th width="8%" valign="top" align="center">Most of the
-                                                        Time
-                                                    </th>
-                                                    <th width="8%" valign="top" align="center">Some the Time</th>
-                                                    <th width="8%" valign="top" align="center">A Little of the
-                                                        Time
-                                                    </th>
-                                                    <th width="8%" valign="top" align="center">None of the
-                                                        Time
-                                                    </th>
-                                                    <th width="22%" valign="top" align="center">Comments</th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.allOfTheTime"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.mostOfTheTime"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.someOfTheTime"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.aLittleOfTheTime"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.noneOfTheTime"/></th>
+                                                    <th width="22%" valign="top" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td>a.</td>
-                                                    <td>Did you feel full of life?</td>
+                                                    <td><fmt:message key="form.sf36.q9a"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9aAll"
@@ -1129,7 +1073,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">b.</td>
-                                                    <td>Have you been a very nervous person?</td>
+                                                    <td><fmt:message key="form.sf36.q9b"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9bAll"
@@ -1157,8 +1101,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">c.</td>
-                                                    <td>Have you felt so down in the dumps nothing could cheer
-                                                        you up?
+                                                    <td><fmt:message key="form.sf36.q9c"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -1187,7 +1130,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">d.</td>
-                                                    <td>Have you felt calm and peaceful?</td>
+                                                    <td><fmt:message key="form.sf36.q9d"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9dAll"
@@ -1215,7 +1158,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td>e.</td>
-                                                    <td>Did you have a lot of energy?</td>
+                                                    <td><fmt:message key="form.sf36.q9e"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9eAll"
@@ -1243,7 +1186,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">f.</td>
-                                                    <td>Have you felt downhearted and blue?</td>
+                                                    <td><fmt:message key="form.sf36.q9f"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9fAll"
@@ -1271,7 +1214,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td>g.</td>
-                                                    <td>Did you feel worn out?</td>
+                                                    <td><fmt:message key="form.sf36.q9g"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9gAll"
@@ -1299,7 +1242,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td>h.</td>
-                                                    <td>Have you been a happy person?</td>
+                                                    <td><fmt:message key="form.sf36.q9h"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9hAll"
@@ -1327,7 +1270,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td>i.</td>
-                                                    <td>Did you feel tired?</td>
+                                                    <td><fmt:message key="form.sf36.q9i"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q9iAll"
@@ -1360,10 +1303,8 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage4();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage6();">Next
-                                Page >></a></td>
+                            <td align="left"><a href="javascript: backToPage4();"><fmt:message key="form.sf36.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage6();"><fmt:message key="form.sf36.nextPage"/></a></td>
                         </tr>
                     </table>
 
@@ -1375,12 +1316,7 @@
                                        cellpadding="0">
                                     <tr>
                                         <th width="3%" valign="top">10.</th>
-                                        <th valign="top" class="question"><font
-                                                style="text-decoration: underline">During the past month</font>,
-                                            How much of the time has your <font
-                                                    style="text-decoration: underline">physical health or
-                                                emotional problems</font> interfered with your social activities (like
-                                            visiting friends, relatives, etc.)?
+                                        <th valign="top" class="question"><fmt:message key="form.sf36.q10Prompt"/>
                                         </th>
                                     </tr>
                                     <tr>
@@ -1388,20 +1324,13 @@
                                             <table>
                                                 <tr class="question">
                                                     <th width="3%"></th>
-                                                    <th width="14%" valign="top" align="center">All of the
-                                                        Time
+                                                    <th width="14%" valign="top" align="center"><fmt:message key="form.sf36.opt.allOfTheTime"/></th>
+                                                    <th width="14%" valign="top" align="center"><fmt:message key="form.sf36.opt.mostOfTheTime"/></th>
+                                                    <th width="14%" valign="top" align="center"><fmt:message key="form.sf36.opt.someOfTheTime"/></th>
+                                                    <th width="14%" valign="top" align="center"><fmt:message key="form.sf36.opt.aLittleOfTheTime"/>
                                                     </th>
-                                                    <th width="14%" valign="top" align="center">Most of the
-                                                        Time
-                                                    </th>
-                                                    <th width="14%" valign="top" align="center">Some the Time</th>
-                                                    <th width="14%" valign="top" align="center">A Little of
-                                                        the Time
-                                                    </th>
-                                                    <th width="14%" valign="top" align="center">None of the
-                                                        Time
-                                                    </th>
-                                                    <th width="27%" valign="top" align="center">Comments</th>
+                                                    <th width="14%" valign="top" align="center"><fmt:message key="form.sf36.opt.noneOfTheTime"/></th>
+                                                    <th width="27%" valign="top" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td></td>
@@ -1435,10 +1364,7 @@
                                     </tr>
                                     <tr>
                                         <th width="3%" valign="top">11.</th>
-                                        <th valign="top" class="question">Please choose the answer
-                                            that best describes how <font style="text-decoration: underline">true</font>
-                                            or <font style="text-decoration: underline">false</font> each of
-                                            the following statements is for you.
+                                        <th valign="top" class="question"><fmt:message key="form.sf36.q11Prompt"/>
                                         </th>
                                     </tr>
                                     <tr>
@@ -1447,18 +1373,17 @@
                                                 <tr class="question">
                                                     <th width="3%"></th>
                                                     <th width="30%"></th>
-                                                    <th width="8%" valign="top" align="center">Definitely True</th>
-                                                    <th width="8%" valign="top" align="center">Mostly True</th>
-                                                    <th width="8%" valign="top" align="center">Don't Know</th>
-                                                    <th width="8%" valign="top" align="center">Mostly False</th>
-                                                    <th width="8%" valign="top" align="center">Definitely
-                                                        False
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.definitelyTrue"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.mostlyTrue"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.dontKnow"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.mostlyFalse"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.definitelyFalse"/>
                                                     </th>
-                                                    <th width="27%" valign="top" align="center">Comments</th>
+                                                    <th width="27%" valign="top" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">a.</td>
-                                                    <td>I seem to get sick a little easier than other people.
+                                                    <td><fmt:message key="form.sf36.q11a"/>
                                                     </td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
@@ -1487,7 +1412,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">b.</td>
-                                                    <td>I am as healthy as anybody I know.</td>
+                                                    <td><fmt:message key="form.sf36.q11b"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q11bDefTrue"
@@ -1515,7 +1440,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td valign="top">c.</td>
-                                                    <td>I expect my health to get worse.</td>
+                                                    <td><fmt:message key="form.sf36.q11c"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q11cDefTrue"
@@ -1543,7 +1468,7 @@
                                                 </tr>
                                                 <tr>
                                                     <td>d.</td>
-                                                    <td>My health is excellent.</td>
+                                                    <td><fmt:message key="form.sf36.q11d"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q11dDefTrue"
@@ -1574,10 +1499,7 @@
                                     </tr>
                                     <tr>
                                         <th width="3%" valign="top">12.</th>
-                                        <th valign="top" class="question">Regardless of your current
-                                            level of sexual activity, please answer the following question.
-                                            If you prefer not to answer it, please check this box: <input
-                                                    type="checkbox" class="bigCheckbox" name="Q12aNotAns"
+                                        <th valign="top" class="question"><fmt:message key="form.sf36.q12Prompt"/> <input type="checkbox" class="bigCheckbox" name="Q12aNotAns"
                                                     <%= props.getProperty("Q12aNotAns", "") %> /></th>
                                     </tr>
                                     <tr>
@@ -1586,16 +1508,16 @@
                                                 <tr class="question">
                                                     <th width="3%"></th>
                                                     <th width="30%"></th>
-                                                    <th width="8%" valign="top" align="center">Not at all</th>
-                                                    <th width="8%" valign="top" align="center">A little bit</th>
-                                                    <th width="8%" valign="top" align="center">Some what</th>
-                                                    <th width="8%" valign="top" align="center">Quite a lot</th>
-                                                    <th width="8%" valign="top" align="center">Very much</th>
-                                                    <th width="27%" valign="top" align="center">Comments</th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.notAtAll"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.aLittleBit"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.somewhat"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.quiteALot"/></th>
+                                                    <th width="8%" valign="top" align="center"><fmt:message key="form.sf36.opt.veryMuch"/></th>
+                                                    <th width="27%" valign="top" align="center"><fmt:message key="form.sf36.opt.comments"/></th>
                                                 </tr>
                                                 <tr>
                                                     <td valign="center">a.</td>
-                                                    <td>I am satisfied with my sex life</td>
+                                                    <td><fmt:message key="form.sf36.q12a"/></td>
                                                     <td align="center" bgcolor="white"><input type="checkbox"
                                                                                               class="bigCheckbox"
                                                                                               name="Q12aNot"
@@ -1628,8 +1550,7 @@
                             </td>
                         </tr>
                         <tr class="subject">
-                            <td align="left"><a href="javascript: backToPage5();"><<
-                                Previous Page</a></td>
+                            <td align="left"><a href="javascript: backToPage5();"><fmt:message key="form.sf36.previousPage"/></a></td>
                             <td>&nbsp;</td>
                         </tr>
                     </table>
@@ -1642,18 +1563,18 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right"><fmt:message key="form.sf36.studyId"/> <%= props.getProperty("studyID", "N/A") %>
                                 <input type="hidden" name="studyID"
                                        value="<%= props.getProperty("studyID", "N/A") %>"/></td>
                         </tr>

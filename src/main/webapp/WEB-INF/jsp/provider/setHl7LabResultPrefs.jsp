@@ -1,6 +1,9 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+<fmt:setBundle basename="oscarResources"/>
 
 <c:set var="roleName" value="${sessionScope.userrole},${sessionScope.user}" />
 
@@ -13,7 +16,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Set HL7 Lab Result Preferences</title>
+    <title><fmt:message key="provider.setHl7LabResultPrefs.title"/></title>
 
     <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" media="screen">
     <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -26,7 +29,7 @@
 <div class="container py-5">
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Set HL7 Lab Result Preferences</h5>
+            <h5 class="mb-0"><fmt:message key="provider.setHl7LabResultPrefs.header"/></h5>
         </div>
         <div class="card-body">
 
@@ -34,22 +37,22 @@
                 <input class="form-check-input" type="checkbox" id="offerFileForOthers"
                        <c:if test="${offerFileForOthers}">checked</c:if>>
                 <label class="form-check-label" for="offerFileForOthers">
-                    Automatically offer to file results on behalf of other providers when acknowledging HL7 lab results
+                    <fmt:message key="provider.setHl7LabResultPrefs.offerFileForOthers"/>
                 </label>
-                <div class="form-text text-muted">(default: yes)</div>
+                <div class="form-text text-muted"><fmt:message key="provider.setHl7LabResultPrefs.defaultYes"/></div>
             </div>
 
             <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" id="allowOthersFileForYou"
                        <c:if test="${allowOthersFileForYou}">checked</c:if>>
                 <label class="form-check-label" for="allowOthersFileForYou">
-                    Allow other providers to file results on your behalf when they acknowledge HL7 lab results
+                    <fmt:message key="provider.setHl7LabResultPrefs.allowOthersFileForYou"/>
                 </label>
-                <div class="form-text text-muted">(default: no)</div>
+                <div class="form-text text-muted"><fmt:message key="provider.setHl7LabResultPrefs.defaultNo"/></div>
             </div>
 
             <div id="successMessage" class="alert alert-success d-none" role="alert">
-                Preferences updated successfully.
+                <fmt:message key="provider.setHl7LabResultPrefs.success"/>
             </div>
 
         </div>

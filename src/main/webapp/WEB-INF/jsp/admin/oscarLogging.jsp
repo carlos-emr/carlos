@@ -49,7 +49,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Server Log Viewer</title>
+    <title><fmt:message key="admin.oscarLogging.title"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
     <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
@@ -64,7 +64,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:message key="admin.admin.serverLog"/>
+        <fmt:message key="admin.oscarLogging.heading"/>
     </h4>
 </div>
 
@@ -86,25 +86,25 @@
 
     <fieldset>
         <h4>
-            View Server Log <br>
-            <small>Please select the date to view report on and log type.</small>
+            <fmt:message key="admin.oscarLogging.viewHeading"/> <br>
+            <small><fmt:message key="admin.oscarLogging.subheading"/></small>
         </h4>
         <div class="mb-3">
-            <label class="form-label">Date</label>
+            <label class="form-label"><fmt:message key="admin.oscarLogging.date"/></label>
             <div>
                 <input type="text" id="reportDate" name="reportDate" class="form-control"
                        size="10" value="<e:forHtmlAttribute value='<%= reportDate %>' />">
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label">Select Report to view</label>
+            <label class="form-label"><fmt:message key="admin.oscarLogging.selectReport"/></label>
             <div>
                 <select name="reportType" id="reportType" class="form-select">
                     <option value="general" <%if (reportType.equals("general")) {%>
-                            selected <%}%>>General Report
+                            selected <%}%>><fmt:message key="admin.oscarLogging.generalReport"/>
                     </option>
                     <option value="mysql" <%if (reportType.equals("mysql")) {%>
-                            selected <%}%>>MySQL Transaction Report
+                            selected <%}%>><fmt:message key="admin.oscarLogging.mysqlReport"/>
                     </option>
                 </select>
             </div>
@@ -112,7 +112,7 @@
         <div class="mb-3">
             <div>
                 <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-download"></i> Get Report
+                    <i class="fa-solid fa-download"></i> <fmt:message key="admin.oscarLogging.getReport"/>
                 </button>
             </div>
         </div>

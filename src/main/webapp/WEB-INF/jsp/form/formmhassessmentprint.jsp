@@ -48,12 +48,13 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Print Mental Health Assessment</title>
+        <title><fmt:message key="form.mhAssessmentPrint.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
@@ -90,16 +91,16 @@
 
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>
 
     <table cellpadding="5" cellspacing="0">
         <tr>
-            <th align="left"><big>MENTAL HEALTH ASSESSMENT</big><br>
+            <th align="left"><big><fmt:message key="form.mhAssessmentPrint.heading"/></big><br>
                 <br>
             </th>
         </tr>
@@ -108,31 +109,31 @@
                 <table border="0" cellpadding="5" cellspacing="0"
                        class="tableWithBorder">
                     <tr>
-                        <td>Name:</td>
+                        <td><fmt:message key="form.mhAssessmentPrint.name"/>:</td>
                         <td align="left"><%= props.getProperty("c_pName", "") %>&nbsp;</td>
                     </tr>
                     <tr>
-                        <td>Sex:</td>
+                        <td><fmt:message key="form.mhAssessmentPrint.sex"/>:</td>
                         <td align="left"><%= props.getProperty("c_sex", "") %>&nbsp;</td>
                     </tr>
         </tr>
-        <td>Address:</td>
+        <td><fmt:message key="form.mhAssessmentPrint.address"/>:</td>
         <td align="left"><%= props.getProperty("c_address", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Home Phone:</td>
+            <td><fmt:message key="form.mhAssessmentPrint.homePhone"/>:</td>
             <td align="left"><%= props.getProperty("c_homePhone", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Birth Date <small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.mhAssessmentPrint.birthDate"/> <small>(yyyy/mm/dd)</small>:</td>
             <td align="left"><%= props.getProperty("c_birthDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referral Date<small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.mhAssessmentPrint.referralDate"/> <small>(yyyy/mm/dd)</small>:</td>
             <td align="left"><%= props.getProperty("c_referralDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referred By:</td>
+            <td><fmt:message key="form.mhAssessmentPrint.referredBy"/>:</td>
             <td align="left"><%= props.getProperty("c_referredBy", "") %>&nbsp;</td>
         </tr>
     </table>
@@ -142,7 +143,7 @@
         <td>
             <table>
                 <tr>
-                    <td class="mhSelect">Psychiatric Symptoms:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhAssessmentPrint.psychSymptoms"/>:<br>
                         <% String[] aps = list.loadData("mhAssessment/PsychiatricSymptoms.txt", projecthome, path);%>
                         1.
                         <b><%=props.getProperty("a_aps1", "---").equals("") ? "" : aps[Integer.parseInt(props.getProperty("a_aps1", "---")) - 1] %>
@@ -156,7 +157,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Psychosocial Issues:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhAssessmentPrint.psychosocialIssues"/>:<br>
                         <% String[] api = list.loadData("mhAssessment/PsychosocialIssues.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("a_api1", "---").equals("") ? "" : api[Integer.parseInt(props.getProperty("a_api1", "---")) - 1] %>
@@ -170,7 +171,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Med/Phy Issues:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhAssessmentPrint.medPhyIssues"/>:<br>
                         <% String[] ampi = list.loadData("mhAssessment/MedPhyIssues.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("a_ampi1", "---").equals("") ? "" : ampi[Integer.parseInt(props.getProperty("a_ampi1", "---")) - 1] %>
@@ -184,7 +185,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Treatment Plan:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhAssessmentPrint.treatmentPlan"/>:<br>
                         <% String[] tp = list.loadData("mhAssessment/TreatmentPlan.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("a_tp1", "---").equals("") ? "" : tp[Integer.parseInt(props.getProperty("a_tp1", "---")) - 1] %>
@@ -198,7 +199,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Comments:<br>
+                    <td class="mhSelect"><fmt:message key="form.mhAssessmentPrint.comments"/>:<br>
                         <%= props.getProperty("a_assComments", "")%>
                     </td>
                 </tr>
@@ -208,9 +209,9 @@
     </table>
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>

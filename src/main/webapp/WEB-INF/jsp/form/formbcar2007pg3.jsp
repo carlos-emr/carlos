@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -99,7 +101,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Antenatal Record 2</title>
+        <title><fmt:message key="form.bcar.titlePage2"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="<%=bView?"bcArStyleView.css" : "bcAr2007Style.css"%>">
         <!-- calendar stylesheet -->
@@ -110,7 +112,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -341,7 +343,7 @@
         }
 
         function calcBMI(field, weight) {
-            if (confirm("Before calculating BMI be sure that both the height and weight units are metric.")) {
+            if (confirm("Before calculating <fmt:message key="form.bcar.bmi"/> be sure that both the height and weight units are metric.")) {
 
                 if (isNumber(weight) && isNumber(document.forms[0].height)) {
                     var ht = document.forms[0].height.value / 100;
@@ -425,13 +427,13 @@
             ret = checkAllNumber();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
 
         function onExit() {
-            if (confirm("Are you sure you wish to exit without saving your changes?") == true) {
+            if (confirm("<fmt:message key='global.msgNotSave'/>") == true) {
                 window.close();
             }
             return (false);
@@ -443,7 +445,7 @@
             ret = checkAllNumber();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -616,7 +618,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -640,7 +642,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -886,11 +888,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             <tr>
                 <td><a href="javascript: function myFunction() {return false; }"
                        onclick="showHideBox('BMIdiv',0); return false;">
-                    <font color="#66FF66">The height and weight MUST be in metric for the BMI to calculate when you
-                        double click in the shaded cell. <br>
-                        If putting in weight or height in Standard measurement, double click each cell to convert to
-                        metric. Then, double click in the BMI cell to calculate. Do not put any text in the height or
-                        weight cells (kg.) or it will not calculate the BMI.</font><br>&nbsp;</a>
+                    <font color="#66FF66"><fmt:message key="form.bcar.bmiHelper"/></font><br>&nbsp;</a>
                 </td>
             </tr>
         </table>
@@ -908,7 +906,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <center><i>Discuss fetal movement at 26 - 32 weeks</i></center>
     </div>
     <div id="comment8Div" class="demo5" style="top:740px; left:735px; width:200px; height:20px;">
-        <center><i>EPDS at 28 - 32 weeks</i></center>
+        <center><i><fmt:message key="form.bcar.epdsHeader28to32Weeks"/></i></center>
     </div>
     <div id="comment9Div" class="demo5" style="top:762px; left:735px; width:200px; height:30px;">
         <center><i>Reassess diet, physical activity, smoking, substance & alcohol use</i></center>
@@ -975,15 +973,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <%
                         if (!bView) {
                     %>
-                    <input type="submit" style="width:40px;" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <%
                         }
                     %>
-                    <input type="submit" style="width:40px;" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" style="width:50px;" value="Print" onclick="javascript:return onPrint();"/>
-                    <input type="submit" value="Print AR1 & AR2" onclick="javascript:return onPrint12();"/>
-                    <input type="submit" style="width:75px;" value="Print All"
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" style="width:50px;" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
+                    <input type="submit" value="<fmt:message key="form.bcar.printAr1Ar2"/>" onclick="javascript:return onPrint12();"/>
+                    <input type="submit" style="width:75px;" value="<fmt:message key="form.bcar.printAll"/>"
                            onclick="javascript:return onPrintAll();"/>
                 </td>
 
@@ -992,8 +990,8 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 %>
                 <td>
                     <a href="javascript: function myFunction() {return false; }"
-                       title="Double click shaded fields for drop down or calculation"
-                       onClick="showHideBox('Instrdiv',1);return false;"><font color='red'>Instruction</font></a>
+                       title="<fmt:message key='form.bcar.doubleClickHint'/>"
+                       onClick="showHideBox('Instrdiv',1);return false;"><font color='red'><fmt:message key="form.bcar.instruction"/></font></a>
                 </td>
 
                 <!--<td align="right">  <b>View:</b>
@@ -1001,7 +999,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <a href="javascript: popupPage('form/formbcarpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
         </td>
         -->
-                <td align="right"><b>Edit:</b>
+                <td align="right"><b><fmt:message key="form.bcar.edit"/>:</b>
                     <a href="form/formbcar2007pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     <a href="form/formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
@@ -1022,20 +1020,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                British Columbia Antenatal Record Part 2 <font size="-2">BCPHP (HLTH) 1582-2 Rev.
+                                <fmt:message key="form.bcar.recordTitlePart2"/> <font size="-2">BCPHP (HLTH) 1582-2 Rev.
                                     2007/06/05</font></th>
                         </tr>
                     </table>
 
                     <table width="100%" border="1" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td width="50%"><b>12.</b>Intended place of birth<br>
+                            <td width="50%"><b>12.</b><fmt:message key="form.bcar.intendedPlaceOfBirth"/><br>
                                 <input type="text" name="ar2_inBirthPlace" class="spe"
                                        onDblClick="showPGBox('BirthPlacediv',1, this, event, 'ar2_inBirthPlace', 300, 80, 26);"
                                        style="width:100%" size="40" maxlength="60"
                                        value="<%= props.getProperty("ar2_inBirthPlace", "") %>" @oscar.formDB/>
                             </td>
-                            <td width="50%">Alternate place of birth (Hospital)<br>
+                            <td width="50%"><fmt:message key="form.bcar.alternatePlaceOfBirthHospital"/><br>
                                 <input type="text" name="ar2_inBirthPlaceAlt" style="width:100%" size="40"
                                        maxlength="60" value="<%= props.getProperty("ar2_inBirthPlaceAlt", "") %>"
                                        @oscar.formDB/>
@@ -1048,13 +1046,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td width="33%" valign="top">
                                 <table width="100%" border="1" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td colspan="2" align="left"><b>13. Investigations/Results</b></td>
+                                        <td colspan="2" align="left"><b>13.</b> <fmt:message key="form.bcar.investigationsResults"/></td>
                                     </tr>
                                     <tr>
                                         <td>
                                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                                 <tr>
-                                                    <td><span class="small9">ABO group</span><br>
+                                                    <td><span class="small9"><fmt:message key="form.bcar.aboGroup"/></span><br>
                                                         <!--input type="text" name="ar2_labBlood" style="width:100%" size="10" maxlength="12" value="<%--= props.getProperty("ar2_labBlood", "") --%>" @oscar.formDB /-->
                                                         <select name="ar2_labBlood" style="width:100%">
                                                             <%
@@ -1066,7 +1064,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                             <%}%>
                                                         </select>
                                                     </td>
-                                                    <td><span class="small9">Rh factor</span><br>
+                                                    <td><span class="small9"><fmt:message key="form.bcar.rhFactor"/></span><br>
                                                         <!--input type="text" name="ar2_labRh" style="width:100%" size="10" maxlength="12" value="<%--= props.getProperty("ar2_labRh", "") --%>" @oscar.formDB /-->
                                                         <select name="ar2_labRh" style="width:100%">
                                                             <option value="" <%=props.getProperty("ar2_labRh", "").equals("") ? "selected" : ""%> ></option>
@@ -1086,12 +1084,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                                 <tr>
-                                                    <td colspan="3"><span class="small9">Antibody titre</span></td>
+                                                    <td colspan="3"><span class="small9"><fmt:message key="form.bcar.antibodyTitre"/></span></td>
                                                 </tr>
                                                 <tr>
                                                     <td></td>
                                                     <td width="60%"><span class="small8"><I>DD/MM/YYYY</I></font></td>
-                                                    <td><span class="small8"><I>Results</I></font></td>
+                                                    <td><span class="small8"><I><fmt:message key="form.bcar.results"/></I></font></td>
                                                 </tr>
                                                 <tr>
                                                     <td><span class="small9">1</span></td>
@@ -1132,7 +1130,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                                 <tr>
-                                                    <td colspan="2"><span class="small9">RhIg given</span>
+                                                    <td colspan="2"><span class="small9"><fmt:message key="form.bcar.rhIgGiven"/></span>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1166,7 +1164,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                                 <tr>
-                                                    <td colspan="2"><span class="small9">Hemoglobin</span>
+                                                    <td colspan="2"><span class="small9"><fmt:message key="form.bcar.hemoglobin"/></span>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1191,7 +1189,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                             <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                                 <tr>
                                                     <td colspan="2">
-                                                        <span class="small9">Urine C &amp; S</span>
+                                                        <span class="small9"><fmt:message key="form.bcar.urineCS"/></span>
                                                         <select name="ar2_urineCS" style="width:100%">
                                                             <option value="" <%=props.getProperty("ar2_urineCS", "").equals("") ? "selected" : ""%> ></option>
                                                             <option value="+ve" <%=props.getProperty("ar2_urineCS", "").equals("+ve") ? "selected" : ""%> >
@@ -1220,13 +1218,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td><span class="small9">Rubella titre</span></td>
+                                        <td><span class="small9"><fmt:message key="form.bcar.rubellaTitre"/></span></td>
                                     </tr>
                                     <tr>
                                         <td><input type="checkbox"
                                                    name="ar2_labPPvac" <%= props.getProperty("ar2_labPPvac", "")%>
                                                    @oscar.formDB dbType="tinyint(1)"/>
-                                            <span class="small8">PP vaccination indicated</span></td>
+                                            <span class="small8"><fmt:message key="form.bcar.ppVaccinationIndicated"/></span></td>
                                     </tr>
                                     <tr>
                                         <td>
@@ -1266,13 +1264,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr valign="top">
                                         <td width="50%" valign="bottom">
-                                            <span class="small9">HIV test done</span>
+                                            <span class="small9"><fmt:message key="form.bcar.hivTestDone"/></span>
                                         </td>
                                         <td>
                                             <input type="checkbox"
                                                    name="ar2_labHivTestN" <%= props.getProperty("ar2_labHivTestN", "")%>
                                                    @oscar.formDB dbType="tinyint(1)"/>
-                                            <span class="small8">No
+                                            <span class="small8"><fmt:message key="form.bcar.no"/>
                                 <input type="checkbox"
                                        name="ar2_labHivTestY" <%= props.getProperty("ar2_labHivTestY", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
@@ -1300,12 +1298,12 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr>
-                                        <td valign="bottom"><span class="small9">HBsAg done</span></td>
+                                        <td valign="bottom"><span class="small9"><fmt:message key="form.bcar.hbsAgDone"/></span></td>
                                         <td>
                                             <input type="checkbox"
                                                    name="ar2_labHBsAgN" <%= props.getProperty("ar2_labHBsAgN", "")%>
                                                    @oscar.formDB dbType="tinyint(1)"/>
-                                            <span class="small8">No
+                                            <span class="small8"><fmt:message key="form.bcar.no"/>
                                 <input type="checkbox" name="ar2_labHBsAgY" <%= props.getProperty("ar2_labHBsAgY", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                                    Yes</span>
@@ -1316,7 +1314,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             </span><img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_labHBsAgDate_cal">
                                         </td>
                                         <td align="center">
-                                            <span class="small8"><i>Results</i></span>
+                                            <span class="small8"><i><fmt:message key="form.bcar.results"/></i></span>
                                         </td>
                                     </tr>
                                     <tr>
@@ -1358,7 +1356,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                     <tr>
                                         <td colspan="2">
-                                            <span class="small9">Other tests (e.g. Hep C, TSH, Varicella)</span>
+                                            <span class="small9"><fmt:message key="form.bcar.otherTests"/></span>
                                         </td>
                                     </tr>
                                     <tr>
@@ -1498,7 +1496,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td><span class="small8"><I>DD/MM/YYYY</I></span><img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                               id="ar2_labGGTDate_cal">
                                         </td>
-                                        <td align="center"><span class="small8"><I>Results</I></font></td>
+                                        <td align="center"><span class="small8"><I><fmt:message key="form.bcar.results"/></I></font></td>
                                     </tr>
                                     <tr>
                                         <td width="55%">
@@ -1537,7 +1535,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                             <input type="checkbox"
                                                    name="ar2_labGBSTestN" <%= props.getProperty("ar2_labGBSTestN", "")%>
                                                    @oscar.formDB dbType="tinyint(1)">
-                                            <span class="small8">No
+                                            <span class="small8"><fmt:message key="form.bcar.no"/>
                 <input type="checkbox" name="ar2_labGBSTestY" <%= props.getProperty("ar2_labGBSTestY", "")%>
                        @oscar.formDB dbType="tinyint(1)">
                    Yes</span>
@@ -1547,7 +1545,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td><span class="small8"><I>DD/MM/YYYY</I></span><img src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                               id="ar2_labGBSDate_cal">
                                         </td>
-                                        <td align="center"><span class="small8"><I>Results</I></font></td>
+                                        <td align="center"><span class="small8"><I><fmt:message key="form.bcar.results"/></I></font></td>
                                     </tr>
                                     <tr>
                                         <td width="55%">
@@ -1574,7 +1572,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                             <input type="checkbox"
                                                    name="ar2_labGBScopy" <%= props.getProperty("ar2_labGBScopy", "")%>
                                                    @oscar.formDB dbType="tinyint(1)">
-                                            <span class="small8">Copy to hospital</span>
+                                            <span class="small8"><fmt:message key="form.bcar.copyToHospital"/></span>
                                         </td>
                                     </tr>
                                 </table>
@@ -1611,11 +1609,11 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     </tr>
                                     <tr>
                                         <td colspan="2">
-                                            <span class="small9">Follow-up</span>
+                                            <span class="small9"><fmt:message key="form.bcar.followUp"/></span>
                                             <input type="checkbox"
                                                    name="ar2_labEdinN" <%= props.getProperty("ar2_labEdinN", "")%>
                                                    @oscar.formDB dbType="tinyint(1)">
-                                            <span class="small8">No
+                                            <span class="small8"><fmt:message key="form.bcar.no"/>
                         <input type="checkbox" name="ar2_labEdinY" <%= props.getProperty("ar2_labEdinY", "")%>
                                @oscar.formDB dbType="tinyint(1)">
                            Yes</span>
@@ -1633,10 +1631,10 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <td><B>14.</B></td>
-                            <td><span class="small9">Age</span></td>
-                            <td><span class="small9">Pre-pregnant weight</span></td>
-                            <td><span class="small9">LMP</span> <span class="small8"><i>DD/MM/YYYY</i></span></td>
-                            <td><span class="small9">EDD</span> <span class="small8"><i>DD/MM/YYYY</i></span></td>
+                            <td><span class="small9"><fmt:message key="form.bcar.age"/></span></td>
+                            <td><span class="small9"><fmt:message key="form.bcar.prePregnantWeight"/></span></td>
+                            <td><span class="small9"><fmt:message key="form.bcar.lmp"/></span> <span class="small8"><i>DD/MM/YYYY</i></span></td>
+                            <td><span class="small9"><fmt:message key="form.bcar.edd"/></span> <span class="small8"><i>DD/MM/YYYY</i></span></td>
                         </tr>
                         <tr>
                             <td></td>
@@ -1680,17 +1678,17 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 </td>
                             </tr>
                             <tr>
-                                <td width="55%">Surname<br>
+                                <td width="55%"><fmt:message key="form.bcar.surname"/><br>
                                     <input type="text" name="c_surname" style="width:100%" size="30" maxlength="30"
                                            value="<%= props.getProperty("c_surname", "") %>" @oscar.formDB/>
                                 </td>
-                                <td>Given Name<br>
+                                <td><fmt:message key="form.bcar.givenName"/><br>
                                     <input type="text" name="c_givenName" style="width:100%" size="30" maxlength="30"
                                            value="<%= props.getProperty("c_givenName", "") %>" @oscar.formDB/>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2">Address<br>
+                                <td colspan="2"><fmt:message key="form.bcar.address"/><br>
                                     <input type="text" name="c_address" style="width:100%" size="50" maxlength="60"
                                            value="<%= props.getProperty("c_address", "") %>" @oscar.formDB/>
                                     <input type="text" name="c_city" style="width:50%" size="50" maxlength="60"
@@ -1702,18 +1700,18 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 </td>
                             </tr>
                             <tr>
-                                <td valign="top">Phone Number<br>
+                                <td valign="top"><fmt:message key="form.bcar.phoneNumber"/><br>
                                     <input type="text" name="c_phone" style="width:100%" size="60" maxlength="60"
                                            value="<%= props.getProperty("c_phone", "") %>" @oscar.formDB/>
                                 </td>
-                                <td>Personal Health Number<br>
+                                <td><fmt:message key="form.bcar.personalHealthNumber"/><br>
                                     <input type="text" name="c_phn" style="width:100%" size="20" maxlength="20"
                                            value="<%= props.getProperty("c_phn", "") %>" @oscar.formDB/>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
-                                    Alternate Phone Number #1<br>
+                                    <fmt:message key="form.bcar.alternatePhoneNumber1"/><br>
                                     <input type="text" name="c_phoneAlt1" style="width:100%" size="60" maxlength="60"
                                            value="<%= props.getProperty("c_phoneAlt1", "") %>" @oscar.formDB/>
                                 </td>
@@ -1721,7 +1719,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             </tr>
                             <tr>
                                 <td>
-                                    Alternate Phone Number #2<br>
+                                    <fmt:message key="form.bcar.alternatePhoneNumber2"/><br>
                                     <input type="text" name="c_phoneAlt2" style="width:100%" size="60" maxlength="60"
                                            value="<%= props.getProperty("c_phoneAlt2", "") %>" @oscar.formDB/>
                                 </td>
@@ -1737,35 +1735,35 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <td>
                         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                             <tr>
-                                <td colspan="2" align="left"><b>15. Potential or Actual Concerns:</b></td>
+                                <td colspan="2" align="left"><b>15. <fmt:message key="form.bcar.potentialOrActualConcerns"/></b></td>
                             </tr>
                             <tr>
-                                <td width="20%"><span class="small9">Lifestyle:</span></td>
+                                <td width="20%"><span class="small9"><fmt:message key="form.bcar.lifestyle"/></span></td>
                                 <td>
                                     <input type="text" name="ar2_proLife" style="width:100%" size="40" maxlength="50"
                                            value="<%= props.getProperty("ar2_proLife", "") %>" @oscar.formDB/>
                             </tr>
                             <tr>
-                                <td width="20%"><span class="small9">Pregnancy:</span></td>
+                                <td width="20%"><span class="small9"><fmt:message key="form.bcar.pregnancy"/></span></td>
                                 <td>
                                     <input type="text" name="ar2_proPreg" style="width:100%" size="40" maxlength="50"
                                            value="<%= props.getProperty("ar2_proPreg", "") %>" @oscar.formDB/>
                             </tr>
                             <tr>
-                                <td width="20%"><span class="small9">Labour:</span></td>
+                                <td width="20%"><span class="small9"><fmt:message key="form.bcar.labour"/></span></td>
                                 <td>
                                     <input type="text" name="ar2_proLabour" style="width:100%" size="40" maxlength="50"
                                            value="<%= props.getProperty("ar2_proLabour", "") %>" @oscar.formDB/>
                             </tr>
                             <tr>
-                                <td width="20%"><span class="small9">Postpartum:</span></td>
+                                <td width="20%"><span class="small9"><fmt:message key="form.bcar.postpartum"/></span></td>
                                 <td>
                                     <input type="text" name="ar2_proPostPartum" style="width:100%" size="40"
                                            maxlength="50" value="<%= props.getProperty("ar2_proPostPartum", "") %>"
                                            @oscar.formDB/>
                             </tr>
                             <tr>
-                                <td width="20%"><span class="small9">Newborn:</span></td>
+                                <td width="20%"><span class="small9"><fmt:message key="form.bcar.newborn"/></span></td>
                                 <td>
                                     <input type="text" name="ar2_proNewBorn" style="width:100%" size="40" maxlength="50"
                                            value="<%= props.getProperty("ar2_proNewBorn", "") %>" @oscar.formDB/>
@@ -1786,18 +1784,18 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
-                <td width="7%" valign="top"><b>16.</b> DATE<br><br><span class="small8"><i>DD/MM/YYYY</i></span></td>
-                <td width="7%" valign="top" align="center">B.P.</td>
-                <td width="7%" valign="top" align="center">Urine<br><br>P &nbsp;&nbsp;&nbsp; G</td>
-                <td width="5%" valign="top" align="center">Wt.<br><br><span class="small8"><i>KG</i></span></td>
-                <td width="5%" valign="top" align="center">BMI</td>
-                <td width="6%" valign="top" align="center"><span class="small9">Gest.<br>Wks.</span></td>
-                <td width="7%" valign="top" align="center"><span class="small9">Fundus<br>cms.</span></td>
+                <td width="7%" valign="top"><b>16.</b> <fmt:message key="form.bcar.date"/><br><br><span class="small8"><i>DD/MM/YYYY</i></span></td>
+                <td width="7%" valign="top" align="center"><fmt:message key="form.bcar.bp"/></td>
+                <td width="7%" valign="top" align="center"><fmt:message key="form.bcar.urinePg"/></td>
+                <td width="5%" valign="top" align="center"><fmt:message key="form.bcar.wt"/><br><br><span class="small8"><i><fmt:message key="form.bcar.kg"/></i></span></td>
+                <td width="5%" valign="top" align="center"><fmt:message key="form.bcar.bmi"/></td>
+                <td width="6%" valign="top" align="center"><span class="small9"><fmt:message key="form.bcar.gestWeeks"/></span></td>
+                <td width="7%" valign="top" align="center"><span class="small9"><fmt:message key="form.bcar.fundusCms"/></span></td>
                 <td width="7%" valign="top" align="center">FHR</td>
                 <td width="3%" valign="top" align="center">FM</td>
-                <td width="7%" valign="top" align="center"><span class="small9">Pres.<br>and<br>Pos.</span></td>
-                <td width="30%" valign="bottom" align="center"><span class="small9">Comments</span></td>
-                <td width="6%" align="center" valign="bottom"><span class="small8">Return in</span></td>
+                <td width="7%" valign="top" align="center"><span class="small9"><fmt:message key="form.bcar.presAndPos"/></span></td>
+                <td width="30%" valign="bottom" align="center"><span class="small9"><fmt:message key="form.bcar.comments"/></span></td>
+                <td width="6%" align="center" valign="bottom"><span class="small8"><fmt:message key="form.bcar.returnIn"/></span></td>
                 </td>
             </tr>
             <tr>
@@ -2028,10 +2026,10 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 <td><span class="small8"><font color="red">
         <input type="checkbox" name="pg3_toPatient20" <%= props.getProperty("pg3_toPatient20", "")%> @oscar.formDB
                dbType="tinyint(1)">
-        Copy given to patient<br>
+        <fmt:message key="form.bcar.copyGivenToPatient"/><br>
         <input type="checkbox" name="pg3_SentHosp20" <%= props.getProperty("pg3_SentHosp20", "")%> @oscar.formDB
                dbType="tinyint(1)">
-        Copy sent to hospital at 20 weeks
+        <fmt:message key="form.bcar.copySentToHospitalAt20Weeks"/>
         </font><br></span>
                     <input type="text" name="pg3_comment4" style="width:100%" size="50" maxlength="80"
                            value="<%= props.getProperty("pg3_comment4", "") %>" @oscar.formDB/>
@@ -2769,7 +2767,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Call schedule</span>
+                                <span class="small9"><fmt:message key="form.bcar.callSchedule"/></span>
                             </td>
                             <td>
                                 <input type="checkbox"
@@ -2777,21 +2775,21 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                        dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Preterm labour</span>
+                                <span class="small9"><fmt:message key="form.bcar.pretermLabour"/></span>
                             </td>
                             <td>
                                 <input type="checkbox" name="ar2_topHosp" <%= props.getProperty("ar2_topHosp", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Hospital admission</span>
+                                <span class="small9"><fmt:message key="form.bcar.hospitalAdmission"/></span>
                             </td>
                             <td>
-                                <input type="checkbox" name="ar2_topDoula" <%= props.getProperty("ar2_topDoula", "")%>
+                                <input type="checkbox" name="ar2_top<fmt:message key="form.bcar.doula"/>" <%= props.getProperty("ar2_top<fmt:message key="form.bcar.doula"/>", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Doula</span>
+                                <span class="small9"><fmt:message key="form.bcar.doula"/></span>
                             </td>
                             <td>
                                 <input type="checkbox" name="ar2_topSleep" <%= props.getProperty("ar2_topSleep", "")%>
@@ -2822,21 +2820,21 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Birth plan</span>
+                                <span class="small9"><fmt:message key="form.bcar.birthPlan"/></span>
                             </td>
                             <td>
-                                <input type="checkbox" name="ar2_topVBAC" <%= props.getProperty("ar2_topVBAC", "")%>
+                                <input type="checkbox" name="ar2_top<fmt:message key="form.bcar.vbac"/>" <%= props.getProperty("ar2_top<fmt:message key="form.bcar.vbac"/>", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">VBAC</span>
+                                <span class="small9"><fmt:message key="form.bcar.vbac"/></span>
                             </td>
                             <td>
                                 <input type="checkbox" name="ar2_topSeats" <%= props.getProperty("ar2_topSeats", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Infant car seats</span>
+                                <span class="small9"><fmt:message key="form.bcar.infantCarSeats"/></span>
                             </td>
                         </tr>
                         <tr>
@@ -2847,21 +2845,21 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Breastfeeding</span>
+                                <span class="small9"><fmt:message key="form.bcar.breastfeeding"/></span>
                             </td>
                             <td>
                                 <input type="checkbox" name="ar2_topPain" <%= props.getProperty("ar2_topPain", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Pain management</span>
+                                <span class="small9"><fmt:message key="form.bcar.painManagement"/></span>
                             </td>
                             <td>
                                 <input type="checkbox" name="ar2_topCSec" <%= props.getProperty("ar2_topCSec", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
                             </td>
                             <td>
-                                <span class="small9">Cesarean</span>
+                                <span class="small9"><fmt:message key="form.bcar.cesarean"/></span>
                             </td>
                         </tr>
                     </table>
@@ -2873,7 +2871,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
                             <th colspan="6" align="left">
-                                18. Other Investigations &amp; Comments
+                                <fmt:message key="form.bcar.otherInvestigationsComments"/>
                             </th>
                         </tr>
                         <tr>
@@ -2883,7 +2881,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             </td>
                             <td></td>
                             <td>
-                                <span class="small8"><i>weeks + days</i></span>
+                                <span class="small8"><i><fmt:message key="form.bcar.weeksPlusDays"/></i></span>
                             </td>
                             <td colspan="2"></td>
                         </tr>
@@ -2898,24 +2896,24 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_1USoundDate_cal">
                             </td>
                             <td>
-                                <span class="small9">GA by US</span>
+                                <span class="small9"><fmt:message key="form.bcar.gaByUs"/></span>
                             </td>
                             <td>
                                 <input type="text" name="ar2_gestAgeUs" style="width:100%" size="10" maxlength="10"
                                        value="<%= props.getProperty("ar2_gestAgeUs", "") %>" @oscar.formDB/>
                             </td>
                             <td align="right">
-                                <span class="small9">If maternal prenatal screen above cut off, amnio:</span>
+                                <span class="small9"><fmt:message key="form.bcar.amnioIfAboveCutoff"/></span>
                             </td>
                             <td>
                                 <input type="checkbox"
                                        name="ar2_amnioCutOffY" <%= props.getProperty("ar2_amnioCutOffY", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
-                                <span class="small8">Yes</span>
+                                <span class="small8"><fmt:message key="form.bcar.yes"/></span>
                                 <input type="checkbox"
                                        name="ar2_amnioCutOffN" <%= props.getProperty("ar2_amnioCutOffN", "")%>
                                        @oscar.formDB dbType="tinyint(1)"/>
-                                <span class="small8">No</span>
+                                <span class="small8"><fmt:message key="form.bcar.no"/></span>
                             </td>
                         </tr>
                     </table>
@@ -2923,7 +2921,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <table width="100%" border="0" cellspacing="2" cellpadding="0">
                         <tr>
                             <td colspan="4" width="70%">
-                                <span class="small9">Comments</span>
+                                <span class="small9"><fmt:message key="form.bcar.comments"/></span>
                             </td>
                             <td width="30%"></td>
                         </tr>
@@ -2936,7 +2934,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         </tr>
                         <tr>
                             <td colspan="4">
-                                <span class="small9">Other Investigations</span>
+                                <span class="small9"><fmt:message key="form.bcar.otherInvestigations"/></span>
                             </td>
                             <td></td>
                         </tr>
@@ -2948,7 +2946,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td></td>
                         </tr>
                         <tr>
-                            <td><span class="small9">Doula:</span></td>
+                            <td><span class="small9"><fmt:message key="form.bcar.doula"/>:</span></td>
                             <td
                             <input type="text" name="pg3_doula" style="width:100%" size="50" maxlength="100"
                                    value="<%= props.getProperty("pg3_doula", "") %>" @oscar.formDB/>
@@ -2962,7 +2960,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             </tr>
             <tr>
                 <td colspan="4"><br>
-                    <span class="small9">Signature</span>
+                    <span class="small9"><fmt:message key="form.bcar.signature"/></span>
                 </td>
             </tr>
             <tr>
@@ -2971,7 +2969,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                            value="<%= props.getProperty("pg3_signature", "") %>" @oscar.formDB/>
                 </td>
                 <td colspan="2">
-                    <span class="small9">MD/RM</span>
+                    <span class="small9"><fmt:message key="form.bcar.mdRm"/></span>
                 </td>
             </tr>
         </table>
@@ -2987,15 +2985,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                     <%
                         if (!bView) {
                     %>
-                    <input type="submit" style="width:40px;" value="Save" onclick="javascript:return onSave();"/>
-                    <input type="submit" value="Save and Exit" onclick="javascript:return onSaveExit();"/>
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.save"/>" onclick="javascript:return onSave();"/>
+                    <input type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript:return onSaveExit();"/>
                     <%
                         }
                     %>
-                    <input type="submit" style="width:40px;" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" style="width:50px;" value="Print" onclick="javascript:return onPrint();"/>
-                    <input type="submit" value="Print AR1 & AR2" onclick="javascript:return onPrint12();"/>
-                    <input type="submit" style="width:75px;" value="Print All"
+                    <input type="submit" style="width:40px;" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" style="width:50px;" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
+                    <input type="submit" value="<fmt:message key="form.bcar.printAr1Ar2"/>" onclick="javascript:return onPrint12();"/>
+                    <input type="submit" style="width:75px;" value="<fmt:message key="form.bcar.printAll"/>"
                            onclick="javascript:return onPrintAll();"/>
                 </td>
 
@@ -3010,7 +3008,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <a href="javascript: popupPage('form/formbcarpg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');"> AR1</a> |
         <a href="javascript: popupPage('form/formbcarpg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2 <font size=-2>(pg.2)</font></a>
         </td>-->
-                <td align="right"><b>Edit:</b>
+                <td align="right"><b><fmt:message key="form.bcar.edit"/>:</b>
                     <a href="form/formbcar2007pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     <a href="form/formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2

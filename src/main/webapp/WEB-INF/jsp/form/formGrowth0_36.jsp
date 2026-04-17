@@ -1,4 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,7 +47,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>CDC US Growth Charts</title>
+        <title><fmt:message key="form.growth0_36.title"/></title>
         <link rel="stylesheet" type="text/css" href="bcArStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -56,7 +58,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -114,7 +116,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -124,7 +126,7 @@
             var ret = checkAllDates();
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -168,7 +170,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -316,12 +318,12 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
                     <!--input type="submit" value="Print Growth" onclick="javascript:return onPrintStatureWeight();return false;"/>
                     <input type="submit" value="Print BMI" onclick="javascript:return onPrintBMI();return false;"/-->
                 </td>
@@ -346,11 +348,11 @@
 
                         <table width="100%" border="0" cellspacing="0" cellpadding="0">
                             <tr>
-                                <td align="right">Name <input type="text" name="patientName"
+                                <td align="right"><fmt:message key="form.growth0_36.name"/> <input type="text" name="patientName"
                                                               size="50" maxlength="80"
                                                               value="<%= props.getProperty("patientName", "") %>"
                                                               @oscar.formDB/>
-                                    Record # <input type="text" name="recordNo" size="10"
+                                    <fmt:message key="form.growth0_36.recordNo"/> <input type="text" name="recordNo" size="10"
                                                     maxlength="10" value="<%= props.getProperty("recordNo", "") %>"
                                                     @oscar.formDB/></td>
                             </tr>
@@ -358,25 +360,25 @@
 
                         <table border="0" cellspacing="0" cellpadding="0">
                             <tr>
-                                <td nowrap>Mother's Stature</td>
+                                <td nowrap><fmt:message key="form.growth0_36.mothersStature"/></td>
                                 <td><input type="text" name="motherStature" size="50"
                                            maxlength="80"
                                            value="<%= props.getProperty("motherStature", "") %>"
                                            @oscar.formDB/></td>
-                                <td nowrap align="right">Gestational Age:</td>
+                                <td nowrap align="right"><fmt:message key="form.growth0_36.gestationalAge"/>:</td>
                                 <td><input type="text" name="gestationalAge" size="10"
                                            maxlength="5"
                                            value="<%= props.getProperty("gestationalAge", "") %>"
-                                           @oscar.formDB/> weeks
+                                           @oscar.formDB/> <fmt:message key="form.growth0_36.weeks"/>
                                 </td>
                             </tr>
                             <tr>
-                                <td nowrap>Father's Stature</td>
+                                <td nowrap><fmt:message key="form.growth0_36.fathersStature"/></td>
                                 <td><input type="text" name="fatherStature" size="50"
                                            maxlength="80"
                                            value="<%= props.getProperty("fatherStature", "") %>"
                                            @oscar.formDB/></td>
-                                <td nowrap align="right">Expected Date of Confinement:</td>
+                                <td nowrap align="right"><fmt:message key="form.growth0_36.expectedDateOfConfinement"/>:</td>
                                 <td><input type="text" name="edc" id="edc" size="10"
                                            maxlength="10" value="<%= props.getProperty("edc", "") %>"
                                            @oscar.formDB/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="edc_cal">
@@ -398,18 +400,18 @@
                         <table width="100%" border="1" cellspacing="1" cellpadding="0"
                                bgcolor="<%= bGirl? girlColor:boyColor%>">
                             <tr>
-                                <th width="10%">Date</th>
-                                <th width="10%">Age</th>
-                                <th width="10%">Weight<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.date"/></th>
+                                <th width="10%"><fmt:message key="form.growth0_36.age"/></th>
+                                <th width="10%"><fmt:message key="form.growth0_36.weight"/><br>
                                     (kg)
                                 </th>
-                                <th width="10%">Length<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.length"/><br>
                                     (cm)
                                 </th>
-                                <th width="10%">Head Circ.<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.headCirc"/><br>
                                     (cm)
                                 </th>
-                                <th width="50%">Comment</th>
+                                <th width="50%"><fmt:message key="form.growth0_36.comment"/></th>
                             </tr>
                             <%
                                 int n = 1;
@@ -444,11 +446,11 @@
                             <% } %>
                             <tr class="Head">
                                 <td align="center" colspan="6"><input type="submit"
-                                                                      value="Print Growth"
+                                                                      value="<fmt:message key='form.growth0_36.printGrowth'/>"
                                                                       onclick="javascript:return onPrintStatureWeight(1);return false;"/>
-                                    <input type="submit" value="Head Circ(1)"
+                                    <input type="submit" value="<fmt:message key='form.growth0_36.headCirc1'/>"
                                            onclick="javascript:return onPrintHeadCirc(15);return false;"/> <input
-                                            type="submit" value="Head Circ(2)"
+                                            type="submit" value="<fmt:message key='form.growth0_36.headCirc2'/>"
                                             onclick="javascript:return onPrintHeadCirc(25);return false;"/></td>
                             </tr>
 
@@ -461,18 +463,18 @@
                         <table width="100%" border="1" cellspacing="1" cellpadding="0"
                                bgcolor="<%= bGirl? girlColor:boyColor%>">
                             <tr>
-                                <th width="10%">Date</th>
-                                <th width="10%">Age</th>
-                                <th width="10%">Weight<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.date"/></th>
+                                <th width="10%"><fmt:message key="form.growth0_36.age"/></th>
+                                <th width="10%"><fmt:message key="form.growth0_36.weight"/><br>
                                     (kg)
                                 </th>
-                                <th width="10%">Length<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.length"/><br>
                                     (cm)
                                 </th>
-                                <th width="10%">Head Circ.<br>
+                                <th width="10%"><fmt:message key="form.growth0_36.headCirc"/><br>
                                     (cm)
                                 </th>
-                                <th width="50%">Comment</th>
+                                <th width="50%"><fmt:message key="form.growth0_36.comment"/></th>
                             </tr>
                             <%
                                 n = 2;
@@ -507,11 +509,11 @@
                             <% } %>
                             <tr class="Head">
                                 <td align="center" colspan="6"><input type="submit"
-                                                                      value="Print Growth"
+                                                                      value="<fmt:message key='form.growth0_36.printGrowth'/>"
                                                                       onclick="javascript:return onPrintStatureWeight(2);return false;"/>
-                                    <input type="submit" value="Head Circ(1)"
+                                    <input type="submit" value="<fmt:message key='form.growth0_36.headCirc1'/>"
                                            onclick="javascript:return onPrintHeadCirc(35);return false;"/> <input
-                                            type="submit" value="Head Circ(2)"
+                                            type="submit" value="<fmt:message key='form.growth0_36.headCirc2'/>"
                                             onclick="javascript:return onPrintHeadCirc(45);return false;"/></td>
                             </tr>
                         </table>
@@ -525,12 +527,12 @@
         <br>
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
                     <!--input type="submit" value="Print Growth" onclick="javascript:return onPrintStatureWeight();return false;"/>
                     <input type="submit" value="Print BMI" onclick="javascript:return onPrintBMI();return false;"/-->
                 </td>

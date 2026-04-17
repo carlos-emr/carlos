@@ -303,7 +303,7 @@
                             <td id="phuLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPHU"/>:</b></td>
                             <td id="phuLblCell" align="left">
                                 <select id="PHU" name="PHU">
-                                    <option value="">Select Below</option>
+                                    <option value=""><fmt:message key="demographic.demographicaddrecordhtm.optSelectBelow"/></option>
                                     <%
                                         String defaultPhu = CarlosProperties.getInstance().getProperty("default_phu");
 
@@ -324,7 +324,7 @@
                                         }
                                     } else {
                                     %>
-                                    <option value="">None Available</option>
+                                    <option value=""><fmt:message key="demographic.demographicaddrecordhtm.optNoneAvailable"/></option>
                                     <%
                                         }
 
@@ -546,16 +546,16 @@
                                                    id="optin_${ consentType.type }"
                                                    value="0"
                                             />
-                                            <label for="optin_${ consentType.type }">Opt-In</label>
+                                            <label for="optin_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optIn"/></label>
                                             <input type="radio"
                                                    name="${ consentType.type }"
                                                    id="optout_${ consentType.type }"
                                                    value="1"
                                             />
-                                            <label for="optout_${ consentType.type }">Opt-Out</label>
+                                            <label for="optout_${ consentType.type }"><fmt:message key="demographic.demographicaddrecordhtm.optOut"/></label>
                                             <input type="button"
                                                    name="clearRadio_${consentType.type}_btn"
-                                                   onclick="consentClearBtn('${consentType.type}')" value="Clear"/>
+                                                   onclick="consentClearBtn('${consentType.type}')" value="<fmt:message key='demographic.demographicaddrecordhtm.clear'/>"/>
 
                                         </td>
 
@@ -570,11 +570,11 @@
                             <td colspan="4">
                                 <table>
                                     <tr bgcolor="#CCCCFF" class="category_table_heading">
-                                        <th colspan="2" class="alignLeft">Program Admissions</th>
+                                        <th colspan="2" class="alignLeft"><fmt:message key="demographic.demographicaddrecordhtm.programAdmissions"/></th>
                                     </tr>
                                     <tr>
-                                        <td>Residential Status:</td>
-                                        <td>Service Programs</td>
+                                        <td><fmt:message key="demographic.demographicaddrecordhtm.residentialStatus"/></td>
+                                        <td><fmt:message key="demographic.demographicaddrecordhtm.servicePrograms"/></td>
                                     </tr>
                                     <tr>
                                         <td>
@@ -604,7 +604,7 @@
                                                     // If no OSCAR program and no bed programs, still need a value
                                                     if (oscarProgram == null && bedP.length == 0) {
                                                 %>
-                                                <option value="">No programs available</option>
+                                                <option value=""><fmt:message key="demographic.demographicaddrecordhtm.noProgramsAvailable"/></option>
                                                 <%
                                                     }
                                                 %>

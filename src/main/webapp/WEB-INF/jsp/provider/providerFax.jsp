@@ -90,10 +90,10 @@
                 %> <form action="${pageContext.request.contextPath}/EditFaxNum" method="post">
 
 
-			<span style="color:blue">By entering in a value, you will 
+			<span style="color:blue"><fmt:message key="provider.providerFax.noticeIntro"/>
 			<ul>
-			<li>Override the fax # in prescriptions</li>
-			<li> When choosing your letterhead in consult requests, the clinic fax # and your provider record's fax # will be overridden
+			<li><fmt:message key="provider.providerFax.overridePrescriptionFax"/></li>
+			<li> <fmt:message key="provider.providerFax.overrideConsultFax"/>
 			</li>
 			</ul>
 			</span>

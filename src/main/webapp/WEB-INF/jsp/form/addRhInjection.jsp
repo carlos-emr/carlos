@@ -121,7 +121,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Rh Immune Globulin Injection Reporting Form</title>
+        <title><fmt:message key="form.addRhInjection.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -207,7 +207,7 @@
             for (i = 0; formInject.reason_check.length; i++) {
                 if (formInject.reason_check[i].checked) {
                     //alert(formInject.reason_check[i].value);
-                    if (formInject.reason_check[i].value == 'Other') {
+                    if (formInject.reason_check[i].value == '<fmt:message key="form.addRhInjection.reason.other"/>') {
                         formInject.reason.value = document.getElementById('reasonOtherText').value;
                     } else {
                         formInject.reason.value = formInject.reason_check[i].value;
@@ -229,19 +229,19 @@
 
 
         <fieldset>
-            <legend>Rh Injection</legend>
+            <legend><fmt:message key="form.addRhInjection.legend"/></legend>
             <div style="float: left;"><input name="given" type="radio"
-                                             value="given" checked>Completed</input><br/>
-                <input name="given" type="radio" value="refused">Refused</input><br/>
+                                             value="given" checked><fmt:message key="form.addRhInjection.completed"/></input><br/>
+                <input name="given" type="radio" value="refused"><fmt:message key="form.addRhInjection.refused"/></input><br/>
 
             </div>
             <div style="float: left; margin-left: 30px;"><label
-                    for="prevDate" class="fields">Date:</label> <input type="text"
+                    for="prevDate" class="fields"><fmt:message key="form.addRhInjection.date"/></label> <input type="text"
                                                                        name="prevDate" id="prevDate"
                                                                        value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9">
-                <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
-                                  alt="Calendar" border="0"/></a> <br>
-                <label for="provider" class="fields">Provider:</label> <input
+                <a id="date"><img title="<fmt:message key="form.addRhInjection.calendar"/>" src="<%= request.getContextPath() %>/images/cal.gif"
+                                  alt="<fmt:message key="form.addRhInjection.calendar"/>" border="0"/></a> <br>
+                <label for="provider" class="fields"><fmt:message key="form.addRhInjection.provider"/></label> <input
                         type="text" name="providerName" id="providerName"
                         value="<e:forHtmlAttribute value='<%= providerName %>' />"/> <select
                         onchange="javascript:hideExtraName(this);" id="providerDrop"
@@ -255,35 +255,35 @@
                         <e:forHtmlContent value='<%= String.valueOf(h.get("firstName")) %>' />
                     </option>
                     <%}%>
-                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %>>Other</option>
+                    <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %>><fmt:message key="form.addRhInjection.reason.other"/></option>
                 </select></div>
         </fieldset>
         <fieldset>
-            <legend>Result</legend>
-            <label for="location">Hospital/Clinic:</label>
+            <legend><fmt:message key="form.addRhInjection.result"/></legend>
+            <label for="location"><fmt:message key="form.addRhInjection.hospitalClinic"/></label>
             <input type="text" name="location"/> <br/>
-            <label for="route">Route:</label> <input type="text" name="route"/><br/>
-            <label for="lot">Lot:</label> <input type="text" name="lot"/><br/>
-            <label for="lot">Product:</label> <input type="text" name="product"/><br/>
-            <label for="manufacture">Manufacture:</label> <input type="text"
+            <label for="route"><fmt:message key="form.addRhInjection.route"/></label> <input type="text" name="route"/><br/>
+            <label for="lot"><fmt:message key="form.addRhInjection.lotNo"/></label> <input type="text" name="lot"/><br/>
+            <label for="lot"><fmt:message key="form.addRhInjection.product"/></label> <input type="text" name="product"/><br/>
+            <label for="manufacture"><fmt:message key="form.addRhInjection.manufacture"/></label> <input type="text"
                                                                  name="manufacture"/><br/>
-            <label>Dosage:</label> <input type="text" name="dosage" size="9"/><small>mcg</small>
+            <label><fmt:message key="form.addRhInjection.dosage"/></label> <input type="text" name="dosage" size="9"/><small><fmt:message key="form.addRhInjection.unitsMcg"/></small>
         </fieldset>
 
 
         <%--
                             <div class="boxed2">
-                                <label for="prevDate" class="fields" >Date:</label>    <input type="text" name="prevDate" id="prevDate" value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9" > <a id="date" style="float:left;"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0" /></a>
-                                <label >Hospital/Clinic:</label><input type="text" name="location" size="9"/>
+                                <label for="prevDate" class="fields" ><fmt:message key="form.addRhInjection.date"/></label>    <input type="text" name="prevDate" id="prevDate" value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9" > <a id="date" style="float:left;"><img title="<fmt:message key="form.addRhInjection.calendar"/>" src="<%= request.getContextPath() %>/images/cal.gif" alt="<fmt:message key="form.addRhInjection.calendar"/>" border="0" /></a>
+                                <label ><fmt:message key="form.addRhInjection.hospitalClinic"/></label><input type="text" name="location" size="9"/>
                                 <br/>
 
-                                <label for="providers" class="fields">Provider:</label> <input type="text" name="providerName" id="providerName" value="<e:forHtmlAttribute value='<%= providerName %>' />"/>
+                                <label for="providers" class="fields"><fmt:message key="form.addRhInjection.provider"/></label> <input type="text" name="providerName" id="providerName" value="<e:forHtmlAttribute value='<%= providerName %>' />"/>
                                       <select onchange="javascript:hideExtraName(this);" id="providerDrop" name="providers">
                                           <%for (int i=0; i < providers.size(); i++) {
                                                Hashtable ph = (Hashtable) providers.get(i);%>
                                             <option value="<e:forHtmlAttribute value='<%= String.valueOf(ph.get("providerNo")) %>' />" <%= ( ph.get("providerNo").equals(providers) ? " selected" : "" ) %>><e:forHtmlContent value='<%= String.valueOf(ph.get("lastName")) %>' /> <e:forHtmlContent value='<%= String.valueOf(ph.get("firstName")) %>' /></option>
                                           <%}%>
-                                          <option value="-1" <%= ( "-1".equals(providers) ? " selected" : "" ) %> >Other</option>
+                                          <option value="-1" <%= ( "-1".equals(providers) ? " selected" : "" ) %> ><fmt:message key="form.addRhInjection.reason.other"/></option>
                                       </select>
 
                                 <br/>
@@ -293,33 +293,30 @@
                         --%>
 
         <fieldset>
-            <legend>REASON FOR INJECTION (please
-                check):
-            </legend>
+            <legend><fmt:message key="form.addRhInjection.reasonLegend"/></legend>
             <ul>
                 <li><input type="radio" name="reason_check"
-                           value="Antepartum (28 weeks)" checked>Antepartum (28 weeks)</input></li>
-                <li><input type="radio" name="reason_check" value="Amniocentesis">Amniocentesis
+                           value="<fmt:message key="form.addRhInjection.reason.antepartum"/>" checked><fmt:message key="form.addRhInjection.reason.antepartum"/></input></li>
+                <li><input type="radio" name="reason_check" value="<fmt:message key="form.addRhInjection.amniocentesis"/>"><fmt:message key="form.addRhInjection.amniocentesis"/>
                     </input></li>
                 <li><input type="radio" name="reason_check"
-                           value="Ectopic Pregnancy">Ectopic Pregnancy </input></li>
+                           value="<fmt:message key="form.addRhInjection.reason.ectopicPregnancy"/>"><fmt:message key="form.addRhInjection.reason.ectopicPregnancy"/> </input></li>
                 <li><input type="radio" name="reason_check"
-                           value="Antenatal Bleeding (threatened abortion)">Antenatal
-                    Bleeding (threatened abortion) </input></li>
+                           value="<fmt:message key="form.addRhInjection.antenatalBleeding"/>"><fmt:message key="form.addRhInjection.antenatalBleeding"/> </input></li>
                 <li><input type="radio" name="reason_check"
-                           value="Spontaneous Abortion">Spontaneous Abortion </input></li>
+                           value="<fmt:message key="form.addRhInjection.reason.spontaneousAbortion"/>"><fmt:message key="form.addRhInjection.reason.spontaneousAbortion"/> </input></li>
                 <li><input type="radio" name="reason_check"
-                           value="Therapeutic Abortion">Therapeutic Abortion </input></li>
+                           value="<fmt:message key="form.addRhInjection.reason.therapeuticAbortion"/>"><fmt:message key="form.addRhInjection.reason.therapeuticAbortion"/> </input></li>
                 <li><input type="radio" name="reason_check"
-                           value="Platelet Transfusion">Platelet Transfusion </input></li>
-                <li><input type="radio" name="reason_check" value="Postpartum">Postpartum</input></li>
-                <li><input type="radio" name="reason_check" value="Other">Other</input>
+                           value="<fmt:message key="form.addRhInjection.reason.plateletTransfusion"/>"><fmt:message key="form.addRhInjection.reason.plateletTransfusion"/> </input></li>
+                <li><input type="radio" name="reason_check" value="<fmt:message key="form.addRhInjection.postpartum"/>"><fmt:message key="form.addRhInjection.postpartum"/></input></li>
+                <li><input type="radio" name="reason_check" value="<fmt:message key="form.addRhInjection.reason.other"/>"><fmt:message key="form.addRhInjection.reason.other"/></input>
                     <input type="text" name="reasonOtherText" id="reasonOtherText"/></li>
             </ul>
         </fieldset>
         <%-- input type="button" onclick="process(document.getElementById('injectForm'))"/ --%>
         &nbsp;<input type="submit"
-        value="Save Injection" />
+        value="<fmt:message key='form.addRhInjection.saveInjection'/>" />
 
     </form>
     </div>

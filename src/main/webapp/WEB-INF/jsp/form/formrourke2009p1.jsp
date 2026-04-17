@@ -135,13 +135,13 @@
                                                                  value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                  onclick="javascript:return onPrint();"/> <input
                     type="button"
-                    value="About"
-                    onclick="javascript:return popPage('http://rourkebabyrecord.ca','About Rourke');"/>
+                    value="<fmt:message key="encounter.formRourke1.btnAbout"/>"
+                    onclick="javascript:return popPage('http://rourkebabyrecord.ca','<fmt:message key="encounter.formRourke1.aboutRourkeTitle"/>');"/>
         </td>
         <td align="center" nowrap="true" width="100%">
             <% if (growthChartURL.length() > 0) {%>
             <a style="color:red; font-weight:bold; text-decoration:underline; cursor:pointer;" "href="#"
-            onclick="popPage('<%=growthChartURL%>','growthChart')">Growth Chart Avail</a>
+            onclick="popPage('<%=growthChartURL%>','growthChart')"><fmt:message key="encounter.formRourke1.growthChartAvail"/></a>
 
             <%} else { %>
             &nbsp;
@@ -1708,13 +1708,13 @@
                                                                  value="<fmt:message key="encounter.formRourke1.btnPrint"/>"
                                                                  onclick="javascript:return onPrint();"/> <input
                     type="button"
-                    value="About"
-                    onclick="javascript:return popPage('http://rourkebabyrecord.ca','About Rourke');"/>
+                    value="<fmt:message key="encounter.formRourke1.btnAbout"/>"
+                    onclick="javascript:return popPage('http://rourkebabyrecord.ca','<fmt:message key="encounter.formRourke1.aboutRourkeTitle"/>');"/>
         </td>
         <td align="center" nowrap="true">
             <% if (growthChartURL.length() > 0) {%>
             <a style="color:red; font-weight:bold; text-decoration:underline; cursor:pointer;" "href="#"
-            onclick="popPage('<%=growthChartURL%>','growthChart')">Growth Chart Avail</a>
+            onclick="popPage('<%=growthChartURL%>','growthChart')"><fmt:message key="encounter.formRourke1.growthChartAvail"/></a>
 
             <%} else { %>
             &nbsp;

@@ -25,6 +25,8 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -53,7 +55,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Referral Doctor</title>
+        <title><fmt:message key="admin.admin.billingreferralAdmin"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
         <script type="text/javascript" language="JavaScript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -134,11 +136,11 @@
 
     <table class="MainTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Admin</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="global.admin"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar" style="width: 100%;">
                     <tr>
-                        <td>Manage Referral Doctors</td>
+                        <td><fmt:message key="admin.admin.billingreferralAdmin"/></td>
                     </tr>
                 </table>
             </td>
@@ -151,29 +153,29 @@
 
                 <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
-                    <input type="text" name="nameQuery" id="nameQuery" placeholder="Name or ReferralId"
+                    <input type="text" name="nameQuery" id="nameQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.nameOrReferralId'/>"
                            value="<e:forHtmlAttribute value='<%= name != null ? name : "" %>' />">
                     &nbsp;
-                    <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="Specialty"
+                    <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.specialty'/>"
                            value="<e:forHtmlAttribute value='<%= specialty != null ? specialty : "" %>' />">
                     &nbsp;
-                    <input type="text" name="addressQuery" id="addressQuery" placeholder="Address"
+                    <input type="text" name="addressQuery" id="addressQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.address'/>"
                            value="<e:forHtmlAttribute value='<%= addressQ != null ? addressQ : "" %>' />">
                     &nbsp;
-                    Include hidden:
+                    <fmt:message key="admin.billingreferralAdmin.label.includeHidden"/>:
                     <input type="checkbox" name="showHidden"
                            id="showHidden" <%=(checked != null && checked) ? " checked=\"checked\" " : "" %> />
 
-                    <input type="submit" style="border:1px solid #666666;" value="Search" />
-                    <input type="submit" style="border:1px solid #666666;" onclick="clearMe()" value="Clear" />
+                    <input type="submit" style="border:1px solid #666666;" value="<fmt:message key='admin.billingreferralAdmin.btnSearch'/>" />
+                    <input type="submit" style="border:1px solid #666666;" onclick="clearMe()" value="<fmt:message key='admin.billingreferralAdmin.btnClear'/>" />
                     <input type="submit" style="border:1px solid #666666;"
-                                   onclick="return openAddSpecialist()" value="Add" />
+                                   onclick="return openAddSpecialist()" value="<fmt:message key='admin.billingreferralAdmin.btnAdd'/>" />
                 </form>
                 <br/>
                 <%
                     if (request.getAttribute("referrals") == null) {
                 %>
-                <h3 style="color:red">No results found</h3>
+                <h3 style="color:red"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></h3>
                 <%
                 } else {
                 %>
@@ -194,14 +196,14 @@
                     <display:column><a href="javascript:void(0)"
                                        onclick="openEditSpecialist('${referral.id}')"><%=linkName %>
                     </a></display:column>
-                    <display:column property="firstName" title="First Name"/>
-                    <display:column property="lastName" title="Last Name"/>
-                    <display:column property="specialtyType" title="Specialty"/>
-                    <display:column property="streetAddress" title="Address"/>
-                    <display:column property="phoneNumber" title="Phone"/>
-                    <display:column property="faxNumber" title="Fax"/>
-                    <display:column title="Label" url="/printReferralLabelAction" paramId="billingreferralNo"
-                                    paramProperty="id">label</display:column>
+                    <display:column property="firstName" title="<fmt:message key='admin.billingreferralAdmin.col.firstName'/>"/>
+                    <display:column property="lastName" title="<fmt:message key='admin.billingreferralAdmin.col.lastName'/>"/>
+                    <display:column property="specialtyType" title="<fmt:message key='admin.billingreferralAdmin.col.specialty'/>"/>
+                    <display:column property="streetAddress" title="<fmt:message key='admin.billingreferralAdmin.col.address'/>"/>
+                    <display:column property="phoneNumber" title="<fmt:message key='admin.billingreferralAdmin.col.phone'/>"/>
+                    <display:column property="faxNumber" title="<fmt:message key='admin.billingreferralAdmin.col.fax'/>"/>
+                    <display:column title="<fmt:message key='admin.billingreferralAdmin.col.label'/>" url="/printReferralLabelAction" paramId="billingreferralNo"
+                                    paramProperty="id"><fmt:message key="admin.billingreferralAdmin.label.link"/></display:column>
                 </display:table>
             </td>
         </tr>
@@ -210,7 +212,7 @@
             <td class="MainTableBottomRowRightColumn">
                 <div id="checked_items">
                     <br/>
-                    <h3>Selected Specialists:</h3>
+                    <h3><fmt:message key="admin.billingreferralAdmin.heading.selectedSpecialists"/></h3>
                     <br/>
                     <table id="checked_items_tbl">
                         <tbody>
@@ -228,15 +230,15 @@
                         } else {
                         %>
                         <tr>
-                            <td>-None-</td>
+                            <td><fmt:message key="admin.billingreferralAdmin.msgNone"/></td>
                         </tr>
                         <% } %>
                         </tbody>
                     </table>
                 </div>
                 <br/>
-                <input type="button" value="Generate Labels" onClick="printAllCheckedLabels()"/>
-                <input type="button" value="Clear List" onClick="clearCheckedLabels()"/>
+                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnGenerateLabels'/>" onClick="printAllCheckedLabels()"/>
+                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnClearList'/>" onClick="clearCheckedLabels()"/>
 
             </td>
         </tr>

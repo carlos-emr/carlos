@@ -1,4 +1,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -58,7 +60,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>New Born Record (Baby)</title>
+        <title><fmt:message key='form.bcnewborn.title'/></title>
         <link rel="stylesheet" type="text/css"
               href="<%=bView?"bcArStyleView.css" : "bcArStyle.css"%>">
         <!-- calendar stylesheet -->
@@ -70,7 +72,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -103,7 +105,7 @@
             }
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -116,7 +118,7 @@
             }
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -250,7 +252,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -275,7 +277,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -303,7 +305,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -456,14 +458,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
@@ -492,22 +494,22 @@
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
-                            <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                British Columbia Newborn Record Part 2
+                            <th><%=bView ? "<font color='yellow'><fmt:message key='form.bcnewborn.viewPage'/> </font>" : ""%>
+                                <fmt:message key='form.bcnewborn.recordTitlePart2'/>
                             </th>
                         </tr>
                     </table>
 
                     <table width="100%" border="1" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td width="15%" nowrap><b>9.</b> DATE DONE<br>
+                            <td width="15%" nowrap><b>9.</b> <fmt:message key='form.bcnewborn.dateDone'/><br>
                                 &nbsp;&nbsp;&nbsp;dd/mm/yyyy
                             </td>
                             <td rowspan="2" valign="bottom"><input type="checkbox"
                                                                    name="ar2_9Test1" <%= props.getProperty("ar2_9Test1", "") %> />
-                                PKU. TSH. GALACTOSEMIA &nbsp; <input type="checkbox"
+                                <fmt:message key='form.bcnewborn.dateDoneDetail'/> &nbsp; <input type="checkbox"
                                                                      name="ar2_9Test1a" <%= props.getProperty("ar2_9Test1a", "") %> />
-                                DEFERRED &nbsp;&nbsp; TIME: <input type="text"
+                                <fmt:message key='form.bcnewborn.deferred'/> &nbsp;&nbsp; <fmt:message key='form.bcnewborn.time'/>: <input type="text"
                                                                    name="ar2_9Test1Time" size="5" maxlength="5"
                                                                    value="<%= props.getProperty("ar2_9Test1Time", "") %>"/>
                             </td>
@@ -534,7 +536,7 @@
                                               value="<%= props.getProperty("ar2_9Date3", "") %>"/> <img
                                     src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_9Date3_cal"></td>
                             <td>&nbsp;&nbsp;&nbsp;<input type="checkbox" name="ar2_9Test3"
-                                    <%= props.getProperty("ar2_9Test3", "") %> /> HBIG GIVEN
+                                    <%= props.getProperty("ar2_9Test3", "") %> /> <fmt:message key='form.bcnewborn.hbigGiven'/>
                             </td>
                         </tr>
                         <tr>
@@ -563,7 +565,7 @@
                                               value="<%= props.getProperty("ar2_9Date6", "") %>"/> <img
                                     src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_9Date6_cal"></td>
                             <td><input type="checkbox" name="ar2_9Test6"
-                                    <%= props.getProperty("ar2_9Test6", "") %> /> OTHER
+                                    <%= props.getProperty("ar2_9Test6", "") %> /> <fmt:message key='form.bcnewborn.other'/>
                         </tr>
                     </table>
 
@@ -573,11 +575,11 @@
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td width="55%">HOSPITAL NAME<br>
+                            <td width="55%"><fmt:message key='form.bcnewborn.hospitalName'/><br>
                                 <input type="text" name="c_hospitalName" style="width: 100%"
                                        size="30" maxlength="80"
                                        value="<%= props.getProperty("c_hospitalName", "") %>"/></td>
-                            <td>DATE <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg3_formDate_cal">
+                            <td><fmt:message key='form.bcnewborn.date'/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg3_formDate_cal">
                                 <%=bSync ? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") : "" %>
                                 <br>
                                 <input type="text" name="pg3_formDate" id="pg3_formDate"
@@ -586,17 +588,17 @@
                                        dbType="date"/></td>
                         </tr>
                         <tr>
-                            <td width="55%">SURNAME<br>
+                            <td width="55%"><fmt:message key='form.bcnewborn.surname'/><br>
                                 <input type="text" name="c_surname" style="width: 100%" size="30"
                                        maxlength="30" value="<%= props.getProperty("c_surname", "") %>"/>
                             </td>
-                            <td>GIVEN NAME<br>
+                            <td><fmt:message key='form.bcnewborn.givenName'/><br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
                                        maxlength="30" value="<%= props.getProperty("c_givenName", "") %>"/>
                             </td>
                         </tr>
                         <tr>
-                            <td>ADDRESS<br>
+                            <td><fmt:message key='form.bcnewborn.address'/><br>
                                 <input type="text" name="c_address" style="width: 100%" size="50"
                                        maxlength="60" value="<%= props.getProperty("c_address", "") %>"/>
                                 <input type="text" name="c_city" style="width: 100%" size="50"
@@ -605,14 +607,13 @@
                                        value="<%= props.getProperty("c_province", "") %>"/> <input
                                         type="text" name="c_postal" size="7" maxlength="8"
                                         value="<%= props.getProperty("c_postal", "") %>"/></td>
-                            <td valign="top">PHONE NUMBER<br>
+                            <td valign="top"><fmt:message key='form.bcnewborn.phoneNumber'/><br>
                                 <input type="text" name="c_phone" style="width: 100%" size="60"
                                        maxlength="60" value="<%= props.getProperty("c_phone", "") %>"/>
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2"><span class="small9">PHYSICIAN /
-					MIDWIFE NAME</span><br>
+                            <td colspan="2"><span class="small9"><fmt:message key='form.bcnewborn.physicianMidwifeName'/></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"/>
                             </td>
@@ -627,8 +628,8 @@
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
                 <td width="10%"><B>10.</B> Date</td>
-                <td width="80%"><B>PROBLEM LIST</B></td>
-                <td><span class="small8">DATE RESOLVED</span></td>
+                <td width="80%"><B><fmt:message key='form.bcnewborn.problemList'/></B></td>
+                <td><span class="small8"><fmt:message key='form.bcnewborn.date'/> RESOLVED</span></td>
             </tr>
             <tr>
                 <td nowrap><input type="text" name="ar2_10Date1"
@@ -674,7 +675,7 @@
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr>
                 <td width="10%"><B>11.</B> Date</td>
-                <td><B>PROGRESS NOTES</B></td>
+                <td><B><fmt:message key='form.bcnewborn.progressNotes'/></B></td>
             </tr>
             <tr>
                 <td nowrap><input type="text" name="pg3_11Date1"
@@ -824,23 +825,23 @@
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
             <tr>
                 <td width="10%"><B>12.</B> Date</td>
-                <td width="12%" nowrap><B>CIRCUMCISION</B> <input
+                <td width="12%" nowrap><B><fmt:message key='form.bcnewborn.circumcision'/></B> <input
                         type="checkbox" name="ar2_12Done"
                         <%= props.getProperty("ar2_12Done", "") %> /></td>
-                <td colspan="3%">DONE</td>
+                <td colspan="3%"><fmt:message key='form.bcnewborn.done'/></td>
             </tr>
             <tr>
                 <td colspan="2%"><input type="text" name="ar2_12Date"
                                         id="ar2_12Date" size="8" maxlength="10"
                                         value="<%= props.getProperty("ar2_12Date", "") %>"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_12Date_cal"></td>
-                <td width="22%" nowrap><span class="small8">METHOD</span> <input
+                <td width="22%" nowrap><span class="small8"><fmt:message key='form.bcnewborn.method'/></span> <input
                         type="text" name="ar2_12Method" size="20" maxlength="30"
                         value="<%= props.getProperty("ar2_12Method", "") %>"/></td>
                 <td width="28%" nowrap><span class="small8">ANALGESIA
 			USED</span> <input type="text" name="ar2_12Analg" size="20" maxlength="30"
                                value="<%= props.getProperty("ar2_12Analg", "") %>"/></td>
-                <td nowrap><span class="small8">SIGNATURE <input
+                <td nowrap><span class="small8"><fmt:message key='form.bcnewborn.signature'/> <input
                         type="text" name="ar2_12Signature" size="20" maxlength="60"
                         value="<%= props.getProperty("ar2_12Signature", "") %>"/> MD</span></td>
             </tr>
@@ -860,16 +861,16 @@
                                 <table class="small9" width="100%" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr>
-                                        <td width="40%"><B>13. DISCHARGE EXAMINATION</B><br>
+                                        <td width="40%"><B>13. <fmt:message key='form.bcnewborn.dischargeExamination'/></B><br>
                                             Date <input type="text" name="ar2_13ExamDate" id="ar2_13ExamDate"
                                                         size="10" maxlength="10"
                                                         value="<%= props.getProperty("ar2_13ExamDate", "") %>"/> <img
                                                     src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_13ExamDate_cal"></td>
-                                        <td width="18%" nowrap>WEIGHT<br>
+                                        <td width="18%" nowrap><fmt:message key='form.bcnewborn.weight'/><br>
                                             <input type="text" name="ar2_13Weight" size="6" maxlength="6"
                                                    value="<%= props.getProperty("ar2_13Weight", "") %>"/>g
                                         </td>
-                                        <td>HEAD CIRCUMFERENCE<br>
+                                        <td><fmt:message key='form.bcnewborn.headCircumference'/><br>
                                             <input type="text" name="ar2_13HeadLen" size="6" maxlength="6"
                                                    value="<%= props.getProperty("ar2_13HeadLen", "") %>"/>cm
                                         </td>
@@ -880,20 +881,20 @@
                             </td>
                         </tr>
                         <tr>
-                            <td width="20%">1. GENERAL</td>
-                            <td width="8%">NORMAL<br>
+                            <td width="20%">1. <fmt:message key='form.bcnewborn.generalAppearance'/></td>
+                            <td width="8%"><fmt:message key='form.bcnewborn.normal'/><br>
                                 <input type="checkbox" name="ar2_13Normal1"
                                         <%= props.getProperty("ar2_13Normal1", "") %> /></td>
-                            <td width="10%">ABNORMAL<br>
+                            <td width="10%"><fmt:message key='form.bcnewborn.abnormal'/><br>
                                 <input type="checkbox" name="ar2_13Abnormal1"
                                         <%= props.getProperty("ar2_13Abnormal1", "") %> /></td>
-                            <td>COMMENT<br>
+                            <td><fmt:message key='form.bcnewborn.comments'/><br>
                                 <input type="text" name="ar2_13Comment1" style="width: 100%"
                                        size="40" maxlength="60"
                                        value="<%= props.getProperty("ar2_13Comment1", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>2. SKIN</td>
+                            <td>2. <fmt:message key='form.bcnewborn.skin'/></td>
                             <td><input type="checkbox" name="ar2_13Normal2"
                                     <%= props.getProperty("ar2_13Normal2", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal2"
@@ -903,7 +904,7 @@
                                        value="<%= props.getProperty("ar2_13Comment2", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>3. HEAD</td>
+                            <td>3. <fmt:message key='form.bcnewborn.head'/></td>
                             <td><input type="checkbox" name="ar2_13Normal3"
                                     <%= props.getProperty("ar2_13Normal3", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal3"
@@ -913,7 +914,7 @@
                                        value="<%= props.getProperty("ar2_13Comment3", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>4. EENT</td>
+                            <td>4. <fmt:message key='form.bcnewborn.eent'/></td>
                             <td><input type="checkbox" name="ar2_13Normal4"
                                     <%= props.getProperty("ar2_13Normal4", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal4"
@@ -923,7 +924,7 @@
                                        value="<%= props.getProperty("ar2_13Comment4", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>5. RESPIRATORY</td>
+                            <td>5. <fmt:message key='form.bcnewborn.respiratory'/></td>
                             <td><input type="checkbox" name="ar2_13Normal5"
                                     <%= props.getProperty("ar2_13Normal5", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal5"
@@ -943,7 +944,7 @@
                                        value="<%= props.getProperty("ar2_13Comment6", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>7. ABDOMEN</td>
+                            <td>7. <fmt:message key='form.bcnewborn.abdomen'/></td>
                             <td><input type="checkbox" name="ar2_13Normal7"
                                     <%= props.getProperty("ar2_13Normal7", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal7"
@@ -953,7 +954,7 @@
                                        value="<%= props.getProperty("ar2_13Comment7", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>8. UMBILICAL CORD</td>
+                            <td>8. <fmt:message key='form.bcnewborn.umbilicalCord'/></td>
                             <td><input type="checkbox" name="ar2_13Normal8"
                                     <%= props.getProperty("ar2_13Normal8", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal8"
@@ -963,7 +964,7 @@
                                        value="<%= props.getProperty("ar2_13Comment8", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>9. GENITORECTAL</td>
+                            <td>9. <fmt:message key='form.bcnewborn.genitorectal'/></td>
                             <td><input type="checkbox" name="ar2_13Normal9"
                                     <%= props.getProperty("ar2_13Normal9", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal9"
@@ -973,7 +974,7 @@
                                        value="<%= props.getProperty("ar2_13Comment9", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>10. MUSCULOSKELETAL</td>
+                            <td>10. <fmt:message key='form.bcnewborn.musculoskeletal'/></td>
                             <td><input type="checkbox" name="ar2_13Normal10"
                                     <%= props.getProperty("ar2_13Normal10", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal10"
@@ -983,7 +984,7 @@
                                        value="<%= props.getProperty("ar2_13Comment10", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>11. NEUROLOGICAL</td>
+                            <td>11. <fmt:message key='form.bcnewborn.neurological'/></td>
                             <td><input type="checkbox" name="ar2_13Normal11"
                                     <%= props.getProperty("ar2_13Normal11", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal11"
@@ -993,7 +994,7 @@
                                        value="<%= props.getProperty("ar2_13Comment11", "") %>"/></td>
                         </tr>
                         <tr>
-                            <td>12. OTHER</td>
+                            <td>12. <fmt:message key='form.bcnewborn.other'/></td>
                             <td><input type="checkbox" name="ar2_13Normal12"
                                     <%= props.getProperty("ar2_13Normal12", "") %> /></td>
                             <td><input type="checkbox" name="ar2_13Abnormal12"
@@ -1005,35 +1006,35 @@
                     </table>
 
                 </td>
-                <td colspan="2"><B>14. STATUS AT DISCHARGE</B> <textarea
+                <td colspan="2"><B>14. <fmt:message key='form.bcnewborn.statusAtDischarge'/></B> <textarea
                         name="ar2_14" style="width: 100%" cols="30"
                         rows="3"> <%= props.getProperty("ar2_14", "") %> </textarea>
                 </td>
             </tr>
             <tr>
-                <td colspan="2">PROBLEMS REQUIRING FOLLOWUP<br>
+                <td colspan="2"><fmt:message key='form.bcnewborn.problemsRequiringFollowup'/><br>
                     <textarea name="ar2_14Problem" style="width: 100%" cols="30"
                               rows="3"> <%= props.getProperty("ar2_14Problem", "") %> </textarea>
-                    FEEDING: <input type="checkbox" name="ar2_14Breast"
+                    <fmt:message key='form.bcnewborn.feeding'/>: <input type="checkbox" name="ar2_14Breast"
                             <%= props.getProperty("ar2_14Breast", "") %> />
-                    BREAST&nbsp;&nbsp;&nbsp; <input type="checkbox" name="ar2_14VitD"
-                            <%= props.getProperty("ar2_14VitD", "") %> /> VIT. D<br>
+                    <fmt:message key='form.bcnewborn.breast'/>&nbsp;&nbsp;&nbsp; <input type="checkbox" name="ar2_14VitD"
+                            <%= props.getProperty("ar2_14VitD", "") %> /> <fmt:message key='form.bcnewborn.vitD'/><br>
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     <input type="checkbox" name="ar2_14Formula"
-                            <%= props.getProperty("ar2_14Formula", "") %> /> FORMULA
+                            <%= props.getProperty("ar2_14Formula", "") %> /> <fmt:message key='form.bcnewborn.formula'/>
                 </td>
             </tr>
             <tr>
-                <td width="12%"><B>15. DISCHARGED</B><br>
+                <td width="12%"><B>15. <fmt:message key='form.bcnewborn.discharged'/></B><br>
                     <input type="checkbox" name="ar2_15Home"
-                            <%= props.getProperty("ar2_15Home", "") %> /> HOME<br>
+                            <%= props.getProperty("ar2_15Home", "") %> /> <fmt:message key='form.bcnewborn.home'/><br>
                     <input type="checkbox" name="ar2_15Adoption"
-                            <%= props.getProperty("ar2_15Adoption", "") %> /> ADOPTION<br>
+                            <%= props.getProperty("ar2_15Adoption", "") %> /> <fmt:message key='form.bcnewborn.adoption'/><br>
                     <input type="checkbox" name="ar2_15Foster"
-                            <%= props.getProperty("ar2_15Foster", "") %> /> FOSTER HOME<br>
+                            <%= props.getProperty("ar2_15Foster", "") %> /> <fmt:message key='form.bcnewborn.fosterHome'/><br>
                     <input type="checkbox" name="ar2_15OtherHosp"
                             <%= props.getProperty("ar2_15OtherHosp", "") %> /> <span
-                            class="small8">OTHER HOSPITAL</span><br>
+                            class="small8"><fmt:message key='form.bcnewborn.other'/> HOSPITAL</span><br>
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<I>(specify)</I><br>
                     <textarea name="ar2_15OtherHospSpec" style="width: 100%" cols="15"
                               rows="2"> <%= props.getProperty("ar2_15OtherHospSpec", "") %> </textarea>
@@ -1043,13 +1044,13 @@
                     <table class="small8" width="100%" border="0" cellspacing="0"
                            cellpadding="0">
                         <tr>
-                            <td colspan="2"><B>16. FOLLOW UP BY</B></td>
+                            <td colspan="2"><B>16. <fmt:message key='form.bcnewborn.followUpBy'/></B></td>
                             <td><I>(when?)</I></td>
                         </tr>
                         <tr>
                             <td width="2%"><input type="checkbox" name="ar2_16FamPhy"
                                     <%= props.getProperty("ar2_16FamPhy", "") %> /></td>
-                            <td width="60%">FAMILY PHYSICIAN</td>
+                            <td width="60%"><fmt:message key='form.bcnewborn.familyPhysician'/></td>
                             <td><input type="text" name="ar2_16FamPhyWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16FamPhyWhen", "") %>"/></td>
@@ -1057,7 +1058,7 @@
                         <tr>
                             <td><input type="checkbox" name="ar2_16Midwife"
                                     <%= props.getProperty("ar2_16Midwife", "") %> /></td>
-                            <td>MIDWIFE</td>
+                            <td><fmt:message key='form.bcnewborn.midwife'/></td>
                             <td><input type="text" name="ar2_16MidwifeWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16MidwifeWhen", "") %>"/></td>
@@ -1065,7 +1066,7 @@
                         <tr>
                             <td><input type="checkbox" name="ar2_16Pediat"
                                     <%= props.getProperty("ar2_16Pediat", "") %> /></td>
-                            <td>PEDIATRICIAN</td>
+                            <td><fmt:message key='form.bcnewborn.pediatrician'/></td>
                             <td><input type="text" name="ar2_16PediatWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16PediatWhen", "") %>"/></td>
@@ -1073,7 +1074,7 @@
                         <tr>
                             <td><input type="checkbox" name="ar2_16OtherConsul"
                                     <%= props.getProperty("ar2_16OtherConsul", "") %> /></td>
-                            <td>OTHER CONSULTANT</td>
+                            <td><fmt:message key='form.bcnewborn.otherConsultant'/></td>
                             <td><input type="text" name="ar2_16OtherConsulWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16OtherConsulWhen", "") %>"/>
@@ -1082,7 +1083,7 @@
                         <tr>
                             <td><input type="checkbox" name="ar2_16ComNurse"
                                     <%= props.getProperty("ar2_16ComNurse", "") %> /></td>
-                            <td>COMMUNITY HEALTH NURSE</td>
+                            <td><fmt:message key='form.bcnewborn.communityHealthNurse'/></td>
                             <td><input type="text" name="ar2_16ComNurseWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16ComNurseWhen", "") %>"/></td>
@@ -1090,14 +1091,14 @@
                         <tr>
                             <td><input type="checkbox" name="ar2_16Ministry"
                                     <%= props.getProperty("ar2_16Ministry", "") %> /></td>
-                            <td>MINISTRY FOR</td>
+                            <td><fmt:message key='form.bcnewborn.ministryFor'/></td>
                             <td><input type="text" name="ar2_16MinistryWhen" size="10"
                                        maxlength="20"
                                        value="<%= props.getProperty("ar2_16MinistryWhen", "") %>"/></td>
                         </tr>
                         <tr>
                             <td></td>
-                            <td colspan="2">CHILDREN AND FAMILY DEVELOPMENT</td>
+                            <td colspan="2"><fmt:message key='form.bcnewborn.childrenAndFamilyDevelopment'/></td>
                         </tr>
                     </table>
 
@@ -1110,16 +1111,16 @@
         <table class="small9" width="100%" border="1" cellspacing="0"
                cellpadding="0">
             <tr>
-                <td width="20%">HLTH 1583A Rev. 02/03</td>
-                <td width="40%">SIGNATURE<br>
+                <td width="20%"><fmt:message key='form.bcnewborn.hlth'/></td>
+                <td width="40%"><fmt:message key='form.bcnewborn.signature'/><br>
                     <input type="text" name="pg3_Signature" size="30" maxlength="80"
                            value="<%= props.getProperty("pg3_Signature", "") %>" @oscar.formDB/>
-                    MD/RM
+                    <fmt:message key='form.bcnewborn.mdRm'/>
                 </td>
                 <td><input type="checkbox" name="ar2_NeoDeath"
-                        <%= props.getProperty("ar2_NeoDeath", "") %> /> NEONATAL DEATH
+                        <%= props.getProperty("ar2_NeoDeath", "") %> /> <fmt:message key='form.bcnewborn.neonatalDeath'/>
                     &nbsp;&nbsp;&nbsp; <input type="checkbox" name="ar2_Autopsy"
-                            <%= props.getProperty("ar2_Autopsy", "") %> /> AUTOPSY PERFORMED
+                            <%= props.getProperty("ar2_Autopsy", "") %> /> <fmt:message key='form.bcnewborn.autopsyPerformed'/>
                 </td>
             </tr>
         </table>
@@ -1130,14 +1131,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {

@@ -1,4 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -15,16 +16,19 @@
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportFilter" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
 // get form name
     String reportName = (new RptReportItem()).getReportName(reportId);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String submitDelete = bundle.getString("report.reportList.btnDelete");
 
 
     boolean bDeletedList = false;
-    String msg = "Limit To";
+    String msg = bundle.getString("report.reportList.limitTo");
     Properties prop = new Properties();
     RptReportFilter reportFilter = new RptReportFilter();
 
@@ -33,7 +37,7 @@
         bDeletedList = true;
     }
 // delete action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitDelete)) {
         // check the input data
         String id = request.getParameter("id");
         int nId = id != null ? Integer.parseInt(id) : 0;
@@ -41,7 +45,9 @@
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList
+            ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>" + bundle.getString("report.reportList.linkReportList") + "</a>"
+            : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>" + bundle.getString("report.reportList.linkDeletedReportList") + "</a>";
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -50,7 +56,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><%=bDeletedList ? "Deleted" : ""%> Report List</title>
+        <title><%=bDeletedList ? bundle.getString("report.reportList.deleted") + " " : ""%><fmt:message key="report.reportList.title"/></title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -72,18 +78,18 @@
             }
 
             function onDelete() {
-                ret = confirm("Are you sure you want to delete it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmDelete'/>");
                 return ret;
             }
 
             function onRestore() {
-                ret = confirm("Are you sure you want to restore it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmRestore'/>");
                 return ret;
             }
 
             function onAdd() {
                 if (document.baseurl.name.value.length < 2) {
-                    alert("Please type in a valid name!");
+                    alert("<fmt:message key='report.reportList.validName'/>");
                     return false;
                 } else {
                     return true;
@@ -119,8 +125,8 @@
             <td><%=msg%>
             </td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormRecord">Back to Report List</a> | <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />">Configuration</a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormRecord"><fmt:message key="report.reportList.backToReportList"/></a> | <a
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportList.configuration"/></a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -150,9 +156,9 @@
             <tr bgcolor="silver">
                 <td colspan="2" align="center"><input type="hidden" name="id"
                                                       value="<e:forHtmlAttribute value='<%= reportId %>' />"> <input type="submit" name="submit"
-                                                                                    value="Report in HTML"> | <input
+                    value="<fmt:message key='report.reportList.reportHtml'/>"> | <input
                         type="submit" name="submit"
-                        value="Report in CSV"></td>
+                        value="<fmt:message key='report.reportList.reportCsv'/>"></td>
                 <td align='right'></td>
             </tr>
         </form>

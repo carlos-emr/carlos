@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -55,13 +56,14 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Mental Health Assessment and Intervention Plan</title>
+        <title><fmt:message key="form.mhAssessment.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/mhStyles.css">
@@ -124,7 +126,7 @@
                 document.forms[0].submit.value = "save";
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                var ret = confirm("Are you sure you want to save this form?");
+                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 if (ret == true) {
                     window.opener.location.reload();
                 }
@@ -137,7 +139,7 @@
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
                 if (ret == true) {
-                    ret = confirm("Are you sure you wish to save this form and return to the encounter page?");
+                ret = confirm("<fmt:message key='form.mhAssessment.saveExitConfirm'/>");
                 }
                 return true;
             }
@@ -269,13 +271,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
                         href="<%= request.getContextPath() %>/form/formmhreferral?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>
@@ -288,8 +290,7 @@
         <table cellpadding="1" cellspacing="0" class="mainTable"
                bgcolor="#F0F8FF">
             <tr>
-                <th align="center"><big>MENTAL HEALTH ASSESSMENT and
-                    INTERVENTION PLAN</big><br>
+            <th align="center"><big><fmt:message key="form.mhAssessment.heading"/></big><br>
                     <br>
                 </th>
             </tr>
@@ -298,30 +299,30 @@
                     <table border="0" cellpadding="2" cellspacing="0" width="100%">
                         <tr>
                             <td width="50%" rowspan="5">&nbsp;</td>
-                            <td>Name:</td>
+                            <td><fmt:message key="form.mhAssessment.name"/>:</td>
                             <td align="right"><input type="text" name="c_pName" size="40"
                                                      value="<%= props.getProperty("c_pName", "") %>" readonly="true"/>
                             </td>
                         </tr>
                         <tr>
-                            <td>Sex:</td>
+                            <td><fmt:message key="form.mhAssessment.sex"/>:</td>
                             <td align="right"><input type="text" name="c_sex" size="40"
                                                      value="<%= props.getProperty("c_sex", "") %>" readonly="true"/>
                             </td>
                         </tr>
             </tr>
-            <td>Address:</td>
+            <td><fmt:message key="form.mhAssessment.address"/>:</td>
             <td align="right"><input type="text" name="c_address" size="40"
                                      value="<%= props.getProperty("c_address", "") %>" readonly="true"/></td>
             </tr>
             <tr>
-                <td>Home Phone:</td>
+                <td><fmt:message key="form.mhAssessment.homePhone"/>:</td>
                 <td align="right"><input type="text" name="c_homePhone"
                                          size="40" value="<%= props.getProperty("c_homePhone", "") %>"
                                          readonly="true"/></td>
             </tr>
             <tr>
-                <td>Birth Date <small>(yyyy/mm/dd)</small>:</td>
+                <td><fmt:message key="form.mhAssessment.birthDate"/> <small>(yyyy/mm/dd)</small>:</td>
                 <td align="right"><input type="text" name="c_birthDate"
                                          size="40" value="<%= props.getProperty("c_birthDate", "") %>"
                                          readonly="true"/></td>
@@ -334,11 +335,11 @@
                 <table class="TableWithBorder" cellpadding="2" cellspacing="0"
                        width="100%">
                     <tr>
-                        <td>Referral Date<small>(yyyy/mm/dd)</small>:</td>
+                        <td><fmt:message key="form.mhAssessment.referralDate"/> <small>(yyyy/mm/dd)</small>:</td>
                         <td><input type="text" name="c_referralDate" size="40"
                                    value="<%= props.getProperty("c_referralDate", "") %>"
                                    readonly="true"/></td>
-                        <td>Referred By:</td>
+                        <td><fmt:message key="form.mhAssessment.referredBy"/>:</td>
                         <td align="right"><input type="text" name="c_referredBy"
                                                  size="40" value="<%= props.getProperty("c_referredBy", "") %>"
                                                  readonly="true"/></td>
@@ -358,7 +359,7 @@
             <td colspan="4">
                 <table border="1" cellpadding="2" cellspacing="0" width="100%">
                     <tr>
-                        <td class="mhList" valign="top">Psychiatric Symptoms:<br>
+                        <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.psychSymptoms"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_aps1"
                                                                      value="<%= props.getProperty("a_aps1", "") %>"
@@ -381,7 +382,7 @@
                                 }
                             %> &nbsp;<input type="text" name="a_apsOther"
                                             value="<%= props.getProperty("a_apsOther", "") %>"/></td>
-                        <td class="mhList" valign="top">Psychosocial Issues:<br>
+                        <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.psychosocialIssues"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_api1"
                                                                      value="<%= props.getProperty("a_api1", "") %>"
@@ -404,7 +405,7 @@
                                 }
                             %> &nbsp;<input type="text" name="a_apiOther"
                                             value="<%= props.getProperty("a_apiOther", "") %>"/></td>
-                        <td class="mhList" valign="top">Med/Phy Issues:<br>
+                        <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.medPhyIssues"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_ampi1"
                                                                      value="<%= props.getProperty("a_ampi1", "") %>"
@@ -437,7 +438,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="mhList" valign="top">Treatment Plan:<br>
+                        <td class="mhList" valign="top"><fmt:message key="form.mhAssessment.treatmentPlan"/>:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="a_tp1"
                                                                      value="<%= props.getProperty("a_tp1", "") %>"
@@ -461,7 +462,7 @@
                             %> &nbsp;<input type="text" name="a_tpOther"
                                             value="<%= props.getProperty("a_tpOther", "") %>"/></td>
                         <td colspan="2" rowspan="2" class="mhList" valign="top">
-                            Assessment Comments:<br>
+                            <fmt:message key="form.mhAssessment.comments"/>:<br>
                             <textarea class="mhAssTextarea"
                                       name="a_assComments"><%= props.getProperty("a_assComments", "") %></textarea>
                         </td>
@@ -476,13 +477,13 @@
         </table>
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right"><a
                         href="<%= request.getContextPath() %>/form/formmhreferral?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Referral</a>

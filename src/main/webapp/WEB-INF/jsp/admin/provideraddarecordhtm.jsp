@@ -243,11 +243,11 @@
                 %>
                 <tr class="supervisor" style="display:none">
                     <td align="right">
-                        Assigned Supervisor
+                        <fmt:message key="admin.providerupdateprovider.assignedSupervisor"/>
                     </td>
                     <td>
                         <select id="supervisor" name="supervisor">
-                            <option value="">Please Assign Supervisor</option>
+                            <option value=""><fmt:message key="admin.providerupdateprovider.pleaseAssignSupervisor"/></option>
                                     <%
                     for( ProviderData p : providerL ) {
                     %>
@@ -367,7 +367,7 @@
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
-                                <option value="">Select Below</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                                 <%
                                     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
@@ -394,7 +394,7 @@
                         if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                     %>
                     <tr>
-                        <td align="right">Default Clinic NBR:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.defaultClinicNbr"/></td>
                         <td colspan="3">
                             <select name="xml_p_nbr">
                                 <%
@@ -415,7 +415,7 @@
                     <%} %>
 
                     <tr>
-                        <td align="right">Bill Center:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.billCenter"/></td>
                         <td><select name="billcenter">
                             <option value=""></option>
                             <%

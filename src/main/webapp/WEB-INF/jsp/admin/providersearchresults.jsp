@@ -123,7 +123,7 @@
     <body onLoad="setfocus()">
 
     <h4>
-        <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
+        <i class="fa-solid fa-magnifying-glass" title="<fmt:message key='admin.providersearchresults.iconTitle'/>"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="${pageContext.request.contextPath}/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">

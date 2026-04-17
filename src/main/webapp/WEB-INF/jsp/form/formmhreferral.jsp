@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -122,7 +123,7 @@
                 document.forms[0].submit.value = "save";
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                var ret = confirm("Are you sure you want to save this form?");
+                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
 
                 return ret;
             }
@@ -131,7 +132,7 @@
                 document.forms[0].submit.value = "exit";
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
-                var ret = confirm("Are you sure you wish to save and close this window?");
+                var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
 
                 return ret;
             }
@@ -288,13 +289,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
                                                                                        onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();"/>
-                    <input type="submit" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();"/>
+                    <input type="submit" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="right">Referral &nbsp;|&nbsp; <a
                         href="<%= request.getContextPath() %>/form/formmhassessment?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>
@@ -509,13 +510,13 @@
 
         <table class="Head" class="hidePrint">
             <tr>
-                <td align="left"><input type="submit" value="Save"
+                <td align="left"><input type="submit" value="<fmt:message key='global.save'/>"
                                         onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                       value="Save and Exit"
-                                                                                       onclick="javascript:return confirm('Are you sure you wish to save and close this window?');"/>
-                    <input type="submit" value="Exit"
+                                                                                       value="<fmt:message key='global.saveExit'/>"
+                                                                                       onclick="javascript:return confirm('<fmt:message key='global.msgSaveExit'/>');"/>
+                    <input type="submit" value="<fmt:message key='global.btnExit'/>"
                            onclick="javascript:return onExit();"/> <input type="submit"
-                                                                          value="Print"
+                                                                          value="<fmt:message key='global.btnPrint'/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align="right">Referral &nbsp;|&nbsp; <a
                         href="<%= request.getContextPath() %>/form/formmhassessment?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Assessment</a>

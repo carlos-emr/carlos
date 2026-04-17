@@ -76,18 +76,16 @@
 
 <div class="container-fluid">
     <h1><fmt:message key="oscarprevention.preventionlistmanager.title"/></h1>
-    <p class="lead">Customize which prevention items to display on the prevention list.</p>
-    <p style="margin-top:-20px"><span class="badge bg-info">Info</span> Any changes made here will affect every
-        provider using the prevention module. To add/remove any item from the prevention list simply click on the item
-        below. Green indicates that the item is available from the prevention module.</p>
+    <p class="lead"><fmt:message key="oscarprevention.preventionlistmanager.lead"/></p>
+    <p style="margin-top:-20px"><span class="badge bg-info"><fmt:message key="oscarprevention.preventionlistmanager.info"/></span> <fmt:message key="oscarprevention.preventionlistmanager.notice"/></p>
 
     <table class="table table-striped table-hover table-bordered">
 
         <thead>
         <tr>
             <th></th>
-            <th width="200px">Name</th>
-            <th>Description</th>
+            <th width="200px"><fmt:message key="oscarprevention.preventionlistmanager.colName"/></th>
+            <th><fmt:message key="oscarprevention.preventionlistmanager.colDescription"/></th>
         </tr>
         </thead>
 
@@ -120,7 +118,7 @@
                 prevDesc = h.get("desc");
         %>
         <tr class="prevention-item" id="<e:forHtmlAttribute value='<%= prevId %>' />" prevention-data="<e:forHtmlAttribute value='<%= prevName %>' />">
-            <td class="item-active" title="Available on master list"></td>
+            <td class="item-active" title="<fmt:message key='oscarprevention.preventionlistmanager.available'/>"></td>
             <td><e:forHtmlContent value='<%= prevName %>' />
             </td>
             <td><e:forHtmlContent value='<%= prevDesc %>' />
@@ -132,9 +130,9 @@
     </table>
 
     <!-- Button to trigger modal confirmation -->
-    <button id="btnVoid" class="btn btn-lg float-end" disabled>Save</button>
+    <button id="btnVoid" class="btn btn-lg float-end" disabled><fmt:message key="oscarprevention.preventionlistmanager.btnSave"/></button>
     <a href="#modalConfirm" id="btnConfirm" class="btn btn-lg btn-success float-end" data-bs-toggle="modal"
-       data-bs-backdrop="false" style="display:none">Save</a>
+       data-bs-backdrop="false" style="display:none"><fmt:message key="oscarprevention.preventionlistmanager.btnSave"/></a>
 
 </div><!-- container -->
 
@@ -145,16 +143,16 @@
          aria-hidden="true">
         <div class="modal-dialog"><div class="modal-content">
         <div class="modal-header" style="background-color:#fbb450;">
-            <h3 id="modalConfirmLabel">Are you sure?</h3>
+            <h3 id="modalConfirmLabel"><fmt:message key="oscarprevention.preventionlistmanager.modalTitle"/></h3>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-            <p>Please confirm your changes to the prevention list:</p>
+            <p><fmt:message key="oscarprevention.preventionlistmanager.modalPrompt"/></p>
             <div class="card card-body bg-body-tertiary" id="modalItems"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true">No, don't save</button>
-            <button type="submit" class="btn btn-danger">Yes, please save</button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal" aria-hidden="true"><fmt:message key="oscarprevention.preventionlistmanager.modalCancel"/></button>
+            <button type="submit" class="btn btn-danger"><fmt:message key="oscarprevention.preventionlistmanager.modalConfirm"/></button>
         </div>
     </div></div></div>
 
@@ -185,12 +183,12 @@
 
         if (indicator.hasClass("item-active")) {
             indicator.removeClass('item-active');
-            indicator.attr("title", "Removed from master list");
+            indicator.attr("title", "<fmt:message key='oscarprevention.preventionlistmanager.removed'/>");
             addPreventionToBin(name);
 
         } else {
             indicator.addClass('item-active');
-            indicator.attr("title", "Available on master list");
+            indicator.attr("title", "<fmt:message key='oscarprevention.preventionlistmanager.available'/>");
             removePreventionFromBin(name);
         }
 

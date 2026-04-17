@@ -261,21 +261,18 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title" id="myModalLabel">Please confirm</h4>
+                    <h4 class="modal-title" id="myModalLabel"><fmt:message key="form.eCARES.confirmTitle"/></h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p><span class="fa-solid fa-circle-check text-success"></span> All information entered on
-                        the eCGA has been saved.</p>
+                    <p><span class="fa-solid fa-circle-check text-success"></span> <fmt:message key="form.eCARES.savedMessage"/></p>
 
-                    <span class="fa-solid fa-triangle-exclamation text-warning"></span> The eCGA is not complete,
-                    are you sure you want to close?
+                    <span class="fa-solid fa-triangle-exclamation text-warning"></span> <fmt:message key="form.eCARES.incompleteMessage"/>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary continueButton" data-bs-dismiss="modal">No, continue
-                        editing
+                    <button type="button" class="btn btn-secondary continueButton" data-bs-dismiss="modal"><fmt:message key="form.eCARES.continueEditing"/>
                     </button>
-                    <button type="button" class="btn btn-warning closeWindowButton">Yes, exit</button>
+                    <button type="button" class="btn btn-warning closeWindowButton"><fmt:message key="form.eCARES.yesExit"/></button>
                 </div>
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
@@ -295,8 +292,8 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary save-tickler">Create Tickler</button>
-                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary save-tickler"><fmt:message key="form.eCARES.createTickler"/></button>
+                    <button type="button" class="btn btn-warning" data-bs-dismiss="modal"><fmt:message key="global.btnCancel"/></button>
                 </div>
             </div><!-- /.modal-content -->
         </div><!-- /.modal-dialog -->
@@ -309,7 +306,7 @@
     <div class="modal-dialog modal-lg" style="width:60%;">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 class="modal-title" id="chartModalLabel">eFI - Frailty Index</h4>
+                <h4 class="modal-title" id="chartModalLabel"><fmt:message key="form.eCARES.frailtyIndex"/></h4>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -319,7 +316,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><fmt:message key="global.btnClose"/></button>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->
@@ -329,13 +326,13 @@
     <div class="center-container wcag-container row">
 
         <div class="col-10 text-end">
-            <input type="button" class="btn btn-info print" value="Print">
-            <input type="button" class="btn btn-primary calculate" value="Calculate Frailty Index">
-            <input type="button" class="btn btn-primary save" value="Save">
-            <input type="button" class="btn btn-danger exit" value="Save & Close">
-            <a data-bs-toggle="modal" href="#chartModal" class="btn btn-info">Graph eFI</a>
-            <input type="button" class="btn btn-info tickler" value="Create Tickler">
-            <input type="button" class="btn btn-info export" value="Export">
+            <input type="button" class="btn btn-info print" value="<fmt:message key='global.btnPrint'/>">
+            <input type="button" class="btn btn-primary calculate" value="<fmt:message key='form.eCARES.calculateFrailtyIndex'/>">
+            <input type="button" class="btn btn-primary save" value="<fmt:message key='global.save'/>">
+            <input type="button" class="btn btn-danger exit" value="<fmt:message key='form.eCARES.saveClose'/>">
+            <a data-bs-toggle="modal" href="#chartModal" class="btn btn-info"><fmt:message key="form.eCARES.graphFrailtyIndex"/></a>
+            <input type="button" class="btn btn-info tickler" value="<fmt:message key='form.eCARES.createTickler'/>">
+            <input type="button" class="btn btn-info export" value="<fmt:message key='form.eCARES.export'/>">
         </div>
 
     </div><!-- ./wcag-container -->

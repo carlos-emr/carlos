@@ -629,7 +629,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <select id="PHU" name="PHU">
-                                                                <option value="">Select Below</option>
+                                                                <option value=""><fmt:message key="demographic.demographiceditdemographic.optSelectBelow"/></option>
                                                                 <%
                                                                     if (phuLookupList != null) {
                                                                         for (LookupListItem llItem : phuLookupList.getItems()) {
@@ -994,7 +994,7 @@
                                                                                                 ${e:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optin_${ consentType.type }">Opt-In</label>
+                                                                                    <label for="optin_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optIn"/></label>
                                                                                     <input type="radio"
                                                                                            name="${ consentType.type }"
                                                                                            id="optout_${ consentType.type }"
@@ -1003,11 +1003,11 @@
                                                                                                 ${e:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
-                                                                                    <label for="optout_${ consentType.type }">Opt-Out</label>
+                                                                                    <label for="optout_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optOut"/></label>
                                                                                     <input type="button"
                                                                                            name="clearRadio_${consentType.type}_btn"
                                                                                            onclick="consentClearBtn('${consentType.type}')"
-                                                                                           value="Clear"/>
+                                                                                           value="<fmt:message key='demographic.demographiceditdemographic.clear'/>"/>
 
                                                                                         <%-- Was this consent set by the user? Or by the database?  --%>
                                                                                     <input type="hidden"
@@ -1223,7 +1223,7 @@
 
                                                                         </td>
 
-                                                                        <td><b>Service Programs</b></td>
+                                        <td><b><fmt:message key="demographic.demographiceditdemographic.servicePrograms"/></b></td>
 
                                                                         <td>
                                                                             <ul>
@@ -1271,7 +1271,7 @@
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="alignRight">
-                                                                        <strong>Level</strong>
+                                                                        <strong><fmt:message key="demographic.demographiceditdemographic.level"/></strong>
                                                                     </td>
                                                                     <td>
                                                                         <input type="hidden"
@@ -1280,19 +1280,19 @@
                                                                         <select id="rxInteractionWarningLevel"
                                                                                 name="rxInteractionWarningLevel">
                                                                             <option value="0" <%=(warningLevel.equals("0") ? "selected=\"selected\"" : "") %>>
-                                                                                Not Specified
+                                                                                <fmt:message key="demographic.demographiceditdemographic.notSpecified"/>
                                                                             </option>
                                                                             <option value="1" <%=(warningLevel.equals("1") ? "selected=\"selected\"" : "") %>>
-                                                                                Low
+                                                                                <fmt:message key="demographic.demographiceditdemographic.low"/>
                                                                             </option>
                                                                             <option value="2" <%=(warningLevel.equals("2") ? "selected=\"selected\"" : "") %>>
-                                                                                Medium
+                                                                                <fmt:message key="demographic.demographiceditdemographic.medium"/>
                                                                             </option>
                                                                             <option value="3" <%=(warningLevel.equals("3") ? "selected=\"selected\"" : "") %>>
-                                                                                High
+                                                                                <fmt:message key="demographic.demographiceditdemographic.high"/>
                                                                             </option>
                                                                             <option value="4" <%=(warningLevel.equals("4") ? "selected=\"selected\"" : "") %>>
-                                                                                None
+                                                                                <fmt:message key="demographic.demographiceditdemographic.none"/>
                                                                             </option>
                                                                         </select>
                                                                     </td>
@@ -1310,7 +1310,7 @@
                                                                    id="demographicPatientNotes">
                                                                 <tr id="paitientNotesHeading"
                                                                     class="category_table_heading">
-                                                                    <th colspan="4" class="alignLeft">Patient Notes</th>
+                                                                    <th colspan="4" class="alignLeft"><fmt:message key="demographic.demographiceditdemographic.patientNotes"/></th>
                                                                 </tr>
 
                                                                 <tr>

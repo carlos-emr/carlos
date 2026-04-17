@@ -135,7 +135,7 @@
 
         function selectProviderCustom(p, pn) {
             <%if (form == null || form.isEmpty() || elementName == null || elementName.isEmpty() || elementId == null || elementId.isEmpty()) {%>
-            alert("Error: Missing form configuration. Cannot transfer the selected provider.");
+            alert("<fmt:message key='receptionist.receptionistfindprovider.msgMissingFormConfig'/>");
             return;
             <%} else {%>
             opener.document["<e:forJavaScriptBlock value='<%= form %>' />"].elements["<e:forJavaScriptBlock value='<%= elementName %>' />"].value = pn;
@@ -312,5 +312,3 @@
         return false;
     }
 %>
-
-        

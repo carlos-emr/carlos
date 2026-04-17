@@ -1,4 +1,8 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -128,7 +132,7 @@
     <%
         }
     %>
-    <!--input type="submit" value="Save" onclick="go()" style="width: 120px;"/-->
+    <!--input type="submit" value="<fmt:message key="global.save"/>" onclick="go()" style="width: 120px;"/-->
     One second ......
 </form>
 </body>

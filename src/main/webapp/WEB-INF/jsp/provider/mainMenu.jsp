@@ -214,7 +214,7 @@
                         <li id="econ">
                             <a href="#" onclick="popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/econsult')"
                                title="eConsult">
-                                <span>eConsult</span></a>
+                                <span><fmt:message key="provider.mainMenu.eConsult"/></span></a>
                         </li>
                         <% } %>
                         <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
@@ -257,8 +257,8 @@
                                                rights="r">
 
                                 <li id="admin2">
-                                    <a href="javascript:void(0)" id="admin-panel" TITLE='Administration Panel'
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
+                                    <a href="javascript:void(0)" id="admin-panel" TITLE='<fmt:message key="admin.admin.page.title"/>'
+                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
                                 </li>
 
                             </security:oscarSec>
@@ -273,7 +273,7 @@
 
                             <li id="dashboardList">
                                 <div class="dropdown">
-                                    <a href="#" class="dashboardBtn">Dashboard</a>
+                                    <a href="#" class="dashboardBtn"><fmt:message key="provider.mainMenu.dashboard"/></a>
                                     <div class="dashboardDropdown">
                                         <ul>
                                             <c:forEach items="${ dashboards }" var="dashboard">
@@ -289,7 +289,7 @@
                                                 <li>
                                                     <a href="javascript:void(0)"
                                                        onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard','shared_dashboard')">
-                                                        Common Provider Dashboard
+                                                        <fmt:message key="provider.mainMenu.commonDashboard"/>
                                                     </a>
                                                 </li>
                                             </security:oscarSec>
@@ -310,7 +310,7 @@
                                    onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:message key="global.help"/></a>
 
                                 <div id="helpHtml">
-                                    <div class="help-title">Help</div>
+                                    <div class="help-title"><fmt:message key="provider.mainMenu.helpTitle"/></div>
 
                                     <div class="help-body">
 
@@ -336,7 +336,7 @@
         <td id="userSettings">
             <ul id="userSettingsMenu">
                 <li>
-                    <a title="Scratch Pad" href="javascript: function myFunction() {return false; }"
+                    <a title="<fmt:message key='ScratchPad.title'/>" href="javascript: function myFunction() {return false; }"
                        onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch','scratch')"><span
                             class="fa-solid fa-rectangle-list"></span></a>
                 </li>
@@ -402,4 +402,3 @@
         }).dialog("open");
     }
 </script>
-

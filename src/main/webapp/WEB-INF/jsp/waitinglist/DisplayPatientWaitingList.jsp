@@ -43,7 +43,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Waiting List</title>
+        <title><fmt:message key='oscarwaitinglist.displayPatientWaitingList.waitinglist'/></title>
 
     </head>
     <script>
@@ -61,7 +61,7 @@
         }
 
         function removePatient(demographicNo, waitingList) {
-            var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
+            var agree = confirm("<fmt:message key='oscarwaitinglist.displayPatientWaitingList.confirmRemove'/>");
             if (agree) {
                 var form = document.createElement('form');
                 form.method = 'post';
@@ -91,13 +91,13 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Waiting List</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.waitinglist'/></td>
             <td class="MainTableTopRowRightColumn" width="400">
                 <table class="TopStatusBar">
                     <tr>
                         <td>
                             <c:if test="${not empty demoInfo}">
-                                ${e:forHtml(demoInfo)} years
+                                ${e:forHtml(demoInfo)} <fmt:message key='global.years'/>
                             </c:if>
                         </td>
                     </tr>
@@ -106,7 +106,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forHtmlAttribute(demographicNo)}"><fmt:message key="global.btnBack"/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forHtmlAttribute(demographicNo)}"><fmt:message key='global.btnBack'/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>
@@ -115,11 +115,10 @@
                                 <tr>
                                     <td>
                                 <tr>
-                                    <td align="left" class="Header" width="100">Waiting List</td>
-                                    <td align="left" class="Header" width="50">Position</td>
-                                    <td align="left" class="Header" width="100">Note</td>
-                                    <td align="left" class="Header" width="100">On the Waiting
-                                        List Since
+                                    <td align="left" class="Header" width="100"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.waitinglist'/></td>
+                                    <td align="left" class="Header" width="50"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.position'/></td>
+                                    <td align="left" class="Header" width="100"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.note'/></td>
+                                    <td align="left" class="Header" width="100"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.onTheWaitingListSince'/>
                                     </td>
                                     <td align="left" class="Header" width="100"></td>
                                 </tr>
@@ -129,9 +128,9 @@
                                     <td width="50">${e:forHtml(waitingListBean.position)}</td>
                                     <td width="100">${e:forHtml(waitingListBean.note)}</td>
                                     <td width="100">${e:forHtml(waitingListBean.onListSince)}</td>
-                                    <td><a href=#
-                                           onClick="removePatient('${e:forHtml(waitingListBean.demographicNo)}', 
-                                           '${e:forHtml(waitingListBean.waitingListID)}');">Remove</a>
+                                    <td><a href="#"
+                                           onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}',
+                                           '${e:forJavaScript(waitingListBean.waitingListID)}');"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.remove'/></a>
                                     </td>
                                 </tr>
                                 </c:forEach>
@@ -141,7 +140,7 @@
                 <table>
                     <tr>
                         <td><input type="button" name="Button"
-                                   value="<fmt:message key="global.btnClose"/>"
+                                   value="<fmt:message key='global.btnClose'/>"
                                    onClick="window.close()"></td>
                     </tr>
                 </table>

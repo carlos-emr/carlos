@@ -268,15 +268,15 @@
         <tr>
             <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
             <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
-            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>">Phone</a></th>
-            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>">Gender</a></th>
-            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>">Health Card</a></th>
-            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= encodedDsmode %>">Version</a></th>
+            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPhone"/></a></th>
+            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgGender"/></a></th>
+            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgHealthCard"/></a></th>
+            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgVersion"/></a></th>
             <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
             <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
-            <th style="width:10%">DOB</th>
+            <th style="width:10%"><fmt:message key="report.reportdaysheet.msgDob"/></th>
             <% }%>
             <th><fmt:message key="report.reportdaysheet.msgBookingStatus"/></th>
             <th style="width:30%"><fmt:message key="report.reportdaysheet.msgComments"/></th>

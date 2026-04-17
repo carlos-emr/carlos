@@ -116,10 +116,9 @@
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> ${e:forHtml(rxPageSizeProperty.value)}
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
-                    <input type="checkbox" name="cppSingleLineProperty.checked" <c:if test="${cppSingleLineProperty.checked}">checked</c:if> />Enable CPP Single Line on eChart
+                    <input type="checkbox" name="cppSingleLineProperty.checked" <c:if test="${cppSingleLineProperty.checked}">checked</c:if> /><%=bundle.getString("provider.setCppSingleLine.msgProfileView")%>
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
-                    <%--  <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>" />--%>
+                    <input type="submit" name="btnApply" value="<%=bundle.getString("provider.setCppSingleLine.btnSubmit")%>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

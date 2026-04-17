@@ -37,16 +37,7 @@ import java.io.Serializable;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Random;
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
@@ -55,7 +46,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
-import io.github.carlos_emr.carlos.utility.CxfClientUtils.TrustAllManager;
 
 /**
  * When using the shutdown hook...
@@ -314,19 +304,6 @@ public final class MiscUtils {
         }
     }
 
-    public static void setJvmDefaultSSLSocketFactoryAllowAllCertificates() throws NoSuchAlgorithmException, KeyManagementException {
-        TrustAllManager[] tam = new TrustAllManager[]{new TrustAllManager()};
-        SSLContext ctx = SSLContext.getInstance("TLS");
-        ctx.init((KeyManager[]) null, tam, new SecureRandom());
-        SSLSocketFactory sslSocketFactory = ctx.getSocketFactory();
-        HttpsURLConnection.setDefaultSSLSocketFactory(sslSocketFactory);
-        HostnameVerifier hostNameVerifier = new HostnameVerifier() {
-            public boolean verify(String host, SSLSession sslSession) {
-                return true;
-            }
-        };
-        HttpsURLConnection.setDefaultHostnameVerifier(hostNameVerifier);
-    }
 
     public static boolean soundex(String s1, String s2) throws EncoderException {
         return soundexScore(s1, s2) >= 4;

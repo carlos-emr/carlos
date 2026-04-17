@@ -53,6 +53,8 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
 
     String postTo = request.getParameter("postTo");
@@ -93,7 +95,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>CARLOS Patient Search</title>
+    <title><fmt:message key="demographic.search.msgSearchPatient"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {
@@ -109,14 +111,14 @@
         <tr>
             <td height="40" width="25"></td>
             <td width="90%" align="left"><font color="#4D4D4D"><b><font
-                    size="4">oscar<font size="3">Search For Patient</font></font></b></font></td>
+                    size="4">oscar<font size="3"><fmt:message key="demographic.search.msgSearchPatient"/></font></font></b></font></td>
         </tr>
     </table>
     <table>
         <tr>
             <td><input type="hidden" name="postTo" value="<e:forHtmlAttribute value='<%= postTo %>' />"/> <input
                     type="text" name="keyword" value="<e:forHtmlAttribute value='<%= String.valueOf(keyword) %>' />"/> <input
-                    type="submit" value="Search"/></td>
+                    type="submit" value="<fmt:message key='demographic.search.btnSearch'/>"/></td>
         </tr>
     </table>
     <table width="100%" border="0" bgcolor="#ffffff" cellspacing="2"
@@ -125,29 +127,29 @@
             <td width="10%" class="Text"><input type="radio" name="column"
                                                 value="DemographicNo"
                     <%=(column.equals("DemographicNo") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=DemographicNo" %>' />">Demo No</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=DemographicNo" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></a></td>
             <td width="20%" class="Text"><input type="radio" name="column"
                                                 value="LastName" <%=(column.equals("LastName") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url %>' />">Last Name</a></td>
+                    href="<e:forHtmlAttribute value='<%= url %>' />"><fmt:message key="demographic.search.formName"/></a></td>
             <td width="15%" class="Text"><input type="radio" name="column"
                                                 value="FirstName" <%=(column.equals("FirstName") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=FirstName" %>' />">First Name</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=FirstName" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.firstName"/></a></td>
             <td width="10%" class="Text" align="center"><input type="radio"
                                                                name="column" value="ChartNo"
                     <%=(column.equals("ChartNo") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=ChartNo" %>' />">Chart#</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=ChartNo" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.optChart"/></a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column"
                                                               value="Sex" <%=(column.equals("Sex") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=Sex" %>' />">Sex</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=Sex" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.sex"/></a></td>
             <td width="15%" class="Text" align="center"><input type="radio"
                                                                name="column" value="YearOfBirth"
                     <%=(column.equals("YearOfBirth") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=YearOfBirth" %>' />">DOB</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=YearOfBirth" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.DOB"/></a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column" value="PatientStatus"
                     <%=(column.equals("PatientStatus") ? "checked" : "")%> /><a
-                    href="<e:forHtmlAttribute value='<%= url + "&orderby=PatientStatus" %>' />">Status</a></td>
+                    href="<e:forHtmlAttribute value='<%= url + "&orderby=PatientStatus" %>' />"><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/></a></td>
         </tr>
         <%
             boolean other = true;

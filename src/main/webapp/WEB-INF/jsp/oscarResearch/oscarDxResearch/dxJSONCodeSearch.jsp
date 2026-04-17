@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <style type="text/css">
     .ui-autocomplete-loading {
         background: white url('<%= request.getContextPath() %>/images/ui-anim_basic_16x16.gif') right center no-repeat;
@@ -66,7 +68,7 @@
 <table>
     <c:if test="${param.enableCodeSystemSelect == 'true'}">
         <tr>
-            <td class="label"><label for="codingSystem">Disease Code System</label></td>
+            <td class="label"><label for="codingSystem"><fmt:message key="oscarResearch.oscarDxResearch.dxJSONCodeSearch.labelDiseaseCodeSystem"/></label></td>
             <td>
                 <select name="codingSystem" id="codingSystem">
                     <option value="icd9">icd9</option>
@@ -80,7 +82,7 @@
         <input type="hidden" name="codingSystem" id="codingSystem" value="icd9"/>
     </c:if>
     <tr>
-        <td><label for="jsonDxSearch">Indication</label></td>
+        <td><label for="jsonDxSearch"><fmt:message key="oscarResearch.oscarDxResearch.dxJSONCodeSearch.labelIndication"/></label></td>
         <td>
             <input type="text" class="codeTxt" name="jsonDxSearch" id="jsonDxSearch"/>
         </td>

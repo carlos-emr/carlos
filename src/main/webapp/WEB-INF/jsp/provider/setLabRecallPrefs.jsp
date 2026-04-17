@@ -69,7 +69,7 @@
                     <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
                     <table>
                         <tr>
-                            <td>Delegate: <font color="red">*required</font></td>
+                            <td><%=bundle.getString("provider.setLabRecallPrefs.delegate")%> <font color="red"><%=bundle.getString("provider.setLabRecallPrefs.required")%></font></td>
                             <td>
                                 <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();">
                                     <c:forEach var="provider" items="${providerSelect}">
@@ -82,17 +82,17 @@
                         </tr>
 
                         <tr>
-                            <td>Default Message Subject:</td>
+                            <td><%=bundle.getString("provider.setLabRecallPrefs.defaultSubject")%></td>
                             <td><input type="text" name="labRecallMsgSubject.value" value="${e:forHtmlAttribute(subject.value)}" size="50" /></td>
                         </tr>
 
                         <tr>
-                            <td>Tickler Assignee:</td>
-                            <td><input type="checkbox" name="labRecallTicklerAssignee.checked" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> />default to delegate</td>
+                            <td><%=bundle.getString("provider.setLabRecallPrefs.ticklerAssignee")%></td>
+                            <td><input type="checkbox" name="labRecallTicklerAssignee.checked" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> /><%=bundle.getString("provider.setLabRecallPrefs.defaultToDelegate")%></td>
                         </tr>
 
                         <tr>
-                            <td>Tickler Priority:</td>
+                            <td><%=bundle.getString("provider.setLabRecallPrefs.ticklerPriority")%></td>
                             <td><select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value">
                                 <c:forEach var="priority" items="${prioritySelect}">
                                     <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if> >
@@ -103,8 +103,8 @@
                         </tr>
 
                     </table>
-                    <input type="submit" name="btnApply" value="Submit" />
-                    <input type="button" name="delete" value="Delete" onclick="deleteProp();" style="display:none;">
+                    <input type="submit" name="btnApply" value="<%=bundle.getString("provider.setLabRecallPrefs.submit")%>" />
+                    <input type="button" name="delete" value="<%=bundle.getString("provider.setLabRecallPrefs.delete")%>" onclick="deleteProp();" style="display:none;">
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>
@@ -117,7 +117,7 @@
 
     <script>
         function deleteProp() {
-            var r = confirm("Are you sure you would like to delete the lab recall settings?");
+            var r = confirm("<%=bundle.getString("provider.setLabRecallPrefs.confirmDelete")%>");
             if (r == true) {
                 document.forms[0].reset();
                 document.forms[0]['labRecallDelegate.value'].value = "";

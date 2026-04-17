@@ -17,9 +17,14 @@
 <%@ page import="io.github.carlos_emr.carlos.login.*" %>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%
     boolean bDeletedList = false;
-    String msg = "Report List";
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String submitDelete = bundle.getString("report.reportList.btnDelete");
+    String submitRestore = bundle.getString("report.reportList.btnRestore");
+    String submitAdd = bundle.getString("report.reportList.btnAdd");
+    String msg = bundle.getString("report.reportList.title");
     Properties prop = new Properties();
     RptReportItem reportItem = new RptReportItem();
 
@@ -28,44 +33,47 @@
         bDeletedList = true;
     }
 // delete action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitDelete)) {
         // check the input data
         String id = request.getParameter("id");
         int nId = id != null ? Integer.parseInt(id) : 0;
         if (!reportItem.deleteRecord(nId)) {
-            msg = "The report is NOT deleted by some reasons. Please check your action.";
+            msg = bundle.getString("report.reportList.msgReportNotDeleted");
         }
     }
 // undelete action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Restore")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitRestore)) {
         // check the input data
         String id = request.getParameter("id");
         int nId = id != null ? Integer.parseInt(id) : 0;
         if (!reportItem.unDeleteRecord(nId)) {
-            msg = "The report is NOT undeleted by some reasons. Please check your action.";
+            msg = bundle.getString("report.reportList.msgReportNotUndeleted");
         }
     }
 // add action
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals("Add")) {
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitAdd)) {
         // check the input data
         String report_name = request.getParameter("name");
         reportItem.setReport_name(report_name);
         if (!reportItem.insertRecord()) {
-            msg = "The report is NOT added by some reasons. Please check your action.";
+            msg = bundle.getString("report.reportList.msgReportNotAdded");
         }
     }
 
 // search the list
     int n = bDeletedList ? 0 : 1;
-    String link = bDeletedList ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>Report list</a>" : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>Deleted report list</a>";
+    String link = bDeletedList
+            ? "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord'>" + bundle.getString("report.reportList.linkReportList") + "</a>"
+            : "<a href='" + request.getContextPath() + "/report/ViewReportFormRecord?undelete=true'>" + bundle.getString("report.reportList.linkDeletedReportList") + "</a>";
     Vector vec = reportItem.getNameList(n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><%=bDeletedList ? "Deleted" : ""%> Report List</title>
+        <title><%=bDeletedList ? bundle.getString("report.reportList.deleted") + " " : ""%><%=bundle.getString("report.reportList.title")%></title>
         <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
         <script language="JavaScript">
 
@@ -76,18 +84,18 @@
             }
 
             function onDelete() {
-                ret = confirm("Are you sure you want to delete it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmDelete'/>");
                 return ret;
             }
 
             function onRestore() {
-                ret = confirm("Are you sure you want to restore it?");
+                ret = confirm("<fmt:message key='report.reportList.confirmRestore'/>");
                 return ret;
             }
 
             function onAdd() {
                 if (document.baseurl.name.value.length < 2) {
-                    alert("Please type in a valid name!");
+                    alert("<fmt:message key='report.reportList.validName'/>");
                     return false;
                 } else {
                     return true;
@@ -142,9 +150,9 @@
                 </td>
                 <td width="5%" align="right"><input type="hidden" name="id"
                                                     value="<%=itemId%>"> <% if (!bDeletedList) { %> <input
-                        type="submit" name="submit" value="Delete"
+                        type="submit" name="submit" value="<fmt:message key='report.reportList.btnDelete'/>"
                         onclick="javascript:return onDelete();"> <% } else { %> <input
-                        type="submit" name="submit" value="Restore"
+                        type="submit" name="submit" value="<fmt:message key='report.reportList.btnRestore'/>"
                         onclick="javascript:return onRestore();"> <% } %>
                 </td>
             </tr>
@@ -155,13 +163,13 @@
     <hr>
     <table width="60%" border="0" cellspacing="2" cellpadding="2">
         <tr>
-            <td>Add a new report</td>
+            <td><fmt:message key="report.reportList.addNewReport"/></td>
         </tr>
         <tr>
             <td align="center">
                 <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormRecord">
                     <input type="text" name="name" value="" size="60"/> <input
-                        type="submit" name="submit" value="Add"
+                        type="submit" name="submit" value="<fmt:message key='report.reportList.btnAdd'/>"
                         onclick="javascript:return onAdd();"/></form>
             </td>
         </tr>

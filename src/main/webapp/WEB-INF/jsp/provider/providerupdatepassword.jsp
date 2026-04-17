@@ -135,15 +135,17 @@
 
     }
 %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
-    <title>Password/PIN Changed</title>
+    <title><fmt:message key='provider.updatePassword.title'/></title>
     <script language='javascript'>self.close();</script>
 </head>
 <body>
-<h3>Changes saved.</h3>
+<h3><fmt:message key='provider.updatePassword.msgSaved'/></h3>
 <br/>
-<input type="button" value="Close Window" onClick="self.close();"/>
+<input type="button" value="<fmt:message key='provider.updatePassword.btnClose'/>" onClick="self.close();"/>
 </body>
 <body>
 

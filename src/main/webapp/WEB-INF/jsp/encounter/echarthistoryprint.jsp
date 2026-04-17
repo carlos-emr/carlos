@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 
@@ -81,9 +82,9 @@
 
     <table class="Header">
         <tr>
-            <td align="left"><input type="button" value="Print"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnPrint'/>"
                                     onclick="javascript:return onPrint();"/> <input type="button"
-                                                                                    value="Close"
+                                                                                    value="<fmt:message key='global.btnClose'/>"
                                                                                     onclick="javascript:return onClose();"/>
             </td>
         </tr>
@@ -112,13 +113,13 @@
                             <table width="100%">
                                 <tr>
                                     <td width="33%">
-                                        <div class="RowTop">Social History:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.socialHistory"/></div>
                                     </td>
                                     <td width="33%">
-                                        <div class="RowTop">Family History:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.familyHistory"/></div>
                                     </td>
                                     <td width="33%">
-                                        <div class="RowTop">Medical History:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.medicalHistory"/></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -143,11 +144,11 @@
                             <table width="100%">
                                 <tr>
                                     <td width="50%">
-                                        <div class="RowTop">Ongoing Concerns:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.ongoingConcerns"/></div>
                                     </td>
 
                                     <td width="50%">
-                                        <div class="RowTop">Reminders:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.reminders"/></div>
                                     </td>
                                 </tr>
                                 <tr width="100%">
@@ -168,7 +169,7 @@
                             <table width="100%">
                                 <tr>
                                     <td width=100%>
-                                        <div class="RowTop">Encounter:</div>
+                                        <div class="RowTop"><fmt:message key="encounter.echarthistoryprint.encounter"/></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -188,9 +189,9 @@
 
     <table class="Header">
         <tr>
-            <td align="left"><input type="button" value="Print"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnPrint'/>"
                                     onclick="javascript:return onPrint();"/> <input type="button"
-                                                                                    value="Close"
+                                                                                    value="<fmt:message key='global.btnClose'/>"
                                                                                     onclick="javascript:return onClose();"/>
             </td>
         </tr>

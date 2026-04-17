@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -161,7 +162,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>B.C. Health Passport</title>
+        <title><fmt:message key='form.bchp.title'/></title>
 
         <link rel="stylesheet" type="text/css"
               href="<%=bView?"bcHpStyleView.css" : "bcHpStyle.css"%>">
@@ -174,7 +175,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -208,7 +209,7 @@
                 var ret = checkAllDates();
                 if (ret == true) {
                     reset();
-                    ret = confirm("Are you sure you want to save this form?");
+                    ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 }
 
                 return ret;
@@ -219,7 +220,7 @@
                 var ret = checkAllDates();
                 if (ret == true) {
                     reset();
-                    ret = confirm("Are you sure you wish to save and close this window?");
+                    ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 }
                 return ret;
             }
@@ -361,7 +362,7 @@
                         return false;
                     }
                 } catch (ex) {
-                    alert('Catch Invalid Date in field ' + dateBox.name);
+                    alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                     dateBox.focus();
                     return false;
                 }
@@ -472,20 +473,20 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
                 %>
 
-                <td align="right"><b>Edit:</b><a
+                <td align="right"><b><fmt:message key='form.bchp.edit'/></b><a
                         href="form/formbchppg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.1)</font></a> | HP <font size=-2>(pg.2)</font></td>
                 <%
@@ -502,8 +503,8 @@
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr align="left">
-                            <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                B.C. Health Passport
+                            <th><%=bView ? "<font color='yellow'>" : ""%><fmt:message key='form.bchp.viewPage'/><%=bView ? "</font>" : ""%>
+                                <fmt:message key='form.bchp.title'/>
                             </th>
                         </tr>
                     </table>
@@ -516,11 +517,11 @@
         </table>
         <table width="100%" border="1" cellpadding="0" cellspacing="0">
             <tr>
-                <th>Date</th>
-                <th>Medication name</th>
-                <th>Dose</th>
-                <th>How often</th>
-                <th>Reason</th>
+                <th><fmt:message key='form.bchp.dateHeader'/></th>
+                <th><fmt:message key='form.bchp.medicationName'/></th>
+                <th><fmt:message key='form.bchp.dose'/></th>
+                <th><fmt:message key='form.bchp.howOften'/></th>
+                <th><fmt:message key='form.bchp.reason'/></th>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date1" id="pg2_date1"
@@ -854,17 +855,17 @@
         </table>
         <table width="100%" border="1" cellpadding="0" cellspacing="0">
             <tr>
-                <th width="10%">Vaccines</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
+                <th width="10%"><fmt:message key='form.bchp.vaccines'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
             </tr>
             <tr>
-                <td>Flu</td>
+                <td><fmt:message key='form.bchp.flu'/></td>
                 <td><input type="text" name="pg2_fluDate1" id="pg2_fluDate1"
                            style="width: 75%" size="10" maxlength="15"
                            value="<%= props.getProperty("pg2_fluDate1", "") %>" @oscar.formDB
@@ -1118,20 +1119,20 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript: return onSave();"/> <input type="submit"
-                                                                              value="Save and Exit"
+                                                                              value="<fmt:message key='global.saveExit'/>"
                                                                               onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
                 %>
 
-                <td align="right"><b>Edit:</b><a
+                <td align="right"><b><fmt:message key='form.bchp.edit'/></b><a
                         href="form/formbchppg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.1)</font></a> | HP <font size=-2>(pg.2)</font></td>
                 <%

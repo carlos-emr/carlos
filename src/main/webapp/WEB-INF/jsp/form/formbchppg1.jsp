@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -149,7 +150,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>B.C. Health Passport</title>
+        <title><fmt:message key='form.bchp.title'/></title>
 
         <link rel="stylesheet" type="text/css"
               href="<%=bView?"bcHpStyleView.css" : "bcHpStyle.css"%>">
@@ -162,7 +163,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -210,7 +211,7 @@
                 var ret = checkAllDates();
                 if (ret == true) {
                     reset();
-                    ret = confirm("Are you sure you want to save this form?");
+                    ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 }
                 //if(ret==true){
                 //  reset();
@@ -224,7 +225,7 @@
                 var ret = checkAllDates();
                 if (ret == true) {
                     reset();
-                    ret = confirm("Are you sure you wish to save and close this window?");
+                    ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 }
                 return ret;
             }
@@ -368,7 +369,7 @@
                         return false;
                     }
                 } catch (ex) {
-                    alert('Catch Invalid Date in field ' + dateBox.name);
+                    alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                     dateBox.focus();
                     return false;
                 }
@@ -466,7 +467,7 @@
     </div>
     <div id="comment2Div" class="comment"
          style="top: 981px; left: 135px; width: 300px; height: 17px;">
-        <center>Repeat every 10 years</center>
+        <center><fmt:message key='form.bchp.repeatEvery10Years'/></center>
     </div>
     <div id="comment3Div" class="comment"
          style="top: 1006px; left: 135px; width: 300px; height: 17px;">
@@ -498,20 +499,20 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
                 %>
 
-                <td align="right"><b>Edit:</b>HP <font size=-2>(pg.1)</font> | <a
+                <td align="right"><b><fmt:message key='form.bchp.edit'/></b>HP <font size=-2>(pg.1)</font> | <a
                         href="form/formbchppg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.2)</font></a></td>
                 <%
@@ -528,44 +529,44 @@
 
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr align="left">
-                            <th><%=bView ? "<font color='yellow'>VIEW PAGE: </font>" : ""%>
-                                B.C. Health Passport
+                            <th><%=bView ? "<font color='yellow'>" : ""%><fmt:message key='form.bchp.viewPage'/><%=bView ? "</font>" : ""%>
+                                <fmt:message key='form.bchp.title'/>
                             </th>
                         </tr>
                     </table>
                     <br/>
                     <table width="100%" border="0" cellpadding="0" cellspacing="2">
                         <tr>
-                            <td width="25%">Patient Name:</td>
+                            <td width="25%"><fmt:message key='form.bchp.patientName'/></td>
                             <td><input type="text" name="pg1_patientName"
                                        id="pg1_patientName" style="width: 100%" size="30" maxlength="40"
                                        value="<%= props.getProperty("pg1_patientName", "") %>"
                                        @oscar.formDB/></td>
-                            <td>Date:</td>
+                            <td><fmt:message key='form.bchp.date'/></td>
                             <td><input type="text" name="pg1_formDate" id="pg1_formDate"
                                        style="width: 100%" size="10" maxlength="15"
                                        value="<%= props.getProperty("pg1_formDate", "") %>" @oscar.formDB
                                        dbType="date"/></td>
                         </tr>
                         <tr>
-                            <td>Personal Health Number(PHN):</td>
+                            <td><fmt:message key='form.bchp.phn'/></td>
                             <td><input type="text" name="pg1_phn" id="pg1_phn"
                                        style="width: 100%" size="20" maxlength="20"
                                        value="<%= props.getProperty("pg1_phn", "") %>" @oscar.formDB/>
                             </td>
-                            <td>Tel:</td>
+                            <td><fmt:message key='form.bchp.tel'/></td>
                             <td><input type="text" name="pg1_phone" id="pg1_phone"
                                        style="width: 100%" size="15" maxlength="15"
                                        value="<%= props.getProperty("pg1_phone", "") %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
-                            <td>Emergency Contact Name:</td>
+                            <td><fmt:message key='form.bchp.emergencyContactName'/></td>
                             <td><input type="text" name="pg1_emergContact"
                                        id="pg1_emergContact" style="width: 100%" size="30" maxlength="40"
                                        value="<%= props.getProperty("pg1_emergContact", "") %>"
                                        @oscar.formDB/></td>
-                            <td>Tel:</td>
+                            <td><fmt:message key='form.bchp.tel'/></td>
                             <td><input type="text" name="pg1_emergContactPhone"
                                        id="pg1_emergContactPhone" style="width: 100%" size="15"
                                        maxlength="15"
@@ -573,29 +574,29 @@
                                        @oscar.formDB/></td>
                         </tr>
                         <tr>
-                            <td>Allergies:</td>
+                            <td><fmt:message key='form.bchp.allergies'/></td>
                             <td colspan="3"><input type="text" name="pg1_allergies"
                                                    id="pg1_allergies" style="width: 100%" size="60" maxlength="90"
                                                    value="<%= props.getProperty("pg1_allergies", "") %>"
                                                    @oscar.formDB/></td>
                         </tr>
                         <tr>
-                            <td colspan="2">MD: <input type="text" name="pg1_md"
+                            <td colspan="2"><fmt:message key='form.bchp.md'/> <input type="text" name="pg1_md"
                                                        id="pg1_md" style="width: 60%" size="30" maxlength="40"
                                                        value="<%= props.getProperty("pg1_md", "") %>" @oscar.formDB/>
-                                MSP for lab cc: <input type="text" name="pg1_msp" id="pg1_msp"
+                                <fmt:message key='form.bchp.mspForLabCc'/> <input type="text" name="pg1_msp" id="pg1_msp"
                                                        style="width: 15%" size="10" maxlength="9"
                                                        value="<%= props.getProperty("pg1_msp", "") %>" @oscar.formDB/>
                             </td>
-                            <td>Tel:</td>
+                            <td><fmt:message key='form.bchp.tel'/></td>
                             <td><input type="text" name="pg1_mdPhone" id="pg1_mdPhone"
                                        style="width: 100%" size="15" maxlength="15"
                                        value="<%= props.getProperty("pg1_mdPhone", "") %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="4">Living Will / Advanced Care Directive:
-                                &nbsp;&nbsp;Yes <input type="checkbox" name="pg1_livingWillY"
+                            <td colspan="4"><fmt:message key='form.bchp.livingWill'/>
+                                &nbsp;&nbsp;<fmt:message key='global.yes'/> <input type="checkbox" name="pg1_livingWillY"
                                                        id="pg1_livingWillY"
                                         <%= props.getProperty("pg1_livingWillY", "") %> @oscar.formDB
                                                        dbType="tinyint(1)"/> &nbsp;&nbsp;No <input type="checkbox"
@@ -603,15 +604,14 @@
                                                                                                    id="pg1_livingWillN"
                                         <%= props.getProperty("pg1_livingWillN", "") %> @oscar.formDB
                                                                                                    dbType="tinyint(1)"/>
-                                &nbsp;&nbsp;(If DNR - enclose copy of
-                                orders with passport)
+                                &nbsp;&nbsp;<fmt:message key='form.bchp.ifDnr'/>
                             </td>
                         </tr>
                     </table>
                     <br/>
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                         <tr align="left">
-                            <th>Medical Conditions</th>
+                            <th><fmt:message key='form.bchp.medicalConditions'/></th>
                         </tr>
                     </table>
                     <table width="100%" border="0" cellpadding="0" cellspacing="2">
@@ -620,37 +620,37 @@
                                                   id="pg1_diabetes"
                                     <%= props.getProperty("pg1_diabetes", "") %> @oscar.formDB
                                                   dbType="tinyint(1)"/></td>
-                            <td width="24%">Diabetes</td>
+                            <td width="24%"><fmt:message key='form.bchp.diabetes'/></td>
                             <td width="1%"><input type="checkbox" name="pg1_atrialFib"
                                                   id="pg1_atrialFib"
                                     <%= props.getProperty("pg1_atrialFib", "") %> @oscar.formDB
                                                   dbType="tinyint(1)"/></td>
-                            <td width="24%">Atrial fibrillation</td>
+                            <td width="24%"><fmt:message key='form.bchp.atrialFibrillation'/></td>
                             <td width="1%"><input type="checkbox" name="pg1_coronary"
                                                   id="pg1_coronary"
                                     <%= props.getProperty("pg1_coronary", "") %> @oscar.formDB
                                                   dbType="tinyint(1)"/></td>
-                            <td width="34%">Coronary heart disease</td>
+                            <td width="34%"><fmt:message key='form.bchp.coronaryHeartDisease'/></td>
                             <td width="1%"><input type="checkbox" name="pg1_highBP"
                                                   id="pg1_highBP"
                                     <%= props.getProperty("pg1_highBP", "") %> @oscar.formDB
                                                   dbType="tinyint(1)"/></td>
-                            <td width="14%">High BP</td>
+                            <td width="14%"><fmt:message key='form.bchp.highBp'/></td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="pg1_chf" id="pg1_chf"
                                     <%= props.getProperty("pg1_chf", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>CHF</td>
+                            <td><fmt:message key='form.bchp.chf'/></td>
                             <td><input type="checkbox" name="pg1_stroke" id="pg1_stroke"
                                     <%= props.getProperty("pg1_stroke", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>Stroke</td>
+                            <td><fmt:message key='form.bchp.stroke'/></td>
                             <td><input type="checkbox" name="pg1_kidneyDisease"
                                        id="pg1_kidneyDisease"
                                     <%= props.getProperty("pg1_kidneyDisease", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>Kidney disease / low GFR <input type="text"
+                            <td><fmt:message key='form.bchp.kidneyDiseaseLowGfr'/> <input type="text"
                                                                 name="pg1_lowGFR" id="pg1_lowGFR" size="5"
                                                                 maxlength="10"
                                                                 value="<%= props.getProperty("pg1_lowGFR", "") %>"
@@ -659,22 +659,22 @@
                             <td><input type="checkbox" name="pg1_asthma" id="pg1_asthma"
                                     <%= props.getProperty("pg1_asthma", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>Asthma</td>
+                            <td><fmt:message key='form.bchp.asthma'/></td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="pg1_copd" id="pg1_copd"
                                     <%= props.getProperty("pg1_copd", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>COPD</td>
+                            <td><fmt:message key='form.bchp.copd'/></td>
                             <td><input type="checkbox" name="pg1_co2retainer"
                                        id="pg1_co2retainer"
                                     <%= props.getProperty("pg1_co2retainer", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td>CO2 retainer</td>
+                            <td><fmt:message key='form.bchp.co2Retainer'/></td>
                             <td><input type="checkbox" name="pg1_cancer" id="pg1_cancer"
                                     <%= props.getProperty("pg1_cancer", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td colspan="3">Cancer <input type="text"
+                            <td colspan="3"><fmt:message key='form.bchp.cancer'/> <input type="text"
                                                           name="pg1_cancerSpec" id="pg1_cancerSpec" size="48"
                                                           maxlength="40"
                                                           value="<%= props.getProperty("pg1_cancerSpec", "") %>"
@@ -684,7 +684,7 @@
                             <td><input type="checkbox" name="pg1_other" id="pg1_other"
                                     <%= props.getProperty("pg1_other", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td colspan="7">Other <input type="text" name="pg1_otherSpec"
+                            <td colspan="7"><fmt:message key='form.bchp.other'/> <input type="text" name="pg1_otherSpec"
                                                          id="pg1_otherSpec" size="108" maxlength="90"
                                                          value="<%= props.getProperty("pg1_otherSpec", "") %>"
                                                          @oscar.formDB/></td>
@@ -694,7 +694,7 @@
                                        id="pg1_majorSurg"
                                     <%= props.getProperty("pg1_majorSurg", "") %> @oscar.formDB
                                        dbType="tinyint(1)"/></td>
-                            <td colspan="7">Major surg.&nbsp; <input type="text"
+                            <td colspan="7"><fmt:message key='form.bchp.majorSurg'/> <input type="text"
                                                                      name="pg1_majorSurgSpec" id="pg1_majorSurgSpec"
                                                                      size="103"
                                                                      maxlength="80"
@@ -715,11 +715,11 @@
         </table>
         <table width="100%" border="1" cellpadding="0" cellspacing="0">
             <tr>
-                <th>Date</th>
-                <th>Medication name</th>
-                <th>Dose</th>
-                <th>How often</th>
-                <th>Reason</th>
+                <th><fmt:message key='form.bchp.dateHeader'/></th>
+                <th><fmt:message key='form.bchp.medicationName'/></th>
+                <th><fmt:message key='form.bchp.dose'/></th>
+                <th><fmt:message key='form.bchp.howOften'/></th>
+                <th><fmt:message key='form.bchp.reason'/></th>
             </tr>
             <tr>
                 <td><input type="text" name="pg1_date1" id="pg1_date1"
@@ -1057,17 +1057,17 @@
         </table>
         <table width="100%" border="1" cellpadding="0" cellspacing="0">
             <tr>
-                <th width="10%">Vaccines</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
-                <th width="13%">Date</th>
+                <th width="10%"><fmt:message key='form.bchp.vaccines'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
+                <th width="13%"><fmt:message key='form.bchp.dateHeader'/></th>
             </tr>
             <tr>
-                <td>Flu</td>
+                <td><fmt:message key='form.bchp.flu'/></td>
                 <td><input type="text" name="pg1_fluDate1" id="pg1_fluDate1"
                            style="width: 75%" size="10" maxlength="15"
                            value="<%= props.getProperty("pg1_fluDate1", "") %>" @oscar.formDB
@@ -1106,7 +1106,7 @@
             </tr>
             <tr onmouseover="showHideBox('comment1Div',1)"
                 onmouseout="showHideBox('comment1Div',0)">
-                <td>Pneumo vacc</td>
+                <td><fmt:message key='form.bchp.pneumoVacc'/></td>
                 <td><input type="text" name="pg1_pneumoVaccDate1"
                            id="pg1_pneumoVaccDate1" style="width: 75%" size="10"
                            maxlength="15"
@@ -1152,7 +1152,7 @@
             </tr>
             <tr onmouseover="showHideBox('comment2Div',1)"
                 onmouseout="showHideBox('comment2Div',0)">
-                <td>Td</td>
+                <td><fmt:message key='form.bchp.td'/></td>
                 <td><input type="text" name="pg1_tdDate1" id="pg1_tdDate1"
                            style="width: 75%" size="10" maxlength="15"
                            value="<%= props.getProperty("pg1_tdDate1", "") %>" @oscar.formDB
@@ -1191,7 +1191,7 @@
             </tr>
             <tr onmouseover="showHideBox('comment3Div',1)"
                 onmouseout="showHideBox('comment3Div',0)">
-                <td>Hep A</td>
+                <td><fmt:message key='form.bchp.hepA'/></td>
                 <td><input type="text" name="pg1_hepaDate1" id="pg1_hepaDate1"
                            style="width: 75%" size="10" maxlength="15"
                            value="<%= props.getProperty("pg1_hepaDate1", "") %>"
@@ -1230,7 +1230,7 @@
             </tr>
             <tr onmouseover="showHideBox('comment4Div',1)"
                 onmouseout="showHideBox('comment4Div',0)">
-                <td>Hep B</td>
+                <td><fmt:message key='form.bchp.hepB'/></td>
                 <td><input type="text" name="pg1_hepbDate1" id="pg1_hepbDate1"
                            style="width: 75%" size="10" maxlength="15"
                            value="<%= props.getProperty("pg1_hepbDate1", "") %>"
@@ -1325,14 +1325,14 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
@@ -1340,7 +1340,7 @@
                 <td>
                     <!--a href="javascript: popPage('formlabreq?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a-->
                 </td>
-                <td align="right"><b>Edit:</b>HP <font size=-2>(pg.1)</font> | <a
+                <td align="right"><b><fmt:message key='form.bchp.edit'/></b>HP <font size=-2>(pg.1)</font> | <a
                         href="form/formbchppg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">HP
                     <font size=-2>(pg.2)</font></a></td>
                 <%

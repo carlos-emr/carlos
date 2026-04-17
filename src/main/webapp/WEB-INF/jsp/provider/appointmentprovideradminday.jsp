@@ -1055,7 +1055,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                           onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')">Administration</a>
+                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>
@@ -1070,7 +1070,7 @@
 
                                 <li id="dashboardList">
                                     <div class="dropdown">
-                                        <a href="#" class="dashboardBtn">Dashboard</a>
+                                        <a href="#" class="dashboardBtn"><fmt:message key="provider.mainMenu.dashboard"/></a>
                                         <div class="dashboardDropdown">
                                             <ul>
                                                 <c:forEach items="${ dashboards }" var="dashboard">
@@ -1086,7 +1086,7 @@
                                                     <li>
                                                         <a href="javascript:void(0)"
                                                            onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/sharedOutcomesDashboard','shared_dashboard')">
-                                                            Common Provider Dashboard
+                                                        <fmt:message key="provider.mainMenu.commonDashboard"/>
                                                         </a>
                                                     </li>
                                                 </security:oscarSec>
@@ -1434,7 +1434,7 @@
 
                                         <select id="site" name="site" onchange="changeSite(this)"
                                                 style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
-                                            <option value="none" style="background-color:white">all clinics</option>
+                                            <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                                             <%
                                                 for (int i = 0; i < curUserSites.size(); i++) {
                                             %>

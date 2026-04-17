@@ -509,7 +509,7 @@
                     TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>'
                     OnMouseOver="window.status='<fmt:message key="provider.appointmentProviderAdminDay.viewDaySched"/>' ; return true"><fmt:message key="global.today"/></a>
 
-                | <span style="color:#333">Month</span>
+                | <span style="color:#333"><fmt:message key="provider.appointmentprovideradminmonth.btnMonth"/></span>
 
             </td>
             <TD ALIGN="center" width="33%"><B><%= arrayMonthOfYear[(month + 11) % 12] %>
@@ -561,7 +561,7 @@
 
                 <select id="site" name="site" onchange="changeSite(this)"
                         style="background-color: <e:forCssString value='<%= selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite) %>' />">
-                    <option value="none" style="background-color:white">---all clinic---</option>
+                    <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                     <%
                         for (int i = 0; i < curUserSites.size(); i++) {
                     %>

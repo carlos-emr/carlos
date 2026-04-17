@@ -27,6 +27,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -109,7 +110,7 @@
                 ret = checkAllIntegers();
             }
             if (ret) {
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
 
@@ -123,7 +124,7 @@
             }
 
             if (ret) {
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -263,7 +264,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -274,7 +275,7 @@
         function checkAllIntegers() {
             var ret = true;
             if (!isInteger(document.forms[0].year.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
 
                 document.forms[0].year.value = "";
                 document.forms[0].year.focus();
@@ -287,14 +288,14 @@
 
                 ret = false;
             } else if (!isInteger(document.forms[0].frequencyOfSeeingDoctor.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
 
                 document.forms[0].frequencyOfSeeingDoctor.value = "";
                 document.forms[0].frequencyOfSeeingDoctor.focus();
 
                 ret = false;
             } else if (!isInteger(document.forms[0].frequencyOfSeeingEmergencyRoomDoctor.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
 
                 document.forms[0].frequencyOfSeeingEmergencyRoomDoctor.value = "";
                 document.forms[0].frequencyOfSeeingEmergencyRoomDoctor.focus();
@@ -2300,14 +2301,14 @@
                     <table width="95%" border="0">
                         <tr>
                             <td align="center" class="style76"><input type="submit"
-                                                                      value="Save"
+                                                                      value="<fmt:message key='global.save'/>"
                                                                       onclick="javascript:return onSave();"/> <input
-                                    type="submit" value="Save and Exit"
+                                    type="submit" value="<fmt:message key='global.saveExit'/>"
                                     onclick="javascript:return onSaveExit();"/> <input type="submit"
-                                                                                       value="Exit"
+                                                                                       value="<fmt:message key='global.btnExit'/>"
                                                                                        onclick="javascript:return onExit();"/>
                                 <input
-                                        type="button" value="Print" onclick="javascript:return onPrint();"/>
+                                        type="button" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();"/>
 
                             </td>
                         </tr>

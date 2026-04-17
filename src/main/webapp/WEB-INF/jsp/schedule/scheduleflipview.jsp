@@ -156,7 +156,7 @@
                     }
                 } else if (doConfirm == "Onc") {
                     if (allowDay == "No") {
-                        if (confirm("This is an On Call Urgent appointment.  Are you sure you want to book?")) {
+                        if (confirm("<fmt:message key='schedule.scheduleflipview.msgOnCallUrgentConfirm'/>")) {
                             popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=Encode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=Encode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                         }
                     } else {
@@ -195,12 +195,12 @@
 
     <div style="colur: #FF0000; text-decoration: none"><a
             href="javascript:history.go(-1)"
-            style="text-decoration: none; color: #000000">Go Back</a> <a
+            style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnGoBack"/></a> <a
             href="<%= request.getContextPath() %>/provider/providercontrol"
-            style="text-decoration: none; color: #000000">Day Page</a></div>
+            style="text-decoration: none; color: #000000"><fmt:message key="schedule.scheduleflipview.btnDayPage"/></a></div>
     <table width="100%" border="1" cellspacing="0" cellpadding="0">
         <tr align="center" bgcolor="#CCCCFF">
-            <% if (bMultisites) out.print("<td>Site</td>"); %>
+            <% if (bMultisites) { %><td><fmt:message key="schedule.scheduleflipview.tableSite"/></td><% } %>
             <td width="15%" nowrap><a
                     href="${pageContext.request.contextPath}/schedule/FlipView?originalpage=<e:forUriComponent value='<%= originalPage %>' />&provider_no=<e:forUriComponent value='<%= curProvider_no %>' />&startDate=<%=lastMonth.get(Calendar.YEAR)+"-"+(lastMonth.get(Calendar.MONTH)+1)+"-"+lastMonth.get(Calendar.DATE)%>"
                     title="<fmt:message key="schedule.scheduleflipview.msgLastMonth"/>"

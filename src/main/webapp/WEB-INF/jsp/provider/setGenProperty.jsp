@@ -137,7 +137,7 @@
                 <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
 
                 <p id="errorMessage" style="display: none; color: red;">
-                    Invalid input.
+                    <fmt:message key="provider.setGenProperty.msgInvalidInput"/>
                 </p>
 
                 <% if (request.getAttribute("dropOpts") == null) { %>

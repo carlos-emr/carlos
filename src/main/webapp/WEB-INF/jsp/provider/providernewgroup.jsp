@@ -62,7 +62,7 @@
 
             function checkForm() {
                 if (UPDATEPRE.mygroup_no.value == "") {
-                    alert("No Group No.!");
+                    alert("<fmt:message key='provider.providernewgroup.msgNoGroup'/>");
                     UPDATEPRE.mygroup_no.focus();
                     return false;
                 }
@@ -121,8 +121,8 @@
             <table class="table table-sm table-bordered mb-0">
                 <thead class="table-light">
                 <tr>
-                    <th style="width: 80px;" class="text-center">Select</th>
-                    <th>Provider</th>
+                    <th style="width: 80px;" class="text-center"><fmt:message key="provider.providernewgroup.select"/></th>
+                    <th><fmt:message key="provider.providernewgroup.provider"/></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -147,8 +147,8 @@
                 <tfoot>
                 <tr class="table-light">
                     <td class="text-center" colspan="2">
-                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;">Check All</a>
-                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;">Clear All</a>
+                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;"><fmt:message key="provider.providernewgroup.checkAll"/></a>
+                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;"><fmt:message key="provider.providernewgroup.clearAll"/></a>
                     </td>
                 </tr>
                 </tfoot>

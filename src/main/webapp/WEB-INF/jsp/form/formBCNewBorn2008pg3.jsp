@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -91,7 +92,7 @@
 
     <head>
 
-        <title>British Columbia New Born Record 2008 - Page 2 (pg3)</title>
+        <title><fmt:message key='form.bcnewborn.title2008Page3'/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
         <link rel="stylesheet" type="text/css" href="bcArStyle.css">
@@ -103,7 +104,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                adding a calendar a matter of 1 or 2 lines of code. -->
@@ -142,7 +143,7 @@
             //}
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -156,7 +157,7 @@
             }
             if (ret == true) {
                 reset();
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -291,7 +292,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -316,7 +317,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -344,7 +345,7 @@
                     return false;
                 }
             } catch (ex) {
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -456,26 +457,24 @@
                 <td align="left">
                     <%
                         if (!bView) {
-                    %> <input type="submit" value="Save"
+                    %> <input type="submit" value="<fmt:message key='global.save'/>"
                               onclick="javascript:return onSave();"/> <input type="submit"
-                                                                             value="Save and Exit"
+                                                                             value="<fmt:message key='global.saveExit'/>"
                                                                              onclick="javascript:return onSaveExit();"/> <%
                     }
-                %> <input type="submit" value="Exit"
+                %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="submit"
-                                                                         value="Print"
+                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                          onclick="javascript:return onPrint();"/></td>
                 <%
                     if (!bView) {
                 %>
 
                 <td align="right"></td>
-                <td align="right"><b>Edit:</b>
-                    <a href="formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
-                        1<font size=-2></font></a> |
-                    <a href="formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
-                        2 </a> |
-                    Part2 <font size=-2>(pg.2)</font> |
+                <td align="right"><b><fmt:message key="global.btnEdit"/>:</b>
+                    <a href="formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part1"/><font size=-2></font></a> |
+                    <a href="formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part2"/> </a> |
+                    <fmt:message key="form.bcnewborn.part2"/> <font size=-2>(pg.2)</font> |
                 </td>
                 <%
                     }
@@ -490,60 +489,60 @@
                     <table cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
                            summary="9hearingScreening">
                         <tr>
-                            <td rowspan="3" width="15%"><b>9. Date</b><br>
+                            <td rowspan="3" width="15%"><b>9. <fmt:message key="form.bcnewborn.date"/></b><br>
                                 <input type="text" name="Section9DatePg3" id="Section9DatePg3" size="8" maxlength="10"
                                        value="<%= props.getProperty("Section9DatePg3", "") %>" @oscar.formDB
                                        dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="Section9DatePg3_cal"> <br>
 
                             </td>
-                            <td><b>Hearing Screening (completed by BC Early Hearing Program)</b><br>
+                            <td><b><fmt:message key='form.bcnewborn.hearingScreening'/></b><br>
                                 <input type="checkbox"
                                        name="Section9YesPg3" <%= props.getProperty("Section9YesPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> Yes
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                                 <input type="checkbox"
                                        name="Section9PassedPg3" <%= props.getProperty("Section9PassedPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> Passed<br>
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.passed'/><br>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <input type="checkbox"
                                        name="Section9PassedWithRiskFactorPg3" <%= props.getProperty("Section9PassedWithRiskFactorPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> Passed with Risk Factors for Delayed Onset
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.passedWithRiskFactorsForDelayedOnset'/>
                                 <br>
                                 <input type="checkbox"
                                        name="Section9NoPg3" <%= props.getProperty("Section9NoPg3", "") %> @oscar.formDB
-                                       dbType="tinyint(1)"/> No
+                                       dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
                                 &nbsp;&nbsp;<input type="checkbox"
                                                    name="Section9DeclinedPg3" <%= props.getProperty("Section9DeclinedPg3", "") %>
-                                                   @oscar.formDB dbType="tinyint(1)"/> Declined
+                                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.declined'/>
                                 <input type="checkbox"
                                        name="Section9NAPg3" <%= props.getProperty("Section9NAPg3", "") %> @oscar.formDB
-                                       dbType="tinyint(1)"/>N/A<br>
-                                Comment: <input type="text" name="Section9CommentPg3"
+                                       dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.na'/><br>
+                                <fmt:message key='form.bcnewborn.comments'/> <input type="text" name="Section9CommentPg3"
                                                 value="<%= props.getProperty("Section9CommentPg3", "") %>"
                                                 @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                Needs Follow-up: (by BC Early Hearing Program)<br>
+                                <fmt:message key='form.bcnewborn.needsFollowUp'/><br>
                                 <input type="checkbox"
                                        name="Section9AdditionalScreeningPg3" <%= props.getProperty("Section9AdditionalScreeningPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/>Additional Screening
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.additionalScreening'/>
                                 <input type="checkbox"
                                        name="Section9DiagnosticAssessmentPg3" <%= props.getProperty("Section9DiagnosticAssessmentPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/>Diagnostic Assessment
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.diagnosticAssessment'/>
                                 <input type="checkbox"
                                        name="Section9OtherPg3" <%= props.getProperty("Section9OtherPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/>Other
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.other'/>
                                 <input type="text" name="Section9OtherCommentPg3"
                                        value="<%= props.getProperty("Section9OtherCommentPg3", "") %>" @oscar.formDB/>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                Print Name: <input type="text" name="Section9PrintNamePg3"
+                                <fmt:message key='form.bcnewborn.printName'/> <input type="text" name="Section9PrintNamePg3"
                                                    value="<%= props.getProperty("Section9PrintNamePg3", "") %>"
                                                    @oscar.formDB/>
-                                SIGNATURE: <input type="text" name="Section9SignaturePg3"
+                                <fmt:message key='form.bcnewborn.signature'/>: <input type="text" name="Section9SignaturePg3"
                                                   value="<%= props.getProperty("Section9SignaturePg3", "") %>"
                                                   @oscar.formDB/>
                             </td>
@@ -557,14 +556,14 @@
 
                     <table cellpadding="0" cellspacing="0" border="0" width="100%">
                         <tr>
-                            <td>HOSPITAL NAME<br>
+                            <td><fmt:message key='form.bcnewborn.hospitalName'/><br>
                                 <input type="text" name="c_hospitalName"
                                         <%=oscarVariables.getProperty("BCAR_hospital") == null ? " " : ("class=\"spe\" onDblClick='showDef(\"" + oscarVariables.getProperty("BCAR_hospital") + "\", this);'") %>
                                        style="width: 100%" size="30" maxlength="80"
                                        value="<%= props.getProperty("c_hospitalName", "") %>"
                                        @oscar.formDB/></td>
-                            <td>DATE <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_formDate_cal">
-                                <%=bSync ? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'>Synchronize</font></a></b>") : "" %>
+                            <td><fmt:message key='form.bcnewborn.date'/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_formDate_cal">
+                                <%=bSync ? ("<b><a href=# onClick='syncDemo(); return false;'><font color='red'><fmt:message key='form.bcnewborn.synchronize'/></font></a></b>") : "" %>
                                 <br>
                                 <input type="text" name="pg1_formDate" id="pg1_formDate" size="10"
                                        maxlength="10"
@@ -572,17 +571,17 @@
                                 /></td>
                         </tr>
                         <tr>
-                            <td>SURNAME<br>
+                            <td><fmt:message key='form.bcnewborn.surname'/><br>
                                 <input type="text" name="c_surname" style="width: 100%" size="30"
                                        maxlength="30" value="<%= props.getProperty("c_surname", "") %>"
                                        @oscar.formDB/></td>
-                            <td>GIVEN NAME<br>
+                            <td><fmt:message key='form.bcnewborn.givenName'/><br>
                                 <input type="text" name="c_givenName" style="width: 100%" size="30"
                                        maxlength="30" value="<%= props.getProperty("c_givenName", "") %>"
                                        @oscar.formDB/></td>
                         </tr>
                         <tr>
-                            <td>ADDRESS<br>
+                            <td><fmt:message key='form.bcnewborn.address'/><br>
                                 <input type="text" name="c_address" style="width: 100%" size="50"
                                        maxlength="60" value="<%= props.getProperty("c_address", "") %>"
                                        @oscar.formDB/> <input type="text" name="c_city"
@@ -594,7 +593,7 @@
                                 <input type="text" name="c_postal" size="7" maxlength="8"
                                        value="<%= props.getProperty("c_postal", "") %>" @oscar.formDB/>
                             </td>
-                            <td valign="top">PHONE NUMBER<br>
+                            <td valign="top"><fmt:message key='form.bcnewborn.phoneNumber'/><br>
                                 <input type="text" name="c_phone" style="width: 100%" size="60"
                                        maxlength="60" value="<%= props.getProperty("c_phone", "") %>"
                                        @oscar.formDB/></td>
@@ -603,8 +602,7 @@
                             <td colspan="2"><span class="small9">
                 
                
-                PHYSICIAN
-                    / MIDWIFE NAME</span><br>
+<fmt:message key='form.bcnewborn.physicianMidwifeName'/></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>" @oscar.formDB/>
                             </td>
@@ -621,7 +619,7 @@
                     <table cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
                            summary="Metaboilic Screening">
                         <tr>
-                            <td colspan="2" rowspan="2" width="15%"><b>10. Date</b><br>
+                            <td colspan="2" rowspan="2" width="15%"><b>10. <fmt:message key="form.bcnewborn.date"/></b><br>
 
                                 <input type="text" name="Section10DatePg3" id="Section10DatePg3" size="8" maxlength="10"
                                        value="<%= props.getProperty("Section10DatePg3", "") %>" @oscar.formDB
@@ -630,35 +628,35 @@
                         </tr>
                         <tr>
                             <td>
-                                <b>Metabolic Screening</b><br>
-                                Blood Dot Card Collected: Age (h)
+                                <b><fmt:message key='form.bcnewborn.metabolicScreening'/></b><br>
+                                <fmt:message key='form.bcnewborn.bloodDotCardCollected'/>: <fmt:message key='form.bcnewborn.ageHours'/>
                                 <input type="text" size="4" name="Section10MetabolicScreeningAgePg3"
                                        value="<%= props.getProperty("Section10MetabolicScreeningAgePg3", "") %>"
                                        @oscar.formDB/>
                                 <input type="checkbox"
                                        name="Section10MetabolicScreeningYesPg3" <%= props.getProperty("Section10MetabolicScreeningYesPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> Yes
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                                 <input type="checkbox"
                                        name="Section10MetabolicScreeningNoPg3" <%= props.getProperty("Section10MetabolicScreeningNoPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> No
-                                Comment: <input type="text" size="4" name="Section10MetabolicScreeningCommentPg3"
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
+                                <fmt:message key='form.bcnewborn.comments'/> <input type="text" size="4" name="Section10MetabolicScreeningCommentPg3"
                                                 value="<%= props.getProperty("Section10MetabolicScreeningCommentPg3", "") %>"
                                                 @oscar.formDB/><br>
-                                Bilirubin Screening: Age (h)
+                                <fmt:message key='form.bcnewborn.bilirubinScreening'/>: <fmt:message key='form.bcnewborn.ageHours'/>
                                 <input type="text" size="4" name="Section10MetabolicScreeningBilirubinScreeningAgePg3"
                                        value="<%= props.getProperty("Section10MetabolicScreeningBilirubinScreeningAgePg3", "") %>"
                                        @oscar.formDB/>
                                 <input type="checkbox"
                                        name="Section10MetabolicScreeningBilirubinScreeningYesPg3" <%= props.getProperty("Section10MetabolicScreeningBilirubinScreeningYesPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> Yes
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                                 <input type="checkbox"
                                        name="Section10MetabolicScreeningBilirubinScreeningNoPg3" <%= props.getProperty("Section10MetabolicScreeningBilirubinScreeningNoPg3", "") %>
-                                       @oscar.formDB dbType="tinyint(1)"/> No
-                                Comment: <input type="text" size="4"
+                                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
+                                <fmt:message key='form.bcnewborn.comments'/> <input type="text" size="4"
                                                 name="Section10MetabolicScreeningBilirubinScreeningCommentPg3"
                                                 value="<%= props.getProperty("Section10MetabolicScreeningBilirubinScreeningCommentPg3", "") %>"
                                                 @oscar.formDB/><br>
-                                (nomogram on reverse)
+                                <fmt:message key='form.bcnewborn.nomogramOnReverse'/>
                         </tr>
                     </table>
 
@@ -675,42 +673,42 @@
                     " cellspacing="0" border="0" style="font-size: 12; " summary="Prophylaxis">
             <tr>
                 <td valign="top" width="15%">
-                    <b>11. Date</b><br>
+                    <b>11. <fmt:message key="form.bcnewborn.date"/></b><br>
                     <input type="text" name="Section11DatePg3" id="Section11DatePg3" size="8" maxlength="10"
                            value="<%= props.getProperty("Section11DatePg3", "") %>" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="Section11DatePg3_cal"> <br>
                 </td>
                 <td>
-                    <b>Prophylaxis</b><br>
-                    HBsAg Prophylaxis Indicated:
+                    <b><fmt:message key='form.bcnewborn.prophylaxis'/></b><br>
+                    <fmt:message key='form.bcnewborn.hbsagProphylaxisIndicated'/>:
                     <input type="checkbox"
                            name="Section11HBsAgYesPg3" <%= props.getProperty("Section11HBsAgYesPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> Yes
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                     <input type="checkbox"
                            name="Section11HBsAgNoPg3" <%= props.getProperty("Section11HBsAgNoPg3", "") %> @oscar.formDB
-                           dbType="tinyint(1)"/> No
+                           dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
                     <input type="checkbox"
                            name="Section11HBsAgVaccinePg3" <%= props.getProperty("Section11HBsAgVaccinePg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> HBIG Given
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.hbigGiven'/>
                     <input type="checkbox"
                            name="Section11HepatitisBPg3" <%= props.getProperty("Section11HepatitisBPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/>Hepatitis B Vaccine Given <br>
-                    HIV Prophylaxis Indicated:
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.hepatitisBVaccineGiven'/> <br>
+                    <fmt:message key='form.bcnewborn.hivProphylaxisIndicated'/>:
                     <input type="checkbox" name="Section11HIVYesPg3" <%= props.getProperty("Section11HIVYesPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> Yes
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                     <input type="checkbox" name="Section11HIVNoPg3" <%= props.getProperty("Section11HIVNoPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> No
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
                     <input type="checkbox"
                            name="Section11HIVInitiatedPg3" <%= props.getProperty("Section11HIVInitiatedPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> HIV Prophylaxis Initiated<br>
-                    Group B Strep Intrapartum Prophylaxis:
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.hivProphylaxisInitiated'/><br>
+                    <fmt:message key='form.bcnewborn.groupBStrepIntrapartumProphylaxis'/>:
                     <input type="checkbox"
                            name="Section11StrepYesPg3" <%= props.getProperty("Section11StrepYesPg3", "") %>
-                           @oscar.formDB dbType="tinyint(1)"/> Yes
+                           @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                     <input type="checkbox"
                            name="Section11StrepNoPg3" <%= props.getProperty("Section11StrepNoPg3", "") %> @oscar.formDB
-                           dbType="tinyint(1)"/> No
-                    Comment: <input type="text" name="Section11CommentPg3"
+                           dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
+                    <fmt:message key='form.bcnewborn.comments'/> <input type="text" name="Section11CommentPg3"
                                     value="<%= props.getProperty("Section11CommentPg3", "") %>" @oscar.formDB/><br>
                 </td>
             </tr>
@@ -725,14 +723,14 @@
                 <table width="100% cellpadding=" 0
                 " cellspacing="0" border="0" style="font-size: 12; " summary="Newborn Nutrition">
         <tr>
-            <td rowspan="2" valign="top" width="15%"><b>12. Date</b><br>
+            <td rowspan="2" valign="top" width="15%"><b>12. <fmt:message key="form.bcnewborn.date"/></b><br>
                 <input type="text" name="Section12DatePg3" id="Section12DatePg3" size="8" maxlength="10"
                        value="<%= props.getProperty("Section12DatePg3", "") %>" @oscar.formDB dbType="date"/> <img
                         src="<%= request.getContextPath() %>/images/cal.gif" id="Section12DatePg3_cal"> <br>
             </td>
             <td>
-                <b>Newborn Nutrition</b><br>
-                Breastfeeding Initiated:
+                <b><fmt:message key='form.bcnewborn.newbornNutrition'/></b><br>
+                <fmt:message key='form.bcnewborn.breastfeedingInitiated'/>:
                 <input type="checkbox" name="Section121hPg3" <%= props.getProperty("Section121hPg3", "") %>
                        @oscar.formDB dbType="tinyint(1)"/> &#8804;1 h
                 <input type="checkbox" name="Section12_1_2hPg3" <%= props.getProperty("Section12_1_2hPg3", "") %>
@@ -742,19 +740,19 @@
                 <input type="checkbox" name="Section12_g24hPg3" <%= props.getProperty("Section12_g24hPg3", "") %>
                        @oscar.formDB dbType="tinyint(1)"/> > 24 h
                 <input type="checkbox" name="Section12NAPg3" <%= props.getProperty("Section12NAPg3", "") %>
-                       @oscar.formDB dbType="tinyint(1)"/> N/A
-                Comment: <input type="text" name="Section12CommentPg3"
+                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.na'/>
+                <fmt:message key='form.bcnewborn.comments'/> <input type="text" name="Section12CommentPg3"
                                 value="<%= props.getProperty("Section12CommentPg3", "") %>" @oscar.formDB/><br>
                 <input type="checkbox"
                        name="Section12ExclusiveBreastmilkPg3" <%= props.getProperty("Section12ExclusiveBreastmilkPg3", "") %>
-                       @oscar.formDB dbType="tinyint(1)"/> Exclusive Breastmilk
+                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.exclusiveBreastmilk'/>
                 <input type="checkbox"
                        name="Section12PartialBreastmilkPg3" <%= props.getProperty("Section12PartialBreastmilkPg3", "") %>
-                       @oscar.formDB dbType="tinyint(1)"/> Partial Breastmilk
+                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.partialBreastmilk'/>
                 <input type="checkbox"
                        name="Section12BreasmilkSubstitutePg3" <%= props.getProperty("Section12BreasmilkSubstitutePg3", "") %>
-                       @oscar.formDB dbType="tinyint(1)"/> Breastmilk Substitute
-                Supplementation Indication: <input type="text" name="Section12SupplementationPg3"
+                       @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.breastmilkSubstitute'/>
+                <fmt:message key='form.bcnewborn.supplementationIndication'/> <input type="text" name="Section12SupplementationPg3"
                                                    value="<%= props.getProperty("Section12SupplementationPg3", "") %>"
                                                    @oscar.formDB/>
             </td>
@@ -769,9 +767,9 @@
             <td colspan="2">
 
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
-                       summary="Problem List">
+                       summary="<fmt:message key='form.bcnewborn.problemList'/>">
                     <tr>
-                        <td rowspan="2" width="15%"><b>13. Date</b><br><br>
+                        <td rowspan="2" width="15%"><b>13. <fmt:message key="form.bcnewborn.date"/></b><br><br>
                             <input type="text" name="Section13Note1DatePg3" id="Section13Note1DatePg3" size="8"
                                    maxlength="10" value="<%= props.getProperty("Section13Note1DatePg3", "") %>"
                                    @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
@@ -786,18 +784,18 @@
                                                                       id="Section13Note3DatePg3_cal"><br>
                         </td>
 
-                        <td><b>Problem List</b><br>
-                            ACoRN Sequences Initiated:
+                        <td><b><fmt:message key='form.bcnewborn.problemList'/></b><br>
+                            <fmt:message key='form.bcnewborn.acornSequencesInitiated'/>:
                             <input type="checkbox"
                                    name="ProblemListYesPg3" <%= props.getProperty("ProblemListYesPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Yes
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.yes'/>
                             <input type="checkbox"
                                    name="ProblemListNoPg3" <%= props.getProperty("ProblemListNoPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> No
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.no'/>
                             <input type="checkbox"
                                    name="ProblemListSeeNotesPg3" <%= props.getProperty("ProblemListSeeNotesPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
-                            See Narrative Notes<br>
+                            <fmt:message key='form.bcnewborn.seeNarrativeNotes'/><br>
                             <input type="text" name="Section13NotePg3" size="100"
                                    value="<%= props.getProperty("Section13NotePg3", "") %>" @oscar.formDB/><br>
                             <input type="text" name="Section13Note2Pg3" size="100"
@@ -806,7 +804,7 @@
                                    value="<%= props.getProperty("Section13Note3Pg3", "") %>" @oscar.formDB/><br>
 
                         </td>
-                        <td rowspan="2"><b>Date Resolved <br>dd/mm/yyyy</b><br>
+                        <td rowspan="2"><b><fmt:message key='form.bcnewborn.dateResolved'/> <br><fmt:message key='ddmmyyyy'/></b><br>
                             <input type="text" name="Section13Note1DateResolvedPg3" id="Section13Note1DateResolvedPg3"
                                    size="8" value="<%= props.getProperty("Section13Note1DateResolvedPg3", "") %>"
                                    @oscar.formDB dbType="date"/><img src="<%= request.getContextPath() %>/images/cal.gif"
@@ -831,9 +829,9 @@
         <tr>
             <td colspan="2">
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
-                       summary="Progress Notes">
+                       summary="<fmt:message key='form.bcnewborn.progressNotes'/>">
                     <tr>
-                        <td rowspan="2" width="15%"><b>14. Date<br></b>
+                        <td rowspan="2" width="15%"><b>14. <fmt:message key="form.bcnewborn.date"/><br></b>
                             <input type="text" name="Section14Date1Pg3" id="Section14Date1Pg3" size="8" maxlength="10"
                                    value="<%= props.getProperty("Section14Date1Pg3", "") %>" @oscar.formDB
                                    dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="Section14Date1Pg3_cal"> <br>
@@ -860,7 +858,7 @@
                                    dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="Section14Date8Pg3_cal"> <br>
 
                         </td>
-                        <td><b>Progress Notes</b><br>
+                        <td><b><fmt:message key='form.bcnewborn.progressNotes'/></b><br>
                             <input type="text" name="Section14ProgressNotes1Pg3" size="100"
                                    value="<%= props.getProperty("Section14ProgressNotes1Pg3", "") %>"
                                    @oscar.formDB/><br>
@@ -899,11 +897,11 @@
             <td valign="top">
 
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
-                       summary="Discharge Examination">
+                       summary="<fmt:message key='form.bcnewborn.dischargeExamination'/>">
                     <tr>
                         <td>
-                            <b>15. Discharge Examination</b><br>
-                            Newborn Age:
+                            <b>15. <fmt:message key='form.bcnewborn.dischargeExamination'/></b><br>
+                            <fmt:message key='form.bcnewborn.newbornAge'/>
                             <input type="checkbox"
                                    name="Section1512hPg3" <%= props.getProperty("Section1512hPg3", "") %> @oscar.formDB
                                    dbType="tinyint(1)"/> &#8804;12h
@@ -919,18 +917,18 @@
                             <input type="checkbox"
                                    name="Section15GT72Pg3" <%= props.getProperty("Section15GT72Pg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/> >72 h <br>
-                            Head Circumference
+                            <fmt:message key='form.bcnewborn.headCircumference'/>
                             <input type="text" size="4" name="Section15HCPg3"
                                    value="<%= props.getProperty("Section15HCPg3", "") %>" @oscar.formDB/> cm
-                            Weight:
+                            <fmt:message key='form.bcnewborn.weight'/>
                             <input type="text" size="4" name="Section15WeightPg3"
                                    value="<%= props.getProperty("Section15WeightPg3", "") %>" @oscar.formDB/> g
-                            Weight loss:
+                            <fmt:message key='form.bcnewborn.weightLoss'/>
                             <input type="text" size="4" name="Section15WeightLossPg3"
                                    value="<%= props.getProperty("Section15WeightLossPg3", "") %>" @oscar.formDB/>% <br>
 
-                            Normal Abnormal Comment: <br>
-                            1. General
+                            <fmt:message key='form.bcnewborn.normalAbnormalComment'/> <br>
+                            <fmt:message key='form.bcnewborn.generalAppearance'/>
                             <input type="checkbox"
                                    name="Section15GeneralNormalPg3" <%= props.getProperty("Section15GeneralNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -940,7 +938,7 @@
                             <input type="text" name="Section15GeneralCommentPg3"
                                    value="<%= props.getProperty("Section15GeneralCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            2. Skin
+                            <fmt:message key='form.bcnewborn.skin'/>
                             <input type="checkbox"
                                    name="Section15SkinNormalPg3" <%= props.getProperty("Section15SkinNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -949,7 +947,7 @@
                                    @oscar.formDB dbType="tinyint(1)"/>
                             <input type="text" name="Section15SkinCommentPg3"
                                    value="<%= props.getProperty("Section15SkinCommentPg3", "") %>" @oscar.formDB/><br>
-                            3. Head
+                            <fmt:message key='form.bcnewborn.head'/>
                             <input type="checkbox"
                                    name="Section15HeadNormalPg3" <%= props.getProperty("Section15HeadNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -958,7 +956,7 @@
                                    @oscar.formDB dbType="tinyint(1)"/>
                             <input type="text" name="Section15HeadCommentPg3"
                                    value="<%= props.getProperty("Section15HeadCommentPg3", "") %>" @oscar.formDB/><br>
-                            4. EENT
+                            <fmt:message key='form.bcnewborn.eent'/>
                             <input type="checkbox"
                                    name="Section15EENTNormalPg3" <%= props.getProperty("Section15EENTNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -967,7 +965,7 @@
                                    @oscar.formDB dbType="tinyint(1)"/>
                             <input type="text" name="Section15EENTCommentPg3"
                                    value="<%= props.getProperty("Section15EENTCommentPg3", "") %>" @oscar.formDB/><br>
-                            5. Respiratory
+                            <fmt:message key='form.bcnewborn.respiratory'/>
                             <input type="checkbox"
                                    name="Section15RespiratoryNormalPg3" <%= props.getProperty("Section15RespiratoryNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -977,7 +975,7 @@
                             <input type="text" name="Section15RespiratoryCommentPg3"
                                    value="<%= props.getProperty("Section15RespiratoryCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            6. CVS
+                            <fmt:message key='form.bcnewborn.cvs'/>
                             <input type="checkbox"
                                    name="Section15CVSNormalPg3" <%= props.getProperty("Section15CVSNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -986,7 +984,7 @@
                                    @oscar.formDB dbType="tinyint(1)"/>
                             <input type="text" name="Section15CVSCommentPg3"
                                    value="<%= props.getProperty("Section15CVSCommentPg3", "") %>" @oscar.formDB/><br>
-                            7. Abdomen
+                            <fmt:message key='form.bcnewborn.abdomen'/>
                             <input type="checkbox"
                                    name="Section15AbdomenNormalPg3" <%= props.getProperty("Section15AbdomenNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -996,7 +994,7 @@
                             <input type="text" name="Section15AbdomenCommentPg3"
                                    value="<%= props.getProperty("Section15AbdomenCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            8. Unbilical Cord
+                            <fmt:message key='form.bcnewborn.umbilicalCord'/>
                             <input type="checkbox"
                                    name="Section15UnbilicalCordNormalPg3" <%= props.getProperty("Section15UnbilicalCordNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -1006,7 +1004,7 @@
                             <input type="text" name="Section15UnbilicalCordCommentPg3"
                                    value="<%= props.getProperty("Section15UnbilicalCordCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            9. Genitorectal
+                            <fmt:message key='form.bcnewborn.genitorectal'/>
                             <input type="checkbox"
                                    name="Section15GenitorectalNormalPg3" <%= props.getProperty("Section15GenitorectalNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -1016,7 +1014,7 @@
                             <input type="text" name="Section15GenitorectalCommentPg3"
                                    value="<%= props.getProperty("Section15GenitorectalCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            10. Musculoskeletal
+                            <fmt:message key='form.bcnewborn.musculoskeletal'/>
                             <input type="checkbox"
                                    name="Section15MusculoskeletalNormalPg3" <%= props.getProperty("Section15MusculoskeletalNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -1026,7 +1024,7 @@
                             <input type="text" name="Section15MusculoskeletalCommentPg3"
                                    value="<%= props.getProperty("Section15MusculoskeletalCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            11. Neurological
+                            <fmt:message key='form.bcnewborn.neurological'/>
                             <input type="checkbox"
                                    name="Section15NeurologicalNormalPg3" <%= props.getProperty("Section15NeurologicalNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -1036,7 +1034,7 @@
                             <input type="text" name="Section15NeurologicalCommentPg3"
                                    value="<%= props.getProperty("Section15NeurologicalCommentPg3", "") %>"
                                    @oscar.formDB/><br>
-                            12. Other
+                            <fmt:message key='form.bcnewborn.other'/>
                             <input type="checkbox"
                                    name="Section15OtherNormalPg3" <%= props.getProperty("Section15OtherNormalPg3", "") %>
                                    @oscar.formDB dbType="tinyint(1)"/>
@@ -1051,14 +1049,14 @@
 
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" summary="Date Sig">
                     <tr>
-                        <td>Date<br>
+                        <td><fmt:message key='form.bcnewborn.date'/><br>
                             <input type="text" name="DatePg3" id="DatePg3"
                                    value="<%= props.getProperty("DatePg3", "") %>" @oscar.formDB dbType="date"/><img
-                                    src="<%= request.getContextPath() %>/images/cal.gif" id="DatePg3_cal"><br>dd/mm/yyyy
+                                    src="<%= request.getContextPath() %>/images/cal.gif" id="DatePg3_cal"><br><fmt:message key='ddmmyyyy'/>
                         </td>
-                        <td>SIGNATURE<br><input type="text" name="SIGNATUREPg3" id="SIGNATUREPg3"
-                                                value="<%= props.getProperty("SIGNATURE", "") %>" @oscar.formDB/><br>
-                            MD/RM
+                        <td><fmt:message key='form.bcnewborn.signature'/><br><input type="text" name="<fmt:message key='form.bcnewborn.signature'/>Pg3" id="<fmt:message key='form.bcnewborn.signature'/>Pg3"
+                                                value="<%= props.getProperty("<fmt:message key='form.bcnewborn.signature'/>", "") %>" @oscar.formDB/><br>
+                            <fmt:message key='form.bcnewborn.mdRm'/>
                         </td>
                     </tr>
                 </table>
@@ -1069,23 +1067,23 @@
             <td valign="top">
 
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
-                       summary="Status at Discharge">
+                       summary="<fmt:message key='form.bcnewborn.statusAtDischarge'/>">
                     <tr>
                         <td>
-                            <b>16. Status at Discharge</b><br>
+                            <b>16. <fmt:message key='form.bcnewborn.statusAtDischarge'/></b><br>
                             <textarea name="Section16TextPg3" @oscar.formDB
                                       dbType="varchar(255)"/> <%= props.getProperty("Section16TextPg3", "") %></textarea>
                             <br>
                             <input type="checkbox"
                                    name="Section16ExclusivePg3" <%= props.getProperty("Section16ExclusivePg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Exclusive Breastmilk
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.exclusiveBreastmilk'/>
                             <input type="checkbox"
                                    name="Section16PartialPg3" <%= props.getProperty("Section16PartialPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Partial Breastmilk
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.partialBreastmilk'/>
                             <input type="checkbox"
                                    name="Section16SubstitutePg3" <%= props.getProperty("Section16SubstitutePg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Breastmilk Substitute <br>
-                            Comment: <input type="text" name="Section16CommentPg3"
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.breastmilkSubstitute'/> <br>
+                            <fmt:message key='form.bcnewborn.comment'/> <input type="text" name="Section16CommentPg3"
                                             value="<%= props.getProperty("Section16CommentPg3", "") %>" @oscar.formDB/>
                         </td>
                     </tr>
@@ -1095,7 +1093,7 @@
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" summary="Problems Requiring Follow-up">
                     <tr>
                         <td>
-                            Problems requiring Follow-up:<br>
+                            <fmt:message key='form.bcnewborn.problemsRequiringFollowup'/>:<br>
                             <textarea name="ProblemsrequiringFollowupPg3"
                                       @oscar.formDB/> <%= props.getProperty("ProblemsrequiringFollowupPg3", "") %> </textarea>
                         </td>
@@ -1103,28 +1101,28 @@
                 </table>
 
                 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 12; "
-                       summary="Discharged">
+                       summary="<fmt:message key='form.bcnewborn.discharged'/>">
                     <tr>
-                        <td><b>17. Discharged</b><br>
+                        <td><b>17. <fmt:message key='form.bcnewborn.discharged'/></b><br>
                         </td>
                     </tr>
                     <tr>
                         <td>
                             <input type="checkbox"
                                    name="Section17HomePg3" <%= props.getProperty("Section17HomePg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Home
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.home'/>
                             <input type="checkbox"
                                    name="Section17AdoptionPg3" <%= props.getProperty("Section17AdoptionPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Adoption
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.adoption'/>
                             <input type="checkbox"
                                    name="Section17FosterPg3" <%= props.getProperty("Section17FosterPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Foster Home<br>
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.fosterHome'/><br>
                             <input type="checkbox"
                                    name="Section17OtherHospitalPg3" <%= props.getProperty("Section17OtherHospitalPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Other Hospital
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.otherHospital'/>
                             <input type="text" name="Section17OtherHospitalSpecifyPg3"
                                    value="<%= props.getProperty("Section17OtherHospitalSpecifyPg3", "") %>"
-                                   @oscar.formDB/> &nbsp;specify
+                                   @oscar.formDB/> &nbsp;<fmt:message key='form.bcnewborn.specify'/>
 
                         </td>
                     </tr>
@@ -1133,7 +1131,7 @@
                         <td>
                             <input type="checkbox"
                                    name="Section17OtherPg3" <%= props.getProperty("Section17OtherPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Other
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.other'/>
                         </td>
                     </tr>
 
@@ -1144,29 +1142,28 @@
                        summary="Follow-up">
                     <tr>
                         <td>
-                            <b>18. Follow-up by</b> date<br>
+                            <b>18. <fmt:message key='form.bcnewborn.followUpBy'/></b> <fmt:message key='form.bcnewborn.date'/><br>
                             <input type="checkbox"
                                    name="Section18FamilyPhsicianPg3" <%= props.getProperty("Section18FamilyPhsicianPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Family Physician<br>
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.familyPhysician'/><br>
                             <input type="checkbox"
                                    name="Section18MidwifePg3" <%= props.getProperty("Section18MidwifePg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Midwife<br>
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.midwife'/><br>
                             <input type="checkbox"
                                    name="Section18PediatricianPg3" <%= props.getProperty("Section18PediatricianPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Pediatrician<br>
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.pediatrician'/><br>
                             <input type="checkbox"
                                    name="Section18OtherConsultantPg3" <%= props.getProperty("Section18OtherConsultantPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Other Consultant<br>
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.otherConsultant'/><br>
                             <input type="checkbox"
                                    name="Section18PublicHealthNursePg3" <%= props.getProperty("Section18PublicHealthNursePg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Public Health Nurse<br>
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.publicHealthNurse'/><br>
                             <input type="checkbox"
                                    name="Section18MinistryforChildernPg3" <%= props.getProperty("Section18MinistryforChildernPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/>Ministry for <br>
-                            Childern &amp; Family Developemnt
+                                   @oscar.formDB dbType="tinyint(1)"/><fmt:message key='form.bcnewborn.ministryForChildrenAndFamilyDevelopment'/>
                         </td>
                         <td>
-                            dd/mm/yyyy<br>
+                            <fmt:message key='ddmmyyyy'/><br>
                             <input type="text" name="Section18FamilyPhsicianDatePg3" size="8"
                                    value="<%= props.getProperty("Section18FamilyPhsicianDatePg3", "") %>"
                                    @oscar.formDB/><br>
@@ -1193,10 +1190,10 @@
                         <td>
                             <input type="checkbox"
                                    name="NeonatalDeathPg3" <%= props.getProperty("NeonatalDeathPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Neonatal Death<br>
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.neonatalDeath'/><br>
                             <input type="checkbox"
                                    name="AutopsyConsentedPg3" <%= props.getProperty("AutopsyConsentedPg3", "") %>
-                                   @oscar.formDB dbType="tinyint(1)"/> Autopsy Consented
+                                   @oscar.formDB dbType="tinyint(1)"/> <fmt:message key='form.bcnewborn.autopsyConsented'/>
                         </td>
                     </tr>
                 </table>

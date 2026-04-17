@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -73,7 +74,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>The Home Falls and Accidents Screening Tool (HOME FAST)</title>
+        <title><fmt:message key="form.homeFalls.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -225,122 +226,108 @@
                                             <table width="100%">
                                                 <tr>
                                                     <td valign="top" width="15%"><font
-                                                            style="font-weight: bold">Definition: </font></td>
-                                                    <td valign="top" width="85%">Home refers to both the
-                                                        inside and outside of a person's residential property. As the
-                                                        checklist will be used for visits during the day, answers need
-                                                        to consider the same home environment at night.
+                                                            style="font-weight: bold"><fmt:message key="form.homeFalls.definitionLabel"/></font></td>
+                                                    <td valign="top" width="85%"><fmt:message key="form.homeFalls.definitionText"/></td>
                                                     </td>
                                                 </tr>
                                             </table>
                                         </td>
                                     </tr>
                                     <tr class="title">
-                                        <th colspan="4">Floors</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.floors"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">1.</th>
-                                        <th class="question" colspan="3">Are the walkways free of
-                                            cords and other clutter?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q1"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            No cords of clutter (e.g. boxes, newspapers, objects) across or
-                                            encroaching on walkways/doorways. Includes furniture and other
-                                            items which obstruct doorways, or hallways, items behind doors
-                                            preventing doors opening fully, raised thresholds in doorways.
+                                        <td colspan="3"><font style="font-style: italic"><fmt:message key="form.homeFalls.definitions"/></font>
+                                            <fmt:message key="form.homeFalls.d1"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor1Y" <%= props.getProperty("floor1Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor1N" <%= props.getProperty("floor1N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">2.</th>
-                                        <th class="question" colspan="3">Are the floor coverings in
-                                            good condition?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q2"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Carpets/mats lie flat/no tears/not threadbare/no cracked or
-                                            missing tiles - including coverings on stairs.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d2"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor2Y" <%= props.getProperty("floor2Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor2N" <%= props.getProperty("floor2N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">3.</th>
-                                        <th class="question" colspan="3">Are the floor surfaces
-                                            non-slip?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q3"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Score 'no' if lino or tiles are in the kitchen, bathroom or
-                                            laundry, in addition to other rooms, the kitchen, bathroom and
-                                            laundry have non-slip or slip resistant floor surfaces.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d3"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor3Y" <%= props.getProperty("floor3Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor3N" <%= props.getProperty("floor3N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">4.</th>
-                                        <th class="question" colspan="3">Are loose mats securely
-                                            fixed to the floor?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q4"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Mats have effective slip resistant backing/are taped or nailed to
-                                            the floor.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d4"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor4Y" <%= props.getProperty("floor4Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="floor4N" <%= props.getProperty("floor4N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="floor4NA" <%= props.getProperty("floor4NA", "") %> />N/A
+                                                               name="floor4NA" <%= props.getProperty("floor4NA", "") %> /><fmt:message key="global.na"/>
                                             (there are no mats in the house)
                                         </td>
                                     </tr>
@@ -358,8 +345,7 @@
                         </tr>
                         <tr class="subject">
                             <td></td>
-                            <td align="right"><a href="javascript: goToPage2();">Next
-                                Page >></a></td>
+                            <td align="right"><a href="javascript: goToPage2();"><fmt:message key="form.homeFalls.nextPage"/> >></a></td>
                         </tr>
                     </table>
 
@@ -370,60 +356,56 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">Furniture</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.furniture"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">5.</th>
-                                        <th class="question" colspan="3">Can the person get in and
-                                            out of bed easily and safely?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q5"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Bed is of adequate height and firmness. Person does not need to
-                                            pull self up on bedside furniture
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d5"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="furniture5Y" <%= props.getProperty("furniture5Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="furniture5N" <%= props.getProperty("furniture5N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="furniture5NA" <%= props.getProperty("furniture5NA", "") %> />N/A
+                                                               name="furniture5NA" <%= props.getProperty("furniture5NA", "") %> /><fmt:message key="global.na"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">6.</th>
-                                        <th class="question" colspan="3">Can the person get up from
-                                            the lounge chair easily and safely?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q6"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Chair is of adequate height, chair arms are accessible to push up
-                                            from, seat cushion is not too soft or deep.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d6"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="furniture6Y" <%= props.getProperty("furniture6Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="furniture6N" <%= props.getProperty("furniture6N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="furniture6NA" <%= props.getProperty("furniture6NA", "") %> />N/A
+                                                               name="furniture6NA" <%= props.getProperty("furniture6NA", "") %> /><fmt:message key="global.na"/>
                                             (person uses wheelchair constantly)
                                         </td>
                                     </tr>
@@ -431,80 +413,74 @@
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr class="title">
-                                        <th colspan="4">Lighting</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.lighting"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">7.</th>
-                                        <th class="question" colspan="3">Are all the lights bright
-                                            enough for the person to see clearly?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q7"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            No globes to be less than 75w, no shadows thrown across rooms, no
-                                            excess glare.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d7"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting7Y" <%= props.getProperty("lighting7Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting7N" <%= props.getProperty("lighting7N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">8.</th>
-                                        <th class="question" colspan="3">Can the person switch a
-                                            light on easily from his or her bed?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q8"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Person does not have to get out of bed to switch a light on at
-                                            night - has a flashlight or bedside lamp.
+                                        <td colspan="3"><font style="font-style: italic"><fmt:message key="form.homeFalls.definitions"/></font>
+                                            <fmt:message key="form.homeFalls.d8"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting8Y" <%= props.getProperty("lighting8Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting8N" <%= props.getProperty("lighting8N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">9.</th>
-                                        <th class="question" colspan="3">Are the outside paths,
-                                            steps and entrances card card-body bg-body-tertiary lit at night?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q9"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Lights exist over back and front doors, globes at least 75w,
-                                            walkways, used exposed to light - including communal lobbies.
+                                        <td colspan="3"><font style="font-style: italic"><fmt:message key="form.homeFalls.definitions"/></font>
+                                            <fmt:message key="form.homeFalls.d9"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting9Y" <%= props.getProperty("lighting9Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="lighting9N" <%= props.getProperty("lighting9N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%">
                                             <table width="100%">
@@ -512,7 +488,7 @@
                                                     <td width="3%"><input type="checkbox" class="checkbox"
                                                                           name="lighting9NA" <%= props.getProperty("lighting9NA", "") %> />
                                                     </td>
-                                                    <td width="97%">N/A (no outside path, step or entrance =
+                                                    <td width="97%"><fmt:message key="global.na"/> (no outside path, step or entrance =
                                                         access door opens straight onto public footpath)
                                                     </td>
                                                 </tr>
@@ -533,9 +509,8 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage1();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage3();">Next
-                                Page >></a></td>
+                                <fmt:message key="form.homeFalls.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage3();"><fmt:message key="form.homeFalls.nextPage"/> >></a></td>
                         </tr>
                     </table>
 
@@ -546,76 +521,68 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">Bathroom</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.bathroom"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">10.</th>
-                                        <th class="question" colspan="3">Is the person able to get
-                                            on and off the toilet easily and safely?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q10"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Toilet is of adequate height, person does not need to hold on to
-                                            sink/toilet roll holder to get up, rail exists beside toilet, if
-                                            needed.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d10"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom10Y" <%= props.getProperty("bathroom10Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom10N" <%= props.getProperty("bathroom10N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="bathroom10NA" <%= props.getProperty("bathroom10NA", "") %> />N/A
+                                                               name="bathroom10NA" <%= props.getProperty("bathroom10NA", "") %> /><fmt:message key="global.na"/>
                                             (person uses commode constantly)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">11.</th>
-                                        <th class="question" colspan="3">Is the person able to get
-                                            in and out of the bath easily and safely?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q11"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Person is able to step over the edge of the bath without risk,
-                                            and can lower himself or herself into the bath and get up again
-                                            without needing to grab onto furniture (or uses bathboard, or
-                                            stands to use shower over bath without risk).
+                                        <td colspan="3"><font style="font-style: italic"><fmt:message key="form.homeFalls.definitions"/></font>
+                                            <fmt:message key="form.homeFalls.d11"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom11Y" <%= props.getProperty("bathroom11Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom11N" <%= props.getProperty("bathroom11N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="bathroom11NA" <%= props.getProperty("bathroom11NA", "") %> />N/A
+                                                               name="bathroom11NA" <%= props.getProperty("bathroom11NA", "") %> /><fmt:message key="global.na"/>
                                             (no bath in the home, or bath never used)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">12.</th>
-                                        <th class="question" colspan="3">Is the person able to walk
-                                            in and out of the shower recess easily and safely?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q12"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
                                             Person can step over shower hob, or screen tracks without risk
                                             and without having to hold onto anything for support.
                                         </td>
@@ -624,90 +591,83 @@
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom12Y" <%= props.getProperty("bathroom12Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom12N" <%= props.getProperty("bathroom12N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="bathroom12NA" <%= props.getProperty("bathroom12NA", "") %> />N/A
-                                            (no shower recess in the home)
+                                                               name="bathroom12NA" <%= props.getProperty("bathroom12NA", "") %> /><fmt:message key="global.na"/>
+                                            <fmt:message key="form.homeFalls.naShowerRecess"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">13.</th>
-                                        <th class="question" colspan="3">Is there an
-                                            accessible/sturdy grab rail(s) in the shower or beside the bath?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q13"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Rails which are fixed securely to the wall, which are not towel
-                                            rails, which can be reached without leaning enough to lose
-                                            balance.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d13"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom13Y" <%= props.getProperty("bathroom13Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom13N" <%= props.getProperty("bathroom13N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">14.</th>
-                                        <th class="question" colspan="3">Are slip resistant mats
-                                            used in the bath/bathroom/shower recess?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q14"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Well-maintained slip resistant rubber mats, or non-slip strips in
-                                            the base of the bath or shower recess.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d14"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom14Y" <%= props.getProperty("bathroom14Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom14N" <%= props.getProperty("bathroom14N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">15.</th>
-                                        <th class="question" colspan="3">Is the toilet in close
-                                            proximity to the bedroom?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q15"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            No more than two doorways away (including the bedroom door) -
-                                            does not involve going outside or unlocking doors to reach it.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d15"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom15Y" <%= props.getProperty("bathroom15Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="bathroom15N" <%= props.getProperty("bathroom15N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
@@ -725,9 +685,8 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage2();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage4();">Next
-                                Page >></a></td>
+                                <fmt:message key="form.homeFalls.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage4();"><fmt:message key="form.homeFalls.nextPage"/> >></a></td>
                         </tr>
                     </table>
 
@@ -738,56 +697,51 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">Storage</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.storage"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%" valign="top">16.</th>
-                                        <th class="question" colspan="3">Can the person easily reach
-                                            items in the kitchen that are used regularly without climbing,
-                                            bending or upsetting his or her balance?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q16"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Cupboards are accessible between shoulder and knee height - no
-                                            chairs/stepladders are required to reach things.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d16"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="storage16Y" <%= props.getProperty("storage16Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="storage16N" <%= props.getProperty("storage16N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">17.</th>
-                                        <th class="question" colspan="3">Can the person carry meals
-                                            easily and safely from the kitchen to the dining area?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q17"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Meals can be carried safely or transported using a trolley to
-                                            wherever the person usually eats.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d17"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="storage17Y" <%= props.getProperty("storage17Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="storage17N" <%= props.getProperty("storage17N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
@@ -795,100 +749,83 @@
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr class="title">
-                                        <th colspan="4">Stairways/Steps</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.stairwaysSteps"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%" valign="top">18.</th>
-                                        <th class="question" colspan="3">Do the <font
-                                                style="text-decoration: underline">indoor</font> steps/stairs
-                                            have an accessible/ sturdy grab rail extending along the full
-                                            length of the steps/stairs?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q18"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Grab rail must be easily gripped firmly fixed, sufficiently
-                                            robusted and available for the full length of the steps or
-                                            stairs.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d18"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway18Y" <%= props.getProperty("stairway18Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway18N" <%= props.getProperty("stairway18N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="stairway18NA" <%= props.getProperty("stairway18NA", "") %> />N/A
+                                                               name="stairway18NA" <%= props.getProperty("stairway18NA", "") %> /><fmt:message key="global.na"/>
                                             (no steps or stairs exist inside the home)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%" valign="top">19.</th>
-                                        <th class="question" colspan="3">Do the <font
-                                                style="text-decoration: underline">outdoor</font> steps have an
-                                            accessible/ sturdy grab rail extending along the full length of
-                                            the steps/stairs?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q19"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Steps = more than two consecutive steps (changes in floor level).
-                                            Grab rail must be easily gripped, firmly fixed, sufficiently
-                                            robust and available for the full length of the steps.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d19"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway19Y" <%= props.getProperty("stairway19Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway19N" <%= props.getProperty("stairway19N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="stairway19NA" <%= props.getProperty("stairway19NA", "") %> />N/A
+                                                               name="stairway19NA" <%= props.getProperty("stairway19NA", "") %> /><fmt:message key="global.na"/>
                                             (no steps or stairs exist outside the home)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%" valign="top">20.</th>
-                                        <th class="question" colspan="3">Can the person easily and
-                                            safely go up and down the steps/stairs, inside or outside the
-                                            house?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q20"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Steps are not too high, too narrow or too uneven for feet to be
-                                            firmly placed on the steps (indoors and outdoors), person is not
-                                            likely to become tired or breathless using the steps/stairs and
-                                            has no medical factor likely to impact on safety on the stairs,
-                                            e.g. foot-drop, loss of sensation in feet, impaired control of
-                                            movement, etc.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d20"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway20Y" <%= props.getProperty("stairway20Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway20N" <%= props.getProperty("stairway20N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="stairway20NA" <%= props.getProperty("stairway20NA", "") %> />N/A
+                                                               name="stairway20NA" <%= props.getProperty("stairway20NA", "") %> /><fmt:message key="global.na"/>
                                             (no steps or stairs exist)
                                         </td>
                                     </tr>
@@ -906,9 +843,8 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage3();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage5();">Next
-                                Page >></a></td>
+                                <fmt:message key="form.homeFalls.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage5();"><fmt:message key="form.homeFalls.nextPage"/> >></a></td>
                         </tr>
                     </table>
 
@@ -919,59 +855,54 @@
                                 <table width="740px" height="620px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="4">Stairways/Steps (continue...)</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.stairwaysStepsContinue"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">21.</th>
-                                        <th class="question" colspan="3">Are the edges of the
-                                            steps/stairs easiliy identified?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q21"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            No patterned floor coverings, tiles or painting which could
-                                            obscure the edge of step.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d21"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway21Y" <%= props.getProperty("stairway21Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway21N" <%= props.getProperty("stairway21N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="stairway21NA" <%= props.getProperty("stairway21NA", "") %> />N/A
+                                                               name="stairway21NA" <%= props.getProperty("stairway21NA", "") %> /><fmt:message key="global.na"/>
                                             (no steps or stairs exist)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">22.</th>
-                                        <th class="question" colspan="3">Can the person use the
-                                            entrance door(s) safely and easily?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q22"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Locks and bolts can be used without bending or over-reaching,
-                                            there is a landing so the person does not have to balance on
-                                            steps to open the door and/or screen door.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d22"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway22Y" <%= props.getProperty("stairway22Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="stairway22N" <%= props.getProperty("stairway22N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
@@ -979,91 +910,79 @@
                                         <td>&nbsp;</td>
                                     </tr>
                                     <tr class="title">
-                                        <th colspan="4">Mobility</th>
+                                        <th colspan="4"><fmt:message key="form.homeFalls.mobility"/></th>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">23.</th>
-                                        <th class="question" colspan="3">Are the paths around the
-                                            house in good repair, and free of clutter?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q23"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            No cracked/loose pathways, overgrowing plants/weeds, overhanging
-                                            trees, garden hoses encroaching on walkways.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d23"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility23Y" <%= props.getProperty("mobility23Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility23N" <%= props.getProperty("mobility23N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="mobility23NA" <%= props.getProperty("mobility23NA", "") %> />N/A
+                                                               name="mobility23NA" <%= props.getProperty("mobility23NA", "") %> /><fmt:message key="global.na"/>
                                             (no garden, path or yard exists)
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%">24.</th>
-                                        <th class="question" colspan="3">Is the person wearing well
-                                            fitting slippers and shoes?
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.q24"/>
                                         </th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Person currently wearing supportive, firmly fitting shoes with
-                                            low heels and non-slip soles or slippers which have not worn and
-                                            support the foot in a good position.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d24"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility24Y" <%= props.getProperty("mobility24Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility24N" <%= props.getProperty("mobility24N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"></td>
                                     </tr>
                                     <tr>
                                         <th class="question" width="5%" valign="top">25.</th>
-                                        <th class="question" colspan="3">If there are pets, can the
-                                            person care for them without bending and being at risk of falling
-                                            over?
-                                        </th>
+                                        <th class="question" colspan="3"><fmt:message key="form.homeFalls.petQuestion"/></th>
                                     </tr>
                                     <tr>
                                         <td></td>
-                                        <td colspan="3"><font style="font-style: italic">Definitions:</font>
-                                            Pets = any animals that the person has responsibility for. Person
-                                            does not have to feed pets when pets are jumping up or getting
-                                            underfoot, person does not have to bend to the floor without
-                                            available support to feed or clean pets, pets do not require a
-                                            lot of exercise.
+                                        <td colspan="3"><fmt:message key="form.homeFalls.definitions"/>
+                                            <fmt:message key="form.homeFalls.d25"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility25Y" <%= props.getProperty("mobility25Y", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                         <td width="10%"><input type="checkbox" class="checkbox"
                                                                name="mobility25N" <%= props.getProperty("mobility25N", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="mobility25NA" <%= props.getProperty("mobility25NA", "") %> />N/A
+                                                               name="mobility25NA" <%= props.getProperty("mobility25NA", "") %> /><fmt:message key="form.homeFalls.na"/>
                                             (there are no pets/animals)
                                         </td>
                                     </tr>
@@ -1081,7 +1000,7 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage4();"><<
-                                Previous Page</a></td>
+                                <fmt:message key="form.homeFalls.previousPage"/></a></td>
                             <td align="right"></td>
                         </tr>
                     </table>
@@ -1094,18 +1013,18 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right"><fmt:message key="form.homeFalls.studyId"/>: <%= props.getProperty("studyID", "N/A") %>
                                 <input type="hidden" name="studyID"
                                        value="<%= props.getProperty("studyID", "N/A") %>"/></td>
                         </tr>

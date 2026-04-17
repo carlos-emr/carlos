@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -74,7 +76,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Cost Questionnaire</title>
+        <title><fmt:message key="form.costQuestionnaire.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -172,7 +174,7 @@
                     <table border="0" cellspacing="0" cellpadding="0" width="740px"
                            height="10%">
                         <tr>
-                            <th class="subject">Cost Questionnaire</th>
+                            <th class="subject"><fmt:message key="form.costQuestionnaire.title"/></th>
                         </tr>
                     </table>
                 </td>
@@ -186,23 +188,22 @@
                                 <table width="740px" height="615px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="7">Health and social service provider visits</th>
+                                        <th colspan="7"><fmt:message key="form.costQuestionnaire.providerVisits"/></th>
                                     </tr>
                                     <tr>
-                                        <td colspan="7">Have you seen a doctor in the last 9 months?
-                                        </td>
+                                        <td colspan="7"><fmt:message key="form.costQuestionnaire.question.seenDoctorLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="seenDoctorY" <%= props.getProperty("seenDoctorY", "") %> />
                                         </td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="seenDoctorN" <%= props.getProperty("seenDoctorN", "") %> />
                                         </td>
-                                        <td width="10%">If <font style="font-weight: bold">YES</font>:</td>
-                                        <td width="25%">Family Physician</td>
-                                        <td width="20%">Number of Visits</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/>:</td>
+                                        <td width="25%"><fmt:message key="form.costQuestionnaire.familyPhysician"/></td>
+                                        <td width="20%"><fmt:message key="form.costQuestionnaire.numberOfVisits"/></td>
                                         <td width="20%"><input type="text" name="familyPhyVisits"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("familyPhyVisits", "") %>"/>
@@ -210,8 +211,8 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td colspan="4"></td>
-                                        <td width="25%">Specialist</td>
-                                        <td width="20%">Number of Visits</td>
+                                        <td width="25%"><fmt:message key="form.costQuestionnaire.specialist"/></td>
+                                        <td width="20%"><fmt:message key="form.costQuestionnaire.numberOfVisits"/></td>
                                         <td width="20%"><input type="text" name="specialistVisits"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("specialistVisits", "") %>"/>
@@ -221,19 +222,17 @@
                                         <td colspan="7">&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="7">Have you seen any other Health and Social
-                                            Service providers in the last months?
-                                        </td>
+                                        <td colspan="7"><fmt:message key="form.costQuestionnaire.question.otherHealthSocialProvidersLastMonths"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="otherProviderY"
                                                 <%= props.getProperty("otherProviderY", "") %> /></td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="otherProviderN"
                                                 <%= props.getProperty("otherProviderN", "") %> /></td>
-                                        <td width="10%">If <font style="font-weight: bold">YES</font>:</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/>:</td>
                                         <td colspan="3"></td>
                                     </tr>
                                     <tr bgcolor="white">
@@ -242,28 +241,26 @@
                                             <table width="100%">
                                                 <tr>
                                                     <td width="50%" align="left"><font
-                                                            style="font-weight: bold; text-decoration: underline">Service
-                                                        provider visited</font></td>
+                                                            style="font-weight: bold; text-decoration: underline"><fmt:message key="form.costQuestionnaire.label.serviceProviderVisited"/></font></td>
                                                     <td width="40%" align="center"><font
-                                                            style="font-weight: bold; text-decoration: underline">Number
-                                                        of visits</font></td>
+                                                            style="font-weight: bold; text-decoration: underline"><fmt:message key="form.costQuestionnaire.label.numberOfVisits"/></font></td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Visiting Nurse (VON, Para med)</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.visitingNurse"/></td>
                                                     <td align="center"><input type="text" name="visitNurse"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("visitNurse", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Home maker (Home care)</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.homeMaker"/></td>
                                                     <td align="center"><input type="text" name="homeMaker"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("homeMaker", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Physiotherapist</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.physiotherapist"/></td>
                                                     <td align="center"><input type="text"
                                                                               name="physiotherapist" size="5"
                                                                               class="textbox"
@@ -271,7 +268,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Occupational therapist</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.occupationalTherapist"/></td>
                                                     <td align="center"><input type="text" name="therapist"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("therapist", "") %>"/>
@@ -285,21 +282,21 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Social worker</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.socialWorker"/></td>
                                                     <td align="center"><input type="text" name="socialWorker"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("socialWorker", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Support Group</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.supportGroup"/></td>
                                                     <td align="center"><input type="text" name="supportGroup"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("supportGroup", "") %>"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td>Meal on Wheels</td>
+                                                    <td><fmt:message key="form.costQuestionnaire.mealOnWheels"/></td>
                                                     <td align="center"><input type="text" name="mealOnWheels"
                                                                               size="5" class="textbox"
                                                                               value="<%= props.getProperty("mealOnWheels", "") %>"/>
@@ -333,12 +330,12 @@
                                                                            size="40" class="textbox"
                                                                            value="<%= props.getProperty("paidService1", "") %>"/>
                                                     </td>
-                                                    <td width="25%"># of hours <input type="text"
+                                                    <td width="25%"><fmt:message key="form.costQuestionnaire.numberOfHours"/> <input type="text"
                                                                                       name="paidServiceHour1" size="5"
                                                                                       class="textbox"
                                                                                       value="<%= props.getProperty("paidServiceHour1", "") %>"/>
                                                     </td>
-                                                    <td width="35%">Cost $<input type="text"
+                                                    <td width="35%"><fmt:message key="form.costQuestionnaire.label.cost"/> $<input type="text"
                                                                                  onchange="javascript:roundCost('23')"
                                                                                  name="paidServiceCost1"
                                                                                  size="20" class="textbox"
@@ -350,11 +347,11 @@
                                                                class="textbox"
                                                                value="<%= props.getProperty("paidService2", "") %>"/>
                                                     </td>
-                                                    <td># of hours <input type="text" name="paidServiceHour2"
+                                                    <td><fmt:message key="form.costQuestionnaire.numberOfHours"/> <input type="text" name="paidServiceHour2"
                                                                           size="5" class="textbox"
                                                                           value="<%= props.getProperty("paidServiceHour2", "") %>"/>
                                                     </td>
-                                                    <td>Cost $<input type="text"
+                                                    <td><fmt:message key="form.costQuestionnaire.label.cost"/> $<input type="text"
                                                                      onchange="javascript:roundCost('26')"
                                                                      name="paidServiceCost2"
                                                                      size="20" class="textbox"
@@ -366,11 +363,11 @@
                                                                class="textbox"
                                                                value="<%= props.getProperty("paidService3", "") %>"/>
                                                     </td>
-                                                    <td># of hours <input type="text" name="paidServiceHour3"
+                                                    <td><fmt:message key="form.costQuestionnaire.numberOfHours"/> <input type="text" name="paidServiceHour3"
                                                                           size="5" class="textbox"
                                                                           value="<%= props.getProperty("paidServiceHour3", "") %>"/>
                                                     </td>
-                                                    <td>Cost $<input type="text"
+                                                    <td><fmt:message key="form.costQuestionnaire.label.cost"/> $<input type="text"
                                                                      onchange="javascript:roundCost('29')"
                                                                      name="paidServiceCost3"
                                                                      size="20" class="textbox"
@@ -393,8 +390,7 @@
                         </tr>
                         <tr class="subject">
                             <td></td>
-                            <td align="right"><a href="javascript: goToPage2();">Next
-                                Page >></a></td>
+                            <td align="right"><a href="javascript: goToPage2();"><fmt:message key="form.costQuestionnaire.nextPage"/> >></a></td>
                         </tr>
                     </table>
                 </td>
@@ -408,28 +404,24 @@
                                 <table width="740px" height="615px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="6">Use of hospitals and emergency services</th>
+                                        <th colspan="6"><fmt:message key="form.costQuestionnaire.hospitalsEmergency"/></th>
                                     </tr>
                                     <tr>
-                                        <td colspan="6" class="subtitle">Planned Hospitalizations</td>
+                                        <td colspan="6" class="subtitle"><fmt:message key="form.costQuestionnaire.plannedHospitalizations"/></td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6">In the last <font style="font-weight: bold">9
-                                            months</font>, did you ever spend one or more nights in the hospital due
-                                            to a <font style="font-weight: bold">planned
-                                                hospitalization</font> (e.g. hernia operation, knee surgery)
-                                        </td>
+                                        <td colspan="6"><fmt:message key="form.costQuestionnaire.question.plannedHospitalizationLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="plannedHospN" <%= props.getProperty("plannedHospN", "") %> />
                                         </td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="plannedHospY" <%= props.getProperty("plannedHospY", "") %> />
                                         </td>
-                                        <td width="10%">If Yes</td>
-                                        <td width="45%">How many times were you admitted?</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/></td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.howManyTimesAdmitted"/></td>
                                         <td width="25%"><input type="text"
                                                                name="plannedHospAdmitted" size="5" class="textbox"
                                                                value="<%= props.getProperty("plannedHospAdmitted", "") %>"/>
@@ -437,7 +429,7 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td colspan="4"></td>
-                                        <td width="45%">Total number of days in the hospital?</td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.totalDaysInHospital"/></td>
                                         <td width="25%"><input type="text" name="plannedHospDays"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("plannedHospDays", "") %>"/>
@@ -447,23 +439,21 @@
                                         <td colspan="6">&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6" class="subtitle">Nursing Home</td>
+                                        <td colspan="6" class="subtitle"><fmt:message key="form.costQuestionnaire.nursingHome"/></td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6">In the last <font style="font-weight: bold">9
-                                            months</font>, did you ever spend 1 or more nights in a nursing home?
-                                        </td>
+                                        <td colspan="6"><fmt:message key="form.costQuestionnaire.question.nursingHomeLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="nursingHomeN" <%= props.getProperty("nursingHomeN", "") %> />
                                         </td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="nursingHomeY" <%= props.getProperty("nursingHomeY", "") %> />
                                         </td>
-                                        <td width="10%">If Yes</td>
-                                        <td width="45%">Total number of days?</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/></td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.totalDays"/></td>
                                         <td width="25%"><input type="text" name="nursingHomeDays"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("nursingHomeDays", "") %>"/>
@@ -473,24 +463,21 @@
                                         <td colspan="6">&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6" class="subtitle">Emergency Services</td>
+                                        <td colspan="6" class="subtitle"><fmt:message key="form.costQuestionnaire.emergencyServices"/></td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6">In the last <font style="font-weight: bold">9
-                                            months</font>, did you ever have to go to a hospital emergency room for
-                                            treatment?
-                                        </td>
+                                        <td colspan="6"><fmt:message key="form.costQuestionnaire.question.emergencyRoomLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="emergencyN" <%= props.getProperty("emergencyN", "") %> />
                                         </td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="emergencyY" <%= props.getProperty("emergencyY", "") %> />
                                         </td>
-                                        <td width="10%">If Yes</td>
-                                        <td width="45%">How many times did you call 911?</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/></td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.howManyTimesCall911"/></td>
                                         <td width="25%"><input type="text" name="emergency911"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("emergency911", "") %>"/>
@@ -498,16 +485,14 @@
                                     </tr>
                                     <tr bgcolor="white">
                                         <td colspan="4"></td>
-                                        <td width="45%">How many times did you go to Emergency?</td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.howManyTimesEmergency"/></td>
                                         <td width="25%"><input type="text" name="emergency" size="5"
                                                                class="textbox"
                                                                value="<%= props.getProperty("emergency", "") %>"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td colspan="4"></td>
-                                        <td width="45%">How many times did you need to go by
-                                            ambulance?
-                                        </td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.question.ambulanceCount"/></td>
                                         <td width="25%"><input type="text" name="emergencyAmbulance"
                                                                size="5" class="textbox"
                                                                value="<%= props.getProperty("emergencyAmbulance", "") %>"/>
@@ -517,24 +502,21 @@
                                         <td colspan="6">&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6" class="subtitle">Walk-In Clinics</td>
+                                        <td colspan="6" class="subtitle"><fmt:message key="form.costQuestionnaire.walkInClinics"/></td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6">In the last <font style="font-weight: bold">9
-                                            months</font>, did you ever have to go to a walk-in clinic for
-                                            treatment?
-                                        </td>
+                                        <td colspan="6"><fmt:message key="form.costQuestionnaire.question.walkInClinicLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
-                                        <td width="10%">No <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.no"/> <input type="checkbox" class="checkbox"
                                                                   name="walkinN" <%= props.getProperty("walkinN", "") %> />
                                         </td>
-                                        <td width="10%">Yes <input type="checkbox" class="checkbox"
+                                        <td width="10%"><fmt:message key="global.yes"/> <input type="checkbox" class="checkbox"
                                                                    name="walkinY" <%= props.getProperty("walkinY", "") %> />
                                         </td>
-                                        <td width="10%">If Yes</td>
-                                        <td width="45%">Total number of days?</td>
+                                        <td width="10%"><fmt:message key="form.costQuestionnaire.ifYes"/></td>
+                                        <td width="45%"><fmt:message key="form.costQuestionnaire.totalDays"/></td>
                                         <td width="25%"><input type="text" name="walkin" size="5"
                                                                class="textbox"
                                                                value="<%= props.getProperty("walkin", "") %>"/></td>
@@ -543,14 +525,10 @@
                                         <td colspan="6">&nbsp;</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6" class="subtitle">Specialty Items Purchased</td>
+                                        <td colspan="6" class="subtitle"><fmt:message key="form.costQuestionnaire.specialtyItemsPurchased"/></td>
                                     </tr>
                                     <tr>
-                                        <td colspan="6">Have you purchased any supplies, aides or
-                                            special devices to help you with your daily activities in the <font
-                                                    style="font-weight: bold">last 9 months</font>? (e.g.
-                                            wheelchair, walker)
-                                        </td>
+                                        <td colspan="6"><fmt:message key="form.costQuestionnaire.question.specialtyItemsLast9Months"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td></td>
@@ -558,10 +536,9 @@
                                             <table width="100%">
                                                 <tr>
                                                     <td width="35%"><font
-                                                            style="font-weight: bold; text-decoration: underline">Item
-                                                        Purchased</font></td>
+                                                            style="font-weight: bold; text-decoration: underline"><fmt:message key="form.costQuestionnaire.label.itemPurchased"/></font></td>
                                                     <td width="40%"><font
-                                                            style="font-weight: bold; text-decoration: underline">Cost</font>
+                                                            style="font-weight: bold; text-decoration: underline"><fmt:message key="form.costQuestionnaire.label.cost"/></font>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -599,9 +576,8 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage1();"><<
-                                Previous Page</a></td>
-                            <td align="right"><a href="javascript: goToPage3();">Next
-                                Page >></a></td>
+                                <fmt:message key="form.costQuestionnaire.previousPage"/></a></td>
+                            <td align="right"><a href="javascript: goToPage3();"><fmt:message key="form.costQuestionnaire.nextPage"/> >></a></td>
                         </tr>
                     </table>
             <tr>
@@ -613,14 +589,10 @@
                                 <table width="740px" height="615px" border="0" cellspacing="0"
                                        cellpadding="0">
                                     <tr class="title">
-                                        <th colspan="2">Employment Information</th>
+                                        <th colspan="2"><fmt:message key="form.costQuestionnaire.employmentInformation"/></th>
                                     </tr>
                                     <tr>
-                                        <td colspan="2">Please provide your <font
-                                                style="font-weight: bold">current</font> employment status by
-                                            checking <font style="font-weight: bold">all</font> of the
-                                            options that apply to you.
-                                        </td>
+                                        <td colspan="2"><fmt:message key="form.costQuestionnaire.instruction.currentEmploymentStatus"/></td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%"></td>
@@ -630,84 +602,74 @@
                                                 <tr>
                                                     <td width="30%" class="row"><input type="checkbox"
                                                                                        class="checkbox" name="employed"
-                                                            <%= props.getProperty("employed", "") %> /> Employed:
+                                                            <%= props.getProperty("employed", "") %> /> <fmt:message key="form.costQuestionnaire.label.employed"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="employedFullTime"
-                                                            <%= props.getProperty("employedFullTime", "") %> /> Full
-                                                        Time
+                                                            <%= props.getProperty("employedFullTime", "") %> /> <fmt:message key="form.costQuestionnaire.label.fullTime"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="employedPartTime"
-                                                            <%= props.getProperty("employedPartTime", "") %> /> Part
-                                                        Time
+                                                            <%= props.getProperty("employedPartTime", "") %> /> <fmt:message key="form.costQuestionnaire.label.partTime"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td width="30%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="selfEmployed"
-                                                            <%= props.getProperty("selfEmployed", "") %> />
-                                                        Self-employed:
+                                                            <%= props.getProperty("selfEmployed", "") %> /> <fmt:message key="form.costQuestionnaire.label.selfEmployed"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="selfEmployedFullTime"
-                                                            <%= props.getProperty("selfEmployedFullTime", "") %> /> Full
-                                                        Time
+                                                            <%= props.getProperty("selfEmployedFullTime", "") %> /> <fmt:message key="form.costQuestionnaire.label.fullTime"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="selfEmployedPartTime"
-                                                            <%= props.getProperty("selfEmployedPartTime", "") %> /> Part
-                                                        Time
+                                                            <%= props.getProperty("selfEmployedPartTime", "") %> /> <fmt:message key="form.costQuestionnaire.label.partTime"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td width="30%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="unemployed"
-                                                            <%= props.getProperty("unemployed", "") %> /> Unemployed:
+                                                            <%= props.getProperty("unemployed", "") %> /> <fmt:message key="form.costQuestionnaire.label.unemployed"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="unemployedAble"
-                                                            <%= props.getProperty("unemployedAble", "") %> /> Able to
-                                                        work
+                                                            <%= props.getProperty("unemployedAble", "") %> /> <fmt:message key="form.costQuestionnaire.label.ableToWork"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="unemployedUnable"
-                                                            <%= props.getProperty("unemployedUnable", "") %> /> Unable
-                                                        to
-                                                        work
+                                                            <%= props.getProperty("unemployedUnable", "") %> /> <fmt:message key="form.costQuestionnaire.label.unableToWork"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td width="30%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="disability"
-                                                            <%= props.getProperty("disability", "") %> /> On Disability:
+                                                            <%= props.getProperty("disability", "") %> /> <fmt:message key="form.costQuestionnaire.label.onDisability"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="disabilityShortTerm"
-                                                            <%= props.getProperty("disabilityShortTerm", "") %> /> Short
-                                                        Term
+                                                            <%= props.getProperty("disabilityShortTerm", "") %> /> <fmt:message key="form.costQuestionnaire.label.shortTerm"/>
                                                     </td>
                                                     <td width="20%" class="row"><input type="checkbox"
                                                                                        class="checkbox"
                                                                                        name="disabilityLongTerm"
-                                                            <%= props.getProperty("disabilityLongTerm", "") %> /> Long
-                                                        Term
+                                                            <%= props.getProperty("disabilityLongTerm", "") %> /> <fmt:message key="form.costQuestionnaire.label.longTerm"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td width="30%" class="row"><input type="checkbox"
                                                                                        class="checkbox" name="retired"
-                                                            <%= props.getProperty("retired", "") %> /> Retired
+                                                            <%= props.getProperty("retired", "") %> /> <fmt:message key="form.costQuestionnaire.label.retired"/>
                                                     </td>
                                                     <td colspan="2" class="row">&nbsp;</td>
                                                 </tr>
@@ -715,7 +677,7 @@
                                                     <td width="30%"><input type="checkbox" class="checkbox"
                                                                            name="homemakerWithOutPaid"
                                                             <%= props.getProperty("homemakerWithOutPaid", "") %> />
-                                                        Homemaker (without pay)
+                                                        <fmt:message key="form.costQuestionnaire.label.homemakerWithoutPay"/>
                                                     </td>
                                                     <td colspan="2"></td>
                                                 </tr>
@@ -736,7 +698,7 @@
                         </tr>
                         <tr class="subject">
                             <td align="left"><a href="javascript: backToPage2();"><<
-                                Previous Page</a></td>
+                                <fmt:message key="form.costQuestionnaire.previousPage"/></a></td>
                             <td align="right"></td>
                         </tr>
                     </table>
@@ -749,18 +711,18 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript:if(checkBeforeSave()==true) return onSaveExit(); else return false;"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
-                            <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
+                            <td align="right"><fmt:message key="form.costQuestionnaire.studyId"/>: <%= props.getProperty("studyID", "N/A") %>
                                 <input type="hidden" name="studyID"
                                        value="<%= props.getProperty("studyID", "N/A") %>"/></td>
                         </tr>

@@ -183,7 +183,7 @@
 
 
         <div id="general" class="pref_pane">
-            <h3 style="text-align:center">General Settings</h3>
+            <h3 style="text-align:center"><fmt:message key="provider.pref.section.general"/></h3>
             <!-- change password -->
             <br/><br/>
             <div style="float:left;clear:left;width:48%">

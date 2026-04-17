@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*, java.util.*" %>
 <%@ page import="java.io.FileInputStream" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -57,7 +58,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Print Mental Health Referral</title>
+        <title><fmt:message key="form.formmhreferralprint.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
@@ -94,16 +95,16 @@
 
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>
 
     <table cellpadding="5" cellspacing="0">
         <tr>
-            <th align="left"><big>MENTAL HEALTH REFERRAL</big><br>
+            <th align="left"><big><fmt:message key="form.formmhreferralprint.heading"/></big><br>
                 <br>
             </th>
         </tr>
@@ -112,31 +113,31 @@
                 <table border="0" cellpadding="5" cellspacing="0"
                        class="tableWithBorder">
                     <tr>
-                        <td>Name:</td>
+                        <td><fmt:message key="form.formmhreferralprint.label.name"/></td>
                         <td align="left"><%= props.getProperty("c_pName", "") %>&nbsp;</td>
                     </tr>
                     <tr>
-                        <td>Sex:</td>
+                        <td><fmt:message key="form.formmhreferralprint.label.sex"/></td>
                         <td align="left"><%= props.getProperty("c_sex", "") %>&nbsp;</td>
                     </tr>
         </tr>
-        <td>Address:</td>
+        <td><fmt:message key="form.formmhreferralprint.label.address"/></td>
         <td align="left"><%= props.getProperty("c_address", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Home Phone:</td>
+            <td><fmt:message key="form.formmhreferralprint.label.homePhone"/></td>
             <td align="left"><%= props.getProperty("c_homePhone", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Birth Date <small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.formmhreferralprint.label.birthDate"/> <small><fmt:message key="form.formmhreferralprint.label.dateFormat"/></small>:</td>
             <td align="left"><%= props.getProperty("c_birthDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referral Date<small>(yyyy/mm/dd)</small>:</td>
+            <td><fmt:message key="form.formmhreferralprint.label.referralDate"/><small><fmt:message key="form.formmhreferralprint.label.dateFormat"/></small>:</td>
             <td align="left"><%= props.getProperty("c_referralDate", "") %>&nbsp;</td>
         </tr>
         <tr>
-            <td>Referred By:</td>
+            <td><fmt:message key="form.formmhreferralprint.label.referredBy"/></td>
             <td align="left"><%= props.getProperty("c_referredBy", "") %>&nbsp;</td>
         </tr>
     </table>
@@ -146,7 +147,7 @@
         <td>
             <table>
                 <tr>
-                    <td class="mhSelect">Psychiatric Symptoms:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.psychSymptoms"/><br>
                         <%String[] rps = list.loadData("mhReferral/PsychiatricSymptoms.txt", projecthome, path);%>
                         1.
                         <b><%=props.getProperty("r_rps1", "---").equals("") ? "" : rps[Integer.parseInt(props.getProperty("r_rps1", "---")) - 1] %>
@@ -160,7 +161,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Psychosocial Issues:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.psychosocialIssues"/><br>
                         <% String[] rpi = list.loadData("mhReferral/PsychosocialIssues.txt", projecthome, path);%>
                         1.
                         <b><%=props.getProperty("r_rpi1", "---").equals("") ? "" : rpi[Integer.parseInt(props.getProperty("r_rpi1", "---")) - 1] %>
@@ -174,7 +175,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Med/Phy Issues:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.medPhyIssues"/><br>
                         <% String[] rmpi = list.loadData("mhReferral/MedPhyIssues.txt", projecthome, path);%>
                         1.
                         <b><%=props.getProperty("r_rmpi1", "---").equals("") ? "" : rmpi[Integer.parseInt(props.getProperty("r_rmpi1", "---")) - 1] %>
@@ -188,7 +189,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Interventions Requested:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.interventionsRequested"/><br>
                         <% String[] ir = list.loadData("mhReferral/InterventionsRequested.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("r_ir1", "---").equals("") ? "" : ir[Integer.parseInt(props.getProperty("r_ir1", "---")) - 1] %>
@@ -202,7 +203,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Advice Regarding Management:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.adviceRegardingManagement"/><br>
                         <% String[] arm = list.loadData("mhReferral/AdviceRegardingManagement.txt", projecthome, path); %>
                         1.
                         <b><%=props.getProperty("r_arm1", "---").equals("") ? "" : arm[Integer.parseInt(props.getProperty("r_arm1", "---")) - 1] %>
@@ -216,7 +217,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="mhSelect">Comments:<br>
+                    <td class="mhSelect"><fmt:message key="form.formmhreferralprint.section.comments"/><br>
                         <%= props.getProperty("r_refComments", "")%>
                     </td>
                 </tr>
@@ -226,9 +227,9 @@
     </table>
     <table class="Head" class="hidePrint">
         <tr>
-            <td align="left"><input type="button" value="Exit"
+            <td align="left"><input type="button" value="<fmt:message key='global.btnExit'/>"
                                     onclick="javascript:onCancel();"/> <input type="button"
-                                                                              value="Print"
+                                                                              value="<fmt:message key='global.btnPrint'/>"
                                                                               onclick="javascript:onPrint();"/></td>
         </tr>
     </table>

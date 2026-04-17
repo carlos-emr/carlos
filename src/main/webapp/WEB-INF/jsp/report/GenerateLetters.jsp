@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -71,7 +73,7 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title>prevention</title>
+        <title><fmt:message key="report.GenerateLetters.title"/></title>
         <!-- i18n -->
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -132,7 +134,7 @@
 
             //Function sends AJAX request to action
             function completedProcedure(idval, followUpType, procedure, demographic) {
-                var comment = prompt('Are you sure you want to added this to patients record \n\nAdd Comment Below ', '');
+                var comment = prompt("<fmt:message key='report.GenerateLetters.prompt.addComment'/>", '');
                 if (comment != null) {
                     var params = "id=" + idval + "&followupType=" + followUpType + "&followupValue=" + procedure + "&demos=" + demographic + "&message=" + comment;
                     var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement";
@@ -194,12 +196,12 @@
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="100">report</td>
+            <td class="MainTableTopRowLeftColumn" width="100"><fmt:message key="report.GenerateLetters.header.report"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td>Choose Letter</td>
-                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters">manage</a></td>
+                        <td><fmt:message key="report.GenerateLetters.chooseLetter"/></td>
+                        <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters"><fmt:message key="report.GenerateLetters.manage"/></a></td>
                         <td style="text-align: right">
                             <a
                                     href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
@@ -221,7 +223,7 @@
                     if (list.size() > 0) {%>
 
 
-                <div>Select Letter: <select name="reportLetter">
+                <div><fmt:message key="report.GenerateLetters.selectLetter"/> <select name="reportLetter">
                     <%
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
@@ -235,20 +237,20 @@
                     String followUpValue = request.getParameter("followupValue"); //"L1";
                     String comment = request.getParameter("message");
                     if (followUpType != null && followUpValue != null) { %>
-                    Mark in patients Records: <input type="checkbox" name="addFollowUp"
+                    <fmt:message key="report.GenerateLetters.markInPatientRecords"/> <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
                                                                                  value="<e:forHtmlAttribute value='<%= followUpType %>' />"/> <input
                             type="hidden"
                             name="followupValue" value="<e:forHtmlAttribute value='<%= followUpValue %>' />"/> <%}%>
                 </div>
 
-                <input type="submit" value="Generate Letters"/>
-                <input type="button" value="Generate Envelopes"
+                <input type="submit" value="<fmt:message key='report.GenerateLetters.btnGenerateLetters'/>"/>
+                <input type="button" value="<fmt:message key='report.GenerateLetters.btnGenerateEnvelopes'/>"
                        onclick="javascript:genEnvelopes('listDemographic')"/>
 
 
                 <%} else {%>
-                <div>No Reports Loaded</div>
+                <div><fmt:message key="report.GenerateLetters.noReportsLoaded"/></div>
 
                 <%}%>
 

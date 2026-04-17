@@ -49,7 +49,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Late Life FDI: Function component</title>
+        <title><fmt:message key="form.lateLifeFDI.function.title"/></title>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
         <base href="<e:forHtmlAttribute value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' />"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -72,7 +72,7 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="600px"
                        height="10%">
                     <tr>
-                        <th class="subject">Late Life FDI: Function Component</th>
+                        <th class="subject"><fmt:message key="form.lateLifeFDI.function.heading"/></th>
                     </tr>
                 </table>
             </td>
@@ -90,7 +90,7 @@
                                         <table width="100%" height="590px" border="0" cellspacing="1"
                                                cellpadding="2">
                                             <tr class="title">
-                                                <th colspan="5">Function Visual Aid #2 <font
+                                                <th colspan="5"><fmt:message key="form.lateLifeFDI.function.visualAid2"/> <font
                                                         style="font-size: 80%; font-weight: bold">(For users of
                                                     canes or walkers only)</th>
                                             </tr>

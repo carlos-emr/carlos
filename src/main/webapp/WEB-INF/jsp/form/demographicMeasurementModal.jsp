@@ -144,7 +144,7 @@
 
                 // Input area
                 let inputDiv = document.createElement('div');
-                inputDiv.appendChild(document.createTextNode('Current Value: '));
+                inputDiv.appendChild(document.createTextNode('<fmt:message key="form.measurement.currentValue"/> '));
 
                 let currentValueInput = document.createElement('input');
                 currentValueInput.type = 'text';
@@ -161,7 +161,7 @@
 
                 inputDiv.appendChild(document.createElement('br'));
 
-                inputDiv.appendChild(document.createTextNode('Observation Date: '));
+                inputDiv.appendChild(document.createTextNode('<fmt:message key="form.measurement.observationDate"/> '));
                 let obsDateInput = document.createElement('input');
                 obsDateInput.type = 'date';
                 obsDateInput.id = 'currentMeasurementObservationDate';
@@ -173,7 +173,7 @@
                 if (data[-1] !== null && data[-1] !== "No Results Found") {
                     local_jQuery.each(data, function () {
                         // At the beginning of each iteration, the patients age in days, weeks, months and years at the date of observation will be calculated, and displayed based on what the result is
-                        let ageDisplay = 'Age: ';
+                        let ageDisplay = '<fmt:message key="form.measurement.age"/>: ';
                         let dateObserved = new Date(this.dateObserved.time);
                         let ageDays = Math.floor((dateObserved.getTime() - demographicDob.getTime()) / 1000 / 60 / 60 / 24);
                         let tempAgeDays = ageDays;
@@ -198,13 +198,13 @@
 
                         // Deciding which measurement of time to display based on the patients age at the time
                         if (ageDays <= 7) {
-                            ageDisplay += ageDays + ' days old';
+                            ageDisplay += ageDays + ' <fmt:message key="form.measurement.daysOld"/>';
                         } else if (ageWeeks <= 4) {
-                            ageDisplay += ageWeeks + ' weeks old';
+                            ageDisplay += ageWeeks + ' <fmt:message key="form.measurement.weeksOld"/>';
                         } else if (ageMonths <= 12) {
-                            ageDisplay += ageMonths + ' months old';
+                            ageDisplay += ageMonths + ' <fmt:message key="form.measurement.monthsOld"/>';
                         } else {
-                            ageDisplay += ageYears + ' years old';
+                            ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
                         let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
@@ -244,9 +244,9 @@
                             success: function (data) {
                                 // If the JSON data returned states success = true, display success message, else display failed
                                 if (data && data.success) {
-                                    showMeasurementToast("Successfully saved measurement!", "success");
+                                    showMeasurementToast("<fmt:message key='form.measurement.savedSuccessfully'/>", "success");
                                 } else {
-                                    showMeasurementToast("Failed to save measurement", "error");
+                                    showMeasurementToast("<fmt:message key='form.measurement.saveFailed'/>", "error");
                                 }
                             }
                         });
@@ -299,12 +299,12 @@
         var cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'meas-btn-cancel';
-        cancelBtn.textContent = 'Okay';
+        cancelBtn.textContent = '<fmt:message key="form.measurement.okay"/>';
 
         var saveBtn = document.createElement('button');
         saveBtn.type = 'button';
         saveBtn.className = 'meas-btn-save';
-        saveBtn.textContent = 'Save';
+        saveBtn.textContent = '<fmt:message key="form.measurement.save"/>';
 
         footer.appendChild(cancelBtn);
         footer.appendChild(saveBtn);

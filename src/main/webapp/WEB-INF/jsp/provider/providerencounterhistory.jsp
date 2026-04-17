@@ -31,6 +31,7 @@
 
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.ResourceBundle" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
@@ -38,6 +39,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
 %>
 <html>
@@ -64,7 +66,7 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                ENCOUNTER HISTORY</font></th>
+                <%= bundle.getString("provider.providerencounterhistory.title") %></font></th>
         </tr>
     </table>
     <table width="90%" border="0">
@@ -77,7 +79,7 @@
                 %>
                 &nbsp;<%=ConversionUtils.toDateString(enc.getEncounterDate())%> <%=ConversionUtils.toTimeString(enc.getEncounterTime())%><font
                     color="yellow"><%
-                String historysubject = enc.getSubject() == null ? "NULL" : (enc.getSubject()).equals("") ? "Unknown" : enc.getSubject();
+                String historysubject = enc.getSubject() == null ? bundle.getString("provider.providerencounterhistory.nullSubject") : (enc.getSubject()).equals("") ? bundle.getString("provider.providerencounterhistory.unknown") : enc.getSubject();
                 StringTokenizer st = new StringTokenizer(historysubject, ":");
                 String strForm = "", strTemplateURL = "";
                 while (st.hasMoreTokens()) {
@@ -102,7 +104,7 @@
             </td>
         </tr>
     </table>
-    <form><input type="button" value="Close this window"
+    <form><input type="button" value="<%= bundle.getString("provider.providerencounterhistory.closeWindow") %>"
                  onClick="closeit()"></form>
 </center>
 </body>

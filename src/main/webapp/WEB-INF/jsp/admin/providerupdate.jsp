@@ -248,7 +248,7 @@
                 //output ProviderFormalize error message
         %>
         <h1><fmt:message key="<%=errMsgProviderFormalize%>"/></h1>
-        Provider # range from : <%=min_value %> To : <%=max_value %>
+        <fmt:message key="admin.providerupdate.msgProviderRange"/> <%=min_value %> <fmt:message key="admin.providerupdate.msgTo"/> <%=max_value %>
         <%
                 }
             }

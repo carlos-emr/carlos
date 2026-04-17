@@ -40,12 +40,14 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
     try {
         DBPreparedHandler dbObj = new DBPreparedHandler();
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
         // select provider list
         Properties prop = new Properties();
         String sql = "select u.*, p.first_name, p.last_name from secUserRole u, provider p ";
@@ -80,7 +82,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>PHCP Report</title>
+        <title><fmt:message key="report.reportonbilledphcp.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -105,7 +107,7 @@
                 if (document.myform.codeType.value == "" || document.myform.startDate.value == "" || document.myform.endDate.value == ""
                     || (document.myform.providerNoDoctor.value == "" && document.myform.providerNoResident.value == ""
                         && document.myform.providerNoNP.value == "" && document.myform.providerNoSW.value == "")) {
-                    alert("Please select the codeType/period/provider item(s) from the drop down list before query.");
+                    alert("<fmt:message key='report.reportonbilledphcp.alertSelectItems'/>");
                     return false;
                 } else {
                     return true;
@@ -121,7 +123,7 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="#486ebd">
             <th align="CENTER" width="90%"><font face="Helvetica"
-                                                 color="#FFFFFF"> PHCP Encounter Report </font></th>
+                                                 color="#FFFFFF"><fmt:message key="report.reportonbilledphcp.header.report"/></font></th>
         </tr>
     </table>
     <form name="myform" action="<%= request.getContextPath() %>/report/ViewReportonbilledphcp" method="POST"
@@ -129,20 +131,20 @@
         <table width="100%" border="0" bgcolor="ivory" cellspacing="1"
                cellpadding="1">
             <tr bgcolor="lightsteelblue">
-                <td>Code: <br>
+                <td><fmt:message key="report.reportonbilledphcp.label.code"/> <br>
                     <select name="codeType">
-                        <option value="">--Code--</option>
-                        <option value="DxCode">DxCode</option>
-                        <option value="ServiceCode">ServiceCode</option>
+                        <option value=""><fmt:message key="report.reportonbilledphcp.option.code"/></option>
+                        <option value="DxCode"><fmt:message key="report.reportonbilledphcp.option.dxCode"/></option>
+                        <option value="ServiceCode"><fmt:message key="report.reportonbilledphcp.option.serviceCode"/></option>
                     </select></td>
-                <td nowrap>start <input type="text" name="startDate"
+                <td nowrap><fmt:message key="report.reportonbilledphcp.label.start"/> <input type="text" name="startDate"
                                         id="startDate" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />" size="10"
                                         readonly> <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDate_cal">
-                    end <input type="text" name="endDate" id="endDate"
+                    <fmt:message key="report.reportonbilledphcp.label.end"/> <input type="text" name="endDate" id="endDate"
                                value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />" size="10" readonly> <img
                             src="<%= request.getContextPath() %>/images/cal.gif" id="endDate_cal"></td>
-                <td>Provider: <select name="providerNoDoctor">
-                    <option value="">------Doctor------</option>
+                <td><fmt:message key="report.reportonbilledphcp.label.provider"/> <select name="providerNoDoctor">
+                    <option value=""><fmt:message key="report.reportonbilledphcp.option.doctor"/></option>
                     <%
                         for (int i = 0; i < VEC_PROVIDER[0].size(); i++) {
                     %>
@@ -155,7 +157,7 @@
                         }
                     %>
                 </select> <select name="providerNoResident">
-                    <option value="">------Resident------</option>
+                    <option value=""><fmt:message key="report.reportonbilledphcp.option.resident"/></option>
                     <%
                         for (int i = 0; i < VEC_PROVIDER[1].size(); i++) {
                     %>
@@ -168,7 +170,7 @@
                         }
                     %>
                 </select> <select name="providerNoNP">
-                    <option value="">------Nurse------</option>
+                    <option value=""><fmt:message key="report.reportonbilledphcp.option.nurse"/></option>
                     <%
                         for (int i = 0; i < VEC_PROVIDER[2].size(); i++) {
                     %>
@@ -181,7 +183,7 @@
                         }
                     %>
                 </select> <select name="providerNoSW">
-                    <option value="">------Social Worker------</option>
+                    <option value=""><fmt:message key="report.reportonbilledphcp.option.socialWorker"/></option>
                     <%
                         for (int i = 0; i < VEC_PROVIDER[3].size(); i++) {
                     %>
@@ -194,7 +196,7 @@
                         }
                     %>
                 </select></td>
-                <td><input type="submit" name="submit" value="Go"></td>
+                <td><input type="submit" name="submit" value="<fmt:message key='report.reportonbilledphcp.button.go'/>"></td>
             </tr>
         </table>
     </form>
@@ -723,60 +725,60 @@
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="<%="#669999"%>">
             <th align="left"><font face="Helvetica" color="white"><e:forHtmlContent value='<%= providerName %>' />
-                - PATIENT VISIT LIST </font></th>
+                - <%= bundle.getString("report.reportonbilledphcp.header.patientVisitList") %> </font></th>
             <th width="10%" nowrap><input type="button" name="Button"
-                                          value="Print" onClick="window.print()"> <input type="button"
-                                                                                         name="Button" value=" Exit "
+                                          value="<%= bundle.getString("global.btnPrint") %>" onClick="window.print()"> <input type="button"
+                                                                                         name="Button" value="<%= bundle.getString("global.btnExit") %>"
                                                                                          onClick="window.close()"></th>
         </tr>
     </table>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr>
-            <td>Period: ( <e:forHtmlContent value='<%= startDate %>' /> ~ <e:forHtmlContent value='<%= endDate %>' /> )</td>
+            <td><%= bundle.getString("report.reportonbilledphcp.label.period") %> ( <e:forHtmlContent value='<%= startDate %>' /> ~ <e:forHtmlContent value='<%= endDate %>' /> )</td>
         </tr>
     </table>
     <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
            cellpadding="0">
         <tr bgcolor="<%=tdTitleColor%>">
-            <TH colspan="2" width="10%"><%=bDx ? "Dx Code" : "ServiceCode"%>
+            <TH colspan="2" width="10%"><%=bDx ? bundle.getString("report.reportonbilledphcp.header.dxCode") : bundle.getString("report.reportonbilledphcp.header.serviceCode")%>
             </TH>
-            <TH colspan="2" width="6%">Total</TH>
-            <TH colspan="2" width="6%">Sex F</TH>
-            <TH colspan="2" width="6%">Sex M</TH>
-            <TH colspan="2" width="6%">0-1 yr</TH>
-            <TH colspan="2" width="6%">2-11 yr</TH>
-            <TH colspan="2" width="6%">12-20 yr</TH>
-            <TH colspan="2" width="6%">21-34 yr</TH>
-            <TH colspan="2" width="6%">35-50 yr</TH>
-            <TH colspan="2" width="6%">51-64 yr</TH>
-            <TH colspan="2" width="6%">65-70 yr</TH>
-            <TH colspan="2" width="6%">71+ yr</TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.total") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.sexF") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.sexM") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age0_1") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age2_11") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age12_20") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age21_34") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age35_50") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age51_64") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age65_70") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age71Plus") %></TH>
         </tr>
         <tr align="center" bgcolor="<%=tdTitleColor%>">
-            <td>Code</td>
-            <td>Description</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.code") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.description") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
         </tr>
         <%
             String catName = "";
@@ -897,55 +899,55 @@
             }
         %>
         <tr bgcolor="<%=tdTitleColor%>">
-            <TH colspan="2" width="10%"><%=bDx ? "Dx Code" : "ServiceCode"%>
+            <TH colspan="2" width="10%"><%=bDx ? bundle.getString("report.reportonbilledphcp.header.dxCode") : bundle.getString("report.reportonbilledphcp.header.serviceCode")%>
             </TH>
-            <TH colspan="2" width="6%">Total</TH>
-            <TH colspan="2" width="6%">Sex F</TH>
-            <TH colspan="2" width="6%">Sex M</TH>
-            <TH colspan="2" width="6%">0-1 yr</TH>
-            <TH colspan="2" width="6%">2-11 yr</TH>
-            <TH colspan="2" width="6%">12-20 yr</TH>
-            <TH colspan="2" width="6%">21-34 yr</TH>
-            <TH colspan="2" width="6%">35-50 yr</TH>
-            <TH colspan="2" width="6%">51-64 yr</TH>
-            <TH colspan="2" width="6%">65-70 yr</TH>
-            <TH colspan="2" width="6%">71+ yr</TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.total") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.sexF") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.sexM") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age0_1") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age2_11") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age12_20") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age21_34") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age35_50") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age51_64") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age65_70") %></TH>
+            <TH colspan="2" width="6%"><%= bundle.getString("report.reportonbilledphcp.header.age71Plus") %></TH>
         </tr>
         <tr align="center" bgcolor="<%=tdTitleColor%>">
-            <td>Code</td>
-            <td>Description</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
-            <td>Pt.</td>
-            <td>Visit</td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.code") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.description") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.pt") %></td>
+            <td><%= bundle.getString("report.reportonbilledphcp.header.visit") %></td>
         </tr>
         <tr align="center">
-            <td colspan="2" align="right">Sub. Total:</td>
+            <td colspan="2" align="right"><%= bundle.getString("report.reportonbilledphcp.label.subTotal") %></td>
             <% for (int i = 0; i < total.length; i++) { %>
             <td><%=total[i]%>
             </td>
             <% } %>
         </tr>
         <!--tr align="center">
-                <td colspan="2" align="right">Total:</td>
+                <td colspan="2" align="right"><%= bundle.getString("report.reportonbilledphcp.label.total") %></td>
                 < %for(int i=0; i<total1.length; i++) { %>
                 <td>< %=total1[i]%></td>
                 < % } %>

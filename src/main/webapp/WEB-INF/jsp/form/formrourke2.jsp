@@ -1,6 +1,6 @@
 <%--
 
-    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Copyright (c) 2001-2002. Department of <fmt:message key="form.rourke.family"/> Medicine, McMaster University. <fmt:message key="form.rourke.all"/> Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
     This software was written for the
-    Department of Family Medicine
+    Department of <fmt:message key="form.rourke.family"/> Medicine
     McMaster University
     Hamilton
     Ontario, Canada
@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -56,7 +57,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Rourke Baby Record</title>
+        <title><fmt:message key="form.rourke.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/rourkeStyle.css">
@@ -96,7 +97,7 @@
             document.forms[0].submit.value = "save";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you want to save this form?");
+                ret = confirm("<fmt:message key='global.msgWannaSave'/>");
             }
             return ret;
         }
@@ -105,7 +106,7 @@
             document.forms[0].submit.value = "exit";
             var ret = checkAllDates();
             if (ret == true) {
-                ret = confirm("Are you sure you wish to save and close this window?");
+                ret = confirm("<fmt:message key='global.msgSaveExit'/>");
             }
             return ret;
         }
@@ -125,7 +126,7 @@
                 var c = s.charAt(i);
                 if (((c < "0") || (c > "9"))) return false;
             }
-            // All characters are numbers.
+            // <fmt:message key="form.rourke.all"/> characters are numbers.
             return true;
         }
 
@@ -197,7 +198,7 @@
 
         function checkTypeIn(obj) {
             if (!checkTypeNum(obj.value)) {
-                alert("You must type in a number in the field.");
+                alert("<fmt:message key='global.msgTypeANumber'/>");
             }
         }
 
@@ -224,7 +225,7 @@
                 }
             } catch (ex) {
                 alert(ex);
-                alert('Catch Invalid Date in field ' + dateBox.name);
+                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
                 dateBox.focus();
                 return false;
             }
@@ -276,79 +277,81 @@
 
         <table class="Header" class="hidePrint">
             <tr>
-                <td nowrap="true"><input type="submit" value="Save"
+                <td nowrap="true"><input type="submit" value="<fmt:message key='global.save'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="Save and Exit"
+                                                                                        value="<fmt:message key='global.saveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();">
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();">
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
                                                    href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
-                    Graph Length and Weight</a><br>
+                    <fmt:message key="encounter.formRourke2.btnGraphLenght"/></a><br>
                     <a name="headCirc"
                        href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
-                        Graph Head Circumference</a></td>
+                        <fmt:message key="encounter.formRourke2.btnGraphHead"/></a></td>
                 <td nowrap="true"><a
-                        href="formrourke1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
-                    1</a>&nbsp;|&nbsp; <a>Page 2</a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
-                    3</a></td>
+                        href="formrourke1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="encounter.formRourke2.msgPage2"/></a>&nbsp;|&nbsp; <a
+                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
             </tr>
         </table>
 
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr class="titleBar">
-                <th>Rourke Baby Record: EVIDENCE BASED INFANT/CHILD HEALTH
-                    MAINTENANCE GUIDE II
+                <th><fmt:message key="form.rourke.title"/>: <fmt:message key="encounter.formRourke2.msgMaintenanceGuide"/>
                 </th>
             </tr>
         </table>
         <table width="100%" border="0" cellspacing="1" cellpadding="2">
             <tr valign="top">
-                <td nowrap align="center">Birth remarks<br>
+                <td nowrap align="center"><fmt:message key="form.rourke.birthRemarks"/><br>
                     <textarea name="c_birthRemarks" rows="2"
                               cols="17"><e:forHtmlContent value='<%= props.getProperty("c_birthRemarks", "") %>' /></textarea>
                 </td>
-                <td nowrap align="center">Risk Factors/Family History<br>
+                <td nowrap align="center"><fmt:message key="form.rourke.riskFactorsFamilyHistory"/><br>
                     <textarea name="c_riskFactors" rows="2"
                               cols="17"><e:forHtmlContent value='<%= props.getProperty("c_riskFactors", "") %>' /></textarea>
                 </td>
                 <td width="65%" nowrap align="center">
-                    <p>Name: <input type="text" name="c_pName" maxlength="60"
+                    <%
+                        String page2GenderKey = ((FrmRourkeRecord) rec).isFemale(demoNo)
+                                ? "encounter.formRourke2.msgFemale"
+                                : "encounter.formRourke2.msgMale";
+                    %>
+                    <p><fmt:message key="encounter.formRourke2.msgName"/>: <input type="text" name="c_pName" maxlength="60"
                                     size="30" value="<e:forHtmlAttribute value='<%= props.getProperty("c_pName", "") %>' />"
-                                    readonly="true"/> &nbsp;&nbsp; Birth Date (yyyy/mm/dd): <input
+                                    readonly="true"/> &nbsp;&nbsp; <fmt:message key="encounter.formRourke2.msgBirthDate"/> (yyyy/mm/dd): <input
                             type="text" name="c_birthDate" size="10" maxlength="10"
                             value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthDate", "") %>' />" readonly="true">
-                        &nbsp;&nbsp; <%= ((FrmRourkeRecord) rec).isFemale(demoNo) == true ? "Female" : "Male" %>
+                        &nbsp;&nbsp; <fmt:message key="<%= page2GenderKey %>"/>
                     </p>
-                    <p>Length: <input type="text" name="c_length" size="6"
+                    <p><fmt:message key="encounter.formRourke2.formLenght"/>: <input type="text" name="c_length" size="6"
                                       maxlength="6" value="<e:forHtmlAttribute value='<%= props.getProperty("c_length", "") %>' />"/> cm
-                        &nbsp;&nbsp; Head Circ: <input type="text" name="c_headCirc" size="6"
+                        &nbsp;&nbsp; <fmt:message key="encounter.formRourke2.formHeadCirc"/>: <input type="text" name="c_headCirc" size="6"
                                                        maxlength="6"
                                                        value="<e:forHtmlAttribute value='<%= props.getProperty("c_headCirc", "") %>' />"/>
-                        cm &nbsp;&nbsp; Birth Wt: <input type="text" name="c_birthWeight"
+                        <fmt:message key="encounter.formRourke3.msgHeadCircUnit"/> &nbsp;&nbsp; <fmt:message key="encounter.formRourke2.formBirthWt"/> <input type="text" name="c_birthWeight"
                                                          size="6" maxlength="7"
-                                                         value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthWeight", "") %>' />"/> kg
-                        &nbsp;&nbsp; Discharge Wt: <input type="text"
+                                                         value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthWeight", "") %>' />"/> <fmt:message key="encounter.formRourke2.msgBirthWtUnit"/>
+                        &nbsp;&nbsp; <fmt:message key="encounter.formRourke2.formDischargeWt"/> <input type="text"
                                                           name="c_dischargeWeight" size="6" maxlength="7"
                                                           value="<e:forHtmlAttribute value='<%= props.getProperty("c_dischargeWeight", "") %>' />">
-                        kg</p>
+                        <fmt:message key="encounter.formRourke2.msgDischargeWtUnit"/></p>
                 </td>
             </tr>
         </table>
         <table width="100%" border="1" cellspacing="0" cellpadding="0">
             <tr align="center">
-                <td class="column"><a>AGE</a><br>
+                <td class="column"><a><fmt:message key="form.rourke.age"/></a><br>
                 </td>
-                <td colspan="3" class="row"><a>4 months</a></td>
-                <td colspan="3" class="row"><a>6 months</a></td>
-                <td colspan="3" class="row"><a>9 months</a> (optional)</td>
-                <td colspan="3" class="row"><a>12-13 months</a></td>
+                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke2.form4Months"/></a></td>
+                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke2.form6Months"/></a></td>
+                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke2.form9Months"/></a> (optional)</td>
+                <td colspan="3" class="row"><a><fmt:message key="encounter.formRourke2.form12Months"/></a></td>
             </tr>
             <tr align="center">
-                <td class="column"><a>DATE</a></td>
+                <td class="column"><a><fmt:message key="form.rourke.date"/></a></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p2_date4m"
                                                     size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date4m", "") %>' />"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p2_date6m"
@@ -360,22 +363,19 @@
                                                     value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date12m", "") %>' />"/></td>
             </tr>
             <tr align="center">
-                <td class="column" rowspan="2"><a>GROWTH</a></td>
-                <td>Ht. <small>(cm)</small></td>
-                <td>Wt. <small>(kg)</small></td>
-                <td>Hd. Circ <small>(cm)</small></td>
-                <td>Ht. <small>(cm)</small></td>
-                <td>Wt. <small>(kg)<br>
-                    (x2 BW)</small></td>
-                <td>Hd. Circ <small>(cm)</small></td>
-                <td>Ht. <small>(cm)</small></td>
-                <td>Wt. <small>(kg)</small></td>
-                <td>Hd. Circ <small>(cm)</small></td>
-                <td>Ht. <small>(cm)</small></td>
-                <td>Wt. <small>(kg)<br>
-                    (x3 BW)</small></td>
-                <td>Hd. Circ <small>(cm)<br>
-                    (av. 47cm)</small></td>
+                <td class="column" rowspan="2"><a><fmt:message key="form.rourke.growth"/></a></td>
+                <td><fmt:message key="form.rourke.heightShort"/></td>
+                <td><fmt:message key="form.rourke.weightShort"/></td>
+                <td><fmt:message key="encounter.formRourke2.formHdCirc"/></td>
+                <td><fmt:message key="form.rourke.heightShort"/></td>
+                <td><fmt:message key="encounter.formRourke2.formWt2"/></td>
+                <td><fmt:message key="encounter.formRourke2.formHdCirc"/></td>
+                <td><fmt:message key="form.rourke.heightShort"/></td>
+                <td><fmt:message key="form.rourke.weightShort"/></td>
+                <td><fmt:message key="encounter.formRourke2.formHdCirc"/></td>
+                <td><fmt:message key="form.rourke.heightShort"/></td>
+                <td><fmt:message key="encounter.formRourke2.formWt3"/></td>
+                <td><fmt:message key="encounter.formRourke2.HdCirc47"/></td>
             </tr>
             <tr align="center">
                 <td><input type="text" class="wide" name="p2_ht4m" size="4"
@@ -404,7 +404,7 @@
                            maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_hc12m", "") %>' />"></td>
             </tr>
             <tr align="center">
-                <td class="column"><a>PARENTAL CONCERNS</a></td>
+                <td class="column"><a><fmt:message key="form.rourke.parentalConcerns"/></a></td>
                 <td colspan="3"><textarea name="p2_pConcern4m"
                                           style="width: 100%" cols="10"
                                           rows="2"><e:forHtmlContent value='<%= props.getProperty("p2_pConcern4m", "") %>' /></textarea>
@@ -423,7 +423,7 @@
                 </td>
             </tr>
             <tr>
-                <td class="column"><a>NUTRITION</a></td>
+                <td class="column"><a><fmt:message key="form.rourke.nutrition"/></a></td>
                 <td colspan="3" valign="top">
                     <table width="100%">
                         <tr align="center">
@@ -435,20 +435,19 @@
                             <td valign="top"><input type="checkbox"
                                                     name="p2_breastFeeding4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_breastFeeding4m", "") %>' /> /></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding">Breast
-                                feeding</a>*<br>
+                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p2_formulaFeeding4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding4m", "") %>' /> /></td>
-                            <td><i>Formula Feeding</i> (Fe fortified)</td>
+                            <td><i><fmt:message key="form.rourke.formulaFeeding"/></i> (Fe fortified)</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_cereal4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_cereal4m", "") %>' /> /></td>
-                            <td><i>Iron fortified cereal</i></td>
+                            <td><i><fmt:message key="form.rourke.ironFortifiedCereal"/></i></td>
                         </tr>
                     </table>
                 </td>
@@ -471,28 +470,28 @@
                             <td valign="top"><input type="checkbox"
                                                     name="p2_formulaFeeding6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding6m", "") %>' />></td>
-                            <td><i>Formula Feeding<br>
+                            <td><i><fmt:message key="form.rourke.formulaFeeding"/><br>
                                 Iron fortified follow-up formula</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_bottle6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle6m", "") %>' />></td>
-                            <td>No bottles in bed</td>
+                            <td><fmt:message key="encounter.formRourke2.formNoBottles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_vegFruit6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_vegFruit6m", "") %>' />></td>
-                            <td>Veg/fruits</td>
+                            <td><fmt:message key="form.rourke.vegFruits"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_egg6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_egg6m", "") %>' />></td>
-                            <td>No egg white, nuts, or honey</td>
+                            <td><fmt:message key="encounter.formRourke2.formNoEgg"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_choking6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_choking6m", "") %>' />></td>
-                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking">Choking/safe food</a>*</td>
+                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking"><fmt:message key="form.rourke.chokingSafeFood"/></a>*</td>
                         </tr>
                     </table>
                 </td>
@@ -515,33 +514,33 @@
                             <td valign="top"><input type="checkbox"
                                                     name="p2_formulaFeeding9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding9m", "") %>' />></td>
-                            <td><i>Formula Feeding<br>
+                            <td><i><fmt:message key="form.rourke.formulaFeeding"/><br>
                                 Iron fortified follow-up formula</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_bottle9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle9m", "") %>' />></td>
-                            <td>No bottles in bed</td>
+                            <td><fmt:message key="form.rourke.noBottles"/> in bed</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_meat9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_meat9m", "") %>' />></td>
-                            <td>Meat & alternatives*</td>
+                            <td><fmt:message key="encounter.formRourke2.formMeat"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_milk9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_milk9m", "") %>' />></td>
-                            <td>Milk Products*</td>
+                            <td><fmt:message key="encounter.formRourke2.formMilk"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_egg9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_egg9m", "") %>' />></td>
-                            <td>No egg white, nuts or honey</td>
+                            <td><fmt:message key="encounter.formRourke2.formNoEgg"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_choking9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_choking9m", "") %>' />></td>
-                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking">Choking/safe food</a>*</td>
+                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking"><fmt:message key="form.rourke.chokingSafeFood"/></a>*</td>
                         </tr>
                     </table>
                 </td>
@@ -555,17 +554,17 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_milk12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_milk12m", "") %>' />></td>
-                            <td>Homogenized milk</td>
+                            <td><fmt:message key="encounter.formRourke2006_4.Homo2percent"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_bottle12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle12m", "") %>' />></td>
-                            <td>Encourage cup vs bottle</td>
+                            <td><fmt:message key="form.rourke.encourageCupVsBottle"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_appetite12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_appetite12m", "") %>' />></td>
-                            <td>Appetite reduced</td>
+                            <td><fmt:message key="form.rourke.appetiteReduced"/></td>
                         </tr>
                     </table>
                 </td>
@@ -577,7 +576,7 @@
                             <td><a>EDUCATION &amp; ADVICE</a></td>
                         </tr>
                         <tr>
-                            <td align="right"><b>Safety</b></td>
+                            <td align="right"><b><fmt:message key="form.rourke.safety"/></b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -589,13 +588,13 @@
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
-                            <td align="right"><b>Behaviour</b></td>
+                            <td align="right"><b><fmt:message key="form.rourke.behaviour"/></b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
-                            <td align="right"><b>Family</b></td>
+                            <td align="right"><b><fmt:message key="form.rourke.family"/></b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -607,7 +606,7 @@
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
-                            <td align="right"><b>Other</b></td>
+                            <td align="right"><b><fmt:message key="form.rourke.other"/></b></td>
                         </tr>
                     </table>
                 </td>
@@ -627,7 +626,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_stairs4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_stairs4m", "") %>' />></td>
-                            <td><i>Stairs/walker</i></td>
+                            <td><i><fmt:message key="form.rourke.stairsWalker"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_bath4m"
@@ -647,12 +646,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_parent4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_parent4m", "") %>' />></td>
-                            <td>Parent/child interaction</td>
+                            <td><fmt:message key="form.rourke.parentChildInteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_childCare4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_childCare4m", "") %>' />></td>
-                            <td>Child care/return to work</td>
+                            <td><fmt:message key="encounter.formRourke2.formChildCare"/></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -660,12 +659,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_family4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_family4m", "") %>' />></td>
-                            <td>Family conflict/stress</td>
+                            <td><fmt:message key="form.rourke.family"/> conflict/stress</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_teething4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_teething4m", "") %>' />></td>
-                            <td>Siblings</td>
+                            <td><fmt:message key="encounter.formRourke2.formSiblings"/></td>
                         </tr>
                     </table>
                 </td>
@@ -679,12 +678,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_poison6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_poison6m", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />s_poisons">Poisons*; PCC#</a>*</b></td>
+                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />s_poisons"><fmt:message key="encounter.formRourke2.btnPoisons"/></a></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_electric6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_electric6m", "") %>' />></td>
-                            <td><i>Electric plugs</i></td>
+                            <td><i><fmt:message key="form.rourke.electricPlugs"/></i></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -701,12 +700,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_parent6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_parent6m", "") %>' />></td>
-                            <td>Parent/child interaction</td>
+                            <td><fmt:message key="form.rourke.parentChildInteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_childCare6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_childCare6m", "") %>' />></td>
-                            <td>Child care/return to work</td>
+                            <td><fmt:message key="encounter.formRourke2.formChildCare"/></td>
                         </tr>
                     </table>
                 </td>
@@ -720,7 +719,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_childProof9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_childProof9m", "") %>' />></td>
-                            <td>Childproofing</td>
+                            <td><fmt:message key="form.rourke.childproofing"/></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -728,7 +727,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_separation9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_separation9m", "") %>' />></td>
-                            <td>Separation anxiety</td>
+                            <td><fmt:message key="form.rourke.separationAnxiety"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_sleeping9m"
@@ -777,19 +776,19 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_electric12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_electric12m", "") %>' /> /></td>
-                            <td><i>Electrical plugs</i></td>
+                            <td><i><fmt:message key="encounter.formRourke2017.formElectricPlugs"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_carbon12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_carbon12m", "") %>' /> /></td>
-                            <td>Carbon monoxide/<br>
+                            <td><fmt:message key="form.rourke.carbonMonoxideSmoke"/>
                                 &nbsp;&nbsp;<i><a href="<e:forHtmlAttribute value='<%= resource %>' />s_burns">Smoke
                                     detectors</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hotWater12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hotWater12m", "") %>' /> /></td>
-                            <td><i>Hot Water &lt; 54&deg;C</i></td>
+                            <td><i><fmt:message key="encounter.formRourke2.formHotWater"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_sleeping12m"
@@ -803,7 +802,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_parent12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_parent12m", "") %>' /> /></td>
-                            <td>Parent/child interaction</td>
+                            <td><fmt:message key="form.rourke.parentChildInteraction"/></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
@@ -811,18 +810,15 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_teething12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_teething12m", "") %>' /> /></td>
-                            <td>Teething/<b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_dentalCare">Dental
+                            <td><fmt:message key="form.rourke.teething"/>/<b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_dentalCare"><fmt:message key="form.rourke.dentalCare"/>
                                 care</a>*</b></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a>DEVELOPMENT</a><br>
-                    (Inquiry &amp; observation of milestones)<br>
-                    Tasks are set after the time of normal milestone acquisition.<br>
-                    Absence of any item suggests the need for further assessment of
-                    development<br>
+                <td class="column"><a><fmt:message key="form.rourke.development"/></a><br>
+                    <fmt:message key="encounter.formRourke2009.msgDevelopmentDesc"/>
                 </td>
                 <td colspan="3" valign="top">
                     <table width="100%">
@@ -834,27 +830,27 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_turnHead4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_turnHead4m", "") %>' />></td>
-                            <td>Turns head toward sounds</td>
+                            <td><fmt:message key="encounter.formRourke2.formTurnsHead"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_laugh4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_laugh4m", "") %>' />></td>
-                            <td>Laughs/squeals at parent</td>
+                            <td><fmt:message key="encounter.formRourke2.formLaughs"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_headSteady4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_headSteady4m", "") %>' />></td>
-                            <td>Head steady</td>
+                            <td><fmt:message key="encounter.formRourke2.formHeadSteady"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_grasp4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_grasp4m", "") %>' />></td>
-                            <td>Grasps/reaches</td>
+                            <td><fmt:message key="encounter.formRourke2.formGrasps"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_concern4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_concern4m", "") %>' />></td>
-                            <td>No parent concern</td>
+                            <td><fmt:message key="encounter.formRourke2.formNoParentConcern"/></td>
                         </tr>
                     </table>
                 </td>
@@ -868,37 +864,37 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_follow6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_follow6m", "") %>' />></td>
-                            <td>Follows a moving object</td>
+                            <td><fmt:message key="encounter.formRourke2006_2.formMovingObj"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_respond6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_respond6m", "") %>' />></td>
-                            <td>Responds to own name</td>
+                            <td><fmt:message key="encounter.formRourke2.formRespondsName"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_babbles6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_babbles6m", "") %>' />></td>
-                            <td>Babbles</td>
+                            <td><fmt:message key="encounter.formRourke2.formBabbles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_rolls6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_rolls6m", "") %>' />></td>
-                            <td>Rolls from back to stomach or stomach to back</td>
+                            <td><fmt:message key="encounter.formRourke2.formRollsFromBack"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_sits6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_sits6m", "") %>' />></td>
-                            <td>Sits with support</td>
+                            <td><fmt:message key="encounter.formRourke2.formSitsWithSupport"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_mouth6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_mouth6m", "") %>' />></td>
-                            <td>Brings hands/toys to mouth</td>
+                            <td><fmt:message key="encounter.formRourke2.formBringHandsToMouth"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_concern6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_concern6m", "") %>' />></td>
-                            <td>No parent concern</td>
+                            <td><fmt:message key="encounter.formRourke2.formNoParentConcern"/></td>
                         </tr>
                     </table>
                 </td>
@@ -912,38 +908,38 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_looks9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_looks9m", "") %>' />></td>
-                            <td>Looks for hidden toy</td>
+                            <td><fmt:message key="encounter.formRourke2.formLooksForHiddenToy"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_babbles9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_babbles9m", "") %>' />></td>
-                            <td>Babbles different sounds & to get attention</td>
+                            <td><fmt:message key="encounter.formRourke2.formDifferentSounds"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_sits9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_sits9m", "") %>' />></td>
-                            <td>Sits without support</td>
+                            <td><fmt:message key="encounter.formRourke2006_3.formSits"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_stands9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_stands9m", "") %>' />></td>
-                            <td>Stands with support</td>
+                            <td><fmt:message key="encounter.formRourke2.formStandsWithSupport"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_opposes9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_opposes9m", "") %>' />></td>
-                            <td>Opposes thumb & index finger</td>
+                            <td><fmt:message key="encounter.formRourke2.formOpposesThumbAndIndex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_reaches9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_reaches9m", "") %>' />></td>
-                            <td>Reaches to be picked up & held</td>
+                            <td><fmt:message key="encounter.formRourke2009_2.formreachesGrasps"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p2_noParentsConcerns9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_noParentsConcerns9m", "") %>' />></td>
-                            <td>No parent concerns</td>
+                            <td><fmt:message key="form.rourke.noParentConcerns"/></td>
                         </tr>
                     </table>
                 </td>
@@ -958,39 +954,39 @@
                             <td valign="top"><input type="checkbox"
                                                     name="p2_understands12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_understands12m", "") %>' />></td>
-                            <td>Understands simple requests, e.g. find your shoes</td>
+                            <td><fmt:message key="encounter.formRourke2006_3.formSimpleReq"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_chatters12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_chatters12m", "") %>' />></td>
-                            <td>Chatters using 3 different sounds</td>
+                            <td><fmt:message key="encounter.formRourke2.formChatters"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_crawls12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_crawls12m", "") %>' />></td>
-                            <td>Crawls or 'bum' shuffles</td>
+                            <td><fmt:message key="encounter.formRourke2.formCrawls"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_pulls12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_pulls12m", "") %>' />></td>
-                            <td>Pulls to stand/walks holding on</td>
+                            <td><fmt:message key="encounter.formRourke2.formPullsToStand"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_emotions12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_emotions12m", "") %>' />></td>
-                            <td>Shows many emotions</td>
+                            <td><fmt:message key="encounter.formRourke2.formShowsManyEmotions"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p2_noParentConcerns12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_noParentConcerns12m", "") %>' />></td>
-                            <td>No parent concerns</td>
+                            <td><fmt:message key="form.rourke.noParentConcerns"/></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a>PHYSICAL EXAMINATION</a><br>
+                <td class="column"><a><fmt:message key="form.rourke.physicalExamination"/></a><br>
                     Evidence based screening for specific conditions is highlighted, but
                     an appropriate age-specific focused physical examination is
                     recommended at each visit
@@ -1005,7 +1001,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_eyes4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes4m", "") %>' />></td>
-                            <td><i>Eyes (red reflex)</i></td>
+                            <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_cover4m"
@@ -1016,17 +1012,17 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hearing4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing4m", "") %>' />></td>
-                            <td><b>Hearing inquiry</b></td>
+                            <td><b><fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_babbling4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_babbling4m", "") %>' />></td>
-                            <td>Babbling</td>
+                            <td><fmt:message key="encounter.formRourke2.formBabbling"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hips4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hips4m", "") %>' />></td>
-                            <td><b>Hips</b></td>
+                            <td><fmt:message key="encounter.formRourke2.formHips"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1041,12 +1037,12 @@
                             <td valign="top"><input type="checkbox"
                                                     name="p2_fontanelles6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_fontanelles6m", "") %>' />></td>
-                            <td>Fontanelles</td>
+                            <td><fmt:message key="encounter.formRourke2.formFontanelles"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_eyes6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes6m", "") %>' />></td>
-                            <td><i>Eyes (red reflex)</i></td>
+                            <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_cover6m"
@@ -1057,12 +1053,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hearing6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing6m", "") %>' />></td>
-                            <td><b>Hearing inquiry</b></td>
+                            <td><b><fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hips6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hips6m", "") %>' />></td>
-                            <td><b>Hips</b></td>
+                            <td><fmt:message key="encounter.formRourke2.formHips"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1076,7 +1072,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_eyes9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes9m", "") %>' />></td>
-                            <td><i>Eyes (red reflex)</i></td>
+                            <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_cover9m"
@@ -1087,7 +1083,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hearing9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing9m", "") %>' />></td>
-                            <td><b> Hearing inquiry</b></td>
+                            <td><b> <fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                     </table>
                 </td>
@@ -1101,7 +1097,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_eyes12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes12m", "") %>' />></td>
-                            <td width="100%"><i>Eyes (red reflex)</i></td>
+                            <td width="100%"><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_cover12m"
@@ -1112,12 +1108,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hearing12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing12m", "") %>' />></td>
-                            <td><b> Hearing inquiry</b></td>
+                            <td><b> <fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hips12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hips12m", "") %>' />></td>
-                            <td><b>Hips</b></td>
+                            <td><fmt:message key="encounter.formRourke2.formHips"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1143,7 +1139,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_tb6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_tb6m", "") %>' />></td>
-                            <td width="100%">Inquire about possible TB exposure</td>
+                            <td width="100%"><fmt:message key="form.rourke.inquireAboutPossibleTBExposure"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1184,14 +1180,14 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_serum12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_serum12m", "") %>' />></td>
-                            <td><i>Serum lead (If at risk)*</i></td>
+                            <td><i><fmt:message key="form.rourke.serumLeadIfAtRisk"/>*</i></td>
                         </tr>
                     </table>
                 </td>
             </tr>
             <tr>
-                <td class="column"><a>IMMUNIZATION</a><br>
-                    Guidelines may vary by province
+                <td class="column"><a><fmt:message key="form.rourke.immunization"/></a><br>
+                    <fmt:message key="encounter.formRourke2.msgGuidelinesMayVary"/>
                 </td>
                 <td colspan="3" valign="top">
                     <table width="100%">
@@ -1203,12 +1199,12 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hib4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hib4m", "") %>' />></td>
-                            <td width="100%"><b>HIB</b></td>
+                            <td width="100%"><b><fmt:message key="form.rourke.hib"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_polio4m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_polio4m", "") %>' />></td>
-                            <td><b>aPDT polio</b></td>
+                            <td><b><fmt:message key="encounter.formRourke2.formAPDT"/></b></td>
                         </tr>
                     </table>
                 </td>
@@ -1222,17 +1218,17 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hib6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hib6m", "") %>' />></td>
-                            <td width="100%"><b>HIB</b></td>
+                            <td width="100%"><b><fmt:message key="form.rourke.hib"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_polio6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_polio6m", "") %>' />></td>
-                            <td><b>aPDT polio</b></td>
+                            <td><b><fmt:message key="encounter.formRourke2.formAPDT"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_hepB6m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_hepB6m", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />i_hepB">Hep.B vaccine</a>*</b></td>
+                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />i_hepB"><fmt:message key="form.rourke.hepBVaccine"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -1246,8 +1242,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_tbSkin9m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_tbSkin9m", "") %>' />></td>
-                            <td width="100%"><a href="<e:forHtmlAttribute value='<%= resource %>' />i_tbSkinTesting">TB
-                                skin text?</a>*
+                            <td width="100%"><a href="<e:forHtmlAttribute value='<%= resource %>' />i_tbSkinTesting"><fmt:message key="encounter.formRourke2.formTBSkinTest"/></a>
                             </td>
                         </tr>
                     </table>
@@ -1262,7 +1257,7 @@
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_mmr12m"
                                     <e:forHtmlAttribute value='<%= props.getProperty("p2_mmr12m", "") %>' />></td>
-                            <td width="100%"><b>MMR</b></td>
+                            <td width="100%"><b><fmt:message key="form.rourke.mmr"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p2_varicella12m"
@@ -1274,7 +1269,7 @@
                 </td>
             </tr>
             <tr>
-                <td class="column"><a>Signature</a></td>
+                <td class="column"><a><fmt:message key="form.rourke.signature"/></a></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p2_signature4m"
                                        value="<e:forHtmlAttribute value='<%= props.getProperty("p2_signature4m", "") %>' />"/></td>
@@ -1293,30 +1288,28 @@
 
         <table class="Header" class="hidePrint">
             <tr>
-                <td nowrap="true"><input type="submit" value="Save"
+                <td nowrap="true"><input type="submit" value="<fmt:message key='global.save'/>"
                                          onclick="javascript:return onSave();"/> <input type="submit"
-                                                                                        value="Save and Exit"
+                                                                                        value="<fmt:message key='global.saveExit'/>"
                                                                                         onclick="javascript:return onSaveExit();"/>
                     <input
-                            type="submit" value="Exit" onclick="javascript:return onExit();">
-                    <input type="button" value="Print"
+                            type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript:return onExit();">
+                    <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length"
                                                href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
-                    Graph Length and Weight</a><br>
+                    <fmt:message key="encounter.formRourke2.btnGraphLenght"/></a><br>
                     <a name="headCirc"
                        href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
-                        Graph Head Circumference</a> <% } else {
+                        <fmt:message key="encounter.formRourke2.btnGraphHead"/></a> <% } else {
                 %>&nbsp;<%
                     }
                 %>
                 </td>
                 <td nowrap="true"><a
-                        href="formrourke1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
-                    1</a>&nbsp;|&nbsp; <a>Page 2</a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
-                    3</a></td>
+                        href="formrourke1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key="encounter.formRourke2.btnpage1"/></a>&nbsp;|&nbsp; <a><fmt:message key="form.rourke.page2"/></a>&nbsp;|&nbsp; <a
+                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key="encounter.formRourke2.btnPage3"/></a></td>
             </tr>
         </table>
 

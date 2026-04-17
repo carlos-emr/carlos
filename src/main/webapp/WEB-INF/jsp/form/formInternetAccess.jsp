@@ -48,6 +48,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "InternetAccess";
     String formLink = "formInternetAccess.jsp";
@@ -70,7 +71,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Internet Access</title>
+        <title><fmt:message key="form.internetAccess.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
@@ -116,7 +117,7 @@
                     <table border="0" cellspacing="0" cellpadding="0" width="740px"
                            height="10%">
                         <tr>
-                            <th class="subject">Internet Access</th>
+                            <th class="subject"><fmt:message key="form.internetAccess.title"/></th>
                         </tr>
                     </table>
                 </td>
@@ -131,78 +132,73 @@
                                        cellpadding="0">
                                     <tr>
                                         <td width="5%" valign="top" align="right">1.</td>
-                                        <td valign="top">Do you have a computer at home?</td>
+                                        <td valign="top"><fmt:message key="form.internetAccess.q1"/></td>
                                     </tr>
                                     <tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="computerY" <%= props.getProperty("computerY", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="computerN" <%= props.getProperty("computerN", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td width="5%" valign="top" align="right">2.</td>
-                                        <td valign="top">Do you have regular access to the internet
-                                            (at home, or through work, the library, a friend or relative,
-                                            etc)?
-                                        </td>
+                                        <td valign="top"><fmt:message key="form.internetAccess.q2"/></td>
                                     </tr>
                                     <tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="internetY" <%= props.getProperty("internetY", "") %> />
-                                            Yes
+                                            <fmt:message key="global.yes"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="internetN" <%= props.getProperty("internetN", "") %> />
-                                            No
+                                            <fmt:message key="global.no"/>
                                         </td>
                                     </tr>
 
                                     <tr>
                                         <td width="5%" valign="top" align="right">2.</td>
-                                        <td valign="top">Where do you have access to the Internet?</td>
+                                        <td valign="top"><fmt:message key="form.internetAccess.q3"/></td>
                                     </tr>
                                     <tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="internetHome" <%= props.getProperty("internetHome", "") %> />
-                                            Home
+                                            <fmt:message key="form.internetAccess.home"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="internetWork" <%= props.getProperty("internetWork", "") %> />
-                                            Work
+                                            <fmt:message key="form.internetAccess.work"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
                                                                name="internetOther"
-                                                <%= props.getProperty("internetOther", "") %> /> Other; Specify
-                                            where: <input type="text" size="20" name="internetOtherTx"
+                                                <%= props.getProperty("internetOther", "") %> /> <fmt:message key="form.internetAccess.other"/>; <fmt:message key="form.internetAccess.specifyWhere"/> <input type="text" size="20" name="internetOtherTx"
                                                           value='<%= props.getProperty("internetOtherTx", "") %>'/></td>
                                     </tr>
 
                                     <tr>
                                         <td width="5%" valign="top" align="right">3.</td>
-                                        <td valign="top">How much time do you spend on the internet?
-                                        </td>
+                                        <td valign="top"><fmt:message key="form.internetAccess.q4"/></td>
                                     </tr>
                                     <tr>
                                     <tr bgcolor="white">
@@ -210,7 +206,7 @@
                                         <td width="95%">a. Daily: <input type="text" size="10"
                                                                          name="timeDaily"
                                                                          value='<%= props.getProperty("timeDaily", "") %>'/>
-                                            Hours
+                                            <fmt:message key="form.internetAccess.hours"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
@@ -218,26 +214,24 @@
                                         <td width="95%">b. Weekly: <input type="text" size="10"
                                                                           name="timeWeekly"
                                                                           value='<%= props.getProperty("timeWeekly", "") %>'/>
-                                            Hours
+                                            <fmt:message key="form.internetAccess.hours"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td width="5%" valign="top" align="right">4.</td>
-                                        <td valign="top">Would you use a free health information
-                                            website provided through Stonechurch Family Health Center?
-                                        </td>
+                                        <td valign="top"><fmt:message key="form.internetAccess.q5"/></td>
                                     </tr>
                                     <tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
-                                                               name="infoY" <%= props.getProperty("infoY", "") %> /> Yes
+                                                               name="infoY" <%= props.getProperty("infoY", "") %> /> <fmt:message key="global.yes"/>
                                         </td>
                                     </tr>
                                     <tr bgcolor="white">
                                         <td width="5%" align="right"></td>
                                         <td width="95%"><input type="checkbox" class="checkbox"
-                                                               name="infoN" <%= props.getProperty("infoN", "") %> /> No
+                                                               name="infoN" <%= props.getProperty("infoN", "") %> /> <fmt:message key="global.no"/>
                                         </td>
                                     </tr>
                                 </table>
@@ -254,15 +248,15 @@
                             <td align="left">
                                 <%
                                     if (!bView) {
-                                %> <input type="submit" value="Save"
+                                %> <input type="submit" value="<fmt:message key='global.save'/>"
                                           onclick="javascript: return onSave();"/> <input type="submit"
-                                                                                          value="Save and Exit"
+                                                                                          value="<fmt:message key='global.saveExit'/>"
                                                                                           onclick="javascript: return onSaveExit();"/>
                                 <%
                                     }
-                                %> <input type="button" value="Exit"
+                                %> <input type="button" value="<fmt:message key='global.btnExit'/>"
                                           onclick="javascript:return onExit();"/> <input type="button"
-                                                                                         value="Print"
+                                                                                         value="<fmt:message key='global.btnPrint'/>"
                                                                                          onclick="javascript:window.print();"/>
                             </td>
                             <td align="right">Study ID: <%= props.getProperty("studyID", "N/A") %>
