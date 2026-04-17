@@ -731,7 +731,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
             try {
                 return Integer.valueOf((String) hrmDocumentId);
             } catch (NumberFormatException e) {
-                logger.debug("Unable to parse HRM document id {}", hrmDocumentId);
+                return null;
             }
         }
         return null;
