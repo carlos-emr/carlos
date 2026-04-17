@@ -695,7 +695,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocuments.size());
         Map<Integer, HashMap<String, ? extends Object>> hrmDocumentById = new HashMap<>(allHRMDocuments.size());
         for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-            Integer hrmDocumentId = getHrmDocumentId(hrmDocument);
+            Integer hrmDocumentId = getHrmDocumentId(hrmDocument, demographicNo, requestId);
             if (hrmDocumentId != null) {
                 hrmDocumentById.put(hrmDocumentId, hrmDocument);
             }
@@ -719,10 +719,12 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * a consistent {@link Integer} key for map-based lookups.</p>
      *
      * @param hrmDocument Map<String, ? extends Object> the HRM document entry returned by HRMUtil
+     * @param demographicNo String the demographic number whose HRM documents are being filtered
+     * @param requestId String the consultation request ID requesting the HRM attachment subset
      * @return Integer the normalized HRM document ID, or {@code null} when the entry has no usable ID
      * @since 2026-04-17
      */
-    private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument) {
+    private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument, String demographicNo, String requestId) {
         Object hrmDocumentId = hrmDocument.get("id");
         if (hrmDocumentId instanceof Number) {
             return ((Number) hrmDocumentId).intValue();
@@ -731,8 +733,12 @@ public class ConsultationManagerImpl implements ConsultationManager {
             try {
                 return Integer.valueOf((String) hrmDocumentId);
             } catch (NumberFormatException e) {
+                logger.debug("Skipping HRM document with invalid id value {} for demographic {} and request {}", hrmDocumentId, demographicNo, requestId);
                 return null;
             }
+        }
+        if (hrmDocumentId != null) {
+            logger.debug("Skipping HRM document with unsupported id type {} for demographic {} and request {}", hrmDocumentId.getClass().getName(), demographicNo, requestId);
         }
         return null;
     }

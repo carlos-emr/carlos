@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
@@ -130,14 +131,14 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
 
             //get all fdid for this fid
             List<Object[]> fdidList = eformDataDao.findMetaFieldsByFormId(eft.getEformId());
-            List<Integer> fdids = new java.util.ArrayList<>(fdidList.size());
+            List<Integer> fdids = new ArrayList<>(fdidList.size());
             for (Object[] data : fdidList) {
                 fdids.add((Integer) data[0]);
             }
 
             Map<Integer, List<EFormValue>> valuesByFormDataId = new HashMap<>();
             for (EFormValue value : eformValueDao.findByFormDataIdList(fdids)) {
-                valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new java.util.ArrayList<>()).add(value);
+                valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new ArrayList<>()).add(value);
             }
 
             Date dateStarted = new Date();
