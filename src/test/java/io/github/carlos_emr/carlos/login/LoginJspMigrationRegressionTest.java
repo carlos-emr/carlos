@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -43,18 +47,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class LoginJspMigrationRegressionTest {
 
+    private static final Pattern LEGACY_PUBLIC_ERROR_JSP_REFERENCE =
+            Pattern.compile("(^|[^A-Za-z0-9])/(errorpage|failure|securityError|500)\\.jsp(?=[\"'<\\s]|$)");
     private static final Path STRUTS_LOGIN_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-login.xml");
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
     private static final Path STRUTS_INTEGRATION_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-integration.xml");
+    private static final Path STRUTS_CONFIG_DIRECTORY =
+            Path.of("src/main/webapp/WEB-INF/classes");
     private static final Path WEB_XML =
             Path.of("src/main/webapp/WEB-INF/web.xml");
     private static final Path CSRF_GUARD =
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final Path MENU_CONFIG =
             Path.of("src/main/webapp/WEB-INF/menu-config.xml");
+    private static final Path JAVA_SOURCE_DIRECTORY =
+            Path.of("src/main/java");
+    private static final Path ERROR_PAGE_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/error/errorpage.jsp");
+    private static final Path FAILURE_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/error/failure.jsp");
+    private static final Path SECURITY_ERROR_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/error/securityError.jsp");
 
     @Test
     @DisplayName("struts login config should expose the migrated page actions and internal view targets")
@@ -145,6 +161,40 @@ class LoginJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("struts configs and Java callers should not keep public root error JSP references")
+    void migratedErrorCallersShouldNotKeepPublicRootJspReferences() throws IOException {
+        List<String> strutsOffenders = findContainingLines(
+                STRUTS_CONFIG_DIRECTORY,
+                path -> path.getFileName().toString().startsWith("struts-")
+                        && path.getFileName().toString().endsWith(".xml"));
+        List<String> javaOffenders = findContainingLines(
+                JAVA_SOURCE_DIRECTORY,
+                path -> path.getFileName().toString().endsWith(".java"));
+
+        assertThat(strutsOffenders)
+                .as("all Struts configs should point at /WEB-INF/jsp/error/* and never the old public JSPs")
+                .isEmpty();
+        assertThat(javaOffenders)
+                .as("Java redirect and dispatcher callers should not reference deleted public error JSPs")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("error JSPs should keep safe navigation links and OWASP encoder taglibs")
+    void errorJspViewsShouldKeepSafeNavigationLinksAndEncoderTaglibs() throws IOException {
+        String errorPage = Files.readString(ERROR_PAGE_JSP, StandardCharsets.UTF_8);
+        String failurePage = Files.readString(FAILURE_JSP, StandardCharsets.UTF_8);
+        String securityErrorPage = Files.readString(SECURITY_ERROR_JSP, StandardCharsets.UTF_8);
+
+        assertThat(errorPage).contains("href=\"#\" onclick=\"window.history.back();\"");
+        assertThat(errorPage).contains("href=\"${e:forUri(pageContext.request.contextPath)}/provider/providercontrol\"");
+        assertThat(errorPage).contains("href=\"${e:forHtmlAttribute(LoginResourceBean.supportLink)}\"");
+        assertThat(errorPage).contains("src=\"${e:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png\"");
+        assertThat(failurePage).contains("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>");
+        assertThat(securityErrorPage).contains("<%@ taglib uri=\"owasp.encoder.jakarta.advanced\" prefix=\"e\" %>");
+    }
+
+    @Test
     @DisplayName("migrated public root JSP pages should no longer exist")
     void migratedPublicRootJspPagesShouldNoLongerExist() {
         assertThat(Path.of("src/main/webapp/index.jsp")).doesNotExist();
@@ -160,5 +210,31 @@ class LoginJspMigrationRegressionTest {
         assertThat(Path.of("src/main/webapp/failure.jsp")).doesNotExist();
         assertThat(Path.of("src/main/webapp/500.jsp")).doesNotExist();
         assertThat(Path.of("src/main/webapp/closenreload.jsp")).doesNotExist();
+    }
+
+    private static List<String> findContainingLines(Path root, Predicate<Path> fileFilter) throws IOException {
+        try (Stream<Path> paths = Files.walk(root)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(fileFilter)
+                    .flatMap(LoginJspMigrationRegressionTest::readLines)
+                    .filter(LoginJspMigrationRegressionTest::containsLegacyPublicErrorJspReference)
+                    .toList();
+        }
+    }
+
+    private static boolean containsLegacyPublicErrorJspReference(String line) {
+        return LEGACY_PUBLIC_ERROR_JSP_REFERENCE.matcher(line).find();
+    }
+
+    private static Stream<String> readLines(Path path) {
+        try {
+            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+            return lines.stream()
+                    .map(line -> path + ": " + line.trim());
+        }
+        catch (IOException e) {
+            throw new IllegalStateException("Failed to read " + path, e);
+        }
     }
 }
