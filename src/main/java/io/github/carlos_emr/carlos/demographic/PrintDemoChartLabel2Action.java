@@ -257,6 +257,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
 
     private File resolveUserHomeLabelFile(String labelFile) {
         File validatedFile = PathValidationUtils.validatePath(labelFile, new File(System.getProperty("user.home")));
+        // Reject traversal-style input instead of silently flattening it to a basename.
         if (!validatedFile.getName().equals(labelFile)) {
             throw new SecurityException("Invalid label file");
         }

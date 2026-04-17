@@ -249,6 +249,7 @@ public class GeneratePatientLetters2Action extends ActionSupport {
 
     private File validateDocumentFile(String fileName, File documentDir) {
         File validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
+        // Reject traversal-style input instead of silently flattening it to a basename.
         if (!validatedFile.getName().equals(fileName)) {
             throw new SecurityException("Invalid document file path");
         }

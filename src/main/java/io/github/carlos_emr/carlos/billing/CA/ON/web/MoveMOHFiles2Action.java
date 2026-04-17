@@ -234,6 +234,8 @@ public class MoveMOHFiles2Action extends ActionSupport {
         try {
             String decodedFileName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
             File validatedFile = PathValidationUtils.validatePath(decodedFileName, new File(folderPath));
+            // validatePath() constrains the resolved file to folderPath; this additional equality
+            // check rejects encoded path separators that would otherwise be silently flattened.
             if (!validatedFile.getName().equals(decodedFileName)) {
                 throw new SecurityException("Invalid file path");
             }

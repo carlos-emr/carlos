@@ -311,18 +311,18 @@ public class EFormExportZip {
 
         String normalizedEntryName = entryName.replace('\\', '/');
         if (normalizedEntryName.startsWith("/") || normalizedEntryName.matches("^[A-Za-z]:.*")) {
-            throw new SecurityException("Invalid zip entry: " + entryName);
+            throw new SecurityException("Invalid zip entry");
         }
 
         for (String segment : normalizedEntryName.split("/")) {
             if ("..".equals(segment)) {
-                throw new SecurityException("Invalid zip entry: " + entryName);
+                throw new SecurityException("Invalid zip entry");
             }
         }
 
         String sanitizedName = FilenameUtils.getName(normalizedEntryName);
         if (sanitizedName.isEmpty() || sanitizedName.startsWith(".")) {
-            throw new SecurityException("Invalid zip entry: " + entryName);
+            throw new SecurityException("Invalid zip entry");
         }
 
         return sanitizedName;
