@@ -109,7 +109,7 @@
             }
 
             function ShowDrugInfo(drug) {
-                window.open("<%= request.getContextPath() %>/rx/DrugInfoRedirect.jsp?drugId=" + encodeURIComponent(drug), "_blank",
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(drug), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
 

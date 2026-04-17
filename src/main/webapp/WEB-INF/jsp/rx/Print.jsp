@@ -99,7 +99,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="${pageContext.request.contextPath}/rx/searchPatient" method="post" focus="surname">
+                        <td><form action="${pageContext.request.contextPath}/rx/choosePatient" method="post" focus="surname">
                             <table>
                                 <tr>
                                     <td><fmt:message key="ChoosePatient.textBox"/></td>
