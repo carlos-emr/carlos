@@ -266,8 +266,8 @@
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
-            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>" title="<fmt:message key="report.reportdaysheet.msgAppointmentTime"/>"><fmt:message key="report.reportdaysheet.msgTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>" title="<fmt:message key="report.reportdaysheet.msgPatientLastName"/>"><fmt:message key="report.reportdaysheet.msgName"/></a></th>
             <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPhone"/></a></th>
             <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgGender"/></a></th>
             <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgHealthCard"/></a></th>
@@ -288,19 +288,19 @@
             count++;
         %>
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<e:forHtmlAttribute value='<%= "End Time: "+rsdemo.getString("end_time") %>' />"><e:forHtmlContent value='<%= rsdemo.getString("start_time").substring(0, 5) %>' /></td>
-            <td><%=rsdemo.getString("name") == null ? "." : ""%><e:forHtmlContent value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' /></td>
+            <td title="<fmt:message key="report.reportapptsheet.msgEndTime"/><%=Encode.forHtmlAttribute(rsdemo.getString("end_time")) %>">
+              <%=Encode.forHtmlContent(rsdemo.getString("start_time").substring(0,5)) %></td>
+            <td><%=rsdemo.getString("name") == null ? "." : Encode.forHtmlContent(Misc.toUpperLowerCase(rsdemo.getString("name"))) %>
+            <td><%=rsdemo.getString("phone") == null ? "" : Encode.forHtmlContent(rsdemo.getString("phone")) %></td>
+            <td><%=rsdemo.getString("sex") == null ? "" : Encode.forHtmlContent(rsdemo.getString("sex")) %></td>
+            <td><%=rsdemo.getString("hin") == null ? "" : Encode.forHtmlContent(rsdemo.getString("hin")) %></td>
+            <td><%=rsdemo.getString("ver") == null ? "" : Encode.forHtmlContent(rsdemo.getString("ver")) %></td>
+            <td><%=rsdemo.getString("chart_no") == null ? "" : Encode.forHtmlContent(rsdemo.getString("chart_no")) %></td>
             <% if (!bDob) {%>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' /></td>
+             <td><%=rsdemo.getString("roster_status") == null ? "" : Encode.forHtmlContent(rsdemo.getString("roster_status")) %></td>
             <% } else {
-                String dob = rsdemo.getString("dob");
             %>
-            <td><e:forHtmlContent value='<%= dob == null ? "" : dob %>' /></td>
+            <td><%=rsdemo.getString("dob") == null ? "" : Encode.forHtmlContent(rsdemo.getString("doc")) %></td>
             <% }%>
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>
@@ -317,11 +317,11 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' />, <%=initial%>]
+                [<%=rsdemo.getString("doc_last_name") == null ? "" : Encode.forHtmlContent(rsdemo.getString("doc_last_name")) %>, <%=initial%>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<e:forHtmlContent value='<%= rd %>' />]&nbsp; <% } %> <e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "reason") %>' />&nbsp;
+            %> [<%= Encode.forHtmlContent(rd) %>]&nbsp; <% } %> <%= Encode.forHtmlContent(daySheetBean.getString(rsdemo, "reason")) %>&nbsp;
             </td>
         </tr>
         <%
