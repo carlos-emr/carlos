@@ -308,7 +308,7 @@
                 <td style="width: 300px;">
                     <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
                 </td>
-                <td span="2">
+                <td colspan="2">
                   <div class="date-inline-group">
                     <!-- From -->
                     <label for="asdate" class="mb-0"><fmt:message key="report.reportindex.formFrom"/></label>
