@@ -38,6 +38,8 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <% TeleplanUserPassDAO dao = new TeleplanUserPassDAO();
     String superUser = (String) session.getAttribute("user");
 %>
@@ -76,7 +78,7 @@
         <%if (request.getAttribute("error") != null) { %>
         <div class="alert alert-danger">
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            <e:forHtmlContent value='<%= (String) request.getAttribute("error") %>' />
+            <carlos:encode value='<%= (String) request.getAttribute("error") %>' context="html"/>
         </div>
         <%}%>
 

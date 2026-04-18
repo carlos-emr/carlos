@@ -40,6 +40,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <html>
@@ -91,9 +92,9 @@
                 <select name="resourceType" id="resourceType" class="form-select w-auto d-inline-block">
                     <c:forEach var="r" items="${mcedtTypeList.data}">
                         <option value="${r.resourceType}">
-                            ${e:forHtml(r.resourceType)} -
-                            ${e:forHtml(r.access)} -
-                            ${e:forHtml(r.descriptionEn)}
+                            ${carlos:forHtml(r.resourceType)} -
+                            ${carlos:forHtml(r.access)} -
+                            ${carlos:forHtml(r.descriptionEn)}
                         </option>
                     </c:forEach>
                 </select>

@@ -62,6 +62,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -256,7 +257,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
@@ -275,8 +276,8 @@
                                                 <select class="form-select" name="selectedCodingSystem"
                                                             <%=disabled%>>
                                                     <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
-                                                        <option value="${e:forHtmlAttribute(codingSys)}">
-                                                            ${e:forHtml(codingSys)}
+                                                        <option value="${carlos:forHtmlAttribute(codingSys)}">
+                                                            ${carlos:forHtml(codingSys)}
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -287,9 +288,9 @@
                                         <td><input type="text" class="form-control" name="xml_research1"
                                                     <%=disabled%> />
                                             <input type="hidden" name="demographicNo"
-                                                   value="${e:forHtmlAttribute(demographicNo)}">
+                                                   value="${carlos:forHtmlAttribute(demographicNo)}">
                                             <input type="hidden" name="providerNo"
-                                                   value="${e:forHtmlAttribute(providerNo)}"></td>
+                                                   value="${carlos:forHtmlAttribute(providerNo)}"></td>
                                     </tr>
                                     <tr>
                                         <td><input type="text" class="form-control" name="xml_research2"
@@ -368,26 +369,26 @@
                                         <c:choose>
                                             <c:when test="${diagnotics.status == 'A'}">
                                                 <tr>
-                                                    <td>${e:forHtml(diagnotics.type)}</td>
-                                                    <td class="notResolved">${e:forHtml(diagnotics.dxSearchCode)}</td>
-                                                    <td class="notResolved">${e:forHtml(diagnotics.description)}</td>
+                                                    <td>${carlos:forHtml(diagnotics.type)}</td>
+                                                    <td class="notResolved">${carlos:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td class="notResolved">${carlos:forHtml(diagnotics.description)}</td>
                                                     <td class="notResolved">
                                                         <a href="#" onclick="showdatebox(${diagnotics.dxResearchNo});">
                                                             <div id="startdate1st${diagnotics.dxResearchNo}">
-                                                                ${e:forHtml(diagnotics.start_date)}
+                                                                ${carlos:forHtml(diagnotics.start_date)}
                                                             </div>
                                                             <input class="form-control" id="startdatenew${diagnotics.dxResearchNo}"
                                                                    type="text" name="start_date" size="8"
-                                                                   value="${e:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
+                                                                   value="${carlos:forHtmlAttribute(diagnotics.start_date)}" style="display:none"/>
                                                         </a>
                                                     </td>
-                                                    <td class="notResolved">${e:forHtml(empty diagnotics.end_date ? '' : diagnotics.end_date)}</td>
+                                                    <td class="notResolved">${carlos:forHtml(empty diagnotics.end_date ? '' : diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td class="notResolved">
                                                             <a href="#" onclick="submitDxAction('C','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}'); return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/>
                                                             </a>
-                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete: ${e:forJavaScript(diagnotics.description)} ?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
+                                                            <a href="#" onclick="if(confirm('Are you sure you would like to delete: ${carlos:forJavaScript(diagnotics.description)} ?')){submitDxAction('D','','${diagnotics.dxResearchNo}','${demographicNo}','${providerNo}');} return false;">
                                                                 <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnDelete"/>
                                                             </a>
                                                             <a href="#" onclick="update_date(${diagnotics.dxResearchNo}, ${demographicNo}, ${providerNo});">
@@ -399,10 +400,10 @@
                                             </c:when>
                                             <c:when test="${diagnotics.status == 'C'}">
                                                 <tr>
-                                                    <td>${e:forHtml(diagnotics.dxSearchCode)}</td>
-                                                    <td>${e:forHtml(diagnotics.description)}</td>
-                                                    <td>${e:forHtml(diagnotics.start_date)}</td>
-                                                    <td>${e:forHtml(diagnotics.end_date)}</td>
+                                                    <td>${carlos:forHtml(diagnotics.dxSearchCode)}</td>
+                                                    <td>${carlos:forHtml(diagnotics.description)}</td>
+                                                    <td>${carlos:forHtml(diagnotics.start_date)}</td>
+                                                    <td>${carlos:forHtml(diagnotics.end_date)}</td>
                                                     <c:if test="${not disable}">
                                                         <td>
                                                             <fmt:message key="oscarResearch.oscarDxResearch.dxResearch.btnResolve"/> |

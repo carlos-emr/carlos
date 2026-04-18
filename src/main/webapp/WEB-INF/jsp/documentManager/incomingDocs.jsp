@@ -57,6 +57,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
@@ -302,7 +303,7 @@
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
-        var curPage =<e:forJavaScript value='<%= pdfPageNumber %>' />;
+        var curPage =<carlos:encode value='<%= pdfPageNumber %>' context="javaScript"/>;
         var totalPage =<%=numOfPage%>;
         var ctx = '<%= request.getContextPath() %>';
 
@@ -505,7 +506,7 @@
             if (totalPage == 0) {
                 alert("<fmt:message key="dms.incomingDocs.selectDocumentFirst"/>");
             } else {
-                var url = '${e:forJavaScript(ctx)}/documentManager/ManageDocument?method=displayIncomingDocs'
+                var url = '${carlos:forJavaScript(ctx)}/documentManager/ManageDocument?method=displayIncomingDocs'
                     + '&pdfDir=' + encodeURIComponent(pdfDir) + '&queueId=' + queueId + '&pdfName=' + encodeURIComponent(pdfName);
                 popupPage(700, 960, url);
             }
@@ -629,7 +630,7 @@
         }
 
         function checkDocument() {
-            var n = "<e:forJavaScriptBlock value='<%= pdfName %>' />";
+            var n = "<carlos:encode value='<%= pdfName %>' context="javaScriptBlock"/>";
             if (n.length == 0) {
                 alert("<fmt:message key="dms.incomingDocs.nothingToSave"/>");
                 return false;
@@ -688,7 +689,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicEdit?demographic_no=' + demo + '');
+                popupPage(710, 1024, '${carlos:forJavaScript(ctx)}/demographic/DemographicEdit?demographic_no=' + demo + '');
             }
         }
 
@@ -699,7 +700,7 @@
             if (demo == "-1") {
                 alert("<fmt:message key="dms.incomingDocs.selectDemographicFirst"/>");
             } else {
-                popupPage(710, 1024, '${e:forJavaScript(ctx)}/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
+                popupPage(710, 1024, '${carlos:forJavaScript(ctx)}/demographic/DemographicApptHistory?demographic_no=' + encodeURIComponent(demo) + '&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25');
             }
         }
 
@@ -753,7 +754,7 @@
 
         var docSubClassList = [
             <% for (int i = 0; i < subClasses.size(); i++) {%>
-            "<e:forJavaScriptBlock value='<%= subClasses.get(i) %>' />"<%=(i < subClasses.size() - 1) ? "," : ""%>
+            "<carlos:encode value='<%= subClasses.get(i) %>' context="javaScriptBlock"/>"<%=(i < subClasses.size() - 1) ? "," : ""%>
             <% }%>
         ];
 
@@ -814,7 +815,7 @@
                 }
 
                 var url = "<%=request.getContextPath()%>/DocumentDescriptionTemplate";
-                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<e:forJavaScript value='<%= StringUtils.noNull(user_no) %>' />&useDocumentDescriptionTemplateType=<e:forJavaScript value='<%= useDocumentDescriptionTemplateType %>' />";
+                var data = 'method=getDocumentDescriptionFromDocType&doctype=' + encodeURIComponent(docType) + "&providerNo=<carlos:encode value='<%= StringUtils.noNull(user_no) %>' context="javaScript"/>&useDocumentDescriptionTemplateType=<carlos:encode value='<%= useDocumentDescriptionTemplateType %>' context="javaScript"/>";
                 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                 var csrfToken = csrfEl ? csrfEl.value : '';
                 fetch(url, {
@@ -857,19 +858,19 @@
         <tr style="display: flex;">
             <td align="left" valign="top">
                 <form method="post" name="PdfInfoForm" action="<%= request.getContextPath() %>/documentManager/ViewIncomingDocs">
-                    <input type="hidden" name="pdfNo" value="<e:forHtmlAttribute value='<%= pdfNo %>' />">
-                    <input type="hidden" name="pdfDir" value="<e:forHtmlAttribute value='<%= pdfDir %>' />">
-                    <input type="hidden" name="pdfName" value="<e:forHtmlAttribute value='<%= pdfName %>' />">
+                    <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
-                    <input type="hidden" name="imageType" value="<e:forHtmlAttribute value='<%= imageType %>' />">
-                    <input type="hidden" name="defaultQueue" value="<e:forHtmlAttribute value='<%= queueIdStr %>' />">
-                    <input type="hidden" name="entryMode" value="<e:forHtmlAttribute value='<%= entryMode %>' />">
+                    <input type="hidden" name="imageType" value="<carlos:encode value='<%= imageType %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="defaultQueue" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="entryMode" value="<carlos:encode value='<%= entryMode %>' context="htmlAttribute"/>">
                     <table width="350">
                         <%if (errorMessage.length() > 0) {%>
                         <tr>
-                            <td><div class="alert alert-danger py-1 px-2 mb-1" role="alert"><e:forHtmlContent value='<%= errorMessage %>' /></div></td>
+                            <td><div class="alert alert-danger py-1 px-2 mb-1" role="alert"><carlos:encode value='<%= errorMessage %>' context="html"/></div></td>
                         </tr>
                         <%}%>
                         <tr>
@@ -880,7 +881,7 @@
                                             int id = (Integer) ht.get("id");
                                             String qName = (String) ht.get("queue");
                                     %>
-                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= qName %>' />
+                                    <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
                                     </option>
                                     <%}%>
                                 </select>
@@ -899,22 +900,22 @@
                         <tr>
                             <td>
                                 <fieldset>
-                                    <legend>[<e:forHtmlContent value='<%= pdfDir %>' />]: <% if (pdfNoInt <= 0) {%><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <e:forHtmlContent value='<%= pdfNo %>' />/ <%=pdfList.size()%>
-                                        <b><e:forHtmlContent value='<%= String.valueOf(pdfList.get(pdfNoInt - 1)) %>' />
+                                    <legend>[<carlos:encode value='<%= pdfDir %>' context="html"/>]: <% if (pdfNoInt <= 0) {%><fmt:message key="dms.incomingDocs.noFile"/><% } else {%> <carlos:encode value='<%= pdfNo %>' context="html"/>/ <%=pdfList.size()%>
+                                        <b><carlos:encode value='<%= String.valueOf(pdfList.get(pdfNoInt - 1)) %>' context="html"/>
                                         </b> <%}%></legend>
                                     <table>
                                         <tr>
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPdfList"
-                                                        id="SelectPdfList" onchange="loadSelectedPdf('<e:forJavaScriptAttribute value='<%= pdfDir %>' />');">
+                                                        id="SelectPdfList" onchange="loadSelectedPdf('<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>');">
                                                     <option value=""><fmt:message key="dms.incomingDocs.selectPDF"/></option>
                                                     <%
                                                         for (int p = 0; p < pdfList.size(); p++) {
                                                             String docName = (String) pdfList.get(p);
                                                             String docModifiedDate = (String) pdfListModifiedDate.get(p);
                                                     %>
-                                                    <option value="<e:forHtmlAttribute value='<%= docName %>' />" title="<e:forHtmlAttribute value='<%= docName %>' />"><%=p + 1%>
-                                                        ) <e:forHtmlContent value='<%= docModifiedDate %>' />
+                                                    <option value="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>" title="<carlos:encode value='<%= docName %>' context="htmlAttribute"/>"><%=p + 1%>
+                                                        ) <carlos:encode value='<%= docModifiedDate %>' context="html"/>
                                                     </option>
                                                     <%}%>
                                                 </select></td>
@@ -922,18 +923,18 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex gap-1 flex-wrap mb-1">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.first"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.previous"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.next"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=pdfList.size()%>','<e:forJavaScriptAttribute value='<%= pdfDir %>' />');"><fmt:message key="dms.incomingDocs.last"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('1','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) - 1%>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=Integer.parseInt(pdfNo) + 1%>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadPdf('<%=pdfList.size()%>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></button>
                                                 </div>
                                             </td>
                                         </tr>
                                         <tr>
                                             <td>
                                                 <div class="d-flex gap-1 flex-wrap mb-1">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="printPdf('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="global.btnPrint"/></button>
-                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.deletePDF"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="printPdf('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="global.btnPrint"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.deletePDF"/></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -946,7 +947,7 @@
                                             <td>
                                                 <select tabIndex="<%=tabIndex++%>" name="SelectPageList"
                                                         id="SelectPageList"
-                                                        onchange="loadSelectedPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');">
+                                                        onchange="loadSelectedPage('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');">
                                                     <option value=""><fmt:message key="dms.incomingDocs.selectPage"/></option>
                                                     <%
                                                         for (int p = 1; p <= numOfPage; p++) {
@@ -960,10 +961,10 @@
                                         <tr>
                                             <td>
                                                 <div class="d-flex gap-1 flex-wrap mb-1">
-                                                    <button type="button" id="firstP" class="btn btn-outline-secondary btn-sm" onclick="firstPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.first"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="prevPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.previous"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="nextPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.next"/></button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="lastPage('<e:forJavaScriptAttribute value='<%= queueIdStr %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.last"/></button>
+                                                    <button type="button" id="firstP" class="btn btn-outline-secondary btn-sm" onclick="firstPage('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="prevPage('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="nextPage('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="lastPage('<carlos:encode value='<%= queueIdStr %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -971,9 +972,9 @@
                                             <td>
                                                 <small class="text-muted"><fmt:message key="dms.incomingDocs.rotateThisPage"/>:</small>
                                                 <div class="d-flex gap-1 flex-wrap mb-1">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','180');">180</button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','90');">+90</button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','M90');">-90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotatePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','M90');">-90</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -981,17 +982,17 @@
                                             <td>
                                                 <small class="text-muted"><fmt:message key="dms.incomingDocs.rotateAllPages"/>:</small>
                                                 <div class="d-flex gap-1 flex-wrap mb-1">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','180');">180</button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','90');">+90</button>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />','M90');">-90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','180');">180</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','90');">+90</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="rotateAllPagePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>','M90');">-90</button>
                                                 </div>
                                             </td>
                                         </tr>
                                         <tr>
                                             <td>
                                                 <div class="d-flex gap-1 flex-wrap">
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="extractPagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.extractPage"/></button>
-                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePagePdf('<e:forJavaScriptAttribute value='<%= pdfNo %>' />','<e:forJavaScriptAttribute value='<%= pdfDir %>' />','<e:forJavaScriptAttribute value='<%= pdfName %>' />');"><fmt:message key="dms.incomingDocs.deletePage"/></button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="extractPagePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.extractPage"/></button>
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePagePdf('<carlos:encode value='<%= pdfNo %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfDir %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= pdfName %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.deletePage"/></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1011,14 +1012,14 @@
                     </legend>
                     <form id="forms_" method="post" action="ManageDocument">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
-                        <input type="hidden" name="pdfDir" value="<e:forHtmlAttribute value='<%= pdfDir %>' />">
-                        <input type="hidden" name="pdfName" value="<e:forHtmlAttribute value='<%= pdfName %>' />">
-                        <input type="hidden" name="queueId" value="<e:forHtmlAttribute value='<%= queueIdStr %>' />">
-                        <input type="hidden" name="pdfNo" value="<e:forHtmlAttribute value='<%= pdfNo %>' />">
+                        <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="queueId" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queue" value="1">
                         <input type="hidden" name="pdfAction" value="">
                         <input type="hidden" name="lastdemographic_no" id="lastdemographic_no" value="">
-                        <input type="hidden" name="entryMode" value="<e:forHtmlAttribute value='<%= entryMode %>' />">
+                        <input type="hidden" name="entryMode" value="<carlos:encode value='<%= entryMode %>' context="htmlAttribute"/>">
                         <table border="0" width="350">
                             <% if (entryMode.equals("Fast")) {%>
                             <tr>
@@ -1027,8 +1028,8 @@
                                         for (int j = 0; j < docTypes.size(); j++) {
                                             String docType = (String) docTypes.get(j);
                                     %>
-                                    <input type="button" value="<e:forHtmlAttribute value='<%= docType.length()<3?docType:docType.substring(0, 3) %>' />"
-                                           title="<e:forHtmlAttribute value='<%= docType %>' />" onclick="selectDocType(<%=j%>+1);"> <%}%>
+                                    <input type="button" value="<carlos:encode value='<%= docType.length()<3?docType:docType.substring(0, 3) %>' context="htmlAttribute"/>"
+                                           title="<carlos:encode value='<%= docType %>' context="htmlAttribute"/>" onclick="selectDocType(<%=j%>+1);"> <%}%>
                                 </td>
                             </tr>
                             <%}%>
@@ -1042,7 +1043,7 @@
                                             for (int j = 0; j < docTypes.size(); j++) {
                                                 String docType = (String) docTypes.get(j);
                                         %>
-                                        <option value="<e:forHtmlAttribute value='<%= docType %>' />"><e:forHtmlContent value='<%= docType %>' />
+                                        <option value="<carlos:encode value='<%= docType %>' context="htmlAttribute"/>"><carlos:encode value='<%= docType %>' context="html"/>
                                         </option>
                                         <%}%>
                                     </select>
@@ -1062,7 +1063,7 @@
                                                 consultShown = true;
                                             }
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
+                                    <option value="<carlos:encode value='<%= reportClass %>' context="htmlAttribute"/>"><carlos:encode value='<%= reportClass %>' context="html"/>
                                     </option>
                                     <% }%>
                                 </select>
@@ -1112,9 +1113,9 @@
                                             if (demo != null) {
                                 %>
                                     <input type="button"
-                                           value="<e:forHtmlAttribute value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' />"
-                                           id="demvalueid<e:forHtmlAttribute value='<%= valueid %>' />"
-                                           onclick="loadRecentDemo('<e:forJavaScriptAttribute value='<%= valueid %>' />','<e:forJavaScriptAttribute value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' />')"/>
+                                           value="<carlos:encode value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' context="htmlAttribute"/>"
+                                           id="demvalueid<carlos:encode value='<%= valueid %>' context="htmlAttribute"/>"
+                                           onclick="loadRecentDemo('<carlos:encode value='<%= valueid %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= demo.getLastName() + ", " + demo.getFirstName() + " (" + demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() + ")" %>' context="javaScriptAttribute"/>')"/>
                                     <%
 
                                                 }
@@ -1189,9 +1190,9 @@
                                                 }
                                                 String initials = sbInitials.toString();
                                     %>
-                                    <input type="button" value="<e:forHtmlAttribute value='<%= initials %>' />"
-                                           title="<e:forHtmlAttribute value='<%= sortedprovider.getFirstName() + " " + sortedprovider.getLastName() %>' />"
-                                           onclick="addflagprovider('<e:forJavaScriptAttribute value='<%= sortedprovider.getFirstName() %>' />','<e:forJavaScriptAttribute value='<%= sortedprovider.getLastName() %>' />','<e:forJavaScriptAttribute value='<%= sortedprovider.getProviderNo() %>' />');">
+                                    <input type="button" value="<carlos:encode value='<%= initials %>' context="htmlAttribute"/>"
+                                           title="<carlos:encode value='<%= sortedprovider.getFirstName() + " " + sortedprovider.getLastName() %>' context="htmlAttribute"/>"
+                                           onclick="addflagprovider('<carlos:encode value='<%= sortedprovider.getFirstName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= sortedprovider.getLastName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= sortedprovider.getProviderNo() %>' context="javaScriptAttribute"/>');">
                                     <% }
                                     }
 
@@ -1214,7 +1215,7 @@
             </td>
             <td class="topalign">
                 <div>
-                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><e:forHtmlContent value='<%= pdfPageNumber %>' /> <fmt:message key="dms.incomingDocs.of"/><span
+                    <%if (Integer.parseInt(pdfNo) > 0) {%>Page : <b id="pgnum"><carlos:encode value='<%= pdfPageNumber %>' context="html"/> <fmt:message key="dms.incomingDocs.of"/><span
                         class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"> <%=numOfPage%> <%}%></span></b>
                     <fmt:message key="dms.incomingDocs.viewAs"/>:
                     <select tabIndex="<%=tabIndex++%>" name="imageTypeList" id="imageTypeList"
@@ -1278,7 +1279,7 @@
     </table>
 </div>
 <script type="text/javascript">
-    showPageImg('<e:forJavaScriptBlock value='<%= queueIdStr %>' />', '<e:forJavaScriptBlock value='<%= pdfDir %>' />', '<e:forJavaScriptBlock value='<%= pdfName %>' />', '<e:forJavaScriptBlock value='<%= pdfPageNumber %>' />');
+    showPageImg('<carlos:encode value='<%= queueIdStr %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfDir %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfName %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfPageNumber %>' context="javaScriptBlock"/>');
 </script>
 
 </body>

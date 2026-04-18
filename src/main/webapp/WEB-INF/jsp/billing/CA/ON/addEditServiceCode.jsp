@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
     BillingPercLimitDao billingPercLimitDao = SpringUtils.getBean(BillingPercLimitDao.class);
@@ -76,7 +77,7 @@
                     if (!bsList.isEmpty()) {
                         bs = bsList.get(0);
                     } else {
-                        msg = Encode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
+                        msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
                         action = "search";
                         alert = "error";
                     }
@@ -121,12 +122,12 @@
                     }
 
                     billingServiceDao.merge(bs);
-                    msg = Encode.forHtml(serviceCode) + " is updated.<br>" + "Type in a service code and search first to see if it is available.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>" + "Type in a service code and search first to see if it is available.";
                     alert = "success";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
                     alert = "error";
                     action = "edit" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -138,7 +139,7 @@
                 }
 
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode) + ". Please search the service code first.";
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
                 alert = "error";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -195,14 +196,14 @@
                 } else {
                     billingServiceDao.persist(bs);
 
-                    msg = Encode.forHtml(serviceCode) + " is added.<br>" + "Type in a service code and search first to see if it is available.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>" + "Type in a service code and search first to see if it is available.";
                     alert = "success";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 }
 
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode) + ". Please search the service code first.";
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
                 alert = "error";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -300,6 +301,8 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -460,7 +463,7 @@
 
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <div class="alert alert-<e:forHtmlAttribute value='<%= alert %>' />">
+        <div class="alert alert-<carlos:encode value='<%= alert %>' context="htmlAttribute"/>">
             <%=msg%>
         </div>
 
@@ -469,7 +472,7 @@
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>
                 <div class="input-group">
-                    <input type="text" name="service_code" value="<e:forHtmlAttribute value='<%= prop.getProperty("service_code", "") %>' />"
+                    <input type="text" name="service_code" value="<carlos:encode value='<%= prop.getProperty("service_code", "") %>' context="htmlAttribute"/>"
                            class="col-md-2" maxlength='5' onblur="upCaseCtrl(this)"/>
                     <button class="btn btn-primary" type="submit" name="submitFrm" value="Search"
                             onclick="javascript:return onSearch();">Search
@@ -488,7 +491,7 @@
                         while (i.hasNext()) {
                             date = i.next();
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(codes.get(date)) %>' />" <%=prop.getProperty("billingservice_date", "").equalsIgnoreCase(date) ? "selected" : ""%>><e:forHtmlContent value='<%= date %>' />
+                    <option value="<carlos:encode value='<%= String.valueOf(codes.get(date)) %>' context="htmlAttribute"/>" <%=prop.getProperty("billingservice_date", "").equalsIgnoreCase(date) ? "selected" : ""%>><carlos:encode value='<%= date %>' context="html"/>
                                 <%}%>
                 </select>
 
@@ -498,7 +501,7 @@
 
             <div class="col-md-10">
                 Description <small>50 Characters</small><br>
-                <textarea name="description" class="form-control"><e:forHtmlContent value='<%= prop.getProperty("description", "") %>' /></textarea>
+                <textarea name="description" class="form-control"><carlos:encode value='<%= prop.getProperty("description", "") %>' context="html"/></textarea>
             </div>
 
             <div class="col-md-10">
@@ -509,7 +512,7 @@
                     <%
                         for (CssStyle cssStyle : styles) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= cssStyle.getId()+","+cssStyle.getStyle() %>' />" <%=prop.getProperty("displaystyle", "").equals(cssStyle.getId().toString()) ? "selected" : ""%>><e:forHtmlContent value='<%= cssStyle.getName() %>' />
+                    <option value="<carlos:encode value='<%= cssStyle.getId()+","+cssStyle.getStyle() %>' context="htmlAttribute"/>" <%=prop.getProperty("displaystyle", "").equals(cssStyle.getId().toString()) ? "selected" : ""%>><carlos:encode value='<%= cssStyle.getName() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -522,23 +525,23 @@
 
             <div class="col-md-2">
                 Fee <small> e.g. 18.20</small><br>
-                <input type="text" name="value" value="<e:forHtmlAttribute value='<%= prop.getProperty("value", "") %>' />" size='8' maxlength='8'
+                <input type="text" name="value" value="<carlos:encode value='<%= prop.getProperty("value", "") %>' context="htmlAttribute"/>" size='8' maxlength='8'
                        pattern="\d+(\.\d{2})?"><br/>
             </div>
 
             <div class="col-md-6">
                 Percentage <small> e.g. 0.20</small><br>
-                <input type="text" name="percentage" value="<e:forHtmlAttribute value='<%= prop.getProperty("percentage", "") %>' />" size='8'
+                <input type="text" name="percentage" value="<carlos:encode value='<%= prop.getProperty("percentage", "") %>' context="htmlAttribute"/>" size='8'
                        maxlength='8'>
-                min.<input type="text" name="min" value="<e:forHtmlAttribute value='<%= prop.getProperty("min", "") %>' />" size='7' maxlength='8'>
-                max.<input type="text" name="max" value="<e:forHtmlAttribute value='<%= prop.getProperty("max", "") %>' />" size='7' maxlength='8'>
+                min.<input type="text" name="min" value="<carlos:encode value='<%= prop.getProperty("min", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
+                max.<input type="text" name="max" value="<carlos:encode value='<%= prop.getProperty("max", "") %>' context="htmlAttribute"/>" size='7' maxlength='8'>
             </div>
 
             <div class="col-md-2">
                 <label>Issued Date</label>
                 <div class="input-group">
                     <input type="text" name="billingservice_date" id="billingservice_date"
-                           class="form-control" value="<e:forHtmlAttribute value='<%= prop.getProperty("billingservice_date", "") %>' />"
+                           class="form-control" value="<carlos:encode value='<%= prop.getProperty("billingservice_date", "") %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -548,7 +551,7 @@
                 <label>Termination Date</label>
                 <div class="input-group">
                     <input type="text" name="termination_date" id="termination_date"
-                           class="form-control" value="<e:forHtmlAttribute value='<%= prop.getProperty("termination_date", "9999-12-31") %>' />"
+                           class="form-control" value="<carlos:encode value='<%= prop.getProperty("termination_date", "9999-12-31") %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -568,14 +571,14 @@
                 <input type="hidden" id="action" name="action" value=''> <input class="btn btn-secondary" type="submit"
                                                                                 name="submitFrm"
                                                                                 value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
-                                                                                onclick="document.getElementById('action').value='<e:forJavaScript value='<%= action %>' />';return onSave();">
+                                                                                onclick="document.getElementById('action').value='<carlos:encode value='<%= action %>' context="javaScript"/>';return onSave();">
 
                 <%
                     if (!action2.equals("")) {
                 %>
                 <input class="btn btn-secondary" type="submit" name="submitFrm"
                        value="<fmt:message key="admin.resourcebaseurl.btnAdd"/>"
-                       onclick="document.getElementById('action').value='<e:forJavaScript value='<%= action2 %>' />';return onSave();">
+                       onclick="document.getElementById('action').value='<carlos:encode value='<%= action2 %>' context="javaScript"/>';return onSave();">
                 <%}%>
             </div>
 

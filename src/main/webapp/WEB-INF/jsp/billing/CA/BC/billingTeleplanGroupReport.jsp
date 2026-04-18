@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -183,7 +185,7 @@
         <th align='LEFT'><input type='button' name='print' value='Print'
                                 onClick='window.print()'></th>
         <th align='CENTER'><font face="Arial, Helvetica, sans-serif"
-                                 color="#FFFFFF"> Teleplan Group Report - <e:forHtmlContent value='<%= thisyear %>' />
+                                 color="#FFFFFF"> Teleplan Group Report - <carlos:encode value='<%= thisyear %>' context="html"/>
         </font></th>
         <th align='RIGHT'><input type='button' name='close' value='Close'
                                  onClick='window.close()'></th>
@@ -219,7 +221,7 @@
                             billinggroup_no = p.getBillingNo();//SxmlMisc.getXmlContent(rslocal.getString("comments"),"<xml_p_billinggroup_no>","</xml_p_billinggroup_no>");
                             specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                 %>
-                <option value="<e:forHtmlAttribute value='<%= StringUtils.noNull(proOHIP) %>' />,<e:forHtmlAttribute value='<%= StringUtils.noNull(specialty_code) %>' />|<e:forHtmlAttribute value='<%= StringUtils.noNull(billinggroup_no) %>' />"><e:forHtmlContent value='<%= StringUtils.noNull(proLast) %>' />,<e:forHtmlContent value='<%= StringUtils.noNull(proFirst) %>' />
+                <option value="<carlos:encode value='<%= StringUtils.noNull(proOHIP) %>' context="htmlAttribute"/>,<carlos:encode value='<%= StringUtils.noNull(specialty_code) %>' context="htmlAttribute"/>|<carlos:encode value='<%= StringUtils.noNull(billinggroup_no) %>' context="htmlAttribute"/>"><carlos:encode value='<%= StringUtils.noNull(proLast) %>' context="html"/>,<carlos:encode value='<%= StringUtils.noNull(proFirst) %>' context="html"/>
                 </option>
                 <%
 
@@ -237,10 +239,10 @@
  </select>--></td>
             <td width="277"><font color="#003366"> <input
                     type="submit" name="Submit" value="Create Report"> <input
-                    type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />"> <input
+                    type="hidden" name="monthCode" value="<carlos:encode value='<%= monthCode %>' context="htmlAttribute"/>"> <input
                     type="hidden" name="verCode" value="V03"> <input
-                    type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(user_no) %>' />"> <input
-                    type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />"> </font></td>
+                    type="hidden" name="curUser" value="<carlos:encode value='<%= StringUtils.noNull(user_no) %>' context="htmlAttribute"/>"> <input
+                    type="hidden" name="curDate" value="<carlos:encode value='<%= nowDate %>' context="htmlAttribute"/>"> </font></td>
         </tr>
         <tr>
             <td colspan="4"><font color="#003366"> <b><font
@@ -292,27 +294,27 @@
             bgcolor="<%=updatedate.startsWith(strToday)? "#E6F0F7" : yearColor %>"
             align="center">
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><e:forHtmlContent value='<%= pro_ohip %>' />
+                  color="#003366"><carlos:encode value='<%= pro_ohip %>' context="html"/>
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><e:forHtmlContent value='<%= pro_group %>' />
+                  color="#003366"><carlos:encode value='<%= pro_group %>' context="html"/>
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><e:forHtmlContent value='<%= updatedate %>' />
+                  color="#003366"><carlos:encode value='<%= updatedate %>' context="html"/>
         </font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
-                  color="#003366"><e:forHtmlContent value='<%= cr %>' />
+                  color="#003366"><carlos:encode value='<%= cr %>' context="html"/>
         </font><font
                 face="Arial, Helvetica, sans-serif" size="2" color="#003366"></font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
                   color="#003366"><a
-                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= oFile %>' />"
-                target="_blank"><e:forHtmlContent value='<%= oFile %>' />
+                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= oFile %>' context="uriComponent"/>"
+                target="_blank"><carlos:encode value='<%= oFile %>' context="html"/>
         </a></font></td>
         <td><font face="Arial, Helvetica, sans-serif" size="2"
                   color="#003366"><a
-                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= hFile %>' />"
-                target="_blank"><e:forHtmlContent value='<%= hFile %>' />
+                href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= hFile %>' context="uriComponent"/>"
+                target="_blank"><carlos:encode value='<%= hFile %>' context="html"/>
         </a></font></td>
     </tr>
     <%

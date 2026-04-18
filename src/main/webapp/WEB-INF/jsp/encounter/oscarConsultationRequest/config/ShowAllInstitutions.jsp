@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -49,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
 %>
@@ -72,7 +75,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -94,9 +97,9 @@
                         String contextPath = request.getContextPath();
                         for (Institution i : institutionDao.findAll()) {
                             String url = contextPath + "/encounter/ShowAllInstitutions?id=" + i.getId()
-                                + "&name=" + Encode.forUriComponent(i.getName());
+                                + "&name=" + SafeEncode.forUriComponent(i.getName());
                     %>
-                    <a href="<%= url %>" class="list-group-item list-group-item-action"><e:forHtmlContent value='<%= i.getName() %>' /></a>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><carlos:encode value='<%= i.getName() %>' context="html"/></a>
                     <% } %>
                 </div>
             </div>

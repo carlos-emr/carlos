@@ -52,6 +52,8 @@
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager, io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
@@ -180,7 +182,7 @@
                         <table style="font-size: 8pt;" align="left" valign="top">
 
                             <tr style="font-family: arial, sans-serif; font-size: 6pt;">
-                                <th colspan="3"><e:forHtmlContent value='<%= patientname %>' />
+                                <th colspan="3"><carlos:encode value='<%= patientname %>' context="html"/>
                                 </th>
                             </tr>
                             <tr style="font-family: arial, sans-serif; font-size: 8pt;">
@@ -201,9 +203,9 @@
 
                             %>
                             <tr bgcolor="#eeeeff">
-                                <td style="padding-right: 10px"><e:forHtmlContent value='<%= appt_date %>' />
+                                <td style="padding-right: 10px"><carlos:encode value='<%= appt_date %>' context="html"/>
                                 </td>
-                                <td style="padding-right: 10px"><e:forHtmlContent value='<%= appt_time %>' />
+                                <td style="padding-right: 10px"><carlos:encode value='<%= appt_time %>' context="html"/>
                                 </td>
                                 <td style="padding-right: 10px">&nbsp;</td>
                             </tr>
@@ -225,11 +227,11 @@
                                     pname = "" + p.getLastName() + ", " + pname.substring(0, 1);
                             %>
                             <tr bgcolor="#eeeeff">
-                                <td style="padding-right: 10px"><e:forHtmlContent value='<%= ConversionUtils.toDateString(ap.getAppointmentDate()) %>' />
+                                <td style="padding-right: 10px"><carlos:encode value='<%= ConversionUtils.toDateString(ap.getAppointmentDate()) %>' context="html"/>
                                 </td>
-                                <td style="padding-right: 10px"><e:forHtmlContent value='<%= appt_time %>' />
+                                <td style="padding-right: 10px"><carlos:encode value='<%= appt_time %>' context="html"/>
                                 </td>
-                                <td style="padding-right: 10px"><e:forHtmlContent value='<%= pname %>' />
+                                <td style="padding-right: 10px"><carlos:encode value='<%= pname %>' context="html"/>
                                 </td>
                             </tr>
                             <%

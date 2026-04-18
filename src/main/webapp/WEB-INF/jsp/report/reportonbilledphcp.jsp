@@ -42,6 +42,8 @@
 <%@ page import="java.sql.*" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -138,10 +140,10 @@
                         <option value="ServiceCode"><fmt:message key="report.reportonbilledphcp.option.serviceCode"/></option>
                     </select></td>
                 <td nowrap><fmt:message key="report.reportonbilledphcp.label.start"/> <input type="text" name="startDate"
-                                        id="startDate" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />" size="10"
+                                        id="startDate" value="<carlos:encode value='<%= startDate!=null?startDate:"" %>' context="htmlAttribute"/>" size="10"
                                         readonly> <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDate_cal">
                     <fmt:message key="report.reportonbilledphcp.label.end"/> <input type="text" name="endDate" id="endDate"
-                               value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />" size="10" readonly> <img
+                               value="<carlos:encode value='<%= endDate!=null?endDate:"" %>' context="htmlAttribute"/>" size="10" readonly> <img
                             src="<%= request.getContextPath() %>/images/cal.gif" id="endDate_cal"></td>
                 <td><fmt:message key="report.reportonbilledphcp.label.provider"/> <select name="providerNoDoctor">
                     <option value=""><fmt:message key="report.reportonbilledphcp.option.doctor"/></option>
@@ -724,7 +726,7 @@
     %>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr bgcolor="<%="#669999"%>">
-            <th align="left"><font face="Helvetica" color="white"><e:forHtmlContent value='<%= providerName %>' />
+            <th align="left"><font face="Helvetica" color="white"><carlos:encode value='<%= providerName %>' context="html"/>
                 - <%= bundle.getString("report.reportonbilledphcp.header.patientVisitList") %> </font></th>
             <th width="10%" nowrap><input type="button" name="Button"
                                           value="<%= bundle.getString("global.btnPrint") %>" onClick="window.print()"> <input type="button"
@@ -734,7 +736,7 @@
     </table>
     <table border="0" cellspacing="0" cellpadding="0" width="100%">
         <tr>
-            <td><%= bundle.getString("report.reportonbilledphcp.label.period") %> ( <e:forHtmlContent value='<%= startDate %>' /> ~ <e:forHtmlContent value='<%= endDate %>' /> )</td>
+            <td><%= bundle.getString("report.reportonbilledphcp.label.period") %> ( <carlos:encode value='<%= startDate %>' context="html"/> ~ <carlos:encode value='<%= endDate %>' context="html"/> )</td>
         </tr>
     </table>
     <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
@@ -820,55 +822,55 @@
             }
         %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><e:forHtmlContent value='<%= String.valueOf(vServiceCode.get(i)) %>' />
+            <td><carlos:encode value='<%= String.valueOf(vServiceCode.get(i)) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= String.valueOf(vServiceDesc.get(i)) %>' />
+            <td><carlos:encode value='<%= String.valueOf(vServiceDesc.get(i)) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i)), 0) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat" + vServiceDesc.get(i)), 0) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i)), 1) %>' />
-            </td>
-
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i)), 2) %>' />
-            </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i)), 3) %>' />
-            </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i)), 4) %>' />
-            </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i)), 5) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis" + vServiceDesc.get(i)), 1) %>' context="html"/>
             </td>
 
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i)), 6) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexF" + vServiceDesc.get(i)), 2) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i)), 7) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexF" + vServiceDesc.get(i)), 3) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i)), 8) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "patSexM" + vServiceDesc.get(i)), 4) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i)), 9) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "visSexM" + vServiceDesc.get(i)), 5) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i)), 10) %>' />
+
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat0_1" + vServiceDesc.get(i)), 6) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i)), 11) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis0_1" + vServiceDesc.get(i)), 7) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i)), 12) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat2_11" + vServiceDesc.get(i)), 8) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i)), 13) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis2_11" + vServiceDesc.get(i)), 9) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i)), 14) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat12_20" + vServiceDesc.get(i)), 10) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i)), 15) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis12_20" + vServiceDesc.get(i)), 11) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i)), 16) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat21_34" + vServiceDesc.get(i)), 12) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i)), 17) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis21_34" + vServiceDesc.get(i)), 13) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i)), 18) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat35_50" + vServiceDesc.get(i)), 14) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i)), 19) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis35_50" + vServiceDesc.get(i)), 15) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i)), 20) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat51_64" + vServiceDesc.get(i)), 16) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i)), 21) %>' />
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis51_64" + vServiceDesc.get(i)), 17) %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat65_70" + vServiceDesc.get(i)), 18) %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis65_70" + vServiceDesc.get(i)), 19) %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "pat71_" + vServiceDesc.get(i)), 20) %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= getNumAndCalTotal(props.getProperty(vServiceCode.get(i) + "vis71_" + vServiceDesc.get(i)), 21) %>' context="html"/>
             </td>
         </tr>
         <%

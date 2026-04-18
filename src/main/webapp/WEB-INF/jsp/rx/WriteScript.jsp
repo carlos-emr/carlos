@@ -49,6 +49,7 @@
 <%long start = System.currentTimeMillis();%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -1264,7 +1265,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
                                             function setQuantity() {
-                                                var path = "${e:forJavaScript(ctx)}";
+                                                var path = "${carlos:forJavaScript(ctx)}";
                                                 oscarLog("here1");
                                                 oscarLog("path in setQuantity" + path);
                                                 var sugQtyLbl = document.getElementById('lblSugQty');
@@ -1464,7 +1465,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </div>-->
                             <script language=javascript>
                                 function submitPending(stashId, action) { //calls stash action
-                                    var path = "${e:forJavaScript(ctx)}";
+                                    var path = "${carlos:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
                                     var frm = document.getElementsByName("RxStashForm");
                                     frm[0].elements["stashId"].value = stashId;
@@ -1533,7 +1534,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
-                                                        ${e:forHtml(rx.rxDisplay)}
+                                                        ${carlos:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>
@@ -1543,7 +1544,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<e:forJavaScript value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' />');">
+                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>

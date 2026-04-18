@@ -74,6 +74,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
@@ -123,7 +125,7 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;
                 <%if (IsPropertiesOn.isCaisiEnable()) { %>
 
-                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager?id=<e:forUriComponent value='<%= creatorDemo %>' />"><fmt:message key="demographic.addAlternateContact.backToPmm"/></a>
+                <a href="<%=request.getContextPath()%>/PMmodule/ClientManager?id=<carlos:encode value='<%= creatorDemo %>' context="uriComponent"/>"><fmt:message key="demographic.addAlternateContact.backToPmm"/></a>
 
                 <%} %>
 
@@ -144,7 +146,7 @@
                             }
                         %>
                         <input
-                                type="hidden" name="search_mode" value="<e:forHtmlAttribute value='<%= searchMode %>' />"/> <input
+                                type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>"/> <input
                                 type="hidden" name="originalpage"
                                 value="<%= request.getContextPath() %>/demographic/AddRelation"/> <input
                                 type="hidden" name="limit1" value="0"/> <input type="hidden"
@@ -173,7 +175,7 @@
                                                                                       name="creator"
                                                                                       value="oscardoc, doctor"/> <input
                                 type="hidden"
-                                name="remarks" value="<e:forHtmlAttribute value='<%= creatorDemo %>' />"/></div>
+                                name="remarks" value="<carlos:encode value='<%= creatorDemo %>' context="htmlAttribute"/>"/></div>
                 </form>
 
                 <%
@@ -182,14 +184,14 @@
                     String origDemo = request.getParameter("remarks");
                     if (demoNo != null) {
                 %> <form action="${pageContext.request.contextPath}/demographic/AddRelation" method="post">
-                <input type="hidden" name="origDemo" value="<e:forHtmlAttribute value='<%= origDemo %>' />"/>
-                <input type="hidden" name="linkingDemo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
+                <input type="hidden" name="origDemo" value="<carlos:encode value='<%= origDemo %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="linkingDemo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
 
 
                 <div class="prevention">
 			<fieldset><legend><fmt:message key="demographic.addAlternateContact.relation"/></legend>
 				<label for="name"><fmt:message key="demographic.addAlternateContact.name"/>:</label>
-					<span id="name"><e:forHtmlContent value='<%= name %>' /></>
+					<span id="name"><carlos:encode value='<%= name %>' context="html"/></>
                             <br/>
 
 			<label for="relation"><fmt:message key="demographic.addAlternateContact.relationship"/>:</label>
@@ -199,7 +201,7 @@
                                     List<CtlRelationships> results = ctlRelationshipsDao.findAllActive();
                                     for (CtlRelationships t : results) {
                                 %>
-						<option value="<%=t.getValue() %>"><e:forHtmlContent value='<%= t.getLabel() %>' /></option>
+						<option value="<%=t.getValue() %>"><carlos:encode value='<%= t.getLabel() %>' context="html"/></option>
                                 <%
                                     }
                                 %>
@@ -237,14 +239,14 @@
                                 DemographicData dd = new DemographicData();
                                 Demographic demographic = dd.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), relatedDemo); %>
                         <tr>
-				<td><e:forHtmlContent value='<%= demographic.getLastName() +", "+demographic.getFirstName() %>' /></td>
-				<td><e:forHtmlContent value='<%= h.get("relation") %>' /></td>
-				<td><e:forHtmlContent value='<%= returnYesIf1(h.get("sub_decision_maker")) %>' /></td>
-				<td><e:forHtmlContent value='<%= h.get("notes") %>' /></td>
+				<td><carlos:encode value='<%= demographic.getLastName() +", "+demographic.getFirstName() %>' context="html"/></td>
+				<td><carlos:encode value='<%= h.get("relation") %>' context="html"/></td>
+				<td><carlos:encode value='<%= returnYesIf1(h.get("sub_decision_maker")) %>' context="html"/></td>
+				<td><carlos:encode value='<%= h.get("notes") %>' context="html"/></td>
 				<td>
 					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation" style="display:inline;">
 						<input type="hidden" name="id" value="<%=h.get("id")%>"/>
-						<input type="hidden" name="origDemo" value="<e:forHtmlAttribute value='<%= creatorDemo %>' />"/>
+						<input type="hidden" name="origDemo" value="<carlos:encode value='<%= creatorDemo %>' context="htmlAttribute"/>"/>
 						<a href="javascript:void(0);" onclick="if(confirm('<fmt:message key='demographic.addAlternateContact.deleteConfirm'/>')){this.closest('form').submit();}"><fmt:message key='global.btnDelete'/></a>
 					</form>
 				</td>
@@ -257,7 +259,7 @@
                 <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="yes">
                     <br/>
                     <form action="<%=request.getContextPath() %>/demographic/AddRelation">
-                        <input type="hidden" name="origDemo" value="<e:forHtmlAttribute value='<%= creatorDemo %>' />"/>
+                        <input type="hidden" name="origDemo" value="<carlos:encode value='<%= creatorDemo %>' context="htmlAttribute"/>"/>
                         <input type="submit" name="pmmClient" value="<fmt:message key='demographic.addAlternateContact.finished'/>"/>
                     </form>
                 </oscar:oscarPropertiesCheck></td>

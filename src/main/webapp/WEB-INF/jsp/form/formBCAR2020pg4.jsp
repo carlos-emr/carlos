@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "BCAR2020";
@@ -157,7 +158,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
+                <input type="hidden" name="provider_no" value=<carlos:encode value='<%= providerNo %>' context="htmlUnquotedAttribute"/>/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -250,63 +251,63 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterNutrition" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterNutrition", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterNutrition" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterNutrition", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.nutritionFolicAcid"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterWeightGain" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterWeightGain", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterWeightGain" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterWeightGain", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.healthyWeightGain"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterPhysicalActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPhysicalActivity", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterPhysicalActivity" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterPhysicalActivity", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.physicalActivity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterOccupation" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterOccupation", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterOccupation" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterOccupation", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.occupationalConcerns"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterPersonalSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterPersonalSafety", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterPersonalSafety" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterPersonalSafety", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.personalSafety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSupportSystem" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSupportSystem", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterSupportSystem" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterSupportSystem", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.supportSystem"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterMentalHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterMentalHealth", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterMentalHealth" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterMentalHealth", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.mentalHealth"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSubstanceUse" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSubstanceUse", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterSubstanceUse" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterSubstanceUse", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.substanceUse"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterSexualActivity" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterSexualActivity", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterSexualActivity" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterSexualActivity", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.sexualActivity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterImmunization" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterImmunization", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterImmunization" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterImmunization", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.immunization"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1st3rdTrimesterVBAC" <e:forHtmlAttribute value='<%= props.getProperty("c_1st3rdTrimesterVBAC", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1st3rdTrimesterVBAC" <carlos:encode value='<%= props.getProperty("c_1st3rdTrimesterVBAC", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.vbacCounseling"/>
                                                 </div>
                                             </td>
@@ -331,63 +332,63 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterNausea" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterNausea", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterNausea" <carlos:encode value='<%= props.getProperty("c_1stTrimesterNausea", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.nauseaVomiting"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterSafety" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterSafety", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterSafety" <carlos:encode value='<%= props.getProperty("c_1stTrimesterSafety", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.safety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterOralHealth" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterOralHealth", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterOralHealth" <carlos:encode value='<%= props.getProperty("c_1stTrimesterOralHealth", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.oralHealth"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterExposures" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterExposures", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterExposures" <carlos:encode value='<%= props.getProperty("c_1stTrimesterExposures", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.exposures"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterTravel" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterTravel", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterTravel" <carlos:encode value='<%= props.getProperty("c_1stTrimesterTravel", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.travel"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterGeneticScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterGeneticScreening", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterGeneticScreening" <carlos:encode value='<%= props.getProperty("c_1stTrimesterGeneticScreening", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     Prenatal genetic screening
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterEarlyLoss" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterEarlyLoss", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterEarlyLoss" <carlos:encode value='<%= props.getProperty("c_1stTrimesterEarlyLoss", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.earlyPregnancyLoss"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterRoutine" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterRoutine", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterRoutine" <carlos:encode value='<%= props.getProperty("c_1stTrimesterRoutine", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     Routine prenatal care, emergency contact/ on-call providers
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterBreastfeeding" <carlos:encode value='<%= props.getProperty("c_1stTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     Breastfeeding: attitudes/beliefs
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterQualityEducation" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterQualityEducation", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterQualityEducation" <carlos:encode value='<%= props.getProperty("c_1stTrimesterQualityEducation", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     Quality educational resources
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_1stTrimesterPublicServices" <e:forHtmlAttribute value='<%= props.getProperty("c_1stTrimesterPublicServices", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_1stTrimesterPublicServices" <carlos:encode value='<%= props.getProperty("c_1stTrimesterPublicServices", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     Public health services / programs
                                                 </div>
                                             </td>
@@ -412,58 +413,58 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBleeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBleeding", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterBleeding" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterBleeding", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.bleeding"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPretermLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPretermLabour", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterPretermLabour" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterPretermLabour", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.pretermLabourSignsSymptoms"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPROM" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPROM", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterPROM" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterPROM", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.prom"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterLifestyle" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterLifestyle", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterLifestyle" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterLifestyle", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.lifestyleAndSocialRiskAssessment"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterGestationalDiab" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterGestationalDiab", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterGestationalDiab" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterGestationalDiab", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.gestationalDiabetesScreening"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPrenatalClasses" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPrenatalClasses", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterPrenatalClasses" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterPrenatalClasses", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.prenatalClasses"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBirthOptions" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthOptions", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterBirthOptions" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterBirthOptions", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.birthOptionsAndPracticesThatPromoteHealthyBirth"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterBirthPlan" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.birthPlanTravelOtherCommunity"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterBreastfeeding" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.breastfeedingAndImportanceOfImmediateUninterruptedSkinToSkinCare"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_2ndTrimesterPostpartumContra" <e:forHtmlAttribute value='<%= props.getProperty("c_2ndTrimesterPostpartumContra", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_2ndTrimesterPostpartumContra" <carlos:encode value='<%= props.getProperty("c_2ndTrimesterPostpartumContra", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.postpartumContraception"/>
                                                 </div>
                                             </td>
@@ -488,108 +489,108 @@
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterFetalMovement" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterFetalMovement", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterFetalMovement" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterFetalMovement", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.fetalMovement"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterEmergencyContact" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterEmergencyContact", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterEmergencyContact" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterEmergencyContact", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.emergencyContactOnCallProviders"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterECV" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterECV", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterECV" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterECV", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.ecvBreechDeliveryElectiveCesareanDeliveryIfApplicable"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterIndicationsInduction" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterIndicationsInduction", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterIndicationsInduction" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterIndicationsInduction", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.indicationsForInductionOfLabour"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterSignsLabour" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterSignsLabour", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterSignsLabour" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterSignsLabour", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.signsSymptomsOfLabourAndAdmissionTiming"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterBirthPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterBirthPlan" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterBirthPlan", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.birthPlanLabourSupportPainManagement"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPotentialInterventions" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPotentialInterventions", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterPotentialInterventions" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterPotentialInterventions", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.potentialInterventionsBloodProducts"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterGenitalHerpes" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGenitalHerpes", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterGenitalHerpes" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterGenitalHerpes", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.genitalHerpesSuppression"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterGBSScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterGBSScreening", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterGBSScreening" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterGBSScreening", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.gbsScreeningProphylaxis"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterCordBloodBanking" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterCordBloodBanking", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterCordBloodBanking" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterCordBloodBanking", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.cordBloodBanking"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterErythromycin" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterErythromycin", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterErythromycin" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterErythromycin", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.erythromycinOphthalmiaProphylaxisTreatment"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterVitaminK" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterVitaminK", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterVitaminK" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterVitaminK", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.vitaminKProphylaxis"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterNewbornCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterNewbornCare", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterNewbornCare" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterNewbornCare", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.newbornCareScreeningCircumcisionFollowup"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterBreastfeeding" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterBreastfeeding" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterBreastfeeding", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.breastfeedingAdjustmentSkillsSupport"/>
                                                 </div>
                                             </td>
                                             <td width="25%">
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPostpartumCare" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumCare", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterPostpartumCare" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterPostpartumCare", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.postpartumCare"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterPostpartumContraception" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterPostpartumContraception", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterPostpartumContraception" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterPostpartumContraception", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.postpartumContraception"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterDischargePlanning" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterDischargePlanning", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterDischargePlanning" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterDischargePlanning", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.dischargePlanningCarSeatSafety"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterInfantSleep" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterInfantSleep", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterInfantSleep" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterInfantSleep", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.infantSafeSleep"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterWorkPlan" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterWorkPlan", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterWorkPlan" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterWorkPlan", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     <fmt:message key="form.formBCAR2020pg4.label.workPlanMaternityLeave"/>
                                                 </div>
                                                 <div class="reference-pad">
                                                     <input type="checkbox"
-                                                           name="c_3rdTrimesterEPDSScreening" <e:forHtmlAttribute value='<%= props.getProperty("c_3rdTrimesterEPDSScreening", "").equals("X") ? "checked" : "" %>' /> />
+                                                           name="c_3rdTrimesterEPDSScreening" <carlos:encode value='<%= props.getProperty("c_3rdTrimesterEPDSScreening", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                                     EPDS screening
                                                 </div>
                                             </td>

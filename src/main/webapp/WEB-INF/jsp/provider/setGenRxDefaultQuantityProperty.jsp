@@ -31,6 +31,7 @@
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("user") == null)
@@ -55,9 +56,9 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><%=bundle.getString(providertitle)%></title>
 
-        <script src="${e:forHtmlAttribute(ctx)}/js/global.js"></script>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
-        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"><!-- Bootstrap -->
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/global.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
+        <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"><!-- Bootstrap -->
 
     </head>
 
@@ -73,8 +74,8 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <!--c:out value="${rxDefaultQuantityProperty.value}" /-->
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
-                    <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="${e:forHtmlAttribute(quantity.value)}" />
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
+                    <input type="text" id="numericFormField" name="rxDefaultQuantityProperty.value" value="${carlos:forHtmlAttribute(quantity.value)}" />
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         <fmt:message key="provider.setGenRxDefaultQuantityProperty.msgInvalidInput"/>
                     </p>

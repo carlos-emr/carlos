@@ -41,6 +41,9 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     EncounterTemplateDao encounterTemplateDao = SpringUtils.getBean(EncounterTemplateDao.class);
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
@@ -80,13 +83,13 @@
         xmlContent = SxmlMisc.getXmlContent(content, "xml_content");
         xmlUsername = SxmlMisc.getXmlContent(content, "xml_username");
 %>
-<font size="-1"><e:forHtmlContent value='<%= ConversionUtils.toDateString(enc.getEncounterDate()) %>' /> <e:forHtmlContent value='<%= ConversionUtils.toTimeString(enc.getEncounterTime()) %>' />
-    &nbsp;<font color="green"><e:forHtmlContent value='<%= StringUtils.noNull(enc.getSubject()).isEmpty() ? bundle.getString("provider.providerencountersingle.unknown") : enc.getSubject() %>' />
+<font size="-1"><carlos:encode value='<%= ConversionUtils.toDateString(enc.getEncounterDate()) %>' context="html"/> <carlos:encode value='<%= ConversionUtils.toTimeString(enc.getEncounterTime()) %>' context="html"/>
+    &nbsp;<font color="green"><carlos:encode value='<%= StringUtils.noNull(enc.getSubject()).isEmpty() ? bundle.getString("provider.providerencountersingle.unknown") : enc.getSubject() %>' context="html"/>
     </font></font>
 <br>
 <xml id="xml_list">
     <encounter>
-        <e:forXml value='<%= content %>' />
+        <carlos:encode value='<%= content %>' context="xml"/>
     </encounter>
 </xml>
 <%
@@ -99,15 +102,15 @@
             while (st.hasMoreTokens()) {
                 temp = st.nextToken(">").substring(1);
         %> <a href=#
-              onClick="popupPage(600,800, '<e:forJavaScriptAttribute value='<%= st.nextToken("<").substring(1) %>' />')">
-            <e:forHtmlContent value='<%= temp %>' />
+              onClick="popupPage(600,800, '<carlos:encode value='<%= st.nextToken("<").substring(1) %>' context="javaScriptAttribute"/>')">
+            <carlos:encode value='<%= temp %>' context="html"/>
         </a> <%
                 st.nextToken(">");
             }
         %>
         </td>
         <td align='right' width='20%' nowrap>
-            <e:forHtmlContent value='<%= xmlUsername %>' />
+            <carlos:encode value='<%= xmlUsername %>' context="html"/>
         </td>
     </tr>
 </table>
@@ -117,18 +120,18 @@
         for (EncounterTemplate template : encounterTemplateDao.findByName(request.getParameter("template"))) {
             String val = template.getEncounterTemplateValue();
             if (val != null) {
-                out.println(Encode.forHtml(val));
+                out.println(SafeEncode.forHtml(val));
             }
         }
 
 
     } else {
-        out.println("<table border='0'><tr><td><font color='blue'>" + bundle.getString("provider.providerencountersingle.content") + ":</font></td></tr><tr><td>" + Encode.forHtml(xmlContent) + "</td></tr></table>");
+        out.println("<table border='0'><tr><td><font color='blue'>" + bundle.getString("provider.providerencountersingle.content") + ":</font></td></tr><tr><td>" + SafeEncode.forHtml(xmlContent) + "</td></tr></table>");
     }
 %>
 
 <center><input type="button" value="<%= bundle.getString("provider.providerencountersingle.printPreview") %>"
-               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<e:forUriComponent value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' />&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&username=<e:forUriComponent value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' />')">
+               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<carlos:encode value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&username=<carlos:encode value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' context="uriComponent"/>')">
     <input type="button" value="<%= bundle.getString("provider.providerencountersingle.closeWindow") %>" onClick="self.close()">
 </center>
 </body>

@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -116,8 +117,8 @@
                 init(2);
 
                 // Set values in drop downs
-                $("select[name='s_investigationsABO']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_investigationsABO", "UN") %>' />');
-                $("select[name='s_investigationsRhFactor']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_investigationsRhFactor", "UN") %>' />');
+                $("select[name='s_investigationsABO']").val('<carlos:encode value='<%= props.getProperty("s_investigationsABO", "UN") %>' context="javaScriptBlock"/>');
+                $("select[name='s_investigationsRhFactor']").val('<carlos:encode value='<%= props.getProperty("s_investigationsRhFactor", "UN") %>' context="javaScriptBlock"/>');
 
                 $('form').areYouSure({'addRemoveFieldsMarksDirty': true});
             });
@@ -166,7 +167,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
+                <input type="hidden" name="provider_no" value=<carlos:encode value='<%= providerNo %>' context="htmlUnquotedAttribute"/>/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -249,14 +250,14 @@
                                         <input type="text" name="t_plannedBirthAt20Wks" size="15" maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthAt20Wks", "")) %>"/>
                                         <input type="checkbox"
-                                               name="c_plannedBirthAt20WksCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_plannedBirthAt20WksCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_plannedBirthAt20WksCopyHospital" <carlos:encode value='<%= props.getProperty("c_plannedBirthAt20WksCopyHospital", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">
                                         <input type="text" name="t_plannedBirthAt36Wks" size="15" maxlength="100"
                                                value="<%= UtilMisc.htmlEscape(props.getProperty("t_plannedBirthAt36Wks", "")) %>"/>
                                         <input type="checkbox"
-                                               name="c_plannedBirthAt36WksCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_plannedBirthAt36WksCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_plannedBirthAt36WksCopyHospital" <carlos:encode value='<%= props.getProperty("c_plannedBirthAt36WksCopyHospital", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                     <td style="border-left: 1px solid black;border-right: 1px solid black;">
@@ -276,10 +277,10 @@
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="d_confirmedEDD_cal">
                                         <fmt:message key="form.formBCAR2020pg2.label.by"/>
                                         <input type="checkbox"
-                                               name="c_confirmedEDDUS" <e:forHtmlAttribute value='<%= props.getProperty("c_confirmedEDDUS", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_confirmedEDDUS" <carlos:encode value='<%= props.getProperty("c_confirmedEDDUS", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.us"/>
                                         <input type="checkbox"
-                                               name="c_confirmedEDDIVF" <e:forHtmlAttribute value='<%= props.getProperty("c_confirmedEDDIVF", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_confirmedEDDIVF" <carlos:encode value='<%= props.getProperty("c_confirmedEDDIVF", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.ivf"/>
                                     </td>
                                 </tr>
@@ -407,12 +408,12 @@
                                     </td>
                                     <td width="10%">
                                         <input type="checkbox"
-                                               name="c_investigationsRubellaImm" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaImm", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsRubellaImm" <carlos:encode value='<%= props.getProperty("c_investigationsRubellaImm", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.yes"/>
                                     </td>
                                     <td width="10%">
                                         <input type="checkbox"
-                                               name="c_investigationsRubellaNonImm" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaNonImm", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsRubellaNonImm" <carlos:encode value='<%= props.getProperty("c_investigationsRubellaNonImm", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.no"/>
                                     </td>
                                     <td width="32%">
@@ -428,7 +429,7 @@
                                     </td>
                                     <td width="31%">
                                         <input type="checkbox"
-                                               name="c_investigationsRubellaPPVaccine" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsRubellaPPVaccine", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsRubellaPPVaccine" <carlos:encode value='<%= props.getProperty("c_investigationsRubellaPPVaccine", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.postpartumVaccineRequired"/>
                                     </td>
                                 </tr>
@@ -438,12 +439,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHIVNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHIVNeg" <carlos:encode value='<%= props.getProperty("c_investigationsHIVNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.no"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHIVPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHIVPos" <carlos:encode value='<%= props.getProperty("c_investigationsHIVPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.yes"/>
                                     </td>
                                     <td>
@@ -455,7 +456,7 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHIVT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHIVT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHIVT3Repeat" <carlos:encode value='<%= props.getProperty("c_investigationsHIVT3Repeat", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.t3RepeatHighRisk"/>
                                     </td>
                                 </tr>
@@ -465,12 +466,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsSyphilisNR" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsSyphilisNR", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsSyphilisNR" <carlos:encode value='<%= props.getProperty("c_investigationsSyphilisNR", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         N/R
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsSyphilisR" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsSyphilisR", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsSyphilisR" <carlos:encode value='<%= props.getProperty("c_investigationsSyphilisR", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         R
                                     </td>
                                     <td colspan="2">
@@ -487,12 +488,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgNR" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgNR", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgNR" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgNR", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         N/R
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgR" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgR", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgR" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgR", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         R
                                     </td>
                                     <td>
@@ -504,20 +505,20 @@
                                                    value="<%= UtilMisc.htmlEscape(props.getProperty("t_investigationsHBsAgHBV", "")) %>"/>
                                         </div>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgPartner" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgPartner", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgPartner" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgPartner", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.partnerHouseholdContact"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgAntiViral" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgAntiViral", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgAntiViral" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgAntiViral", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.antiviralTherapyRequired"/>
                                         <br/>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgNewbornVaccine" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgNewbornVaccine", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgNewbornVaccine" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgNewbornVaccine", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.newbornVaccineRequired"/>
                                         <br/>
                                         <input type="checkbox"
-                                               name="c_investigationsHBsAgNewbornHBIg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsHBsAgNewbornHBIg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsHBsAgNewbornHBIg" <carlos:encode value='<%= props.getProperty("c_investigationsHBsAgNewbornHBIg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.newbornHbIgRequired"/>
                                         <br/>
                                     </td>
@@ -528,12 +529,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGonorrheaNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGonorrheaNeg" <carlos:encode value='<%= props.getProperty("c_investigationsGonorrheaNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGonorrheaPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGonorrheaPos" <carlos:encode value='<%= props.getProperty("c_investigationsGonorrheaPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -545,7 +546,7 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGonorrheaT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGonorrheaT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGonorrheaT3Repeat" <carlos:encode value='<%= props.getProperty("c_investigationsGonorrheaT3Repeat", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.t3RepeatPos"/>
                                     </td>
                                 </tr>
@@ -555,12 +556,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsChlamydiaNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsChlamydiaNeg" <carlos:encode value='<%= props.getProperty("c_investigationsChlamydiaNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsChlamydiaPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsChlamydiaPos" <carlos:encode value='<%= props.getProperty("c_investigationsChlamydiaPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -572,7 +573,7 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsChlamydiaT3Repeat" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsChlamydiaT3Repeat", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsChlamydiaT3Repeat" <carlos:encode value='<%= props.getProperty("c_investigationsChlamydiaT3Repeat", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.t3RepeatPos"/>
                                     </td>
                                 </tr>
@@ -582,12 +583,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsUrineNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsUrineNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsUrineNeg" <carlos:encode value='<%= props.getProperty("c_investigationsUrineNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsUrinePos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsUrinePos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsUrinePos" <carlos:encode value='<%= props.getProperty("c_investigationsUrinePos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -617,16 +618,16 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMTestDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMTestDeclined", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMTestDeclined" <carlos:encode value='<%= props.getProperty("c_investigationsGDMTestDeclined", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.gdmTestDeclined"/>
                                     </td>
                                     <td rowspan="2" valign="top">
                                         <input type="checkbox"
-                                               name="c_investigationsGDMDietControlled" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMDietControlled", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMDietControlled" <carlos:encode value='<%= props.getProperty("c_investigationsGDMDietControlled", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.dietControlled"/>
                                         <br/>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMInsulinReqd" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMInsulinReqd", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMInsulinReqd" <carlos:encode value='<%= props.getProperty("c_investigationsGDMInsulinReqd", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.insulinRequired"/>
                                     </td>
                                 </tr>
@@ -637,12 +638,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMGCTNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGCTNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMGCTNeg" <carlos:encode value='<%= props.getProperty("c_investigationsGDMGCTNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMGCTPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGCTPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMGCTPos" <carlos:encode value='<%= props.getProperty("c_investigationsGDMGCTPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -660,12 +661,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMGTTNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGTTNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMGTTNeg" <carlos:encode value='<%= props.getProperty("c_investigationsGDMGTTNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGDMGTTPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGDMGTTPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGDMGTTPos" <carlos:encode value='<%= props.getProperty("c_investigationsGDMGTTPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -691,12 +692,12 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGBSNeg" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSNeg", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGBSNeg" <carlos:encode value='<%= props.getProperty("c_investigationsGBSNeg", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.neg"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGBSPos" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSPos", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGBSPos" <carlos:encode value='<%= props.getProperty("c_investigationsGBSPos", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.pos"/>
                                     </td>
                                     <td>
@@ -709,7 +710,7 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_investigationsGBSCopyHospital" <e:forHtmlAttribute value='<%= props.getProperty("c_investigationsGBSCopyHospital", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_investigationsGBSCopyHospital" <carlos:encode value='<%= props.getProperty("c_investigationsGBSCopyHospital", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.copyToHospital"/>
                                     </td>
                                 </tr>
@@ -732,7 +733,7 @@
                                     </td>
                                     <td colspan="2">
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticDeclined", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticDeclined" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticDeclined", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.declined"/>
                                     </td>
                                     <td style="border-left: 1px solid black;">
@@ -742,22 +743,22 @@
                                 <tr>
                                     <td width="18%">
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticSIPS" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticSIPS", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticSIPS" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticSIPS", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         SIPS
                                     </td>
                                     <td width="20%">
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticIPS" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticIPS", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticIPS" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticIPS", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         IPS
                                     </td>
                                     <td width="20">
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticQuad" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticQuad", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticQuad" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticQuad", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         Quad
                                     </td>
                                     <td width="10%">
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticCVS" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticCVS", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticCVS" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticCVS", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         CVS
                                     </td>
                                     <td width="32%" style="border-left: 1px solid black;" rowspan="2">
@@ -771,18 +772,18 @@
                                 <tr>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticNIPTMSP" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticNIPTMSP", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticNIPTMSP" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticNIPTMSP", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.niptMsp"/>
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticNIPTSelf" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticNIPTSelf", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticNIPTSelf" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticNIPTSelf", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.niptSelfPay"/>
                                     </td>
                                     <td>
                                         <div class="divFlex">
                                             <input type="checkbox"
-                                                   name="c_prenatalGeneticOther" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticOther", "").equals("X") ? "checked" : "" %>' /> />
+                                                   name="c_prenatalGeneticOther" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticOther", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                             <fmt:message key="form.formBCAR2020pg2.label.other"/>
                                             <input type="text" name="t_prenatalGeneticOtherDetails" size="10"
                                                    maxlength="150"
@@ -791,7 +792,7 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_prenatalGeneticAmnio" <e:forHtmlAttribute value='<%= props.getProperty("c_prenatalGeneticAmnio", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_prenatalGeneticAmnio" <carlos:encode value='<%= props.getProperty("c_prenatalGeneticAmnio", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.amnio"/>
                                     </td>
                                 </tr>
@@ -805,7 +806,7 @@
                                     </td>
                                     <td width="39%">
                                         <input type="checkbox"
-                                               name="c_edinburgDeclined" <e:forHtmlAttribute value='<%= props.getProperty("c_edinburgDeclined", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_edinburgDeclined" <carlos:encode value='<%= props.getProperty("c_edinburgDeclined", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.label.declined"/>
                                     </td>
                                 </tr>
@@ -1079,13 +1080,13 @@
                                     </td>
                                     <td width="60%">
                                         <input type="checkbox"
-                                               name="c_considerationsPregnancySingleton" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancySingleton", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsPregnancySingleton" <carlos:encode value='<%= props.getProperty("c_considerationsPregnancySingleton", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.singleton"/>
                                         <input type="checkbox"
-                                               name="c_considerationsPregnancyTwin" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancyTwin", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsPregnancyTwin" <carlos:encode value='<%= props.getProperty("c_considerationsPregnancyTwin", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.twin"/>
                                         <input type="checkbox"
-                                               name="c_considerationsPregnancyMultiple" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsPregnancyMultiple", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsPregnancyMultiple" <carlos:encode value='<%= props.getProperty("c_considerationsPregnancyMultiple", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.multiple"/>
                                     </td>
                                 </tr>
@@ -1095,13 +1096,13 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACEligNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligNo", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACEligNo" <carlos:encode value='<%= props.getProperty("c_considerationsVBACEligNo", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.no"/>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACEligYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligYes", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACEligYes" <carlos:encode value='<%= props.getProperty("c_considerationsVBACEligYes", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.yes"/>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACEligNA" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACEligNA", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACEligNA" <carlos:encode value='<%= props.getProperty("c_considerationsVBACEligNA", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.na"/>
                                     </td>
                                 </tr>
@@ -1111,13 +1112,13 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACPlanNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanNo", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACPlanNo" <carlos:encode value='<%= props.getProperty("c_considerationsVBACPlanNo", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.no"/>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACPlanYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanYes", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACPlanYes" <carlos:encode value='<%= props.getProperty("c_considerationsVBACPlanYes", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.yes"/>
                                         <input type="checkbox"
-                                               name="c_considerationsVBACPlanNA" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsVBACPlanNA", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsVBACPlanNA" <carlos:encode value='<%= props.getProperty("c_considerationsVBACPlanNA", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.na"/>
                                     </td>
                                 </tr>
@@ -1127,13 +1128,13 @@
                                     </td>
                                     <td>
                                         <input type="checkbox"
-                                               name="c_considerationsBreastfeedNo" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedNo", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsBreastfeedNo" <carlos:encode value='<%= props.getProperty("c_considerationsBreastfeedNo", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.no"/>
                                         <input type="checkbox"
-                                               name="c_considerationsBreastfeedYes" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedYes", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsBreastfeedYes" <carlos:encode value='<%= props.getProperty("c_considerationsBreastfeedYes", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="global.yes"/>
                                         <input type="checkbox"
-                                               name="c_considerationsBreastfeedUN" <e:forHtmlAttribute value='<%= props.getProperty("c_considerationsBreastfeedUN", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_considerationsBreastfeedUN" <carlos:encode value='<%= props.getProperty("c_considerationsBreastfeedUN", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                                         <fmt:message key="form.formBCAR2020pg2.option.undecided"/>
                                     </td>
                                 </tr>
@@ -1316,17 +1317,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD1" <carlos:encode value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM1" <carlos:encode value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP1" <carlos:encode value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.np"/>
                         </td>
                     </tr>
@@ -1349,17 +1350,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD2" <carlos:encode value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM2" <carlos:encode value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP2" <carlos:encode value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg2.label.np"/>
                         </td>
                     </tr>
@@ -1382,17 +1383,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD3" <carlos:encode value='<%= props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             MD
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM3" <carlos:encode value='<%= props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             RM
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP3" <carlos:encode value='<%= props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             NP
                         </td>
                     </tr>

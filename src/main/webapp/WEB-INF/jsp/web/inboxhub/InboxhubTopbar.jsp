@@ -23,20 +23,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <c:set var="providerNo" value="${sessionScope.user}" />
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 
 <%-- Ordered by workflow: incoming → pending → uploads → create → config --%>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <c:if test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
 <c:if test="${!CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
-    <a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 </c:if>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/SubmitLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-<a href="javascript:reportWindow('${e:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${e:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/SubmitLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

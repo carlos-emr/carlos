@@ -49,6 +49,8 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,8 +80,8 @@
             });
 
             function loadIndicators() {
-                <c:set var="__enc_1"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getIndicators&flowsheetId=<e:forJavaScript value='${__enc_1}' />", {},
+                <c:set var="__enc_1"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getIndicators&flowsheetId=<carlos:encode value='${__enc_1}' context="javaScript"/>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.indicators instanceof Array) {
@@ -103,9 +105,9 @@
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItemTarget',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                                                <c:set var="__enc_2"><e:forUriComponent value='<%= flowsheetId %>' /></c:set>
-                        <c:set var="__enc_3"><e:forUriComponent value='<%= measurementType %>' /></c:set>
-location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<e:forJavaScript value='${__enc_2}' />&measurementType=<e:forJavaScript value='${__enc_3}' />';
+                                                <c:set var="__enc_2"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_3"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<carlos:encode value='${__enc_2}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_3}' context="javaScript"/>';
                     });
             }
 
@@ -122,8 +124,8 @@ location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/admin
     <h2>Flowsheet Target Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<e:forHtmlAttribute value='<%= flowsheetId %>' />"/>
-        <input type="hidden" name="measurementType" value="<e:forHtmlAttribute value='<%= measurementType %>' />"/>
+        <input type="hidden" name="flowsheetId" value="<carlos:encode value='<%= flowsheetId %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="measurementType" value="<carlos:encode value='<%= measurementType %>' context="htmlAttribute"/>"/>
 
         <table style="width:20%">
             <tr>

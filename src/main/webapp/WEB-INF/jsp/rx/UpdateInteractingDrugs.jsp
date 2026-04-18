@@ -34,6 +34,8 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -65,8 +67,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<e:forJavaScriptBlock value='<%= interactingDrugList != null ? interactingDrugList : "" %>' />';
-    var randomIds = '<e:forJavaScriptBlock value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' />';
+    var interactStr = '<carlos:encode value='<%= interactingDrugList != null ? interactingDrugList : "" %>' context="javaScriptBlock"/>';
+    var randomIds = '<carlos:encode value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' context="javaScriptBlock"/>';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {
@@ -162,8 +164,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<e:forJavaScriptBlock value='<%= interactingDrugList != null ? interactingDrugList : "" %>' />';
-    var randomIds = '<e:forJavaScriptBlock value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' />';
+    var interactStr = '<carlos:encode value='<%= interactingDrugList != null ? interactingDrugList : "" %>' context="javaScriptBlock"/>';
+    var randomIds = '<carlos:encode value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' context="javaScriptBlock"/>';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {

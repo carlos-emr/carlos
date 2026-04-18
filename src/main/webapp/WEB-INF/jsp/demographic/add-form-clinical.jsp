@@ -30,6 +30,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
@@ -89,7 +90,7 @@
                                             String docProviderNo = p.getProviderNo();
                                     %>
                                     <option id="doc<%=docProviderNo%>"
-                                            value="<%=docProviderNo%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                            value="<%=docProviderNo%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                     </option>
                                     <%
                                         }
@@ -102,7 +103,7 @@
                                 <%
                                     for (Provider p : providerDao.getActiveProvidersByRole("nurse")) {
                                 %>
-                                <option value="<%=p.getProviderNo()%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                 </option>
                                 <%
                                     }
@@ -118,7 +119,7 @@
                                     for (Provider p : providerDao.getActiveProvidersByRole("midwife")) {
                                 %>
                                 <option value="<%=p.getProviderNo()%>">
-                                    <e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                 </option>
                                 <%
                                     }
@@ -132,7 +133,7 @@
                                     for (Provider p : providerDao.getActiveProvidersByRole("doctor")) {
                                 %>
                                 <option value="<%=p.getProviderNo()%>">
-                                    <e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                 </option>
                                 <%
                                     }
@@ -243,7 +244,7 @@
                             </td>
                             <td id="chartNoLbl" align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formChartNo"/>:</b></td>
                             <td id="chartNo" align="left"><input type="text" id="chart_no" name="chart_no"
-                                                                 value="<e:forHtmlAttribute value='<%= chartNoVal %>' />">
+                                                                 value="<carlos:encode value='<%= chartNoVal %>' context="htmlAttribute"/>">
                             </td>
 
                         </tr>
@@ -532,12 +533,12 @@
                                     <tr class="privacyConsentRow" id="${ count.index }">
                                         <td class="alignRight" style="width:16%;vertical-align:top;">
                                             <div style="font-weight:bold;white-space:nowrap;">
-                                                ${e:forHtml(consentType.name)}
+                                                ${carlos:forHtml(consentType.name)}
                                             </div>
                                         </td>
 
                                         <td colspan="2" style="padding-left:10px;vertical-align:top;">
-                                            ${e:forHtml(consentType.description)}
+                                            ${carlos:forHtml(consentType.description)}
                                         </td>
 
                                         <td id="consentStatusDate" style="width:31%;vertical-align:top;">

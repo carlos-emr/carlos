@@ -49,6 +49,8 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -84,7 +86,7 @@
 
             function removeItem(id) {
                 jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeItem', {
-                        flowsheetId: '<e:forJavaScriptBlock value='<%= id %>' />',
+                        flowsheetId: '<carlos:encode value='<%= id %>' context="javaScriptBlock"/>',
                         id: id
                     },
                     function (data) {
@@ -97,7 +99,7 @@
             }
 
             function loadFlowsheet() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheet&id=<e:forUriComponent value='<%= id %>' />", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheet&id=<carlos:encode value='<%= id %>' context="uriComponent"/>", {},
                     function (xml) {
                         $("#itemTable tbody").empty();
                         document.getElementById('name').textContent = xml.name;
@@ -119,7 +121,7 @@
                                 var $tdActions = $('<td>');
                                 var $removeLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { removeItem(type); });
                                 $removeLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/icons/101.png', border: '0'}));
-                                var $editLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { editItem('<e:forJavaScriptBlock value='<%= id %>' />', type); });
+                                var $editLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { editItem('<carlos:encode value='<%= id %>' context="javaScriptBlock"/>', type); });
                                 $editLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/edit.png', border: '0'}));
                                 var $upLink = $('<a>').attr('href', 'javascript:void(0)').on('click', function() { sortItem(type, 'up'); });
                                 $upLink.append($('<img>').attr({src: '<%=request.getContextPath()%>/images/icon_up_sort_arrow.png', border: '0'}));
@@ -177,7 +179,7 @@
                 var typeId = document.getElementById('types').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet?method=addMeasurement', {
-                    flowsheetId:'<e:forJavaScriptBlock value='<%= id %>' />',
+                    flowsheetId:'<carlos:encode value='<%= id %>' context="javaScriptBlock"/>',
                     measurementTypeId: typeId
                 }, function (data) {
                     loadFlowsheet();
@@ -188,7 +190,7 @@
                 var typeId = document.getElementById('preventionTypes').value;
 
                 $.post('<%=request.getContextPath()%>/admin/Flowsheet?method=addPrevention', {
-                    flowsheetId:'<e:forJavaScriptBlock value='<%= id %>' />',
+                    flowsheetId:'<carlos:encode value='<%= id %>' context="javaScriptBlock"/>',
                     preventionType: typeId
                 }, function (data) {
                     loadFlowsheet();

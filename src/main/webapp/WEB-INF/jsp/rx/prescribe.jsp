@@ -74,6 +74,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" />
 <%
@@ -270,15 +271,15 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<e:forJavaScriptAttribute value='<%= drugName %>' />')">F</a>
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
     <%-- Modern flexbox layout for drug name field - replaces float-based layout for better alignment and responsiveness --%>
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
-        <label style="width:101px;flex-shrink:0;" title="<e:forHtmlAttribute value='<%= ATC %>' />" >${i18nName}:</label>
-        <input type="hidden" name="atcCode" value="<e:forHtmlAttribute value='<%= ATCcode %>' />" />
-        <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<e:forHtmlAttribute value='<%= drugName %>' />"<%} else{%> value="<e:forHtmlAttribute value='<%= drugName %>' />"  onchange="changeDrugName('<%=rand%>','<e:forJavaScriptAttribute value='<%= drugName %>' />');" <%}%> TITLE="<e:forHtmlAttribute value='<%= drugName %>' />"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
+        <label style="width:101px;flex-shrink:0;" title="<carlos:encode value='<%= ATC %>' context="htmlAttribute"/>" >${i18nName}:</label>
+        <input type="hidden" name="atcCode" value="<carlos:encode value='<%= ATCcode %>' context="htmlAttribute"/>" />
+        <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"<%} else{%> value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"  onchange="changeDrugName('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');" <%}%> TITLE="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
     </div>
 
 	<!-- Allergy Alert Table-->
@@ -314,80 +315,80 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="margin-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">
             <a tabindex="-1" href="javascript:void(0);" onclick="showHideSpecInst('siAutoComplete_<%=rand%>')" style="width:101px;flex-shrink:0;">${i18nShowHideSpecInst}: </a>
-            <input type="text" id="instructions_<e:forHtmlAttribute value='<%= rand %>' />" name="instructions_<e:forHtmlAttribute value='<%= rand %>' />" onkeypress="handleEnter(this,event);"
-                   value="<e:forHtmlAttribute value='<%= instructions %>' />" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
-                                                                                   onclick="displayMedHistory('<e:forJavaScriptAttribute value='<%= rand %>' />');"
+            <input type="text" id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
+                   value="<carlos:encode value='<%= instructions %>' context="htmlAttribute"/>" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
+                                                                                   onclick="displayMedHistory('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"
                                                                                    style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
                                                                                    title="${i18nInstructionExamples}"><b>*</b></a>
-            <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<e:forJavaScriptAttribute value='<%= rand %>' />');"><img
+            <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"><img
                     src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" title="${i18nInstructionsFieldRef}" /></a>
-            <span id="major_<e:forHtmlAttribute value='<%= rand %>' />" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<e:forHtmlAttribute value='<%= rand %>' />"
+            <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
                                                                                                     style="display:none;background-color:orange"></span>&nbsp;<span
-                id='minor_<e:forHtmlAttribute value='<%= rand %>' />' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<e:forHtmlAttribute value='<%= rand %>' />'
+                id='minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>'
                                                                                                       style="display:none;background-color:#B1FB17"></span>
         </div>
-        <div id="siAutoComplete_<e:forHtmlAttribute value='<%= rand %>' />" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
+        <div id="siAutoComplete_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
              style="overflow:visible;display:none;margin-top:1px;margin-bottom:10px"<%}%> >
-            <label style="float:left;width:106px;">&nbsp;&nbsp;</label><input id="siInput_<e:forHtmlAttribute value='<%= rand %>' />" type="text" size="60"
+            <label style="float:left;width:106px;">&nbsp;&nbsp;</label><input id="siInput_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" type="text" size="60"
                                                                          <%if(!isSpecInstPresent) {%>style="color:gray; width:auto"
                                                                          value="${i18nEnterSpecInst}" <%} else {%>
                                                                          style="color:black; width:auto"
-                                                                         value="<e:forHtmlAttribute value='<%= specialInstruction %>' />" <%}%>
-                                                                         onblur="changeText('siInput_<e:forJavaScriptAttribute value='<%= rand %>' />');updateSpecialInstruction('siInput_<e:forJavaScriptAttribute value='<%= rand %>' />');"
-                                                                         onfocus="changeText('siInput_<e:forJavaScriptAttribute value='<%= rand %>' />');">
-            <div id="siContainer_<e:forHtmlAttribute value='<%= rand %>' />" style="float:right">
+                                                                         value="<carlos:encode value='<%= specialInstruction %>' context="htmlAttribute"/>" <%}%>
+                                                                         onblur="changeText('siInput_<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');updateSpecialInstruction('siInput_<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"
+                                                                         onfocus="changeText('siInput_<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');">
+            <div id="siContainer_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="float:right">
             </div>
             <div style="clear:both;"></div>
         </div>
         <br>
     </div>
 		<div>
-        <label id="labelQuantity_<e:forHtmlAttribute value='<%= rand %>' />" style="float:left;width:80px;">${i18nQtyMitte}:</label><input
-            size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<e:forHtmlAttribute value='<%= rand %>' />"
-            name="quantity_<e:forHtmlAttribute value='<%= rand %>' />" value="<e:forHtmlAttribute value='<%= quantityText %>' />"
-            onblur="updateQty(this);getCost('cost_<e:forHtmlAttribute value='<%= rand %>' />','<e:forJavaScriptAttribute value='<%= rand %>' />','<e:forJavaScriptAttribute value='<%= rx.getRegionalIdentifier() %>' />',this.value)">
-        <span id="cost_<e:forHtmlAttribute value='<%= rand %>' />" style="margin-left:4px;"></span>
-        <label style=""><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<e:forHtmlAttribute value='<%= rand %>' />"  <%if (rx.isCustomNote()) {%>
-                                               disabled <%}%> name="repeats_<e:forHtmlAttribute value='<%= rand %>' />" value="<e:forHtmlAttribute value='<%= repeats %>' />"
-                                               onInput="updateLongTerm('<e:forJavaScriptAttribute value='<%= rand %>' />',this)"
+        <label id="labelQuantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="float:left;width:80px;">${i18nQtyMitte}:</label><input
+            size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
+            name="quantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= quantityText %>' context="htmlAttribute"/>"
+            onblur="updateQty(this);getCost('cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>','<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>',this.value)">
+        <span id="cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="margin-left:4px;"></span>
+        <label style=""><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"  <%if (rx.isCustomNote()) {%>
+                                               disabled <%}%> name="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= repeats %>' context="htmlAttribute"/>"
+                                               onInput="updateLongTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',this)"
                                                onblur="updateProperty(this.id)"/>
 		</div>
-    <div id="medTerm_<e:forHtmlAttribute value='<%= rand %>' />">
+    <div id="medTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>">
         <label><fmt:message key="WriteScript.msgLongTermMedication"/>: </label>
 			<span>
-				<label for="longTermY_<e:forHtmlAttribute value='<%= rand %>' />"><fmt:message key="WriteScript.msgYes"/> </label>
-			  	<input type="radio" id="longTermY_<e:forHtmlAttribute value='<%= rand %>' />" name="longTerm_<e:forHtmlAttribute value='<%= rand %>' />" value="yes"
+				<label for="longTermY_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgYes"/> </label>
+			  	<input type="radio" id="longTermY_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="longTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="yes"
                        class="med-term" <%if (longTerm != null && longTerm) {%> checked="checked" <%}%>
-                       onChange="updateShortTerm('<e:forJavaScriptAttribute value='<%= rand %>' />',false)"/>
+                       onChange="updateShortTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',false)"/>
 			  	
-			  	<label for="longTermN_<e:forHtmlAttribute value='<%= rand %>' />"><fmt:message key="WriteScript.msgNo"/> </label>
-			  	<input type="radio" id="longTermN_<e:forHtmlAttribute value='<%= rand %>' />" name="longTerm_<e:forHtmlAttribute value='<%= rand %>' />" value="no"
+			  	<label for="longTermN_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgNo"/> </label>
+			  	<input type="radio" id="longTermN_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="longTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="no"
                        class="med-term" <%if (longTerm != null && !longTerm) {%> checked="checked" <%}%>
-                       onChange="updateShortTerm('<e:forJavaScriptAttribute value='<%= rand %>' />',true)"/>
+                       onChange="updateShortTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',true)"/>
 			  	
-			  	<label for="longTermE_<e:forHtmlAttribute value='<%= rand %>' />"><fmt:message key="WriteScript.msgUnset"/> </label>
-			  	<input type="radio" id="longTermE_<e:forHtmlAttribute value='<%= rand %>' />" name="longTerm_<e:forHtmlAttribute value='<%= rand %>' />" value="unset"
+			  	<label for="longTermE_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgUnset"/> </label>
+			  	<input type="radio" id="longTermE_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="longTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="unset"
                        class="med-term" <%if (longTerm == null) {%> checked="checked" <%}%>
-                       onChange="updateShortTerm('<e:forJavaScriptAttribute value='<%= rand %>' />',false)"/>
+                       onChange="updateShortTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',false)"/>
 				<div style="display:none">
-					<label for="shortTerm_<e:forHtmlAttribute value='<%= rand %>' />"><fmt:message key="WriteScript.msgSortTermMedication"/> </label>
-	        		<input type="checkbox" id="shortTerm_<e:forHtmlAttribute value='<%= rand %>' />" name="shortTerm_<e:forHtmlAttribute value='<%= rand %>' />"
+					<label for="shortTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"><fmt:message key="WriteScript.msgSortTermMedication"/> </label>
+	        		<input type="checkbox" id="shortTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="shortTerm_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
                            class="med-term" <%if (shortTerm) {%> checked="checked" <%}%> />
 	        	</div>
 	        </span>
 		</div>
         
         <%if(genericName!=null&&!genericName.equalsIgnoreCase("null")){%>
-        <div><a>${i18nIngredient}:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<e:forHtmlContent value='<%= genericName %>' /></a></div><%}%>
+        <div><a>${i18nIngredient}:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<carlos:encode value='<%= genericName %>' context="html"/></a></div><%}%>
        <div class="rxStr" title="not what you mean?" >
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('method_<%=rand%>')">${i18nMethod}:</a><a   id="method_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"><e:forHtmlContent value='<%= methodStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('route_<%=rand%>')">${i18nRoute}:</a><a id="route_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= routeStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('frequency_<%=rand%>')">${i18nFrequency}:</a><a  id="frequency_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= frequencyStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= minimumStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= maximumStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('duration_<%=rand%>')">${i18nDuration}:</a><a  id="duration_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= durationStr %>' /></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('durationUnit_<%=rand%>')">${i18nDurationUnit}:</a><a  id="durationUnit_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <e:forHtmlContent value='<%= durationUnitStr %>' /></a>
-           <a tabindex="-1" >${i18nQtyMitte}:</a><a tabindex="-1" id="quantityStr_<%=rand%>"> <e:forHtmlContent value='<%= quantityStr %>' /></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('method_<%=rand%>')">${i18nMethod}:</a><a   id="method_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"><carlos:encode value='<%= methodStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('route_<%=rand%>')">${i18nRoute}:</a><a id="route_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= routeStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('frequency_<%=rand%>')">${i18nFrequency}:</a><a  id="frequency_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= frequencyStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= minimumStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= maximumStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('duration_<%=rand%>')">${i18nDuration}:</a><a  id="duration_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= durationStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('durationUnit_<%=rand%>')">${i18nDurationUnit}:</a><a  id="durationUnit_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= durationUnitStr %>' context="html"/></a>
+           <a tabindex="-1" >${i18nQtyMitte}:</a><a tabindex="-1" id="quantityStr_<%=rand%>"> <carlos:encode value='<%= quantityStr %>' context="html"/></a>
            <a> </a><a tabindex="-1" id="unitName_<%=rand%>"> </a>
            <a> </a><a tabindex="-1" href="javascript:void(0);" id="prn_<%=rand%>" onclick="setPrn('<%=rand%>');updateProperty('prnVal_<%=rand%>');"><%=prnStr%></a>
            <input id="prnVal_<%=rand%>"  style="display:none" <%if(prnStr.trim().length()==0){%>value="false"<%} else{%>value="true" <%}%> />
@@ -426,11 +427,11 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 <b><label style="float:left;width:80px;">${i18nName}:</label></b> <input type="text"
                                                                                    id="outsideProviderName_<%=rand%>"
                                                                                    name="outsideProviderName_<%=rand%>" <%if (outsideProvName != null) {%>
-                                                                                   value="<e:forHtmlAttribute value='<%= outsideProvName %>' />"<%} else {%>
+                                                                                   value="<carlos:encode value='<%= outsideProvName %>' context="htmlAttribute"/>"<%} else {%>
                                                                                    value=""<%}%> />
                 <b><label style="width:80px;">${i18nOHIPNO}:</label></b> <input type="text" id="outsideProviderOhip_<%=rand%>"
                                                                           name="outsideProviderOhip_<%=rand%>"
-                                                                          <%if(outsideProvOhip!=null){%>value="<e:forHtmlAttribute value='<%= outsideProvOhip %>' />"<%} else {%>
+                                                                          <%if(outsideProvOhip!=null){%>value="<carlos:encode value='<%= outsideProvOhip %>' context="htmlAttribute"/>"<%} else {%>
                                                                           value=""<%}%>/>
             </div>
           </div>
@@ -481,7 +482,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 	</div><div>
         <label style="float:left;width:80px;">${i18nWrittenDate}:</label>
            <input type="text" id="writtenDate_<%=rand%>"  name="writtenDate_<%=rand%>" value="<%=writtenDate%>" />
-           <a href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="addFav('<%=rand%>','<e:forJavaScriptAttribute value='<%= drugName %>' />');return false;">${i18nAddToFavoriteLink}</a>
+           <a href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');return false;">${i18nAddToFavoriteLink}</a>
        
            </div><div>
            			           
@@ -552,7 +553,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<%=rx.getAtcCode()%>');</script>
             </oscar:oscarPropertiesCheck>
            <oscar:oscarPropertiesCheck property="billregion" value="ON" >
-               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<e:forJavaScriptBlock value='<%= rx.getRegionalIdentifier() %>' />');</script>
+               <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');</script>
             </oscar:oscarPropertiesCheck>
 			
 </fieldset>
@@ -703,7 +704,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<e:forJavaScriptBlock value='<%= drugName %>' />'));
+            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>'));
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -752,7 +753,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             });
 
             checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
-            checkIfInactive('<%=rand%>','<e:forJavaScriptBlock value='<%= rx.getRegionalIdentifier() %>' />');
+            checkIfInactive('<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
             //oscarLog("isDiscon "+isDiscontinuedLatest);

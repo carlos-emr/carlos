@@ -56,6 +56,8 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String labType = request.getParameter("labType");
@@ -179,22 +181,22 @@
                                                             <tr>
                                                                 <td>
                                                                     <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
-                                                                        <e:forHtmlContent value='<%= demographic.getFormattedName() %>' />
+                                                                        <carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
                                                                     </div>
 
                                                                 </td>
                                                                 <td>
-                                                                    <div class="" nowrap><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><e:forHtmlContent value='<%= demographic.getSex() %>' />
+                                                                    <div class="" nowrap><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><carlos:encode value='<%= demographic.getSex() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <e:forHtmlContent value='<%= DemographicData.getDob(demographic, "-") %>' />
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <carlos:encode value='<%= DemographicData.getDob(demographic, "-") %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><e:forHtmlContent value='<%= String.valueOf(demographic.getAge()) %>' />
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><carlos:encode value='<%= String.valueOf(demographic.getAge()) %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -247,17 +249,17 @@
                         %>
 
                         <tr class="<%=lineClass%>">
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("testName")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("testName")) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("result")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("result")) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("abn")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("abn")) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("range")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("range")) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("units")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= String.valueOf(h.get("collDate")) %>' />
+                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
                             </td>
                         </tr>
 
@@ -277,7 +279,7 @@
                                                                                      value=" <fmt:message key="global.btnPrint"/> "
                                                                                      onClick="window.print()">
                                 <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
-                                       onclick="window.location = '<e:forJavaScript value='<%= request.getContextPath() %>' />/lab/CA/ON/ViewLabValuesGraph?demographic_no=<e:forUriComponent value='<%= String.valueOf(demographicNo) %>' />&labType=<e:forUriComponent value='<%= labType %>' />&identifier=<e:forUriComponent value='<%= identifier %>' />&testName=<e:forUriComponent value='<%= testName %>' />';"/>
+                                       onclick="window.location = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/lab/CA/ON/ViewLabValuesGraph?demographic_no=<carlos:encode value='<%= String.valueOf(demographicNo) %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/>';"/>
 
                             </td>
                         </tr>

@@ -51,6 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*,java.text.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site,io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -278,7 +279,7 @@
 <c:if test="${not empty paymentTypeList}">
     <form name="editPayment" id="editPayment" method="POST" action="">
         <input type="hidden" name="method" value="savePayment"/>
-        <input type="hidden" name="billingNo" value="<e:forHtmlAttribute value='<%= billingNo %>' />"/>
+        <input type="hidden" name="billingNo" value="<carlos:encode value='<%= billingNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="id" id="paymentId" value=""/>
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#CCCCFF">
@@ -353,7 +354,7 @@
                                 <input type="radio" name="paymentType"
                                     id="paymentType${billingPaymentType.id}"
                                     value="${billingPaymentType.id}" ${ttr.index == 0 ? "checked" : ""}/>
-                                ${e:forHtml(billingPaymentType.paymentType)}
+                                ${carlos:forHtml(billingPaymentType.paymentType)}
                             </td>
                             <c:if test="${ttr.index % 2 != 0}">
                                 </tr>
@@ -446,12 +447,12 @@
             <c:forEach var="displayPayment" items="${paymentsList}" varStatus="ctr">
                 <tr>
                     <td>${ctr.index + 1}</td>
-                    <td>${e:forHtml(displayPayment.total_payment)}</td>
+                    <td>${carlos:forHtml(displayPayment.total_payment)}</td>
                     <td>${types[ctr.index]}</td>
-                    <td>${e:forHtml(displayPayment.paymentDateFormatted)}</td>
-                    <td>${e:forHtml(displayPayment.total_discount)}</td>
-                    <td>${e:forHtml(displayPayment.total_credit)}</td>
-                    <td>${e:forHtml(displayPayment.total_refund)}</td>
+                    <td>${carlos:forHtml(displayPayment.paymentDateFormatted)}</td>
+                    <td>${carlos:forHtml(displayPayment.total_discount)}</td>
+                    <td>${carlos:forHtml(displayPayment.total_credit)}</td>
+                    <td>${carlos:forHtml(displayPayment.total_refund)}</td>
                     <td>
                         <c:choose>
                             <c:when test="${balances[ctr.index] < 0}">
@@ -463,7 +464,7 @@
                         </c:choose>
                     </td>
                     <td>
-                        <a href="javascript:onViewPayment('${e:forJavaScript(displayPayment.id)}')" >view</a>
+                        <a href="javascript:onViewPayment('${carlos:forJavaScript(displayPayment.id)}')" >view</a>
                     </td>
                 </tr>
             </c:forEach>

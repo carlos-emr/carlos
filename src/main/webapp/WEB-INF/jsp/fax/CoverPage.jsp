@@ -37,6 +37,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -201,7 +202,7 @@
                 <tr>
                     <td id="oscarFaxHeaderLeftColumn"><h1>CARLOS Fax</h1></td>
 
-                    <td id="oscarFaxHeaderCenterColumn"><e:forHtml value='${ transactionType }' /></td>
+                    <td id="oscarFaxHeaderCenterColumn"><carlos:encode value='${ transactionType }' context="forHtml"/></td>
                     <td id="oscarFaxHeaderRightColumn" align=right>
 						<span class="HelpAboutLogout"> 
 							<a style="font-size: 10px; font-style: normal;" href="${ ctx }encounter/About.jsp"
@@ -223,16 +224,16 @@
 			
 			<form id="coverPageForm" class="d-flex flex-wrap align-items-center gap-2" action='${ formAction }' onsubmit="return submitForm(event)" method="post" novalidate>
 			
-				<input type="hidden" name="requestId" value="<e:forHtmlAttribute value='${ reqId }' />" />
-				<input type="hidden" name="reqId" value="<e:forHtmlAttribute value='${ reqId }' />" />
-				<input type="hidden" name="transactionId" value="<e:forHtmlAttribute value='${ not empty reqId ? reqId : transactionId }' />" />
-				<input type="hidden" name="transactionType" value="<e:forHtmlAttribute value='${ transactionType }' />" />
-				<input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='${ not empty demographicNo ? demographicNo : param.demographicNo }' />" />
-		  		<input type="hidden" name="faxFilePath" value="<e:forHtmlAttribute value='${ faxFilePath }' />" />
+				<input type="hidden" name="requestId" value="<carlos:encode value='${ reqId }' context="htmlAttribute"/>" />
+				<input type="hidden" name="reqId" value="<carlos:encode value='${ reqId }' context="htmlAttribute"/>" />
+				<input type="hidden" name="transactionId" value="<carlos:encode value='${ not empty reqId ? reqId : transactionId }' context="htmlAttribute"/>" />
+				<input type="hidden" name="transactionType" value="<carlos:encode value='${ transactionType }' context="htmlAttribute"/>" />
+				<input type="hidden" name="demographicNo" value="<carlos:encode value='${ not empty demographicNo ? demographicNo : param.demographicNo }' context="htmlAttribute"/>" />
+		  		<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
 		  		
 		  		<%-- to be removed soon below --%>
-		  		<input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ documents }' />" />
-		  		<input type="hidden" name="transType" value="<e:forHtmlAttribute value='${ transType }' />" />
+		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
+		  		<input type="hidden" name="transType" value="<carlos:encode value='${ transType }' context="htmlAttribute"/>" />
 							
 				<div class="card">
 				  	<div class="card-header">
@@ -245,14 +246,14 @@
 							  <label for="senderFaxAccount">Fax account</label>
 							  <select class="form-select" name="senderFaxNumber"  id="senderFaxAccount">
 									<c:forEach items="${ requestScope.accounts }" var="account">
-							    		<option value="<e:forHtmlAttribute value='${ account.faxNumber }' />" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
-							    			${e:forHtml(account.accountName)} (${e:forHtml(account.faxNumber)})
+							    		<option value="<carlos:encode value='${ account.faxNumber }' context="htmlAttribute"/>" ${ account.id eq requestScope.faxAccount or account.faxNumber eq param.letterheadFax ? 'selected' : '' } >
+							    			${carlos:forHtml(account.accountName)} (${carlos:forHtml(account.faxNumber)})
 							    		</option>
 									</c:forEach>
 							  </select>
 	
 							  <%-- to be removed soon below --%>
-							  <input type="hidden" name="sendersFax" value="<e:forHtmlAttribute value='${ not empty letterheadFax ? letterheadFax : param.letterheadFax }' />" />
+							  <input type="hidden" name="sendersFax" value="<carlos:encode value='${ not empty letterheadFax ? letterheadFax : param.letterheadFax }' context="htmlAttribute"/>" />
 							</div>
 							</div>
 							<!-- <div class="row">
@@ -285,12 +286,12 @@
 						  	<div class="row" id="fax-recipients">	
 								<div class="col-sm-6 mb-3">
 									<label for="searchProfessionalSpecialist_name">Name</label>
-								 	<input class="autocomplete form-control" type="text" name="recipient" value="<e:forHtmlAttribute value='${ professionalSpecialistName }' />"
+								 	<input class="autocomplete form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
 								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required/>
 								 </div>	
 								 <div class="col-sm-6 mb-3">
 									<label for="searchProfessionalSpecialist_fax">Fax</label>
-									<input class="form-control" type="text" name="recipientFaxNumber" value="<e:forHtmlAttribute value='${ not empty fax ? fax : param.fax }' />"
+									<input class="form-control" type="text" name="recipientFaxNumber" value="<carlos:encode value='${ not empty fax ? fax : param.fax }' context="htmlAttribute"/>"
 										id="searchProfessionalSpecialist_fax" placeholder="xxx-xxx-xxxx"  required/>
 								</div>
 							</div>
@@ -330,17 +331,17 @@
 							  			<div class="row">
 								  			<div class="col-sm-12 input-group recipientGroup">
 								  				<label></label>
-											      <input type="text" class="form-control" value="<e:forHtmlAttribute value='${ recipient.name }' /> <e:forHtmlAttribute value='${ recipient.fax }' />" disabled/>
+											      <input type="text" class="form-control" value="<carlos:encode value='${ recipient.name }' context="htmlAttribute"/> <carlos:encode value='${ recipient.fax }' context="htmlAttribute"/>" disabled/>
 											      <button class="btn btn-danger" type="button">
 											        <span class="fa-solid fa-xmark"></span>
 											      </button>
 	                                    </div>
 	                                    <input type="hidden" name="copyToRecipients"
-	                                           value='"name":"<e:forHtmlAttribute value='${ recipient.name }' />","fax":"<e:forHtmlAttribute value='${ recipient.fax }' />"'/>
+	                                           value='"name":"<carlos:encode value='${ recipient.name }' context="htmlAttribute"/>","fax":"<carlos:encode value='${ recipient.fax }' context="htmlAttribute"/>"'/>
 
 	                                        <%-- to be removed below --%>
 	                                    <input type="hidden" name="faxRecipients"
-	                                           value='"name":"<e:forHtmlAttribute value='${ recipient.name }' />","fax":"<e:forHtmlAttribute value='${ recipient.fax }' />"'/>
+	                                           value='"name":"<carlos:encode value='${ recipient.name }' context="htmlAttribute"/>","fax":"<carlos:encode value='${ recipient.fax }' context="htmlAttribute"/>"'/>
 	                                </div>
 	                            </c:forEach>
                             </c:if>
@@ -358,8 +359,8 @@
                                 <div class="row">
                                     <ol class="list-group list-group-numbered col-sm-12">
                                         <c:forEach items="${ documents }" var="document">
-                                            <li class="list-group-item">${e:forHtml(document)}</li>
-                                            <input type="hidden" name="documents" value="<e:forHtmlAttribute value='${ document }' />"/>
+                                            <li class="list-group-item">${carlos:forHtml(document)}</li>
+                                            <input type="hidden" name="documents" value="<carlos:encode value='${ document }' context="htmlAttribute"/>"/>
                                         </c:forEach>
                                     </ol>
                                 </div>
@@ -426,7 +427,7 @@
                     <div class="card-body">
                         <div class="container">
                             <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<e:forUriComponent value='${faxFilePath}' />"
+                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
                                     type="application/pdf" width="100%" height="800">
                             </object>
                         </div>
@@ -441,12 +442,12 @@
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
                         <div class="alert alert-success" role="alert">
-                            Failed to add fax to outgoing queue: ${e:forHtml(faxJob.recipient)} at ${e:forHtml(faxJob.destination)} ${e:forHtml(faxJob.status)}: ${e:forHtml(faxJob.statusString)}
+                            Failed to add fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
                         </div>
                     </c:when>
                     <c:otherwise>
                         <div class="alert alert-success" role="alert">
-                            Successfully added fax to outgoing queue: ${e:forHtml(faxJob.recipient)} at ${e:forHtml(faxJob.destination)}
+                            Successfully added fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)}
                         </div>
                     </c:otherwise>
                 </c:choose>
@@ -457,7 +458,7 @@
 </div>
 
 <script type="text/javascript">
-    var ctx = "<e:forJavaScript value='${ ctx }' />";
+    var ctx = "<carlos:encode value='${ ctx }' context="javaScript"/>";
     
     // HTML entity encoding function to prevent XSS
     function escapeHtml(text) {

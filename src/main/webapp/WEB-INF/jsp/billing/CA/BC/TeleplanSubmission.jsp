@@ -59,6 +59,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -170,7 +171,7 @@
             <% for (String year : yearArray) { %>
             <tr>
                 <td align='CENTER'><a
-                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<e:forUriComponent value='<%= year %>' />">YEAR <e:forHtmlContent value='<%= year %>' />
+                        href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=<carlos:encode value='<%= year %>' context="uriComponent"/>">YEAR <carlos:encode value='<%= year %>' context="html"/>
                 </a></td>
             </tr>
             <% } %>
@@ -178,8 +179,8 @@
             <c:forEach var="year" items="${yearArray}">
                 <tr>
                     <td align='CENTER'><a
-                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=${e:forHtmlAttribute(year)}">YEAR
-                        ${e:forHtml(year)}</a></td>
+                            href="<%= request.getContextPath() %>/billing/CA/BC/SimulateTeleplanFile?year=${carlos:forHtmlAttribute(year)}">YEAR
+                        ${carlos:forHtml(year)}</a></td>
                 </tr>
             </c:forEach>
 
@@ -188,9 +189,9 @@
     </div>
 
 
-    <h4>Teleplan Group Report - <e:forHtmlContent value='<%= thisyear %>' />
+    <h4>Teleplan Group Report - <carlos:encode value='<%= thisyear %>' context="html"/>
     </h4>
-    <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
+    <c:if test="${!empty error}">${carlos:forHtml(error)}</c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile" method="post" onsubmit="return checkSubmit();"
                class="d-flex flex-wrap align-items-center gap-2">
@@ -204,7 +205,7 @@
                 for (String provNo : list) {
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<e:forHtmlAttribute value='<%= provider.getOhip_no() %>' />"><e:forHtmlContent value='<%= provider.getLast_name() %>' />,<e:forHtmlContent value='<%= provider.getFirst_name() %>' />
+            <option value="<carlos:encode value='<%= provider.getOhip_no() %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider.getLast_name() %>' context="html"/>,<carlos:encode value='<%= provider.getFirst_name() %>' context="html"/>
             </option>
             <%}%>
         </select>
@@ -239,10 +240,10 @@
                 </c:otherwise>
             </c:choose>
 
-            <td>${e:forHtml(billAct.providerohipno)}&nbsp;</td>
-            <td>${e:forHtml(billAct.groupno)}&nbsp;</td>
-            <td>${e:forHtml(billAct.updatedatetime)}&nbsp;</td>
-            <td>${e:forHtml(billAct.claimrecord)}&nbsp;</td>
+            <td>${carlos:forHtml(billAct.providerohipno)}&nbsp;</td>
+            <td>${carlos:forHtml(billAct.groupno)}&nbsp;</td>
+            <td>${carlos:forHtml(billAct.updatedatetime)}&nbsp;</td>
+            <td>${carlos:forHtml(billAct.claimrecord)}&nbsp;</td>
             <td><c:choose>
                 <c:when test="${billAct.status == 'A'}">
                     <a href="javascript:void(0);" onclick="sendTeleplanFile('${billAct.id}');">
@@ -255,10 +256,10 @@
             </c:choose></td>
 
             <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.ohipfilename}">
-                ${e:forHtml(billAct.ohipfilename)}
+                ${carlos:forHtml(billAct.ohipfilename)}
             </a></td>
             <td><a href="<%= request.getContextPath() %>/billing/CA/BC/DownloadBilling?filename=${billAct.htmlfilename}">
-                ${e:forHtml(billAct.htmlfilename)}
+                ${carlos:forHtml(billAct.htmlfilename)}
             </a></td>
             </tr>
         </c:forEach>

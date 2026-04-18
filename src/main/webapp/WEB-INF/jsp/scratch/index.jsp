@@ -39,6 +39,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
   String user_no = (String) request.getSession().getAttribute("user");
@@ -73,7 +75,7 @@
         let saveTimeout = null;
         let currentText = "";
         let lastSavedText = "";
-		const context = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
+		const context = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
 
         function setDirty(){
             dirty = true;
@@ -420,7 +422,7 @@
             </h2>
         </div>
           <div class="user-name" >
-              <h4><e:forHtmlContent value='<%= userfirstname %>' /> <e:forHtmlContent value='<%= userlastname %>' /></h4>
+              <h4><carlos:encode value='<%= userfirstname %>' context="html"/> <carlos:encode value='<%= userlastname %>' context="html"/></h4>
           </div>
     </div>
 
@@ -438,7 +440,7 @@
 				    Date date = scratchPad.getDateTime();
 				    
 				%>
-					<option value="<e:forHtmlAttribute value='<%= strId %>' />"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
+					<option value="<carlos:encode value='<%= strId %>' context="htmlAttribute"/>"><%=DateUtils.formatDateTime(date, request.getLocale())%></option>
 				<%
 				}
 				%>
@@ -449,12 +451,12 @@
 
 		<td class="MainTableRightColumn" id="mainRight">
 		<form id="scratch" action="">
-            <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= user_no %>' />" />
-            <input type="hidden" name="id" id="curr_id" value="<e:forHtmlAttribute value='<%= id %>' />" />
+            <input type="hidden" name="providerNo" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>" />
+            <input type="hidden" name="id" id="curr_id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" />
             <input type="hidden" name="windowId" id="windowId" value="<%=String.valueOf(System.nanoTime())%>" />
             <input type="hidden" name="dirty" value=false id="dirty" />
             <textarea name="scratchpad" id="thetext" rows="50"
-			cols="50" oninput="setDirty();" onpaste="setDirty();" ><e:forHtmlContent value='<%= text %>' /></textarea>
+			cols="50" oninput="setDirty();" onpaste="setDirty();" ><carlos:encode value='<%= text %>' context="html"/></textarea>
 
         </form>
 		</td>

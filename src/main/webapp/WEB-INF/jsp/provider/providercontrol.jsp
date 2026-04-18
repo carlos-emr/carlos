@@ -175,9 +175,13 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // Use jsp:include instead of pageContext.forward() because Tomcat 11's
-    // response buffer handling prevents forward() from working when response
-    // wrapper filters (CSRFGuard, LogoutBroadcast) are in the filter chain.
+    // Include the target (Struts action or relative JSP). Struts filters are mapped
+    // to REQUEST, FORWARD, and INCLUDE dispatchers in web.xml so Struts action paths
+    // (like /provider/ViewAppointmentAdminDay) route through Struts on the include,
+    // and JSP file paths are resolved by the JSP servlet (`.jsp` is in
+    // struts.action.excludePattern). This keeps the browser URL as the section-root
+    // /provider/providercontrol router so bookmarks and back-stack behavior are
+    // preserved across display modes.
     out.clearBuffer();
     String includeTarget = opToFileDict.getDef(operation, "");
     request.getRequestDispatcher(includeTarget).include(request, response);

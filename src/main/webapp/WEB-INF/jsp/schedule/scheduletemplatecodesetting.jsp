@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -145,13 +146,13 @@
 
                     for (ScheduleTemplateCode stc : stcs) {
                 %>
-                <option value="<%=stc.getCode()%>"><%=stc.getCode() + " |" + Encode.forHtmlContent(stc.getDescription())%>
+                <option value="<%=stc.getCode()%>"><%=stc.getCode() + " |" + SafeEncode.forHtmlContent(stc.getDescription())%>
                 </option>
                 <%
                     }
                 %>
             </select>
-            <input type="hidden" name="dboperation" value="<%= Encode.forHtmlAttribute(opEdit) %>">
+            <input type="hidden" name="dboperation" value="<%= SafeEncode.forHtmlAttribute(opEdit) %>">
             <input type="submit" class="btn btn-secondary" value='<fmt:message key="schedule.scheduletemplatecodesetting.btnEdit"/>'>
         </form>
     </div>
@@ -184,7 +185,7 @@
                 <label class="form-label" for="description"><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
                 <div>
                     <input type="text" name="description" id="description" maxlength="40"
-                            <%=bEdit?("value='"+Encode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
+                            <%=bEdit?("value='"+SafeEncode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
                 </div>
             </div>
             <div class="mb-3">
@@ -239,10 +240,10 @@
                 <div style="text-align:right">
                     <br>
                     <input type="button" class="btn btn-secondary"
-                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opDelete) %>'; document.forms['addtemplatecode'].submit();"
+                           onclick="document.forms['addtemplatecode'].dboperation.value='<%= SafeEncode.forJavaScript(opDelete) %>'; document.forms['addtemplatecode'].submit();"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnDelete"/>'>
                     <input type="button" class="btn btn-primary"
-                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= Encode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
+                           onclick="if( validateNum() ) { document.forms['addtemplatecode'].dboperation.value='<%= SafeEncode.forJavaScript(opSave) %>'; document.forms['addtemplatecode'].submit();}"
                            value='<fmt:message key="schedule.scheduletemplatecodesetting.btnSave"/>'>
                     <input type="button" name="Button" class="btn btn-link"
                            value='<fmt:message key="global.btnExit"/>'

@@ -50,6 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddSpecialistForm" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -123,7 +124,7 @@
                         Department d = departmentDao.find(deptId);
                         if(d != null) {
                         %>
-                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<e:forJavaScriptBlock value='<%= d.getName() %>' />'));
+                    $('#department').append($("<option></option>").attr("value", '<%=deptId%>').text('<carlos:encode value='<%= d.getName() %>' context="javaScriptBlock"/>'));
                     <%
                 } }
                 %>
@@ -163,12 +164,12 @@
         <script>
             /* i18n strings for CPSO search – rendered server-side so JS stays locale-aware */
             var cpsoI18n = {
-                unavailable:   '${e:forJavaScript(cpsoMsgUnavailable)}',
-                noResults:     '${e:forJavaScript(cpsoMsgNoResults)}',
-                tooMany:       '${e:forJavaScript(cpsoMsgTooMany)}',
-                phoneLabel:    '${e:forJavaScript(cpsoMsgPhone)}',
-                faxLabel:      '${e:forJavaScript(cpsoMsgFax)}',
-                cpsoLabel:     '${e:forJavaScript(cpsoMsgCpso)}'
+                unavailable:   '${carlos:forJavaScript(cpsoMsgUnavailable)}',
+                noResults:     '${carlos:forJavaScript(cpsoMsgNoResults)}',
+                tooMany:       '${carlos:forJavaScript(cpsoMsgTooMany)}',
+                phoneLabel:    '${carlos:forJavaScript(cpsoMsgPhone)}',
+                faxLabel:      '${carlos:forJavaScript(cpsoMsgFax)}',
+                cpsoLabel:     '${carlos:forJavaScript(cpsoMsgCpso)}'
             };
         </script>
         <script>
@@ -337,7 +338,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -396,9 +397,9 @@
                     %>
                     <script>
                         document.addEventListener('DOMContentLoaded', function () {
-                            document.getElementById('institution').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("institution")) %>' />';
+                            document.getElementById('institution').value = '<carlos:encode value='<%= String.valueOf(request.getAttribute("institution")) %>' context="javaScriptBlock"/>';
                             changeInstitution();
-                            document.getElementById('department').value = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("department")) %>' />';
+                            document.getElementById('department').value = '<carlos:encode value='<%= String.valueOf(request.getAttribute("department")) %>' context="javaScriptBlock"/>';
                         });
                     </script>
                     <% } %>
@@ -421,17 +422,17 @@
                             <div class="row mb-2">
                                 <div class="col-md-5">
                                     <label for="cpsoLastName" class="form-label form-label-sm mb-1"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.lastNameLabel"/></label>
-                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrLNPlaceholder)}" autocomplete="off"/>
+                                    <input type="text" id="cpsoLastName" class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(cpsoAttrLNPlaceholder)}" autocomplete="off"/>
                                 </div>
                                 <div class="col-md-5">
                                     <label for="cpsoFirstName" class="form-label form-label-sm mb-1"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.firstNameLabel"/></label>
-                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="${e:forHtmlAttribute(cpsoAttrFNPlaceholder)}" autocomplete="off"/>
+                                    <input type="text" id="cpsoFirstName" class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(cpsoAttrFNPlaceholder)}" autocomplete="off"/>
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end">
-                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="${e:forHtmlAttribute(cpsoAttrAriaSearching)}"></span>
+                                    <span id="cpsoSpinner" class="spinner-border spinner-border-sm text-primary" style="display:none;" role="status" aria-label="${carlos:forHtmlAttribute(cpsoAttrAriaSearching)}"></span>
                                 </div>
                             </div>
-                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="${e:forHtmlAttribute(cpsoAttrAriaResults)}" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
+                            <div id="cpsoResults" role="listbox" aria-live="polite" aria-label="${carlos:forHtmlAttribute(cpsoAttrAriaResults)}" style="display:none; max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;">
                             </div>
                             <small class="form-text text-muted"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.cpsoSearch.hint"/></small>
                         </div>
@@ -441,56 +442,56 @@
                     <div class="row mb-2">
                         <div class="col-md-4">
                             <label for="firstName" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.firstName"/></label>
-                            <input type="text" name="firstName" id="firstName" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.firstName}'/>"/>
+                            <input type="text" name="firstName" id="firstName" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.firstName}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-4">
                             <label for="lastName" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.lastName"/></label>
-                            <input type="text" name="lastName" id="lastName" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.lastName}'/>"/>
+                            <input type="text" name="lastName" id="lastName" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.lastName}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-4">
                             <label for="proLetters" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.professionalLetters"/></label>
-                            <input type="text" name="proLetters" id="proLetters" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.proLetters}'/>"/>
+                            <input type="text" name="proLetters" id="proLetters" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.proLetters}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
 
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="address" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.address"/></label>
-                            <textarea name="address" id="address" class="form-control" cols="30" rows="3"><e:forHtmlContent value='${EctConAddSpecialistForm.address}'/></textarea>
+                            <textarea name="address" id="address" class="form-control" cols="30" rows="3"><carlos:encode value='${EctConAddSpecialistForm.address}' context="html"/></textarea>
                             <small class="form-text text-muted"><%= oscarVariables.getProperty("consultation_comments", "") %></small>
                         </div>
                         <div class="col-md-6">
                             <label for="annotation" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.Annotation"/></label>
-                            <textarea name="annotation" id="annotation" class="form-control" cols="30" rows="3"><e:forHtmlContent value='${EctConAddSpecialistForm.annotation}'/></textarea>
+                            <textarea name="annotation" id="annotation" class="form-control" cols="30" rows="3"><carlos:encode value='${EctConAddSpecialistForm.annotation}' context="html"/></textarea>
                         </div>
                     </div>
 
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="phone" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.phone"/></label>
-                            <input type="text" name="phone" id="phone" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.phone}'/>"/>
+                            <input type="text" name="phone" id="phone" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.phone}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="fax" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.fax"/></label>
-                            <input type="text" name="fax" id="fax" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.fax}'/>"/>
+                            <input type="text" name="fax" id="fax" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.fax}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
 
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="privatePhoneNumber" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.privatePhoneNumber"/></label>
-                            <input type="text" name="privatePhoneNumber" id="privatePhoneNumber" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.privatePhoneNumber}'/>"/>
+                            <input type="text" name="privatePhoneNumber" id="privatePhoneNumber" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.privatePhoneNumber}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="cellPhoneNumber" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.cellPhoneNumber"/></label>
-                            <input type="text" name="cellPhoneNumber" id="cellPhoneNumber" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.cellPhoneNumber}'/>"/>
+                            <input type="text" name="cellPhoneNumber" id="cellPhoneNumber" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.cellPhoneNumber}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
 
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="pagerNumber" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.pagerNumber"/></label>
-                            <input type="text" name="pagerNumber" id="pagerNumber" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.pagerNumber}'/>"/>
+                            <input type="text" name="pagerNumber" id="pagerNumber" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.pagerNumber}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="salutation" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.salutation"/></label>
@@ -508,11 +509,11 @@
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="website" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.website"/></label>
-                            <input type="text" name="website" id="website" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.website}'/>"/>
+                            <input type="text" name="website" id="website" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.website}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="email" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.email"/></label>
-                            <input type="text" name="email" id="email" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.email}'/>"/>
+                            <input type="text" name="email" id="email" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.email}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
 
@@ -523,7 +524,7 @@
                                 <option value="0" selected>&nbsp;</option>
                                 <c:forEach items="${ specialties }" var="specialtyType">
                                     <option value="${ specialtyType.serviceId }" ${ specialtyType.serviceId eq specType ? 'selected' : '' }>
-                                        ${e:forHtml(specialtyType.serviceDesc)}
+                                        ${carlos:forHtml(specialtyType.serviceDesc)}
                                     </option>
                                 </c:forEach>
                             </select>
@@ -539,7 +540,7 @@
                                 </fmt:message>
                             </div>
                             <% } %>
-                            <input type="text" name="referralNo" id="referralNo" class="form-control" value="<e:forHtmlAttribute value='${EctConAddSpecialistForm.referralNo}'/>"/>
+                            <input type="text" name="referralNo" id="referralNo" class="form-control" value="<carlos:encode value='${EctConAddSpecialistForm.referralNo}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
 
@@ -553,7 +554,7 @@
                                     for (Institution institution : institutionDao.findAll()) {
                                         String instSelected = String.valueOf(institution.getId()).equals(selectedInst) ? " selected" : "";
                                 %>
-                                <option value="<%=institution.getId()%>"<%=instSelected%>><e:forHtmlContent value='<%= institution.getName() %>' /></option>
+                                <option value="<%=institution.getId()%>"<%=instSelected%>><carlos:encode value='<%= institution.getName() %>' context="html"/></option>
                                 <% } %>
                             </select>
                         </div>
@@ -581,7 +582,7 @@
                             <option value="0" ${EctConAddSpecialistForm.eformId == 0 ? 'selected' : ''}>--None--</option>
                             <c:forEach var="eform" items="${eforms}">
                                 <option value="${eform.id}" ${EctConAddSpecialistForm.eformId == eform.id ? 'selected' : ''}>
-                                    ${e:forHtml(eform.formName)}
+                                    ${carlos:forHtml(eform.formName)}
                                 </option>
                             </c:forEach>
                         </select>

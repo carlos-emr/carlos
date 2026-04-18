@@ -49,6 +49,7 @@
 %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -102,7 +103,7 @@
 
                                 if (allTemplates != null) {
                                     for (EncounterTemplate encounterTemplate : allTemplates) {
-                                        String templateName = Encode.forHtmlAttribute(encounterTemplate.getEncounterTemplateName());
+                                        String templateName = SafeEncode.forHtmlAttribute(encounterTemplate.getEncounterTemplateName());
                             %>
                             <option value="<%=templateName%>"><%=templateName%>
                             </option>
@@ -131,13 +132,13 @@
                         <input type="hidden" name="dboperation" value="">
 
                         <fmt:message key="admin.providertemplate.formTemplateName"/>:<br>
-                        <input type="text" name="name" pattern="^[a-zA-Z0-9\s]+$" value="<%=bEdit && tName != null ? Encode.forHtmlAttribute(tName) : ""%>"
+                        <input type="text" name="name" pattern="^[a-zA-Z0-9\s]+$" value="<%=bEdit && tName != null ? SafeEncode.forHtmlAttribute(tName) : ""%>"
                                class="form-control" maxlength="50"> <!-- match the definition in the schema -->
 
                         <br><br>
 
                         <fmt:message key="admin.providertemplate.formTemplateText"/>:<br>
-                        <textarea name="value" rows="20" class="form-control"><%=bEdit && tValue != null ? Encode.forHtml(tValue) : ""%></textarea>
+                        <textarea name="value" rows="20" class="form-control"><%=bEdit && tValue != null ? SafeEncode.forHtml(tValue) : ""%></textarea>
 
                         <br>
                         <input type="button" value="<fmt:message key="admin.providertemplate.btnDelete"/>"

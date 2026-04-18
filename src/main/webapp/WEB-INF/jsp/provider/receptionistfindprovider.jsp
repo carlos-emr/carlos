@@ -36,6 +36,8 @@
 
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -138,8 +140,8 @@
             alert("<fmt:message key='receptionist.receptionistfindprovider.msgMissingFormConfig'/>");
             return;
             <%} else {%>
-            opener.document["<e:forJavaScriptBlock value='<%= form %>' />"].elements["<e:forJavaScriptBlock value='<%= elementName %>' />"].value = pn;
-            opener.document["<e:forJavaScriptBlock value='<%= form %>' />"].elements["<e:forJavaScriptBlock value='<%= elementId %>' />"].value = p;
+            opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"].elements["<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>"].value = pn;
+            opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"].elements["<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>"].value = p;
             self.close();
             <%}%>
         }
@@ -156,7 +158,7 @@
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <e:forHtmlContent value='<%= StringUtils.noNull(providername) %>' />
+        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <carlos:encode value='<%= StringUtils.noNull(providername) %>' context="html"/>
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
                                  VALUE="<fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"

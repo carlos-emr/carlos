@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -65,9 +67,9 @@
 <div class="preventionSection" id="preventionSection<%=ran%>">
     <div class="headPrevention" id="headPrevention<%=ran%>">
         <p><a id="ahead<%=ran%>"
-              title="fade=[on] header=[<e:forHtmlAttribute value='<%= testName %>' />] body=[]"
+              title="fade=[on] header=[<carlos:encode value='<%= testName %>' context="htmlAttribute"/>] body=[]"
               href="javascript: function myFunction() {return false; }"> <span
-                title="<%=""%>" style="font-weight: bold;"> <e:forHtmlContent value='<%= StringUtils.maxLenString(testName, 10, 8, "...") %>' />
+                title="<%=""%>" style="font-weight: bold;"> <carlos:encode value='<%= StringUtils.maxLenString(testName, 10, 8, "...") %>' context="html"/>
 <%=""/*testName*/%> </span> </a> <!--&nbsp;
                <a href="">#</a--> <br/>
         </p>
@@ -90,11 +92,11 @@
 
     %>
     <div style="text-align: justify;"
-         title="fade=[on] header=[<e:forHtmlAttribute value='<%= String.valueOf(hMap.get("result")) %>' />] body=[<e:forHtmlAttribute value='<%= String.valueOf(hMap.get("units")) %>' /> <e:forHtmlAttribute value='<%= String.valueOf(hMap.get("range")) %>' />]"
+         title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= String.valueOf(hMap.get("units")) %>' context="htmlAttribute"/> <carlos:encode value='<%= String.valueOf(hMap.get("range")) %>' context="htmlAttribute"/>]"
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
-         onclick="javascript:popup(660,960,'<e:forJavaScriptAttribute value='<%= labDisplayLink %>' />','labReport')">
-        <p <%=r(hMap.get("abn"))%>><e:forHtmlContent value='<%= String.valueOf(hMap.get("result")) %>' />
-            &nbsp;&nbsp;&nbsp; <e:forHtmlContent value='<%= String.valueOf(hMap.get("collDate")) %>' />
+         onclick="javascript:popup(660,960,'<carlos:encode value='<%= labDisplayLink %>' context="javaScriptAttribute"/>','labReport')">
+        <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="html"/>
+            &nbsp;&nbsp;&nbsp; <carlos:encode value='<%= String.valueOf(hMap.get("collDate")) %>' context="html"/>
         </p>
     </div>
     <%}%>

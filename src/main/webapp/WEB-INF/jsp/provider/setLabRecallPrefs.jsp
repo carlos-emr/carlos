@@ -32,6 +32,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -66,7 +67,7 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <table>
                         <tr>
                             <td><%=bundle.getString("provider.setLabRecallPrefs.delegate")%> <font color="red"><%=bundle.getString("provider.setLabRecallPrefs.required")%></font></td>
@@ -83,7 +84,7 @@
 
                         <tr>
                             <td><%=bundle.getString("provider.setLabRecallPrefs.defaultSubject")%></td>
-                            <td><input type="text" name="labRecallMsgSubject.value" value="${e:forHtmlAttribute(subject.value)}" size="50" /></td>
+                            <td><input type="text" name="labRecallMsgSubject.value" value="${carlos:forHtmlAttribute(subject.value)}" size="50" /></td>
                         </tr>
 
                         <tr>

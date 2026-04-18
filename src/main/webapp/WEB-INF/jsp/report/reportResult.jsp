@@ -58,6 +58,7 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -111,7 +112,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><e:forHtmlContent value='<%= reportName %>' />
+                <th><carlos:encode value='<%= reportName %>' context="html"/>
                 </th>
             </tr>
         </table>
@@ -120,7 +121,7 @@
         <tr BGCOLOR="#CCCCFF">
             <td></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportList.backToFilter"/></a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>"><fmt:message key="report.reportList.backToFilter"/></a></td>
         </tr>
     </table>
 
@@ -131,7 +132,7 @@
         <thead>
         <tr BGCOLOR="#66CCCC">
             <% for (int i = 0; i < vecFieldCaption.size(); i++) { %>
-            <th><e:forHtmlContent value='<%= (String) vecFieldCaption.get(i) %>' />
+            <th><carlos:encode value='<%= (String) vecFieldCaption.get(i) %>' context="html"/>
             </th>
             <% } %>
         </tr>
@@ -142,7 +143,7 @@
         %>
         <tr BGCOLOR="<%=color%>">
             <% for (int j = 0; j < vecFieldCaption.size(); j++) { %>
-            <td><e:forHtmlContent value='<%= prop.getProperty((String) vecFieldCaption.get(j), "") %>' />&nbsp;</td>
+            <td><carlos:encode value='<%= prop.getProperty((String) vecFieldCaption.get(j), "") %>' context="html"/>&nbsp;</td>
             <% } %>
         </tr>
         <% } %>

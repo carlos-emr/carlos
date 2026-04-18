@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -52,6 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     Hl7LinkDao dao = SpringUtils.getBean(Hl7LinkDao.class);
 
@@ -122,12 +125,12 @@
                         String lastName = String.valueOf(o[1]);
                         String firstName = String.valueOf(o[2]);
 
-                        out.println("<option value='" + Encode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + Encode.forHtml(lastName) + ", " + Encode.forHtml(firstName) + "</option>");
+                        out.println("<option value='" + SafeEncode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + SafeEncode.forHtml(lastName) + ", " + SafeEncode.forHtml(firstName) + "</option>");
                     }
                 %>
             </select></td>
-            <td class="Text"><input name="start" value="<e:forHtmlAttribute value='<%= String.valueOf(start) %>' />"/></td>
-            <td class="Text"><input name="end" value="<e:forHtmlAttribute value='<%= String.valueOf(end) %>' />"/></td>
+            <td class="Text"><input name="start" value="<carlos:encode value='<%= String.valueOf(start) %>' context="htmlAttribute"/>"/></td>
+            <td class="Text"><input name="end" value="<carlos:encode value='<%= String.valueOf(end) %>' context="htmlAttribute"/>"/></td>
             <td class="Text"><input type="submit" name="cmd_search"
                                     value="Search"/></td>
         </tr>
@@ -135,20 +138,20 @@
 </form>
 <table width="100%">
     <tr>
-        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url %>' />">Lab Id</a></td>
+        <td class="Header" nowrap><a href="<carlos:encode value='<%= url %>' context="htmlAttribute"/>">Lab Id</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=patient_name" %>' />">Patient Name</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=patient_name" %>' context="htmlAttribute"/>">Patient Name</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=ordering_provider" %>' />">Ordering Provider</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=ordering_provider" %>' context="htmlAttribute"/>">Ordering Provider</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=result_copies_to" %>' />">Result Copies To</a></td>
-        <td class="Header" nowrap><a href="<e:forHtmlAttribute value='<%= url + "&orderby=status" %>' />">Status</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=result_copies_to" %>' context="htmlAttribute"/>">Result Copies To</a></td>
+        <td class="Header" nowrap><a href="<carlos:encode value='<%= url + "&orderby=status" %>' context="htmlAttribute"/>">Status</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=signed_on" %>' />">Signed</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=signed_on" %>' context="htmlAttribute"/>">Signed</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=last_name" %>' />">Signing Provider</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=last_name" %>' context="htmlAttribute"/>">Signing Provider</a></td>
         <td class="Header" nowrap><a
-                href="<e:forHtmlAttribute value='<%= url + "&orderby=date_time" %>' />">Date Received</a></td>
+                href="<carlos:encode value='<%= url + "&orderby=date_time" %>' context="htmlAttribute"/>">Date Received</a></td>
     </tr>
     <%
         if (command != null) {
@@ -168,13 +171,13 @@
     %>
     <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
         <td class="Text"><a href="<%= request.getContextPath() %>/lab/CA/BC/ViewSearchReports"
-                            onclick="PopupLab('<e:forJavaScriptAttribute value='<%= pid_id %>' />'); return false;"><e:forHtmlContent value='<%= pid_id %>' />
+                            onclick="PopupLab('<carlos:encode value='<%= pid_id %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= pid_id %>' context="html"/>
         </a></td>
-        <td class="Text" nowrap><e:forHtmlContent value='<%= Misc.check(patient_name, "") %>' />
+        <td class="Text" nowrap><carlos:encode value='<%= Misc.check(patient_name, "") %>' context="html"/>
         </td>
-        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
+        <td class="Text" nowrap><%=SafeEncode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
         </td>
-        <td class="Text"><%=Encode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
+        <td class="Text"><%=SafeEncode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
         </td>
         <td class="Text" nowrap>
             <%
@@ -199,13 +202,13 @@
         <td class="Text" nowrap>
             <%
                 String signed = Misc.check(signed_on, "");
-                out.print(Encode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
+                out.print(SafeEncode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
             %>
         </td>
         <td class="Text"
-            nowrap><%=((last_name != null && !last_name.equals("")) ? Encode.forHtml(Misc.check(last_name, "")) + ", " + Encode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
+            nowrap><%=((last_name != null && !last_name.equals("")) ? SafeEncode.forHtml(Misc.check(last_name, "")) + ", " + SafeEncode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
         </td>
-        <td class="Text" nowrap><e:forHtmlContent value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' />
+        <td class="Text" nowrap><carlos:encode value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' context="html"/>
         </td>
     </tr>
     <%

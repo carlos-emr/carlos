@@ -45,6 +45,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
@@ -84,7 +86,7 @@
 
                 <table class="TopStatusBar">
                     <tr>
-                        <td>Edit Billing Code <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
+                        <td>Edit Billing Code <carlos:encode value='<%= StringUtils.noNull(request.getParameter("code")) %>' context="html"/> -- <carlos:encode value='<%= StringUtils.noNull(request.getParameter("desc")) %>' context="html"/>
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right">
@@ -102,7 +104,7 @@
             <td class="MainTableRightColumn">
                 <table border="1" width="600px">
                     <tr>
-                        <th colspan="5"><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("code")) %>' /> -- <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("desc")) %>' />
+                        <th colspan="5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("code")) %>' context="html"/> -- <carlos:encode value='<%= StringUtils.noNull(request.getParameter("desc")) %>' context="html"/>
                         </th>
                     </tr>
                     <tr>
@@ -121,26 +123,26 @@
                     %>
                     <tr>
 
-                        <td><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />
-                            <input type="hidden" name="id<%=i%>" id="id<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />"/>
+                        <td><carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="html"/>
+                            <input type="hidden" name="id<%=i%>" id="id<%=i%>" value="<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="htmlAttribute"/>"/>
                         </td>
                             <%-- td><%=bs.getDescription()%></td --%>
-                        <td><span id="val<%=i%>"><e:forHtmlContent value='<%= bs.getValue() %>' /></span>
-                            <input type="text" name="value" id="ival<%=i%>" value="<e:forHtmlAttribute value='<%= bs.getValue() %>' />"
+                        <td><span id="val<%=i%>"><carlos:encode value='<%= bs.getValue() %>' context="html"/></span>
+                            <input type="text" name="value" id="ival<%=i%>" value="<carlos:encode value='<%= bs.getValue() %>' context="htmlAttribute"/>"
                                    style="display:none;"/>
                         </td>
-                        <td><span id="billservice<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getBillingserviceDate()) %>' /></span>
+                        <td><span id="billservice<%=i%>"><carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="html"/></span>
                             <input type="text" name="billservice" id="ibillservice<%=i%>"
-                                   value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />" style="display:none;"/>
+                                   value="<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="htmlAttribute"/>" style="display:none;"/>
                         </td>
-                        <td><span id="termdate<%=i%>"><e:forHtmlContent value='<%= String.valueOf(bs.getTerminationDate()) %>' /></span>
-                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<e:forHtmlAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />"
+                        <td><span id="termdate<%=i%>"><carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="html"/></span>
+                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="htmlAttribute"/>"
                                    style="display:none;"/>
                         </td>
                         <td><a id="edit<%=i%>" href="javascript: void(0);"
-                               onclick="editCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">edit</a>
+                               onclick="editCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="javaScriptAttribute"/>');">edit</a>
                             <a id="save<%=i%>" style="display:none;" href="javascript: void(0);"
-                               onclick="saveCode('<%=i%>','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceNo()) %>' />','<e:forJavaScriptAttribute value='<%= bs.getValue() %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getBillingserviceDate()) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(bs.getTerminationDate()) %>' />');">save</a>
+                               onclick="saveCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="javaScriptAttribute"/>');">save</a>
                             <span id="working<%=i%>" style="display:none;">...</span>
                         </td>
                     </tr>
@@ -149,7 +151,7 @@
 
 
                 <form action="${pageContext.request.contextPath}/billing/CA/BC/billingEditCode" method="post">
-                    <input type="hidden" name="whereTo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("whereTo")) %>' />"/>
+                    <input type="hidden" name="whereTo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("whereTo")) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="method" value="returnToSearch"/>
                     <input type="submit" name="submit" value="Back"/>
                 </form>

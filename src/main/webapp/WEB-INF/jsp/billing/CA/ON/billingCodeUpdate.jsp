@@ -31,6 +31,9 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 %>
@@ -45,7 +48,7 @@
             <%
             String nameF = request.getParameter("nameF");
             if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + Encode.forJavaScript(nameF) + " = File0;");
+                    out.println("self.opener." + SafeEncode.forJavaScript(nameF) + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
@@ -99,7 +102,7 @@
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<e:forJavaScriptBlock value='<%= param[0] %>' />', '<e:forJavaScriptBlock value='<%= param[1] %>' />', '<e:forJavaScriptBlock value='<%= param[2] %>' />');
+    CodeAttach('<carlos:encode value='<%= param[0] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[1] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[2] %>' context="javaScriptBlock"/>');
     -->
 
 </script>

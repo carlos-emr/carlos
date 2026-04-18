@@ -70,6 +70,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <html>
     <security:oscarSec roleName="${ sessionScope.userrole }" objectName="_admin" rights="r" reverse="${ false }">
@@ -295,10 +296,10 @@
                                             ${ contact.member ? 'checked="checked"' : '' } />
                                         <label class="form-check-label">
                                         <span id="${ contact.id.compositeId }" class="provider-name">
-									${e:forHtml(contact.lastName)}, ${e:forHtml(contact.firstName)}
+									${carlos:forHtml(contact.lastName)}, ${carlos:forHtml(contact.firstName)}
 								</span>
                                         <span class="text-muted">
-									${e:forHtml(contact.providerType)}
+									${carlos:forHtml(contact.providerType)}
 								</span>
                                         </label>
                                     </div>
@@ -314,7 +315,7 @@
                         <c:forEach items="${ groups }" var="group" varStatus="count">
                             <li class="nav-item">
                                 <a class="nav-link${ count.index eq 0 ? ' active' : '' }" data-bs-toggle="tab" href="#group-${ group.key.id }">
-                                    ${e:forHtml(group.key.groupDesc)}
+                                    ${carlos:forHtml(group.key.groupDesc)}
                                 </a>
                             </li>
                         </c:forEach>
@@ -338,10 +339,10 @@
                                                    title="<fmt:message key='messenger.config.MessengerAdmin.removeContact'/>"
                                                    id="${ member.id.compositeId }-${ group.key.id }"></i>
                                                 <span class="provider-name">
-											${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
+											${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 										</span>
                                                 <span class="text-muted">
-											${e:forHtml(member.providerType)}
+											${carlos:forHtml(member.providerType)}
 										</span>
                                             </div>
                                         </div>

@@ -32,6 +32,8 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -55,7 +57,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
     opener.focus();
     <%}%>
     }
@@ -85,9 +87,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(bs.getServiceCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(bs.getServiceCode()) %>' /></a>
+    onClick="posttoText('<carlos:encode value='<%= StringUtils.noNull(bs.getServiceCode()) %>' context="javaScriptAttribute"/>');"><carlos:encode value='<%= StringUtils.noNull(bs.getServiceCode()) %>' context="html"/></a>
     </td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(bs.getDescription()) %>' /></td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(bs.getDescription()) %>' context="html"/></td>
     </tr>
     <%
             color = !(color);

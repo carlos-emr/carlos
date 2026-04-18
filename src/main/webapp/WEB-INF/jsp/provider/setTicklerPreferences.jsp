@@ -32,6 +32,7 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -74,10 +75,10 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
                 <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
 
                     <h2><%=bundle.getString("provider.setTicklerPreferences.header")%></h2>
-                    <h3>${e:forHtml(providerMsg)}</h3>
+                    <h3>${carlos:forHtml(providerMsg)}</h3>
 
                     <input type="radio" id="taskAssigneeDefault" name="taskAssigneeMRP.value" value="default"
                         <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("provider.setTicklerPreferences.defaultOption")%>

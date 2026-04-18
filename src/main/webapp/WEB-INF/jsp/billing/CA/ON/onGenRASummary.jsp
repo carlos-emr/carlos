@@ -38,6 +38,8 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
 %>
@@ -159,7 +161,7 @@
                         }
                     %>
                 </select><input type='submit' name='submit' value='Generate'> <input
-                    type="hidden" name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"> <input
+                    type="hidden" name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"> <input
                     type='button' name='print' value='Print' onClick='window.print()'>
                 <input type='button' name='close' value='Close'
                        onClick='window.close()'></th>
