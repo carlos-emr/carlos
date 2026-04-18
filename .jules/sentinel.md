@@ -1,0 +1,4 @@
+## 2024-05-15 - Fix SQL injection in JPA IN clauses
+**Vulnerability:** SQL Injection via string concatenation inside a JPA query string for `IN` clauses (e.g. `where id in (" + ids + ")`).
+**Learning:** Even though JPA provides ORM abstraction, concatenating strings directly into the query string before calling `.createQuery()` or `.createNativeQuery()` bypasses parameter binding and introduces SQL injection vulnerabilities.
+**Prevention:** Always use parameterized queries for `IN` clauses. Hibernate natively supports passing a `List` or `Collection` directly to a named or positional parameter (e.g., `where id in (?1)` or `where id in (:ids)`). This avoids the need for raw string concatenation of values and ensures safe parameter binding.
