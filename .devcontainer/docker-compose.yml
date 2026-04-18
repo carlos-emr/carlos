@@ -34,8 +34,8 @@ services:
       context: ./drugref
       dockerfile: Dockerfile
       args:
-        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/open-osp/Open-Drugref.git}
-        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-main}
+        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/carlos-emr/drugref2026.git}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-master}
     ports:
       - "8180:8080"
     volumes:
@@ -48,11 +48,13 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/drugref2/DrugrefService?wsdl"]
+      # drugref2026's XML-RPC servlet returns 405 on GET; accept 200 or 405 as "deployed".
+      # 404 (war not deployed), 500 (startup/Hibernate validate failure) or connection refusal fails the probe.
+      test: ["CMD-SHELL", "curl -sS -o /dev/null -w '%{http_code}' http://localhost:8080/drugref2/DrugrefService | grep -qE '^(200|405)$'"]
       timeout: 10s
       retries: 5
       interval: 30s
-      start_period: 60s
+      start_period: 90s
 
   db:
     container_name: carlos-mariadb-dev
