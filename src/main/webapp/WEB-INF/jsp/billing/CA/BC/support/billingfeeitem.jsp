@@ -36,6 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -84,7 +85,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
     opener.document.focus();
     <%}%>
     }
@@ -95,8 +96,8 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = code;
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(feeField) %>' />"].value = fee;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = code;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= StringUtils.noNull(feeField) %>' context="javaScriptBlock"/>"].value = fee;
 
     var valueEle = opener.document.getElementById('billValue');
     if (valueEle){
@@ -135,12 +136,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left" valign="top">
     <td class="SmallerText">
     <%if (request.getParameter("corrections") == null) {%>
-    <a href=# onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(code.getServiceCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(code.getServiceCode()) %>' /></a>
+    <a href=# onClick="posttoText('<carlos:encode value='<%= StringUtils.noNull(code.getServiceCode()) %>' context="javaScriptAttribute"/>');"><carlos:encode value='<%= StringUtils.noNull(code.getServiceCode()) %>' context="html"/></a>
     <%} else {%>
-    <a href=# onClick="updateFeeCodeValues('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(code.getServiceCode()) %>' />',' ','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(code.getValue()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(code.getServiceCode()) %>' /></a>
+    <a href=# onClick="updateFeeCodeValues('<carlos:encode value='<%= StringUtils.noNull(code.getServiceCode()) %>' context="javaScriptAttribute"/>',' ','<carlos:encode value='<%= StringUtils.noNull(code.getValue()) %>' context="javaScriptAttribute"/>');"><carlos:encode value='<%= StringUtils.noNull(code.getServiceCode()) %>' context="html"/></a>
     <%}%>
     </td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(code.getDescription()) %>' /> (<e:forHtmlContent value='<%= StringUtils.noNull(code.getValue()) %>' />) </td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(code.getDescription()) %>' context="html"/> (<carlos:encode value='<%= StringUtils.noNull(code.getValue()) %>' context="html"/>) </td>
     </tr>
     <%
             color = !(color);

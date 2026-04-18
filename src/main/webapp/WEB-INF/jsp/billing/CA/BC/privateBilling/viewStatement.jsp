@@ -12,6 +12,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -62,7 +63,7 @@
                         onchange="handleFilterByProvider()">
                     <option value="%">All Providers</option>
                     <c:forEach var="provider" items="${providers}">
-                        <option value="${e:forHtmlAttribute(provider.providerNo)}" ${providerId==provider.providerNo ? 'selected' : ''}>${e:forHtml(provider.getFormattedName())}</option>
+                        <option value="${carlos:forHtmlAttribute(provider.providerNo)}" ${providerId==provider.providerNo ? 'selected' : ''}>${carlos:forHtml(provider.getFormattedName())}</option>
                     </c:forEach>
                 </select>
             </div>
@@ -127,17 +128,17 @@
                     </c:otherwise>
                 </c:choose>
                 <tr class="${rowstyle}">
-                    <td><input type="checkbox" class="case" value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
+                    <td><input type="checkbox" class="case" value="${carlos:forHtmlAttribute(invoice.demographicNumber)}|${carlos:forHtmlAttribute(invoice.recipientId)}"
                                onclick="checkMasterCheckbox();"/></td>
 
                         <%-- Invoice Date --%>
-                    <td>${e:forHtml(invoice.billingDate)}</td>
+                    <td>${carlos:forHtml(invoice.billingDate)}</td>
 
                         <%-- Billing Type & Status --%>
-                    <td>${e:forHtml(invoice.billingType)} - ${e:forHtml(invoice.status)}</td>
+                    <td>${carlos:forHtml(invoice.billingType)} - ${carlos:forHtml(invoice.status)}</td>
 
                         <%-- Patient --%>
-                    <td>${e:forHtml(invoice.demographicName)}</td>
+                    <td>${carlos:forHtml(invoice.demographicName)}</td>
 
                         <%-- Provider
                           - show providers name from provider_no
@@ -150,14 +151,14 @@
                             Provider provider = providerDao.getProvider(providerNumber);
                             pageContext.setAttribute("providerName", provider.getFormattedName());
                         %>
-                            ${e:forHtml(providerName)}
+                            ${carlos:forHtml(providerName)}
                     </td>
 
                         <%-- Recipient:
                           - by default, show the bill recipient's name
                           - if it's empty, just display 'Patient'
                         --%>
-                    <td>${e:forHtml(empty invoice.recipientName ? 'Patient' : invoice.recipientName)}</td>
+                    <td>${carlos:forHtml(empty invoice.recipientName ? 'Patient' : invoice.recipientName)}</td>
 
                         <%-- Balance:
                           - by default, show balance in Canadian dollars
@@ -172,16 +173,16 @@
                           - on click, go to the 'Edit Invoices' page
                         --%>
                     <td>
-                        <a href="#" data-demographic-no="${e:forHtmlAttribute(invoice.demographicNumber)}"
+                        <a href="#" data-demographic-no="${carlos:forHtmlAttribute(invoice.demographicNumber)}"
                            onclick="openBillStatus(this.dataset.demographicNo); return false;">
-                                ${e:forHtml(invoice.billingCount)}
+                                ${carlos:forHtml(invoice.billingCount)}
                         </a>
                     </td>
 
                         <%-- pop up a printer-frieldy private billing statement page --%>
                     <td>
                         <button class="btn btn-primary btn-sm"
-                                value="${e:forHtmlAttribute(invoice.demographicNumber)}|${e:forHtmlAttribute(invoice.recipientId)}"
+                                value="${carlos:forHtmlAttribute(invoice.demographicNumber)}|${carlos:forHtmlAttribute(invoice.recipientId)}"
                                 onclick="printItem(this.value)">
                             <span class="fa-solid fa-print" aria-hidden="true"></span>
                             print

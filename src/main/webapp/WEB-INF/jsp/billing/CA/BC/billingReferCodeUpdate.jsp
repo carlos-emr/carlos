@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -78,7 +79,7 @@
         function CodeAttach(File0, File1, File2) {
 
             self.close();
-            self.opener.document["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formName) %>' />"]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formElement) %>' />"].value = File0;
+            self.opener.document["<carlos:encode value='<%= StringUtils.noNull(formName) %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= StringUtils.noNull(formElement) %>' context="javaScriptBlock"/>"].value = File0;
         }
 
         <%}else{%>
@@ -133,7 +134,7 @@
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<e:forJavaScriptBlock value='<%= param[0] %>' />', '<e:forJavaScriptBlock value='<%= param[1] %>' />', '<e:forJavaScriptBlock value='<%= param[2] %>' />');
+    CodeAttach('<carlos:encode value='<%= param[0] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[1] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[2] %>' context="javaScriptBlock"/>');
     -->
 
 </script>

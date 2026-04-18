@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -86,9 +87,9 @@
             </td>
             <td style="text-align:right">Service Code <input type="text"
                                                              name="serviceCode"
-                                                             value="<e:forHtmlAttribute value='<%= serviceCode %>' />" maxlength="5"
+                                                             value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" maxlength="5"
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
-                                                                                                value="<e:forHtmlAttribute value='<%= strDay %>' />"/>
+                                                                                                value="<carlos:encode value='<%= strDay %>' context="htmlAttribute"/>"/>
                 <input type="hidden" name="demo_name"
                        value="<e:forHtmlAttribute value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' />"/> <input
                         type="hidden" name="demographic_no"
@@ -128,16 +129,16 @@ for(int i=0; i<aL.size(); i=i+2) {
 	}
 %>
     <tr>
-        <td style="text-align:center"><e:forHtmlContent value='<%= String.valueOf(obj.getId()) %>' />
+        <td style="text-align:center"><carlos:encode value='<%= String.valueOf(obj.getId()) %>' context="html"/>
         </td>
-        <td style="text-align:center"><e:forHtmlContent value='<%= obj.getBilling_date() %>' /> <%--=obj.getBilling_time()--%></td>
-        <td style="text-align:center"><e:forHtmlContent value='<%= BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "") %>' />
+        <td style="text-align:center"><carlos:encode value='<%= obj.getBilling_date() %>' context="html"/> <%--=obj.getBilling_time()--%></td>
+        <td style="text-align:center"><carlos:encode value='<%= BillingDataHlp.propBillingType.getProperty(obj.getStatus(), "") %>' context="html"/>
         </td>
-        <td style="text-align:center"><e:forHtmlContent value='<%= strServiceCode %>' />
+        <td style="text-align:center"><carlos:encode value='<%= strServiceCode %>' context="html"/>
         </td>
-        <td style="text-align:center"><e:forHtmlContent value='<%= itObj.getDx() %>' />
+        <td style="text-align:center"><carlos:encode value='<%= itObj.getDx() %>' context="html"/>
         </td>
-        <td style="text-align:center"><e:forHtmlContent value='<%= obj.getTotal() %>' />
+        <td style="text-align:center"><carlos:encode value='<%= obj.getTotal() %>' context="html"/>
         </td>
     </tr>
         <%

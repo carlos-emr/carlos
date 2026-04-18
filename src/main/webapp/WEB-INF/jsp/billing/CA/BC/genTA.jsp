@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -775,24 +776,24 @@
    %>
 
         <tr>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(paymentdate) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(paymentdate) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(payable) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(payable) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(amtbilled) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(amtbilled) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(amtpaid) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(amtpaid) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(balancefwd) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(balancefwd) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(chequeamt) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(chequeamt) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(newbalance) %>' />
+            <td><carlos:encode value='<%= StringUtils.noNull(newbalance) %>' context="html"/>
             </td>
-            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Billed</a>
-                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Detail</a>|
-                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=" target="_blank">Summary</a></td>
-            <td><e:forHtmlContent value='<%= String.valueOf(result.getStatus()) %>' />
+            <td><a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01?rano=<carlos:encode value='<%= raNo %>' context="uriComponent"/>&proNo=" target="_blank">Billed</a>
+                | <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<carlos:encode value='<%= raNo %>' context="uriComponent"/>&proNo=" target="_blank">Detail</a>|
+                <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<carlos:encode value='<%= raNo %>' context="uriComponent"/>&proNo=" target="_blank">Summary</a></td>
+            <td><carlos:encode value='<%= String.valueOf(result.getStatus()) %>' context="html"/>
             </td>
         </tr>
 

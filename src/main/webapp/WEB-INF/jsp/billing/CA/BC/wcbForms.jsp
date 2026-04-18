@@ -56,6 +56,7 @@
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String demographicNo = request.getParameter("demographicNo");
@@ -94,7 +95,7 @@
         <tr>
             <td><input type="radio" name="WCBid" value="<%=wcb.getId()%>" <%=checked(wcbid, wcb.getId())%> /></td>
             <td><a href="javascript:void(0);"
-                   onclick="checkifSet('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_icd9()) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_feeitem()) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(wcb.getW_extrafeeitem()) %>' />');">Populate</a>
+                   onclick="checkifSet('<carlos:encode value='<%= StringUtils.noNull(wcb.getW_icd9()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(wcb.getW_feeitem()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(wcb.getW_extrafeeitem()) %>' context="javaScriptAttribute"/>');">Populate</a>
             </td>
             <td align="middle">
                 <a onclick="popup(700,960,'viewformwcb?demographic_no=<%= encodedDemoNo %>&formId=<%=wcb.getId()%>&provNo=<%= encodedProvNo %>&parentAjaxId=forms&billingcode=<%= encodedBillingCode %>&hideToBill=true','<%= encodedDemoNoJs %>NEWWCB'); return false;"
@@ -102,7 +103,7 @@
 
             </td>
             <td><fmt:formatDate pattern="yyyy-MM-dd HH:mm" value="${wcb.formCreated}"/></td>
-            <td><e:forHtmlContent value='<%= StringUtils.noNull(wcb.getW_diagnosis()) %>' />&nbsp;</td>
+            <td><carlos:encode value='<%= StringUtils.noNull(wcb.getW_diagnosis()) %>' context="html"/>&nbsp;</td>
 
 
             <%

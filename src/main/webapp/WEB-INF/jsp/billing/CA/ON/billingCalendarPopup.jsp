@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -85,22 +86,22 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#FFD7C4">
             <td width="5%" nowrap><a
-                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year-1%>&month=<%=month%>&delta=0&type=<e:forUriComponent value='<%= type %>' />">
+                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year-1%>&month=<%=month%>&delta=0&type=<carlos:encode value='<%= type %>' context="uriComponent"/>">
                 <img src="<%= locationPrefix %>images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="Last Year" vspace="2"> <img src="<%= locationPrefix %>images/previous.gif"
                                                       WIDTH="10" HEIGHT="9" BORDER="0" ALT="Last Year" vspace="2"></a>
             </td>
             <td align="center"><a
-                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=month%>&delta=-1&type=<e:forUriComponent value='<%= type %>' />">
+                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=month%>&delta=-1&type=<carlos:encode value='<%= type %>' context="uriComponent"/>">
                 <img src="<%= locationPrefix %>images/previous.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Last Month" vspace="2"> <fmt:message key="billing.billingCalendarPopup.btnLast"/></a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
-                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=month%>&delta=1&type=<e:forUriComponent value='<%= type %>' />">
+                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=month%>&delta=1&type=<carlos:encode value='<%= type %>' context="uriComponent"/>">
                 <fmt:message key="billing.billingCalendarPopup.btnNext"/> <img
                     src="<%= locationPrefix %>images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                     ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
             <td width="5%" align="right" nowrap><a
-                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year+1%>&month=<%=month%>&delta=0&type=<e:forUriComponent value='<%= type %>' />">
+                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year+1%>&month=<%=month%>&delta=0&type=<carlos:encode value='<%= type %>' context="uriComponent"/>">
                 <img src="<%= locationPrefix %>images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="Next Year" vspace="2"> <img src="<%= locationPrefix %>images/next.gif"
                                                       WIDTH="10" HEIGHT="9" BORDER="0" ALT="Next Year" vspace="2"></a>
@@ -115,7 +116,7 @@
                     String[] arrayMonth = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
                     for (int i = 0; i < 12; i++) {
                 %> <a
-                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=i+1%>&delta=0&type=<e:forUriComponent value='<%= type %>' />">
+                    href="/billing/CA/ON/ViewBillingCalendarPopup?year=<%=year%>&month=<%=i+1%>&delta=0&type=<carlos:encode value='<%= type %>' context="uriComponent"/>">
                 <font SIZE="2" <%=(i+1)==month?"color='red'":"color='blue'"%>><%=arrayMonth[i]%>
             </a>
                 <%}%>

@@ -44,6 +44,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
@@ -183,9 +184,9 @@
                             proLast = p.getLastName();
                             proNo = p.getProviderNo();
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= proNo %>' />"
-                            <%=providerview.equals(proNo) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />,
-                        <e:forHtmlContent value='<%= proFirst %>' />
+                    <option value="<carlos:encode value='<%= proNo %>' context="htmlAttribute"/>"
+                            <%=providerview.equals(proNo) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
+                        <carlos:encode value='<%= proFirst %>' context="html"/>
                     </option>
                     <%
 
@@ -202,7 +203,7 @@
                         List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
                         for (String service : serviceCodes) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= service %>' />" <%=servicecode.equals(service) ? "selected" : ""%>><e:forHtmlContent value='<%= service %>' />
+                    <option value="<carlos:encode value='<%= service %>' context="htmlAttribute"/>" <%=servicecode.equals(service) ? "selected" : ""%>><carlos:encode value='<%= service %>' context="html"/>
                     </option>
                     <%
                         }
@@ -220,8 +221,8 @@
                             clinic_location = clinicLocation.getClinicLocationName();
                             clinic_code = clinicLocation.getClinicLocationNo();
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= clinic_code %>' />"
-                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><e:forHtmlContent value='<%= clinic_location %>' />
+                    <option value="<carlos:encode value='<%= clinic_code %>' context="htmlAttribute"/>"
+                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><carlos:encode value='<%= clinic_location %>' context="html"/>
                     </option>
                     <%
                         }
@@ -236,7 +237,7 @@
 
         <input type="hidden" name="verCode"
                value="V03"> <input type="hidden" name="curUser"
-                                   value="<e:forHtmlAttribute value='<%= user_no %>' />"> <input type="hidden" name="curDate"
+                                   value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>"> <input type="hidden" name="curDate"
                                                                 value="<%=nowDate%>"> <input type="hidden"
                                                                                              name="curTime"
                                                                                              value="<%=nowTime%>">
@@ -313,18 +314,18 @@
             <tr>
                 <td><input type="checkbox"
                            name="bill"
-                           value="<e:forHtmlAttribute value='<%= service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo() %>' />">
+                           value="<carlos:encode value='<%= service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo() %>' context="htmlAttribute"/>">
                 </td>
-                <td><e:forHtmlContent value='<%= demo_name %>' /></td>
-                <td><e:forHtmlContent value='<%= proName1 %>' />
+                <td><carlos:encode value='<%= demo_name %>' context="html"/></td>
+                <td><carlos:encode value='<%= proName1 %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= service_code %>' />
+                <td><carlos:encode value='<%= service_code %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= billing_amount %>' />
+                <td><carlos:encode value='<%= billing_amount %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= diagnostic_code %>' />
+                <td><carlos:encode value='<%= diagnostic_code %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= billdate %>' />
+                <td><carlos:encode value='<%= billdate %>' context="html"/>
                 </td>
             </tr>
             <%

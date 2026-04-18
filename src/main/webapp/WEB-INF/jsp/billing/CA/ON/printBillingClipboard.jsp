@@ -25,6 +25,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -95,7 +96,7 @@
     tmp1 = tmp;
     while (tmp1.length() > 80) {
 %>
-<e:forHtmlContent value='<%= tmp1.substring(0, 80) %>' />
+<carlos:encode value='<%= tmp1.substring(0, 80) %>' context="html"/>
 <%
         tmp1 = tmp1.substring(80);
 
@@ -103,7 +104,7 @@
 
 
 %>
-<e:forHtmlContent value='<%= tmp1 %>' />
+<carlos:encode value='<%= tmp1 %>' context="html"/>
 </pre>
 
 

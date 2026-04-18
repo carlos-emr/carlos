@@ -156,6 +156,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -176,15 +177,15 @@
             <%if(paramField != null && param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= paramFormIdx %>].elements["<e:forJavaScriptBlock value='<%= paramField %>' />"].value = data1;
-                opener.document.forms[<%= param2FormIdx %>].elements["<e:forJavaScriptBlock value='<%= param2Field %>' />"].value = data2;
+                opener.document.forms[<%= paramFormIdx %>].elements["<carlos:encode value='<%= paramField %>' context="javaScriptBlock"/>"].value = data1;
+                opener.document.forms[<%= param2FormIdx %>].elements["<carlos:encode value='<%= param2Field %>' context="javaScriptBlock"/>"].value = data2;
                 self.close();
             }
 
             <%} else if(param2Field != null) {%>
 
             function typeInData2(data1, data2) {
-                opener.document.forms[<%= param2FormIdx %>].elements["<e:forJavaScriptBlock value='<%= param2Field %>' />"].value = data2;
+                opener.document.forms[<%= param2FormIdx %>].elements["<carlos:encode value='<%= param2Field %>' context="javaScriptBlock"/>"].value = data2;
                 self.close();
             }
 
@@ -193,23 +194,23 @@
             function typeInData3(billno, toname, toaddress, tophone, tofax) {
                 var fieldsSet = false;
                 <%if(paramField != null) {%>
-                opener.document.forms[<%= paramFormIdx %>].elements["<e:forJavaScriptBlock value='<%= paramField %>' />"].value = billno;
+                opener.document.forms[<%= paramFormIdx %>].elements["<carlos:encode value='<%= paramField %>' context="javaScriptBlock"/>"].value = billno;
                 fieldsSet = true;
                 <%}
                   if(tonameField != null) {%>
-                opener.document.forms[<%= tonameFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tonameField %>' />"].value = toname;
+                opener.document.forms[<%= tonameFormIdx %>].elements["<carlos:encode value='<%= tonameField %>' context="javaScriptBlock"/>"].value = toname;
                 fieldsSet = true;
                 <%}
                   if(toaddress1Field != null) {%>
-                opener.document.forms[<%= toaddress1FormIdx %>].elements["<e:forJavaScriptBlock value='<%= toaddress1Field %>' />"].value = toaddress;
+                opener.document.forms[<%= toaddress1FormIdx %>].elements["<carlos:encode value='<%= toaddress1Field %>' context="javaScriptBlock"/>"].value = toaddress;
                 fieldsSet = true;
                 <%}
                   if(tophoneField != null) {%>
-                opener.document.forms[<%= tophoneFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tophoneField %>' />"].value = tophone;
+                opener.document.forms[<%= tophoneFormIdx %>].elements["<carlos:encode value='<%= tophoneField %>' context="javaScriptBlock"/>"].value = tophone;
                 fieldsSet = true;
                 <%}
                   if(tofaxField != null) {%>
-                opener.document.forms[<%= tofaxFormIdx %>].elements["<e:forJavaScriptBlock value='<%= tofaxField %>' />"].value = tofax;
+                opener.document.forms[<%= tofaxFormIdx %>].elements["<carlos:encode value='<%= tofaxField %>' context="javaScriptBlock"/>"].value = tofax;
                 fieldsSet = true;
                 <%}%>
                 if (!fieldsSet) {
@@ -265,18 +266,18 @@
                 onmouseover="this.style.cursor='pointer';this.style.backgroundColor='LightBlue';"
                 onmouseout="this.style.backgroundColor='<%=bgColor%>'"
                 onClick="<%=strOnClick%>">
-                <td><e:forHtmlContent value='<%= prop.getProperty("referral_no", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("referral_no", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("last_name", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("last_name", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("first_name", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("first_name", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("specialty", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("specialty", "") %>' context="html"/>
                 </td>
-                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <e:forHtmlContent value='<%= prop.getProperty("to_fax", "") %>' />"><e:forHtmlContent value='<%= prop.getProperty("phone", "") %>' />
+                <td title="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.fax"/> <carlos:encode value='<%= prop.getProperty("to_fax", "") %>' context="html"/>"><carlos:encode value='<%= prop.getProperty("phone", "") %>' context="html"/>
                 </td>
                 <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                    title="<e:forHtmlAttribute value='<%= prop.getProperty("to_address", "") %>' />"><e:forHtmlContent value='<%= prop.getProperty("to_address", "") %>' />
+                    title="<carlos:encode value='<%= prop.getProperty("to_address", "") %>' context="htmlAttribute"/>"><carlos:encode value='<%= prop.getProperty("to_address", "") %>' context="html"/>
                 </td>
             </tr>
             <% } %>

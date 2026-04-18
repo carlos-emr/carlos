@@ -64,6 +64,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -439,12 +440,12 @@
                     Set<Provider> siteProviders = sites.get(i).getProviders();
                     List<Provider> siteProvidersList = new ArrayList<Provider>(siteProviders);
                     Collections.sort(siteProvidersList,(new Provider()).ComparatorName()); %>
-                _providers["<e:forJavaScriptBlock value='<%= sites.get(i).getName() %>' />"] = [
+                _providers["<carlos:encode value='<%= sites.get(i).getName() %>' context="javaScriptBlock"/>"] = [
                     <% Iterator<Provider> iter = siteProvidersList.iterator();
                     while (iter.hasNext()) {
                         Provider p = iter.next();
                         if (reporters.contains(p.getProviderNo())) { %>
-                    {value: '<e:forJavaScriptBlock value='<%= p.getProviderNo() %>' />', text: '<e:forJavaScriptBlock value='<%= p.getLastName() + ", " + p.getFirstName() %>' />'},
+                    {value: '<carlos:encode value='<%= p.getProviderNo() %>' context="javaScriptBlock"/>', text: '<carlos:encode value='<%= p.getLastName() + ", " + p.getFirstName() %>' context="javaScriptBlock"/>'},
                     <% }} %>
                 ];
                 <% } %>
@@ -469,9 +470,9 @@
                 <%
                     for (int i = 0; i < sites.size(); i++) {
                 %>
-                <option value="<e:forHtmlAttribute value='<%= sites.get(i).getName() %>' />"
-                        style="background-color:<e:forCssString value='<%= sites.get(i).getBgColor() %>' />"
-                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
+                <option value="<carlos:encode value='<%= sites.get(i).getName() %>' context="htmlAttribute"/>"
+                        style="background-color:<carlos:encode value='<%= sites.get(i).getBgColor() %>' context="cssString"/>"
+                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
                 </option>
                 <% } %>
             </select>
@@ -479,7 +480,7 @@
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
-                document.getElementById("providerview").value = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")) %>' />';
+                document.getElementById("providerview").value = '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")) %>' context="javaScriptBlock"/>';
             </script>
             <% } // multisite end ==========================================
             } else {
@@ -500,7 +501,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast + ", " + proFirst %>' /></option>
+                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast + ", " + proFirst %>' context="html"/></option>
                 <%
                     }
                 %>
@@ -508,10 +509,10 @@
             <% } %>
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

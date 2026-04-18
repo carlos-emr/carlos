@@ -32,6 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 %>
@@ -100,7 +101,7 @@
 %>
 <script LANGUAGE="JavaScript">
     <!--
-    CodeAttach('<e:forJavaScriptBlock value='<%= param[0] %>' />', '<e:forJavaScriptBlock value='<%= param[1] %>' />', '<e:forJavaScriptBlock value='<%= param[2] %>' />');
+    CodeAttach('<carlos:encode value='<%= param[0] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[1] %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= param[2] %>' context="javaScriptBlock"/>');
     -->
 
 </script>

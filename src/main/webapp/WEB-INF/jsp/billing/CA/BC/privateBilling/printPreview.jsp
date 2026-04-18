@@ -23,6 +23,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -378,7 +379,7 @@
 
                     %>
                     <% if (!StringUtils.isNullOrEmpty(payeeInfo)) { %>
-                    <div class="payeeInfo"><e:forHtmlContent value='<%= payeeInfo %>' />
+                    <div class="payeeInfo"><carlos:encode value='<%= payeeInfo %>' context="html"/>
                     </div>
                     <% }
                         //Default to true when not found
@@ -389,9 +390,9 @@
                     <% SystemPreferences invoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                         if (invoiceClinicInfo == null || StringUtils.isNullOrEmpty(invoiceClinicInfo.getValue())) { %>
                     <div>
-                        <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
+                        <carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                     </div>
-                    <div><e:forHtmlContent value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' />
+                    <div><carlos:encode value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' context="html"/>
                     </div>
                     <div id="clinicPhone">
                         Telephone: <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone()%>
@@ -400,7 +401,7 @@
                     </div>
                     <% } else { %>
 
-                    <div class="payeeInfo"><e:forHtmlContent value='<%= invoiceClinicInfo.getValue() %>' />
+                    <div class="payeeInfo"><carlos:encode value='<%= invoiceClinicInfo.getValue() %>' context="html"/>
                     </div>
 
                     <% } %>

@@ -32,6 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
@@ -157,16 +158,16 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />" checked>
-                <%} else {%><input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />">
-                <%}%><e:forHtmlContent value='<%= Dcode %>' />
+                    type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>" checked>
+                <%} else {%><input type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>">
+                <%}%><carlos:encode value='<%= Dcode %>' context="html"/>
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="hidden" name="codedesc_<e:forHtmlAttribute value='<%= Dcode %>' />"
-                                                  value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />"><input type="text" name="<e:forHtmlAttribute value='<%= Dcode %>' />"
-                                                                                value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />" size="50"><input
+                                  size="2"><input type="hidden" name="codedesc_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"
+                                                  value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>"><input type="text" name="<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"
+                                                                                value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>" size="50"><input
                     type="submit"
-                    name="update" value="update <e:forHtmlAttribute value='<%= Dcode %>' />"></font></td>
+                    name="update" value="update <carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"></font></td>
         </tr>
         <%
             }
@@ -184,7 +185,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<e:forJavaScriptBlock value='<%= Dcode %>' />');
+            CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScriptBlock"/>');
             -->
 
         </script>

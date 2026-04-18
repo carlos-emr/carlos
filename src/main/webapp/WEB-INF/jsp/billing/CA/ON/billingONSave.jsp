@@ -14,6 +14,7 @@
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -32,7 +33,7 @@
 <script type="text/javascript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     <% if (!safeUrlBack.isEmpty()) { %>
-    self.location.href = "<e:forJavaScriptBlock value='<%= safeUrlBack %>' />";
+    self.location.href = "<carlos:encode value='<%= safeUrlBack %>' context="javaScriptBlock"/>";
     <% } else { %>
     self.close();
     <% } %>

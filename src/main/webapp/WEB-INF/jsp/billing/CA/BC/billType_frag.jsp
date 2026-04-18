@@ -5,6 +5,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%--
 This jsp fragment displays the Bill Type drop down which is used by the MSP and WCB "corrections" screens.
@@ -35,7 +36,7 @@ TODO: Localize Strings
         <td nowrap="nowrap"><label for="billtype">Billing Type: </label>
         </td>
         <td>
-            <div id="billtype"><e:forHtmlContent value='<%= StringUtils.noNull(statusTypeProps.getProperty(BillType)) %>' />
+            <div id="billtype"><carlos:encode value='<%= StringUtils.noNull(statusTypeProps.getProperty(BillType)) %>' context="html"/>
             </div>
         </td>
     </tr>
@@ -44,12 +45,12 @@ TODO: Localize Strings
         <td><select id="status" name="status"
                          onchange="javascript:document.forms[0].xml_status.value = this.value;callToggleWCB();">
             <c:forEach var="statusType" items="${statusTypes}">
-                <option value="${e:forHtmlAttribute(statusType.billingstatus)}">
-                        ${e:forHtml(statusType.displayNameExt)}
+                <option value="${carlos:forHtmlAttribute(statusType.billingstatus)}">
+                        ${carlos:forHtml(statusType.displayNameExt)}
                 </option>
             </c:forEach>
         </select></td>
     </tr>
 </table>
-<input type="hidden" name="xml_status" value="<e:forHtmlAttribute value='<%= BillType %>' />">
+<input type="hidden" name="xml_status" value="<carlos:encode value='<%= BillType %>' context="htmlAttribute"/>">
 <br/>

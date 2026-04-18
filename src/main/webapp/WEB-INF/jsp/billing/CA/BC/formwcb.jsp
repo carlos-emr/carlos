@@ -60,6 +60,7 @@
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     boolean readonly = false;
@@ -451,7 +452,7 @@
         <input type="hidden" name="apptProvider_no"
                value="<%=form.getProviderNo()%>"/>
         <input type="hidden" name="bNewForm" value="1"/>
-        <input type="hidden" name="fromBilling" value="<e:forHtmlAttribute value='<%= fromBilling %>' />"/>
+        <input type="hidden" name="fromBilling" value="<carlos:encode value='<%= fromBilling %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="wcbFormId" id="wcbFormId"/>
 
         <%

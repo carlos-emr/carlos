@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <% String errorMessage = request.getParameter("errorMessage"); %>
 
@@ -108,7 +109,7 @@
 				<tr>
 				    <td class="white">&nbsp;</td>
 					<td width="50%" class="white">			
-					<font color="red" size="2"> <e:forHtmlContent value='<%= StringUtils.noNull(errorMessage) %>' />
+					<font color="red" size="2"> <carlos:encode value='<%= StringUtils.noNull(errorMessage) %>' context="html"/>
 					</font></td>
 					
 				</tr>				

@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -150,16 +151,16 @@
                             BillingService bcd = (BillingService) list.get(i);
                     %>
                     <tr align="center">
-                        <td><strong><e:forHtmlContent value='<%= bcd.getServiceCode() %>' />
+                        <td><strong><carlos:encode value='<%= bcd.getServiceCode() %>' context="html"/>
                         </strong></td>
-                        <td><e:forHtmlContent value='<%= bcd.getDescription() %>' />
+                        <td><carlos:encode value='<%= bcd.getDescription() %>' context="html"/>
                         </td>
-                        <td><e:forHtmlContent value='<%= bcd.getValue() %>' />
+                        <td><carlos:encode value='<%= bcd.getValue() %>' context="html"/>
                         </td>
                         <td><a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<e:forUriComponent value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' />&code=<e:forUriComponent value='<%= bcd.getServiceCode() %>' />&desc=<e:forUriComponent value='<%= bcd.getDescription() %>' />&value=<e:forUriComponent value='<%= bcd.getValue() %>' />">Edit</a>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
                             <br>
-                            <a href="javascript:void(0);" onclick="deletePrivateCode('<e:forJavaScriptAttribute value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' />');">Delete</a></td>
+                            <a href="javascript:void(0);" onclick="deletePrivateCode('<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="javaScriptAttribute"/>');">Delete</a></td>
                     </tr>
                     <%} %>
                 </table>

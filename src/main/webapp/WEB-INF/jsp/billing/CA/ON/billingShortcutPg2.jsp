@@ -45,6 +45,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>
@@ -507,7 +508,7 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><e:forHtmlContent value='<%= demoname %>' />
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value='<%= demoname %>' context="html"/>
                             <%= "1".equals(demoSex) ? "Male" : "Female" %> <%= " DOB: " + Encode.forHtml(demoDOBYY) + "/" + Encode.forHtml(demoDOBMM) + "/" + Encode.forHtml(demoDOBDD) + " HIN: " + Encode.forHtml(demoHIN) %>
                         </td>
                         <td bgcolor="#99CCCC" align="center"><%= wrongMsg %>
@@ -530,14 +531,14 @@
                                         <%= request.getParameter("billDate") != null ? String.join("<br>", java.util.Arrays.stream(request.getParameter("billDate").split("\\n")).map(Encode::forHtml).toArray(String[]::new)) : "" %>
                                     </td>
                                     <td align="center" width="33%"><b>Diagnostic Code</b><br>
-                                        <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("dxCode")) %>' />
+                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("dxCode")) %>' context="html"/>
                                         <hr>
                                         <b>Cal.% mode</b><br>
-                                        <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("rulePerc")) %>' />
+                                        <carlos:encode value='<%= StringUtils.noNull(request.getParameter("rulePerc")) %>' context="html"/>
                                     </td>
                                     <td valign="top"><b>Refer.
-                                        Doctor</b><br><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("referralDocName")) %>' /><br>
-                                        <b>Refer. Doctor #</b><br><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("referralCode")) %>' />
+                                        Doctor</b><br><carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralDocName")) %>' context="html"/><br>
+                                        <b>Refer. Doctor #</b><br><carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralCode")) %>' context="html"/>
                                     </td>
                                 </tr>
                             </table>
@@ -550,25 +551,25 @@
                                    bgcolor="#EEEEFF">
                                 <tr>
                                     <td nowrap width="30%"><b>Billing Physician</b></td>
-                                    <td width="20%"><e:forHtmlContent value='<%= providerBean.getProperty(request.getParameter("xml_provider"), "") %>' />
+                                    <td width="20%"><carlos:encode value='<%= providerBean.getProperty(request.getParameter("xml_provider"), "") %>' context="html"/>
                                     </td>
                                     <td nowrap width="30%"><b>Assig. Physician</b></td>
-                                    <td width="20%"><e:forHtmlContent value='<%= providerBean.getProperty(assgProvider_no, "") %>' />
+                                    <td width="20%"><carlos:encode value='<%= providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
 
                                     <td width="30%"><b>Visit Type</b></td>
-                                    <td width="20%"><e:forHtmlContent value='<%= request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "" %>' />
+                                    <td width="20%"><carlos:encode value='<%= request.getParameter("xml_visittype") != null && request.getParameter("xml_visittype").contains("|") ? request.getParameter("xml_visittype").substring(request.getParameter("xml_visittype").indexOf("|") + 1) : "" %>' context="html"/>
                                     </td>
 
                                     <td width="30%"><b>Billing Type</b></td>
-                                    <td width="20%"><e:forHtmlContent value='<%= request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "" %>' />
+                                    <td width="20%"><carlos:encode value='<%= request.getParameter("xml_billtype") != null && request.getParameter("xml_billtype").contains("|") ? request.getParameter("xml_billtype").substring(request.getParameter("xml_billtype").indexOf("|") + 1) : "" %>' context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Visit Location</b></td>
-                                    <td colspan="3"><e:forHtmlContent value='<%= request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "" %>' />
+                                    <td colspan="3"><carlos:encode value='<%= request.getParameter("xml_location") != null && request.getParameter("xml_location").contains("|") ? request.getParameter("xml_location").substring(request.getParameter("xml_location").indexOf("|") + 1) : "" %>' context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -580,13 +581,13 @@
                                     %>
                                         Not Applicable &nbsp;
                                         <%} else {%>
-                                        <e:forHtmlContent value='<%= testSliCode %>' /> &nbsp;
+                                        <carlos:encode value='<%= testSliCode %>' context="html"/> &nbsp;
                                         <%}%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><b>Admission Date</b></td>
-                                    <td><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("xml_vdate")) %>' />
+                                    <td><carlos:encode value='<%= StringUtils.noNull(request.getParameter("xml_vdate")) %>' context="html"/>
                                     </td>
                                     <td colspan="2"></td>
 
@@ -628,15 +629,15 @@
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 String temp = e.nextElement().toString();
         %>
-        <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter(temp)) %>' />">
+        <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter(temp)) %>' context="htmlAttribute"/>">
         <%
             }
         %>
-        <input type="hidden" name="hc_type" value="<e:forHtmlAttribute value='<%= demoHCTYPE %>' />">
-        <input type="hidden" name="referralCode" value="<e:forHtmlAttribute value='<%= r_doctor_ohip %>' />">
-        <input type="hidden" name="sex" value="<e:forHtmlAttribute value='<%= demoSex %>' />">
-        <input type="hidden" name="proOHIPNO" value="<e:forHtmlAttribute value='<%= proOHIPNO %>' />">
+        <input type="hidden" name="hc_type" value="<carlos:encode value='<%= demoHCTYPE %>' context="htmlAttribute"/>">
+        <input type="hidden" name="referralCode" value="<carlos:encode value='<%= r_doctor_ohip %>' context="htmlAttribute"/>">
+        <input type="hidden" name="sex" value="<carlos:encode value='<%= demoSex %>' context="htmlAttribute"/>">
+        <input type="hidden" name="proOHIPNO" value="<carlos:encode value='<%= proOHIPNO %>' context="htmlAttribute"/>">
     </form>
 
 </table>

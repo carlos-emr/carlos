@@ -28,6 +28,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -120,14 +121,14 @@
             <div class="col-md-5">
                 Patient Name: <br>
                 <div class="input-group">
-                    <input class="form-control" id="nameForlooksOnly" type="text" value="<e:forHtmlAttribute value='<%= name %>' />">
+                    <input class="form-control" id="nameForlooksOnly" type="text" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
             </div>
 
-            <input type="hidden" name="firstNameParam" id="fname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' />"/>
-            <input type="hidden" name="lastNameParam" id="lname" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' />"/>
+            <input type="hidden" name="firstNameParam" id="fname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstNameParam")) %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="lastNameParam" id="lname" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastNameParam")) %>' context="htmlAttribute"/>"/>
 
 
             <div class="col-md-2">
@@ -171,7 +172,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
@@ -187,23 +188,23 @@
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Patient:</td>
                 <td>
-                    ${e:forHtml(summary.patientNo)}&nbsp;&nbsp;
-                    ${e:forHtml(summary.patientName)}&nbsp;&nbsp;
-                    ${e:forHtml(summary.hin)}&nbsp;&nbsp;
+                    ${carlos:forHtml(summary.patientNo)}&nbsp;&nbsp;
+                    ${carlos:forHtml(summary.patientName)}&nbsp;&nbsp;
+                    ${carlos:forHtml(summary.hin)}&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Address :</td>
                 <td>
-                    ${e:forHtml(summary.address)}
+                    ${carlos:forHtml(summary.address)}
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Phone :</td>
                 <td>
-                    ${e:forHtml(summary.phone)}
+                    ${carlos:forHtml(summary.phone)}
                 </td>
             </tr>
         </table>
@@ -222,18 +223,18 @@
             </tr>
             <c:forEach var="row" items="${result}" varStatus="counter">
                 <tr bgcolor="#CEF6CE">
-                    <td>${e:forHtml(row.invoiceNo)}</td>
-                    <td>${e:forHtml(row.invoiceDate)}</td>
+                    <td>${carlos:forHtml(row.invoiceNo)}</td>
+                    <td>${carlos:forHtml(row.invoiceDate)}</td>
                     <td>&nbsp;</td>
-                    <td>${e:forHtml(row.invoiced)}</td>
-                    <td>${e:forHtml(row.paid)}</td>
+                    <td>${carlos:forHtml(row.invoiced)}</td>
+                    <td>${carlos:forHtml(row.paid)}</td>
                 </tr>
                 <c:forEach var="service" items="${row.services}" varStatus="counterService">
                     <tr bgcolor="${counterService.index % 2 == 0 ? 'ivory' : '#EEEEFF'}">
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
-                        <td>${e:forHtml(service.code)}</td>
-                        <td>${e:forHtml(service.fee)}</td>
+                        <td>${carlos:forHtml(service.code)}</td>
+                        <td>${carlos:forHtml(service.fee)}</td>
                         <td>&nbsp;</td>
                     </tr>
                 </c:forEach>
@@ -243,12 +244,12 @@
             </tr>
             <tr bgcolor="#99FF66">
                 <td>Count: &nbsp;&nbsp;&nbsp;
-                    <c:if test="${not empty summary}">${e:forHtml(summary.count)}</c:if>
+                    <c:if test="${not empty summary}">${carlos:forHtml(summary.count)}</c:if>
                 </td>
                 <td>&nbsp;</td>
                 <td align="center">Total:</td>
-                <td><c:if test="${not empty summary}">${e:forHtml(summary.invoiced)}</c:if></td>
-                <td><c:if test="${not empty summary}">${e:forHtml(summary.paid)}</c:if></td>
+                <td><c:if test="${not empty summary}">${carlos:forHtml(summary.invoiced)}</c:if></td>
+                <td><c:if test="${not empty summary}">${carlos:forHtml(summary.paid)}</c:if></td>
             </tr>
         </table>
     </c:if>

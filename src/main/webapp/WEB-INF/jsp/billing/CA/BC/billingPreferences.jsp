@@ -1,6 +1,7 @@
 <%@ taglib prefix="oscar" uri="/oscarPropertiestag" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
@@ -210,7 +211,7 @@
                             </tr>
                             <% if (!StringUtils.isNullOrEmpty(payeeInfo)) { %>
                             <tr>
-                                <td class="title4 payeeInfo"><e:forHtmlContent value='<%= payeeInfo %>' />
+                                <td class="title4 payeeInfo"><carlos:encode value='<%= payeeInfo %>' context="html"/>
                                 </td>
                             </tr>
                             <% }
@@ -222,11 +223,11 @@
                                 <% SystemPreferences useCustomInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_use_custom_clinic_info);
                                     if (useCustomInvoiceClinicInfo == null || StringUtils.isNullOrEmpty(useCustomInvoiceClinicInfo.getValue())) { %>
                                 <td class="title4">
-                                    <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
+                                    <carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' />
+                                <td class="address"><carlos:encode value='<%= clinic.getClinicAddress() + ", " + clinic.getClinicCity() + ", " + clinic.getClinicProvince() + " " + clinic.getClinicPostal() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
@@ -241,7 +242,7 @@
                                 <% } else {
                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                                 %>
-                                <td class="payeeInfo"><e:forHtmlContent value='<%= customInvoiceClinicInfo.getValue() %>' />
+                                <td class="payeeInfo"><carlos:encode value='<%= customInvoiceClinicInfo.getValue() %>' context="html"/>
                                 </td>
 
                                 <% } %>

@@ -26,6 +26,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
@@ -208,18 +209,18 @@
 </table>
 
 Cheque amount:
-<e:forHtmlContent value='<%= total %>' />
+<carlos:encode value='<%= total %>' context="html"/>
 <br>
 <%="Local clinic "%>:
-<e:forHtmlContent value='<%= local_total %>' />
+<carlos:encode value='<%= local_total %>' context="html"/>
 <br>
 Other clinic :
-<e:forHtmlContent value='<%= other_total %>' /><br>
+<carlos:encode value='<%= other_total %>' context="html"/><br>
 
 OB Total :
-<e:forHtmlContent value='<%= ob_total %>' /><br>
+<carlos:encode value='<%= ob_total %>' context="html"/><br>
 Colposcopy Total :
-<e:forHtmlContent value='<%= co_total %>' /><br>
+<carlos:encode value='<%= co_total %>' context="html"/><br>
 
 <br>
 <br>
@@ -246,7 +247,7 @@ Colposcopy Total :
     if (!bPremiumList.isEmpty()) {
 %>
 <form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium" method="post">
-    <input type="hidden" name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"/>
+    <input type="hidden" name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="method" value="applyPremium"/>
     <h3><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>
     <table>
@@ -270,7 +271,7 @@ Colposcopy Total :
         %>
         <tr>
             <td><input name="choosePremium<%=premiumId%>" type="checkbox" value="Y" <%=isChecked%>/>
-            <td><e:forHtmlContent value='<%= premium.getProviderOHIPNo() %>' />
+            <td><carlos:encode value='<%= premium.getProviderOHIPNo() %>' context="html"/>
             </td>
             <td><select name="providerNo<%=premiumId%>">
                 <%
@@ -282,14 +283,14 @@ Colposcopy Total :
                             selectedChoice = "selected=\"selected\"";
                         }
                 %>
-                <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=selectedChoice%>><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=selectedChoice%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                 </option>
                 <% } %>
             </select>
             </td>
-            <td><e:forHtmlContent value='<%= premium.getAmountPay() %>' />
+            <td><carlos:encode value='<%= premium.getAmountPay() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= DateUtils.formatDate(premium.getPayDate(), request.getLocale()) %>' />
+            <td><carlos:encode value='<%= DateUtils.formatDate(premium.getPayDate(), request.getLocale()) %>' context="html"/>
             </td>
         </tr>
         <%
@@ -304,7 +305,7 @@ Colposcopy Total :
     </table>
 </form>
 <% } %><%--  --%>
-<pre><e:forHtmlContent value='<%= message_txt %>' /></pre>
+<pre><carlos:encode value='<%= message_txt %>' context="html"/></pre>
 
 </body>
 </html>

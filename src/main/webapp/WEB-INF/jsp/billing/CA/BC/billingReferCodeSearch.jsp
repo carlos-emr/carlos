@@ -39,6 +39,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billingreferral" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingreferralDao" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     BillingreferralDao billingReferralDao = (BillingreferralDao) SpringUtils.getBean(BillingreferralDao.class);
 %>
@@ -140,7 +141,7 @@
 
         function CodeAttach(File0) {
             self.close();
-            self.opener.document["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formName) %>' />"]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(formElement) %>' />"].value = File0;
+            self.opener.document["<carlos:encode value='<%= StringUtils.noNull(formName) %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= StringUtils.noNull(formElement) %>' context="javaScriptBlock"/>"].value = File0;
         }
 
     </script>
@@ -159,9 +160,9 @@
 </table>
 <form name="servicecode" id="servicecode" method="post"
       action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingReferCodeUpdate"><input type="hidden"
-                                                 name="formName" value="<e:forHtmlAttribute value='<%= formName %>' />"/> <input type="hidden"
+                                                 name="formName" value="<carlos:encode value='<%= formName %>' context="htmlAttribute"/>"/> <input type="hidden"
                                                                                                 name="formElement"
-                                                                                                value="<e:forHtmlAttribute value='<%= formElement %>' />"/>
+                                                                                                value="<carlos:encode value='<%= formElement %>' context="htmlAttribute"/>"/>
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
@@ -210,21 +211,21 @@
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2">
                 <% if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %><input
-                    type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />" checked>
-                <%} else {%><input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />">
-                <%}%><e:forHtmlContent value='<%= Dcode %>' />
+                    type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>" checked>
+                <%} else {%><input type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>">
+                <%}%><carlos:encode value='<%= Dcode %>' context="html"/>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><e:forHtmlContent value='<%= DcodeDesc %>' />
+                                  size="2"><carlos:encode value='<%= DcodeDesc %>' context="html"/>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><e:forHtmlContent value='<%= DcodeSpecialty %>' />
+                                  size="2"><carlos:encode value='<%= DcodeSpecialty %>' context="html"/>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><e:forHtmlContent value='<%= DcodeCity %>' />
+                                  size="2"><carlos:encode value='<%= DcodeCity %>' context="html"/>
             </font></td>
             <td width="22%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><e:forHtmlContent value='<%= DcodePhone %>' />
+                                  size="2"><carlos:encode value='<%= DcodePhone %>' context="html"/>
             </font></td>
         </tr>
         <%
@@ -234,7 +235,7 @@
         <% if (intCount == 0) { %>
         <tr bgcolor="<%=color%>">
             <td colspan="5"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><e:forHtmlContent value='<%= desc %>' />No match found. <e:forHtmlContent value='<%= fdesc %>' />
+                                  size="2"><carlos:encode value='<%= desc %>' context="html"/>No match found. <carlos:encode value='<%= fdesc %>' context="html"/>
                 <%// =i%>
             </font></td>
 
@@ -244,7 +245,7 @@
         <% if (intCount == 1) { %>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<e:forJavaScriptBlock value='<%= Dcode %>' />');
+            CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScriptBlock"/>');
             -->
 
         </script>

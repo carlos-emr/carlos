@@ -49,6 +49,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -246,7 +247,7 @@
 <body>
 <form action="<%=request.getContextPath()%>/BillingInvoice" method="post">
     <input type="hidden" name="method" value=""/>
-    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<e:forHtmlAttribute value='<%= invoiceNoStr %>' />"/>
+    <input type="hidden" name="invoiceNo" id="invoiceNo" value="<carlos:encode value='<%= invoiceNoStr %>' context="htmlAttribute"/>"/>
     <div class="doNotPrint">
         <div class="titleBar">
             <input type="button" name="printInvoice" value="<fmt:message key="billing.billing3rdInv.printPDF"/>"
@@ -299,7 +300,7 @@
             <%}%>
         </td>
         <td align="right" valign="top"><font size="+2"><b>Invoice
-            - <e:forHtmlContent value='<%= invoiceNoStr %>' />
+            - <carlos:encode value='<%= invoiceNoStr %>' context="html"/>
         </b></font><br/>
             Print Date:<%=DateUtils.sumDate("yyyy-MM-dd HH:mm", "0") %><br/>
             <% if (props.hasProperty("invoice_due_date")) { %>
