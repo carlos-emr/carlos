@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -260,18 +261,18 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ID"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("ID", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("ID", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provider_no"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
-        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
-        <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= String.valueOf(formId) %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="formId" value="<carlos:encode value='<%= String.valueOf(formId) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="c_lastVisited"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("c_lastVisited", "1") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("c_lastVisited", "1") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Header" class="hidePrint">
@@ -285,15 +286,15 @@
                     <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                     Graph Length and Weight</a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                         Graph Head Circumference</a></td>
                 <td nowrap="true"><a><fmt:message key="form.rourke.page1"/></a>&nbsp;|&nbsp; <a
-                        href="formrourke2?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
+                        href="formrourke2?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>">Page
                     2</a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
+                        href="formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>">Page
                     3</a></td>
             </tr>
         </table>
@@ -309,31 +310,31 @@
             <tr valign="top">
                 <td nowrap align="center"><fmt:message key="form.rourke.birthRemarks"/><br>
                     <textarea name="c_birthRemarks" rows="2"
-                              cols="17"><e:forHtmlContent value='<%= props.getProperty("c_birthRemarks", "") %>' /></textarea>
+                              cols="17"><carlos:encode value='<%= props.getProperty("c_birthRemarks", "") %>' context="html"/></textarea>
                 </td>
                 <td nowrap align="center"><fmt:message key="form.rourke.riskFactorsFamilyHistory"/><br>
                     <textarea name="c_riskFactors" rows="2"
-                              cols="17"><e:forHtmlContent value='<%= props.getProperty("c_riskFactors", "") %>' /></textarea>
+                              cols="17"><carlos:encode value='<%= props.getProperty("c_riskFactors", "") %>' context="html"/></textarea>
                 </td>
                 <td width="65%" nowrap align="center">
                     <p>Name: <input type="text" name="c_pName" maxlength="60"
-                                    size="30" value="<e:forHtmlAttribute value='<%= props.getProperty("c_pName", "") %>' />"
+                                    size="30" value="<carlos:encode value='<%= props.getProperty("c_pName", "") %>' context="htmlAttribute"/>"
                                     readonly="true"/> &nbsp;&nbsp; Birth Date (yyyy/mm/dd): <input
                             type="text" name="c_birthDate" size="10" maxlength="10"
-                            value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthDate", "") %>' />" readonly="true">
+                            value="<carlos:encode value='<%= props.getProperty("c_birthDate", "") %>' context="htmlAttribute"/>" readonly="true">
                         &nbsp;&nbsp; <%= ((FrmRourkeRecord) rec).isFemale(demoNo) == true ? "Female" : "Male" %>
                     </p>
                     <p>Length: <input type="text" name="c_length" size="6"
-                                      maxlength="6" value="<e:forHtmlAttribute value='<%= props.getProperty("c_length", "") %>' />"/> cm
+                                      maxlength="6" value="<carlos:encode value='<%= props.getProperty("c_length", "") %>' context="htmlAttribute"/>"/> cm
                         &nbsp;&nbsp; Head Circ: <input type="text" name="c_headCirc" size="6"
                                                        maxlength="6"
-                                                       value="<e:forHtmlAttribute value='<%= props.getProperty("c_headCirc", "") %>' />"/>
+                                                       value="<carlos:encode value='<%= props.getProperty("c_headCirc", "") %>' context="htmlAttribute"/>"/>
                         cm &nbsp;&nbsp; Birth Wt: <input type="text" name="c_birthWeight"
                                                          size="6" maxlength="7"
-                                                         value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthWeight", "") %>' />"/> kg
+                                                         value="<carlos:encode value='<%= props.getProperty("c_birthWeight", "") %>' context="htmlAttribute"/>"/> kg
                         &nbsp;&nbsp; Discharge Wt: <input type="text"
                                                           name="c_dischargeWeight" size="6" maxlength="7"
-                                                          value="<e:forHtmlAttribute value='<%= props.getProperty("c_dischargeWeight", "") %>' />">
+                                                          value="<carlos:encode value='<%= props.getProperty("c_dischargeWeight", "") %>' context="htmlAttribute"/>">
                         kg</p>
                 </td>
             </tr>
@@ -349,13 +350,13 @@
             <tr align="center">
                 <td class="column"><a><fmt:message key="form.rourke.date"/></a></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p1_date1w"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_date1w", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p1_date1w", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p1_date2w"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_date2w", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p1_date2w", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p1_date1m"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_date1m", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p1_date1m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p1_date2m"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_date2m", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p1_date2m", "") %>' context="htmlAttribute"/>"/></td>
             </tr>
             <tr align="center">
                 <td class="column" rowspan="2"><a><fmt:message key="form.rourke.growth"/></a></td>
@@ -375,47 +376,47 @@
             </tr>
             <tr align="center">
                 <td><input type="text" class="wide" name="p1_ht1w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_ht1w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_ht1w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_wt1w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_wt1w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt1w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_hc1w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_hc1w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_hc1w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_ht2w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_ht2w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_ht2w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_wt2w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_wt2w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt2w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_hc2w" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_hc2w", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_hc2w", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_ht1m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_ht1m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_ht1m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_wt1m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_wt1m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt1m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_hc1m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_hc1m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_hc1m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_ht2m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_ht2m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_ht2m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_wt2m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_wt2m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_wt2m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p1_hc2m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p1_hc2m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p1_hc2m", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr align="center">
                 <td class="column"><a><fmt:message key="form.rourke.parentalConcerns"/></a></td>
                 <td colspan="3"><textarea name="p1_pConcern1w"
                                           style="width: 100%" cols="10"
-                                          rows="2"><e:forHtmlContent value='<%= props.getProperty("p1_pConcern1w", "") %>' /></textarea>
+                                          rows="2"><carlos:encode value='<%= props.getProperty("p1_pConcern1w", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p1_pConcern2w"
                                           style="width: 100%" cols="10"
-                                          rows="2"><e:forHtmlContent value='<%= props.getProperty("p1_pConcern2w", "") %>' /></textarea>
+                                          rows="2"><carlos:encode value='<%= props.getProperty("p1_pConcern2w", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p1_pConcern1m"
                                           style="width: 100%" cols="10"
-                                          rows="2"><e:forHtmlContent value='<%= props.getProperty("p1_pConcern1m", "") %>' /></textarea>
+                                          rows="2"><carlos:encode value='<%= props.getProperty("p1_pConcern1m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p1_pConcern2m"
                                           style="width: 100%" cols="10"
-                                          rows="2"><e:forHtmlContent value='<%= props.getProperty("p1_pConcern2m", "") %>' /></textarea>
+                                          rows="2"><carlos:encode value='<%= props.getProperty("p1_pConcern2m", "") %>' context="html"/></textarea>
                 </td>
             </tr>
             <tr>
@@ -425,27 +426,27 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_nutrition1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_nutrition1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_nutrition1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_breastFeeding1w", "") %>' /> /></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding">Breast
+                                    <carlos:encode value='<%= props.getProperty("p1_breastFeeding1w", "") %>' context="htmlAttribute"/> /></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_formulaFeeding1w", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_formulaFeeding1w", "") %>' context="htmlAttribute"/> /></td>
                             <td><i><fmt:message key="form.rourke.formulaFeeding"/></i> (Fe fortified) <br>
                                 [150ml = 5oz/kg/day]
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_stoolUrine1w", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_stoolUrine1w", "") %>' context="htmlAttribute"/> /></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -455,27 +456,27 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_nutrition2w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_nutrition2w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_nutrition2w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_breastFeeding2w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding">Breast
+                                    <carlos:encode value='<%= props.getProperty("p1_breastFeeding2w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_formulaFeeding2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_formulaFeeding2w", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.formulaFeeding"/></i> (Fe fortified) <br>
                                 [150ml = 5oz/kg/day]
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_stoolUrine2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_stoolUrine2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -485,25 +486,25 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_nutrition1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_nutrition1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_nutrition1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_breastFeeding1m", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding">Breast
+                                    <carlos:encode value='<%= props.getProperty("p1_breastFeeding1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>n_breastFeeding">Breast
                                 feeding</a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_formulaFeeding1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_formulaFeeding1m", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.formulaFeeding"/></i> (Fe fortified)</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stoolUrine1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_stoolUrine1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_stoolUrine1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Stool pattern &amp; urine output</td>
                         </tr>
                     </table>
@@ -513,20 +514,20 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_nutrition2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_nutrition2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_nutrition2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_breastFeeding2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_breastFeeding2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_breastFeeding2m", "") %>' context="htmlAttribute"/>></td>
                             <td nowrap="true"><b><a
-                                    href="<e:forHtmlAttribute value='<%= resource %>' />n_breastFeeding"><fmt:message key="form.rourke.breastFeeding"/></a>*<br>
+                                    href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>n_breastFeeding"><fmt:message key="form.rourke.breastFeeding"/></a>*<br>
                                 &nbsp;&nbsp;Vit.D 10ug=400IU/day*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_formulaFeeding2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_formulaFeeding2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_formulaFeeding2m", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.formulaFeeding"/></i> (Fe fortified)</td>
                         </tr>
                     </table>
@@ -587,17 +588,17 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_educationAdvice1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_educationAdvice1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_educationAdvice1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_carSeat1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_carSeat1w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />s_motorVehicleAccidents">Car
+                                    <carlos:encode value='<%= props.getProperty("p1_carSeat1w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_motorVehicleAccidents">Car
                                 seat (infant)</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cribSafety1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_cribSafety1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_cribSafety1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Crib safety</td>
                         </tr>
                         <tr>
@@ -605,56 +606,56 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleeping1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sleeping1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sleeping1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Sleeping/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sooth1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sooth1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_bonding1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_bonding1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_bonding1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Parenting/bonding</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fatigue1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fatigue1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fatigue1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Fatigue/depression</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_family1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_family1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_family1w", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.family"/> conflict/stress</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_siblings1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_siblings1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_siblings1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Siblings</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_homeVisit1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_homeVisit1w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />hri_homeVisits">Assess
+                                    <carlos:encode value='<%= props.getProperty("p1_homeVisit1w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>hri_homeVisits">Assess
                                 home visit need</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepPos1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sleepPos1w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_sleepPosition">Sleep
+                                    <carlos:encode value='<%= props.getProperty("p1_sleepPos1w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>o_sleepPosition">Sleep
                                 position</a>*</b>
                             <td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_temp1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_temp1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_temp1w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Temperature control &amp; overdressing</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_smoke1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_smoke1w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_secondHandSmoke">Second
+                                    <carlos:encode value='<%= props.getProperty("p1_smoke1w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>o_secondHandSmoke">Second
                                 hand smoke</a>*</b></td>
                         </tr>
                     </table>
@@ -664,17 +665,17 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_educationAdvice2w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_educationAdvice2w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_educationAdvice2w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_carSeat2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_carSeat2w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />s_motorVehicleAccidents">Car
+                                    <carlos:encode value='<%= props.getProperty("p1_carSeat2w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_motorVehicleAccidents">Car
                                 seat (infant)</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cribSafety2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_cribSafety2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_cribSafety2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Crib safety</td>
                         </tr>
                         <tr>
@@ -682,55 +683,55 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleeping2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sleeping2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sleeping2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Sleeping/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sooth2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sooth2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_bonding2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_bonding2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_bonding2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Parenting/bonding</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fatigue2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fatigue2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fatigue2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Fatigue/depression</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_family2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_family2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_family2w", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.family"/> conflict/stress</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_siblings2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_siblings2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_siblings2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Siblings</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_homeVisit2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_homeVisit2w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />hri_homeVisits">Assess
+                                    <carlos:encode value='<%= props.getProperty("p1_homeVisit2w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>hri_homeVisits">Assess
                                 home visit need</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepPos2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sleepPos2w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_sleepPosition">Sleep
+                                    <carlos:encode value='<%= props.getProperty("p1_sleepPos2w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>o_sleepPosition">Sleep
                                 position</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_temp2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_temp2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_temp2w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Temperature control &amp; overdressing</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_smoke2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_smoke2w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />o_secondHandSmoke">Second
+                                    <carlos:encode value='<%= props.getProperty("p1_smoke2w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>o_secondHandSmoke">Second
                                 hand smoke</a>* </b></td>
                         </tr>
                     </table>
@@ -740,51 +741,51 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_educationAdvice1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_educationAdvice1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_educationAdvice1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_carbonMonoxide1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_carbonMonoxide1m", "") %>' />></td>
-                            <td><fmt:message key="form.rourke.carbonMonoxideSmoke"/> <i><a href="<e:forHtmlAttribute value='<%= resource %>' />s_burns">Smoke
+                                    <carlos:encode value='<%= props.getProperty("p1_carbonMonoxide1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><fmt:message key="form.rourke.carbonMonoxideSmoke"/> <i><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_burns">Smoke
                                 detectors</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sleepwear1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sleepwear1m", "") %>' />></td>
-                            <td><i><a href="<e:forHtmlAttribute value='<%= resource %>' />s_burns">Non-inflam.
+                                    <carlos:encode value='<%= props.getProperty("p1_sleepwear1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><i><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_burns">Non-inflam.
                                 sleepwear</a></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hotWater1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hotWater1m", "") %>' />></td>
-                            <td><i><a href="<e:forHtmlAttribute value='<%= resource %>' />s_burns">Hot water &lt;
+                                    <carlos:encode value='<%= props.getProperty("p1_hotWater1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><i><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_burns">Hot water &lt;
                                 54&deg;C</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_toys1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_toys1m", "") %>' />></td>
-                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking"><fmt:message key="form.rourke.chokingSafeToys"/></a>*</td>
+                                    <carlos:encode value='<%= props.getProperty("p1_toys1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_choking"><fmt:message key="form.rourke.chokingSafeToys"/></a>*</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_crying1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_crying1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_crying1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Sleep/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sooth1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sooth1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_interaction1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_interaction1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_interaction1m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.parentChildInteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_supports1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_supports1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_supports1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Assess supports</td>
                         </tr>
                     </table>
@@ -794,40 +795,40 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_educationAdvice2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_educationAdvice2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_educationAdvice2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_falls2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_falls2m", "") %>' />></td>
-                            <td><i><a href="<e:forHtmlAttribute value='<%= resource %>' />s_falls">Falls</a>*</i></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_falls2m", "") %>' context="htmlAttribute"/>></td>
+                            <td><i><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_falls">Falls</a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_toys2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_toys2m", "") %>' />></td>
-                            <td><a href="<e:forHtmlAttribute value='<%= resource %>' />s_choking"><fmt:message key="form.rourke.chokingSafeToys"/></a>*</td>
+                                    <carlos:encode value='<%= props.getProperty("p1_toys2m", "") %>' context="htmlAttribute"/>></td>
+                            <td><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>s_choking"><fmt:message key="form.rourke.chokingSafeToys"/></a>*</td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_crying2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_crying2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_crying2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Sleep/crying</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sooth2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sooth2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sooth2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Soothability/ responsiveness</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_interaction2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_interaction2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_interaction2m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.parentChildInteraction"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_stress2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_stress2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_stress2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Depression/family stress</td>
                         </tr>
                         <tr>
@@ -844,7 +845,7 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_fever2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fever2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fever2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Fever control</td>
                         </tr>
                     </table>
@@ -862,7 +863,7 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_development1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_development1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_development1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>
@@ -871,7 +872,7 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_development2w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_development2w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_development2w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>
@@ -880,27 +881,27 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_development1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_development1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_development1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_focusGaze1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_focusGaze1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_focusGaze1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Focuses gaze</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_startles1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_startles1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_startles1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Startles to loud or sudden noise</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sucks1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sucks1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sucks1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Sucks card card-body bg-body-tertiary on nipple</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_noParentsConcerns1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_noParentsConcerns1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_noParentsConcerns1m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.noParentConcerns"/></td>
                         </tr>
                     </table>
@@ -910,33 +911,33 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_development2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_development2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_development2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_followMoves2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_followMoves2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_followMoves2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Follows movement with eyes</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_sounds2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_sounds2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_sounds2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Has a variety of sounds &amp; cries</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_headUp2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_headUp2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_headUp2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Holds head up when held at adult&#146;s shoulder</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cuddled2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_cuddled2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_cuddled2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Enjoys being touched &amp; cuddled</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_noParentConcerns2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_noParentConcerns2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_noParentConcerns2m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key="form.rourke.noParentConcerns"/></td>
                         </tr>
                     </table>
@@ -954,59 +955,59 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_physical1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_physical1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_physical1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_skin1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_skin1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_skin1w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Skin (jaundice, dry)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fontanelles1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fontanelles1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_eyes1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_eyes1w", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_ears1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_ears1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_ears1w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Ears (drums)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heartLungs1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_heartLungs1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_heartLungs1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Heart/Lungs</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_umbilicus1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_umbilicus1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_umbilicus1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Umbilicus</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_femoralPulses1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_femoralPulses1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_femoralPulses1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Femoral pulses</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hips1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hips1w", "") %>' context="htmlAttribute"/>></td>
                             <td><b>Hips</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_testicles1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_testicles1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_testicles1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Testicles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_maleUrinary1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_maleUrinary1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_maleUrinary1w", "") %>' context="htmlAttribute"/>></td>
                             <td>Male urinary stream/foreskin care</td>
                         </tr>
                     </table>
@@ -1016,60 +1017,60 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_physical2w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_physical2w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_physical2w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_skin2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_skin2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_skin2w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Skin (jaundice, dry)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fontanelles2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fontanelles2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_eyes2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_eyes2w", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_ears2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_ears2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_ears2w", "") %>' context="htmlAttribute"/>></td>
                             <td><i>Ears (drums)</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heartLungs2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_heartLungs2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_heartLungs2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Heart/Lungs</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_umbilicus2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_umbilicus2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_umbilicus2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Umbilicus</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_femoralPulses2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_femoralPulses2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_femoralPulses2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Femoral pulses</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hips2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hips2w", "") %>' context="htmlAttribute"/>></td>
                             <td><b>Hips</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_testicles2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_testicles2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_testicles2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Testicles<br>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_maleUrinary2w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_maleUrinary2w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_maleUrinary2w", "") %>' context="htmlAttribute"/>></td>
                             <td>Male urinary stream/foreskin care</td>
                         </tr>
                     </table>
@@ -1079,38 +1080,38 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_physical1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_physical1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_physical1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fontanelles1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fontanelles1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_eyes1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_eyes1m", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.eyesRedReflex"/></i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cover1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_cover1m", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />pe_cover">Cover/uncover
+                                    <carlos:encode value='<%= props.getProperty("p1_cover1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>pe_cover">Cover/uncover
                                 test &amp; inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hearing1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hearing1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hearing1m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heart1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_heart1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_heart1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Heart</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hips1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hips1m", "") %>' context="htmlAttribute"/>></td>
                             <td><b>Hips</b></td>
                         </tr>
                     </table>
@@ -1120,38 +1121,38 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_physical2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_physical2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_physical2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_fontanelles2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_fontanelles2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_fontanelles2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Fontanelles</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_eyes2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_eyes2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_eyes2m", "") %>' context="htmlAttribute"/>></td>
                             <td><i><fmt:message key="form.rourke.eyesRedReflex"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_cover2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_cover2m", "") %>' />></td>
-                            <td></i><b><a href="<e:forHtmlAttribute value='<%= resource %>' />pe_cover">Cover/uncover
+                                    <carlos:encode value='<%= props.getProperty("p1_cover2m", "") %>' context="htmlAttribute"/>></td>
+                            <td></i><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>pe_cover">Cover/uncover
                                 test &amp; inquiry</a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hearing2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hearing2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hearing2m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><fmt:message key="form.rourke.hearingInquiry"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_heart2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_heart2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_heart2m", "") %>' context="htmlAttribute"/>></td>
                             <td>Heart</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hips2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hips2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hips2m", "") %>' context="htmlAttribute"/>></td>
                             <td><b>Hips</b></td>
                         </tr>
                     </table>
@@ -1164,17 +1165,17 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_problems1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_problems1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_problems1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_pkuThyroid1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_pkuThyroid1w", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_pkuThyroid1w", "") %>' context="htmlAttribute"/>></td>
                             <td><b> PKU, Thyroid</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hemoScreen1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hemoScreen1w", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />pp_hemoglobinopathyScreening">Hemoglobinopathy
+                                    <carlos:encode value='<%= props.getProperty("p1_hemoScreen1w", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>pp_hemoglobinopathyScreening">Hemoglobinopathy
                                 Screen</a> (if at risk)*</b></td>
                         </tr>
                     </table>
@@ -1184,7 +1185,7 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_problems2w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_problems2w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_problems2w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1193,7 +1194,7 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_problems1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_problems1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_problems1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1202,7 +1203,7 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_problems2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_problems2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_problems2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>
@@ -1216,15 +1217,15 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_immunization1w"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_immunization1w", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_immunization1w", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td colspan="2">If HBsAg-positive parent or sibling:</td>
                         </tr>
                         <tr>
                             <td><input type="checkbox" name="p1_hepB1w"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hepB1w", "") %>' />></td>
-                            <td width="100%"><b><a href="<e:forHtmlAttribute value='<%= resource %>' />i_hepB">Hep.
+                                    <carlos:encode value='<%= props.getProperty("p1_hepB1w", "") %>' context="htmlAttribute"/>></td>
+                            <td width="100%"><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>i_hepB">Hep.
                                 B vaccine</a>*</b></td>
                         </tr>
                     </table>
@@ -1234,7 +1235,7 @@
                         <tr>
                             <td colspan="2" align="center"><input type="text" class="wide"
                                                                   name="p1_immunization2w"
-                                                                  value="<e:forHtmlAttribute value='<%= props.getProperty("p1_immunization2w", "") %>' />"/>
+                                                                  value="<carlos:encode value='<%= props.getProperty("p1_immunization2w", "") %>' context="htmlAttribute"/>"/>
                             </td>
                         </tr>
                     </table>
@@ -1244,20 +1245,20 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_immunization1m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_immunization1m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_immunization1m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td colspan="2">Give information:</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_immuniz1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_immuniz1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_immuniz1m", "") %>' context="htmlAttribute"/>></td>
                             <td width="100%">Immunization</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_acetaminophen1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_acetaminophen1m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_acetaminophen1m", "") %>' context="htmlAttribute"/>></td>
                             <td>Acetaminophen</td>
                         </tr>
                         <tr>
@@ -1265,8 +1266,8 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hepB1m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hepB1m", "") %>' />></td>
-                            <td><b><a href="<e:forHtmlAttribute value='<%= resource %>' />i_hepB">Hep. B vaccine</a>*</b></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hepB1m", "") %>' context="htmlAttribute"/>></td>
+                            <td><b><a href="<carlos:encode value='<%= resource %>' context="htmlAttribute"/>i_hepB">Hep. B vaccine</a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -1275,22 +1276,22 @@
                         <tr align="center">
                             <td colspan="2"><input type="text" class="wide"
                                                    name="p1_immunization2m"
-                                                   value="<e:forHtmlAttribute value='<%= props.getProperty("p1_immunization2m", "") %>' />"/></td>
+                                                   value="<carlos:encode value='<%= props.getProperty("p1_immunization2m", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox"
                                                     name="p1_acetaminophen2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_acetaminophen2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_acetaminophen2m", "") %>' context="htmlAttribute"/>></td>
                             <td width="100%">Acetaminophen</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_hib2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_hib2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_hib2m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><fmt:message key="form.rourke.hib"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" name="p1_polio2m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p1_polio2m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p1_polio2m", "") %>' context="htmlAttribute"/>></td>
                             <td><b> aPDT polio </b></td>
                         </tr>
                     </table>
@@ -1300,16 +1301,16 @@
                 <td class="column"><a><fmt:message key="form.rourke.signature"/></a></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p1_signature1w"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p1_signature1w", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p1_signature1w", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p1_signature2w"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p1_signature2w", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p1_signature2w", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p1_signature1m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p1_signature1m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p1_signature1m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p1_signature2m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p1_signature2m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p1_signature2m", "") %>' context="htmlAttribute"/>"/></td>
             </tr>
 
         </table>
@@ -1325,15 +1326,15 @@
                     <input type="button" value="<fmt:message key='global.btnPrint'/>"
                            onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                     Graph Length and Weight</a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                         Graph Head Circumference</a></td>
                 <td nowrap="true"><a><fmt:message key="form.rourke.page1"/></a>&nbsp;|&nbsp; <a
-                        href="formrourke2?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
+                        href="formrourke2?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>">Page
                     2</a>&nbsp;|&nbsp; <a
-                        href="formrourke3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />">Page
+                        href="formrourke3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>">Page
                     3</a></td>
             </tr>
         </table>

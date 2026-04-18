@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -116,7 +118,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS01"><input type="hidden" name="rano"
-                                               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(raNo) %>' />"><select name="proNo">
+                                               value="<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="htmlAttribute"/>"><select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>
@@ -131,7 +133,7 @@
                         pfirst = (String) result[2];
                 %>
 
-                <option value="<e:forHtmlAttribute value='<%= StringUtils.noNull(pohipno) %>' />" <%=proNo.equals(pohipno) ? "selected" : ""%>><e:forHtmlContent value='<%= StringUtils.noNull(plast) %>' />,<e:forHtmlContent value='<%= StringUtils.noNull(pfirst) %>' />
+                <option value="<carlos:encode value='<%= StringUtils.noNull(pohipno) %>' context="htmlAttribute"/>" <%=proNo.equals(pohipno) ? "selected" : ""%>><carlos:encode value='<%= StringUtils.noNull(plast) %>' context="html"/>,<carlos:encode value='<%= StringUtils.noNull(pfirst) %>' context="html"/>
                 </option>
                 <%
 
@@ -181,45 +183,45 @@
             	
             	    account = result.getOfficeNo();            	                	  
       %>
-        <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' /></c:set>
+        <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
         <t                    
 r>
             <td width="10%" height="16"><a
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<e:forJavaScriptAttribute value='${__enc_1}' />')"><e:forHtmlContent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' />
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
             </a>&nbsp;
             </td>
-            <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' />&nbsp;
+            <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc1()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc1()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja1()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja1()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc2()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc2()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja2()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja2()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc3()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc3()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja3()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja3()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc4()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc4()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja4()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja4()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc5()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc5()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja5()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja5()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc6()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc6()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja6()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= moneyFormat(result.getAja6()) %>' context="html"/>&nbsp;
             </td>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc7()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc7()) %>' context="html"/>&nbsp;
             </td>
             <%-- <td width="5%" height="16"><e:forHtmlContent value='<%= moneyFormat(result.getAja7()) %>' />&nbsp; </td> --%>
-            <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getS00Type()) %>' />&nbsp;
+            <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getS00Type()) %>' context="html"/>&nbsp;
             </td>
-            <td width="10%" height="16" align=right><e:forHtmlContent value='<%= moneyFormat(result.getPaidAmount()) %>' />
+            <td width="10%" height="16" align=right><carlos:encode value='<%= moneyFormat(result.getPaidAmount()) %>' context="html"/>
             </td>
         </tr>
 

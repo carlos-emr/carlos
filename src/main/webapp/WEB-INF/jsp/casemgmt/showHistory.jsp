@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
@@ -79,12 +80,12 @@
     
                 <c:if test="${note.signed == true}">
                     Signed by
-                    ${e:forHtml(pMgr.getProvider(note.signing_provider_no).formattedName)}
+                    ${carlos:forHtml(pMgr.getProvider(note.signing_provider_no).formattedName)}
                 </c:if>
     
                 <c:if test="${note.signed != true}">
                     Saved by
-                    ${e:forHtml(note.provider.formattedName)}:
+                    ${carlos:forHtml(note.provider.formattedName)}:
                 </c:if>
     
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />

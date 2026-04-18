@@ -6,6 +6,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -228,7 +229,7 @@
             <input type="hidden" name="emailErrorMessage" id="emailErrorMessage" value="${emailErrorMessage}"/>
             <input type="hidden" name="isEmailSuccessful" id="isEmailSuccessful" value="${isEmailSuccessful}"/>
             <input type="hidden" name="emailPatientChartOption" id="emailPatientChartOption"
-                   value="${ e:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption) }"/>
+                   value="${carlos:forHtmlAttribute(empty param.emailPatientChartOption ? emailPatientChartOption : param.emailPatientChartOption)}"/>
             <input type="hidden" name="totalSenderEmails" id="totalSenderEmails" value="${fn:length(senderAccounts)}"/>
             <input type="hidden" name="totalRecipintEmails" id="totalRecipintEmails"
                    value="${fn:length(receiverEmailList)}"/>
@@ -239,7 +240,7 @@
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
-                <input type="hidden" name="fid" id="fid" value="${e:forHtmlAttribute(fid)}"/>
+                <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
@@ -256,10 +257,10 @@
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
-                                            <option value="${e:forHtmlAttribute(senderAccount.id)}"
-                                                    data-email-type="${ e:forHtmlAttribute(senderAccount.emailType) }"
+                                            <option value="${carlos:forHtmlAttribute(senderAccount.id)}"
+                                                    data-email-type="${carlos:forHtmlAttribute(senderAccount.emailType)}"
                                                     <c:if test="${ senderAccount.id eq senderConfigId or senderAccount.senderEmail eq senderEmail }">selected</c:if>>
-                                                ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} (${e:forHtml(senderAccount.senderEmail)})
+                                                ${carlos:forHtml(senderAccount.senderFirstName)} ${carlos:forHtml(senderAccount.senderLastName)} (${carlos:forHtml(senderAccount.senderEmail)})
                                             </option>
                                         </c:forEach>
                                     </select>
@@ -311,7 +312,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${e:forHtml(emailConsentName)}: <b>${e:forHtml(emailConsentStatus)}</b>
+                        <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
                         <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
                 </div>
@@ -347,7 +348,7 @@
                                                     class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${e:forHtml(invalidEmail)}</li>
+                                                <li>${carlos:forHtml(invalidEmail)}</li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -357,7 +358,7 @@
                                                                 class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${e:forHtml(invalidEmail)}</li>
+                                                <li>${carlos:forHtml(invalidEmail)}</li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -383,7 +384,7 @@
                                     <c:set var="subjectEmail"
                                            value="${ empty param.subjectEmail ? subjectEmail : param.subjectEmail }"/>
                                     <input class="form-control" type="text" name="subjectEmail" id="subjectEmail"
-                                           placeholder="<fmt:message key='messenger.ViewMessage.msgSubject'/>" value="${e:forHtmlAttribute(subjectEmail)}"
+                                           placeholder="<fmt:message key='messenger.ViewMessage.msgSubject'/>" value="${carlos:forHtmlAttribute(subjectEmail)}"
                                            autocomplete="off"/>
                                     <div class="error-message" id="subjectError"></div>
                                 </div>
@@ -401,7 +402,7 @@
                             <div class="row">
                                 <div class="col-sm-12">
                                     <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
-                                              placeholder="${emailComposeBodyPlaceholder}">${e:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
+                                              placeholder="${emailComposeBodyPlaceholder}">${carlos:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
                                     <div class="error-message" id="bodyError"></div>
                                 </div>
                             </div>
@@ -435,7 +436,7 @@
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="${emailComposeEncryptedMessageTooltip}"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
-                                              rows="5" placeholder="${emailComposeEncryptedMessagePlaceholder}">${e:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
+                                              rows="5" placeholder="${emailComposeEncryptedMessagePlaceholder}">${carlos:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
@@ -446,7 +447,7 @@
                                 <div class="col-sm-10">
                                     <input class="form-control" type="text" name="emailPDFPassword"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${ e:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword) }"
+                                           value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
                                            autocomplete="off"/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
@@ -459,7 +460,7 @@
                                 </div>
                                 <div class="col-sm-10">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${e:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
@@ -507,7 +508,7 @@
                                                 <fmt:message key="email.compose.chart.addNote"/>
                                             </label>
 										<div id="internalCommentContainer" class="d-none">
-											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="<fmt:message key='email.compose.chart.internalComment'/>" rows="3">${e:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
+											<textarea class="form-control" id="internalComment" name="internalComment" placeholder="<fmt:message key='email.compose.chart.internalComment'/>" rows="3">${carlos:forHtml(not empty param.internalComment ? param.internalComment : internalComment)}</textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -533,8 +534,8 @@
                                                         aria-expanded="false"
                                                         aria-controls="emailAttachmentBody${loop.index + 1}">
                                                     <i class="fa-solid fa-file attachmentIcon"></i> <span
-                                                        class="attachmentName">${e:forHtml(emailAttachment.fileName)}</span>
-                                                    <span class="text-muted attachmentSize">${e:forHtml(emailAttachment.fileSize)}</span>
+                                                        class="attachmentName">${carlos:forHtml(emailAttachment.fileName)}</span>
+                                                    <span class="text-muted attachmentSize">${carlos:forHtml(emailAttachment.fileSize)}</span>
                                                 </button>
                                             </div>
                                             <div id="emailAttachmentBody${loop.index + 1}"
@@ -568,7 +569,7 @@
                         <input type="text" class="form-control ${ not empty emailAdditionalParams ? '' : 'd-none' }"
                                name="additionalURLParams" id="additionalURLParams"
                                placeholder="<fmt:message key='email.compose.additionalParams.placeholder'/>"
-                               value="${e:forHtmlAttribute(emailAdditionalParams)}">
+                               value="${carlos:forHtmlAttribute(emailAdditionalParams)}">
                     </div>
                 </div>
 
@@ -596,16 +597,16 @@
             <c:choose>
                 <c:when test="${ emailLog.status eq 'SUCCESS' }">
 				<div class="alert alert-success" role="alert" id="successMessage">
-					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
+					<p><fmt:message key="email.compose.msg.sentTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.successfullySent"/></p>
                     </div>
 				<p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                 </c:when>
                 <c:otherwise>
                     <div class="alert alert-danger" role="alert">
-                        <p><fmt:message key="email.compose.msg.yourEmailTo"/> <b>${e:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.wasNotSent"/>
+                        <p><fmt:message key="email.compose.msg.yourEmailTo"/> <b>${carlos:forHtml(fn:join(emailLog.toEmail, ', '))}</b> <fmt:message key="email.compose.msg.wasNotSent"/>
                             <fmt:message key="email.compose.msg.reviewErrorAndTryAgain"/><br><br>
                             <b><fmt:message key="email.compose.msg.errorMessage"/></b> <br>
-                            ${e:forHtml(emailLog.errorMessage)}</p>
+                            ${carlos:forHtml(emailLog.errorMessage)}</p>
                     </div>
                 </c:otherwise>
             </c:choose>
@@ -670,14 +671,14 @@
         }
     });
 
-    const emailComposeSubjectRequiredMsg = "<e:forJavaScript value='${emailComposeSubjectRequired}' />";
-    const emailComposeBodyRequiredMsg = "<e:forJavaScript value='${emailComposeBodyRequired}' />";
-    const emailComposePasswordRequiredMsg = "<e:forJavaScript value='${emailComposePasswordRequired}' />";
-    const emailComposeClueRequiredMsg = "<e:forJavaScript value='${emailComposeClueRequired}' />";
-    const emailComposePasswordMinLengthMsg = "<e:forJavaScript value='${emailComposePasswordMinLength}' />";
-    const emailComposeMinimumRecipientMsg = "<e:forJavaScript value='${emailComposeMinimumRecipient}' />";
-    const emailComposeStateOnMsg = "<e:forJavaScript value='${emailComposeStateOn}' />";
-    const emailComposeStateOffMsg = "<e:forJavaScript value='${emailComposeStateOff}' />";
+    const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
+    const emailComposeBodyRequiredMsg = "<carlos:encode value='${emailComposeBodyRequired}' context="javaScript"/>";
+    const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
+    const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
+    const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
+    const emailComposeMinimumRecipientMsg = "<carlos:encode value='${emailComposeMinimumRecipient}' context="javaScript"/>";
+    const emailComposeStateOnMsg = "<carlos:encode value='${emailComposeStateOn}' context="javaScript"/>";
+    const emailComposeStateOffMsg = "<carlos:encode value='${emailComposeStateOff}' context="javaScript"/>";
 
     function validateEmailForm() {
         if (!validateForm()) {

@@ -53,6 +53,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -183,7 +185,7 @@
 
                         for (Provider p : providers) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getFormattedName() %>' /></option>
+                    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                     <% } %>
                 </select>
             </div>
@@ -215,7 +217,7 @@
                         <%
                             for (Provider p : providers) {
                         %>
-                        <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getFormattedName() %>' /></option>
+                        <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                         <% } %>
                     </select>
                 </div>

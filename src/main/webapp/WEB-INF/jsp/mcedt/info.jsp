@@ -37,6 +37,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <head>
     <jsp:include page="/WEB-INF/jsp/mcedt/head-includes.jsp"/>
@@ -63,7 +64,7 @@
             <c:forEach var="d" items="${detail.data}">
                 <tr>
                     <td>ID</td>
-                    <td>${e:forHtml(d.resourceID)}</td>
+                    <td>${carlos:forHtml(d.resourceID)}</td>
                 </tr>
                 <tr>
                     <td>Created</td>
@@ -72,11 +73,11 @@
                 </tr>
                 <tr>
                     <td>Description</td>
-                    <td>${e:forHtml(d.description)}</td>
+                    <td>${carlos:forHtml(d.description)}</td>
                 </tr>
                 <tr>
                     <td>Resource type</td>
-                    <td>${e:forHtml(d.resourceType)}</td>
+                    <td>${carlos:forHtml(d.resourceType)}</td>
                 </tr>
                 <tr>
                     <td>Modified</td>
@@ -85,11 +86,11 @@
                 </tr>
                 <tr>
                     <td>Result</td>
-                    <td>${e:forHtml(d.result.code)} - ${e:forHtml(d.result.msg)}</td>
+                    <td>${carlos:forHtml(d.result.code)} - ${carlos:forHtml(d.result.msg)}</td>
                 </tr>
                 <tr>
                     <td>Status</td>
-                    <td>${e:forHtml(d.status)}</td>
+                    <td>${carlos:forHtml(d.status)}</td>
                 </tr>
                 <tr>
                     <td></td>

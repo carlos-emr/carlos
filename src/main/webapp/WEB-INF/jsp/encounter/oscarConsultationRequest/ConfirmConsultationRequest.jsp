@@ -34,6 +34,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -108,9 +110,9 @@
             }, 1000);
 
             // Print consultation request form
-            const consultPDFName = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' />';
-            const consultPDF = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' />';
-            const isPreviewReady = '<e:forJavaScriptBlock value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' />';
+            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
+            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
+            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF, function () {
                     setTimeout("window.close()", secs * 1000);

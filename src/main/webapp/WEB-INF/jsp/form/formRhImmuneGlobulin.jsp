@@ -51,6 +51,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.workflow.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
@@ -145,7 +146,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Rh Immune Globulin Injection Reporting Form</title>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
-        <base href="<e:forHtmlAttribute value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' />"> <%-- NOSONAR --%>
+        <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>"> <%-- NOSONAR --%>
 
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -166,7 +167,7 @@
         var choiceFormat = new Array(6, 7, 8, 9, 12, 13);
         var allNumericField = new Array(14, 15);
         var allMatch = null;
-        var action = "/<e:forJavaScript value='<%= StringUtils.noNull(project_home) %>' />/form/formname";
+        var action = "/<carlos:encode value='<%= StringUtils.noNull(project_home) %>' context="javaScript"/>/form/formname";
 
     </script>
 
@@ -255,24 +256,24 @@
                         gestAge = "" + UtilDateUtilities.calculateGestationAge(new Date(), (Date) h.get("completion_date"));
                     } catch (Exception gestAgeEx) {
                     }
-            %> <span style="margin-right: 20px;">EDD: <e:forHtmlContent value='<%= String.valueOf(h.get("completion_date")) %>' /></span>
-            <!-- span style="margin-right:20px;">Start date: <e:forHtmlContent value='<%= String.valueOf(h.get("create_date_time")) %>' /> </span -->
-            <span style="margin-right: 20px;">Current State:<e:forHtmlContent value='<%= flow.getState("" + h.get("current_state")) %>' />
-</span> <span style="margin-right: 20px;">Weeks: <e:forHtmlContent value='<%= gestAge %>' /></span> <%} else {%> <span
+            %> <span style="margin-right: 20px;">EDD: <carlos:encode value='<%= String.valueOf(h.get("completion_date")) %>' context="html"/></span>
+            <!-- span style="margin-right:20px;">Start date: <carlos:encode value='<%= String.valueOf(h.get("create_date_time")) %>' context="html"/> </span -->
+            <span style="margin-right: 20px;">Current State:<carlos:encode value='<%= flow.getState("" + h.get("current_state")) %>' context="html"/>
+</span> <span style="margin-right: 20px;">Weeks: <carlos:encode value='<%= gestAge %>' context="html"/></span> <%} else {%> <span
                 style="margin-right: 20px;">No Current Pregnancy</span> <%}%> <br/>
             <form action="${pageContext.request.contextPath}/form/RHPrevention" method="post">
 
                 <%-- input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />" / --%>
             <input type="hidden" name="formCreated"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
-            <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-            <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
-            <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= String.valueOf(formId) %>' />"/>
+                   value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="formId" value="<carlos:encode value='<%= String.valueOf(formId) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="submit" value="exit"/>
-            <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+            <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
 
             <%if (h != null) { %>
-            <input type="hidden" name="workflowId" value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"/>
+            <input type="hidden" name="workflowId" value="<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"/>
 
 
             <label>Change State:</label>
@@ -282,8 +283,8 @@
                     for (int i = 0; i < states.size(); i++) {
                         WFState state = (WFState) states.get(i);
                 %>
-                <option value="<e:forHtmlAttribute value='<%= state.getKey() %>' />"
-                        <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><e:forHtmlContent value='<%= state.getName() %>' />
+                <option value="<carlos:encode value='<%= state.getKey() %>' context="htmlAttribute"/>"
+                        <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><carlos:encode value='<%= state.getName() %>' context="html"/>
                 </option>
 
                 <%}%>
@@ -297,39 +298,39 @@
             <label>Date
                 of Referral:</label> <input type="text" name="dateOfReferral"
                                             id="dateOfReferral" size="9"
-                                            value="<e:forHtmlAttribute value='<%= props.getProperty("dateOfReferral","") %>' />"/> <a
+                                            value="<carlos:encode value='<%= props.getProperty("dateOfReferral","") %>' context="htmlAttribute"/>"/> <a
                 id="dateOfRefButton"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                           alt="Calendar" border="0"/></a> <label>EDD:</label> <input type="text"
                                                                                                      name="edd"
                                                                                                      id="end_date"
                                                                                                      size="9"
-                                                                                                     value="<e:forHtmlAttribute value='<%= props.getProperty("edd","") %>' />">
+                                                                                                     value="<carlos:encode value='<%= props.getProperty("edd","") %>' context="htmlAttribute"/>">
             <a id="date"><img
                     title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
             <br/>
 
             <label>Last Name:</label> <input type="text" name="motherSurname"
-                                             value="<e:forHtmlAttribute value='<%= props.getProperty("motherSurname","") %>' />"/> <label>First
+                                             value="<carlos:encode value='<%= props.getProperty("motherSurname","") %>' context="htmlAttribute"/>"/> <label>First
             Name:</label> <input type="text" name="motherFirstname"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("motherFirstname","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("motherFirstname","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Date of Birth:</label> <input type="text" name="dob" size="9"
-                                                 id="dob" value="<e:forHtmlAttribute value='<%= props.getProperty("dob","") %>' />"/> <a id="dateOB"><img
+                                                 id="dob" value="<carlos:encode value='<%= props.getProperty("dob","") %>' context="htmlAttribute"/>"/> <a id="dateOB"><img
                 title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
             <br/>
 
             <label>Health Card #:</label> <input type="text" name="motherHIN"
-                                                 value="<e:forHtmlAttribute value='<%= props.getProperty("motherHIN","") %>' />"/> <label>VC:</label>
+                                                 value="<carlos:encode value='<%= props.getProperty("motherHIN","") %>' context="htmlAttribute"/>"/> <label>VC:</label>
             <input
                     type="text" name="motherVC" size="3"
-                    value="<e:forHtmlAttribute value='<%= props.getProperty("motherVC","") %>' />"/> <br/>
+                    value="<carlos:encode value='<%= props.getProperty("motherVC","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Address:</label> <input type="text" name="motherAddress"
-                                           value="<e:forHtmlAttribute value='<%= props.getProperty("motherAddress","") %>' />"/> <label>City:</label>
+                                           value="<carlos:encode value='<%= props.getProperty("motherAddress","") %>' context="htmlAttribute"/>"/> <label>City:</label>
             <input type="text" name="motherCity"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("motherCity","") %>' />"/> <br/>
+                   value="<carlos:encode value='<%= props.getProperty("motherCity","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Province:</label> <input type="text" name="motherProvince"
-                                            value="<e:forHtmlAttribute value='<%= props.getProperty("motherProvince","") %>' />"/> <label>Postal
+                                            value="<carlos:encode value='<%= props.getProperty("motherProvince","") %>' context="htmlAttribute"/>"/> <label>Postal
             Code:</label> <input type="text" name="motherPostalCode"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("motherPostalCode","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("motherPostalCode","") %>' context="htmlAttribute"/>"/> <br/>
             <label>ABO:</label> <select name="motherABO">
             <option>Not Set</option>
             <option value="A"
@@ -364,7 +365,7 @@
         </select> <br/>
             <label>Hospital for Delivery:</label> <input type="text"
                                                          name="hospitalForDelivery"
-                                                         value="<e:forHtmlAttribute value='<%= props.getProperty("hospitalForDelivery","") %>' />"/>
+                                                         value="<carlos:encode value='<%= props.getProperty("hospitalForDelivery","") %>' context="htmlAttribute"/>"/>
         </fieldset>
 
 
@@ -372,22 +373,22 @@
             <legend>Physician (OB) / Midwife</legend>
             <label>Last
                 Name:</label> <input type="text" name="refPhySurname"
-                                     value="<e:forHtmlAttribute value='<%= props.getProperty("refPhySurname","") %>' />"/> <label>First
+                                     value="<carlos:encode value='<%= props.getProperty("refPhySurname","") %>' context="htmlAttribute"/>"/> <label>First
             Name:</label> <input type="text" name="refPhyFirstname"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyFirstname","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("refPhyFirstname","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Address:</label> <input type="text" name="refPhyAddress"
-                                           size="20" value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyAddress","") %>' />"/>
+                                           size="20" value="<carlos:encode value='<%= props.getProperty("refPhyAddress","") %>' context="htmlAttribute"/>"/>
             <label>City:</label>
             <input type="text" name="refPhyCity"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyCity","") %>' />"/> <br/>
+                   value="<carlos:encode value='<%= props.getProperty("refPhyCity","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Province:</label> <input type="text" name="refPhyProvince"
-                                            value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyProvince","") %>' />"/> <label>Postal
+                                            value="<carlos:encode value='<%= props.getProperty("refPhyProvince","") %>' context="htmlAttribute"/>"/> <label>Postal
             Code:</label> <input type="text" name="refPhyPostalCode"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyPostalCode","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("refPhyPostalCode","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Telephone:</label> <input type="text" name="refPhyPhone"
-                                             value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyPhone","") %>' />"/> <label>Fax:</label>
+                                             value="<carlos:encode value='<%= props.getProperty("refPhyPhone","") %>' context="htmlAttribute"/>"/> <label>Fax:</label>
             <input type="text" name="refPhyFax"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("refPhyFax","") %>' />"/> <br/>
+                   value="<carlos:encode value='<%= props.getProperty("refPhyFax","") %>' context="htmlAttribute"/>"/> <br/>
         </fieldset>
 
 
@@ -395,22 +396,22 @@
             <legend>Family Doctor</legend>
             <label>Last
                 Name:</label> <input type="text" name="famPhySurname"
-                                     value="<e:forHtmlAttribute value='<%= props.getProperty("famPhySurname","") %>' />"/> <label>First
+                                     value="<carlos:encode value='<%= props.getProperty("famPhySurname","") %>' context="htmlAttribute"/>"/> <label>First
             Name:</label> <input type="text" name="famPhyFirstname"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyFirstname","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("famPhyFirstname","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Address:</label> <input type="text" name="famPhyAddress"
-                                           size="20" value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyAddress","") %>' />"/>
+                                           size="20" value="<carlos:encode value='<%= props.getProperty("famPhyAddress","") %>' context="htmlAttribute"/>"/>
             <label>City:</label>
             <input type="text" name="famPhyCity"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyCity","") %>' />"/> <br/>
+                   value="<carlos:encode value='<%= props.getProperty("famPhyCity","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Province:</label> <input type="text" name="famPhyProvince"
-                                            value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyProvince","") %>' />"/> <label>Postal
+                                            value="<carlos:encode value='<%= props.getProperty("famPhyProvince","") %>' context="htmlAttribute"/>"/> <label>Postal
             Code:</label> <input type="text" name="famPhyPostalCode"
-                                 value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyPostalCode","") %>' />"/> <br/>
+                                 value="<carlos:encode value='<%= props.getProperty("famPhyPostalCode","") %>' context="htmlAttribute"/>"/> <br/>
             <label>Telephone:</label> <input type="text" name="famPhyPhone"
-                                             value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyPhone","") %>' />"/> <label>Fax:</label>
+                                             value="<carlos:encode value='<%= props.getProperty("famPhyPhone","") %>' context="htmlAttribute"/>"/> <label>Fax:</label>
             <input type="text" name="famPhyFax"
-                   value="<e:forHtmlAttribute value='<%= props.getProperty("famPhyFax","") %>' />"/> <br/>
+                   value="<carlos:encode value='<%= props.getProperty("famPhyFax","") %>' context="htmlAttribute"/>"/> <br/>
         </fieldset>
 
 
@@ -419,15 +420,15 @@
                 History
             </legend>
             <label>G</label> <input type="text" name="obsHisG" size="2"
-                                    value="<e:forHtmlAttribute value='<%= props.getProperty("obsHisG","") %>' />"/> <label>P</label> <input
+                                    value="<carlos:encode value='<%= props.getProperty("obsHisG","") %>' context="htmlAttribute"/>"/> <label>P</label> <input
                 type="text" name="obsHisP" size="2"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("obsHisP","") %>' />"/> <label>T</label> <input
+                value="<carlos:encode value='<%= props.getProperty("obsHisP","") %>' context="htmlAttribute"/>"/> <label>T</label> <input
                 type="text" name="obsHisT" size="2"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("obsHisT","") %>' />"/> <label>A</label> <input
+                value="<carlos:encode value='<%= props.getProperty("obsHisT","") %>' context="htmlAttribute"/>"/> <label>A</label> <input
                 type="text" name="obsHisA" size="2"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("obsHisA","") %>' />"/> <label>L</label> <input
+                value="<carlos:encode value='<%= props.getProperty("obsHisA","") %>' context="htmlAttribute"/>"/> <label>L</label> <input
                 type="text" name="obsHisL" size="2"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("obsHisL","") %>' />"/> <br/>
+                value="<carlos:encode value='<%= props.getProperty("obsHisL","") %>' context="htmlAttribute"/>"/> <br/>
 
             <input type="checkbox" name="obsHisTubMolPregYes"
                     <%="checked='checked'".equals(props.getProperty("obsHisTubMolPregYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
@@ -461,14 +462,14 @@
                 <%="checked='checked'".equals(props.getProperty("pmHisBlClDisordersNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Do
             you have any bleeding or clotting disorders?</label> If yes, describe<input
                 type="text" name="pmHisBlClDisordersComment"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("pmHisBlClDisordersComment","") %>' />"/> <br/>
+                value="<carlos:encode value='<%= props.getProperty("pmHisBlClDisordersComment","") %>' context="htmlAttribute"/>"/> <br/>
             <input type="checkbox" name="pmHisBlPlTransfusYes"
                     <%="checked='checked'".equals(props.getProperty("pmHisBlPlTransfusYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="pmHisBlPlTransfusNo"
                 <%="checked='checked'".equals(props.getProperty("pmHisBlPlTransfusNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Have
             you had any blood or platelet transfusions?</label> If yes, when<input
                 type="text" name="pmHisBlPlTransfusComment"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("pmHisBlPlTransfusComment","") %>' />"/></fieldset>
+                value="<carlos:encode value='<%= props.getProperty("pmHisBlPlTransfusComment","") %>' context="htmlAttribute"/>"/></fieldset>
 
 
         <fieldset class="obsHist">
@@ -480,7 +481,7 @@
                 <%="checked='checked'".equals(props.getProperty("allReactionsNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             adverse reactions to previous immune globulin or other blood products?</label>
             If yes, describe<input type="text" name="allReactionsComment"
-                                   value="<e:forHtmlAttribute value='<%= props.getProperty("allReactionsComment","") %>' />"/> <br/>
+                                   value="<carlos:encode value='<%= props.getProperty("allReactionsComment","") %>' context="htmlAttribute"/>"/> <br/>
         </fieldset>
 
 
@@ -522,7 +523,7 @@
                 <%="checked='checked'".equals(props.getProperty("curPregDueDateChangeNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Has
             your due date changed during this pregnancy?</label> Comment<input type="text"
                                                                                name="curPregDueDateChangeComment"
-                                                                               value="<e:forHtmlAttribute value='<%= props.getProperty("curPregDueDateChangeComment","") %>' />"/>
+                                                                               value="<carlos:encode value='<%= props.getProperty("curPregDueDateChangeComment","") %>' context="htmlAttribute"/>"/>
             <br/>
 
             <input type="checkbox" name="curPregProceduresYes"
@@ -532,7 +533,7 @@
             procedures during this pregnancy such as amniocentesis, chorionic
             villous sampling, cordocentesis, or external cephalic version?</label> If yes,
             when<input type="text" name="curPregProceduresComment"
-                       value="<e:forHtmlAttribute value='<%= props.getProperty("curPregProceduresComment","") %>' />"/> <br/>
+                       value="<carlos:encode value='<%= props.getProperty("curPregProceduresComment","") %>' context="htmlAttribute"/>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingYes"
                     <%="checked='checked'".equals(props.getProperty("curPregBleedingYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
@@ -540,7 +541,7 @@
                 <%="checked='checked'".equals(props.getProperty("curPregBleedingNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             bleeding or threatened miscarriage during this pregnancy?</label> <br/>
             If yes, when<input type="text" name="curPregBleedingComment"
-                               value="<e:forHtmlAttribute value='<%= props.getProperty("curPregBleedingComment","") %>' />"/> <br/>
+                               value="<carlos:encode value='<%= props.getProperty("curPregBleedingComment","") %>' context="htmlAttribute"/>"/> <br/>
 
             <input type="checkbox" name="curPregBleedingContYes"
                     <%="checked='checked'".equals(props.getProperty("curPregBleedingContYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
@@ -561,7 +562,7 @@
                 <%="checked='checked'".equals(props.getProperty("curPregAntiDNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Have
             you received any Anti-D during this pregnancy?</label> If yes, when<input
                 type="text" name="curPregAntiDComment"
-                value="<e:forHtmlAttribute value='<%= props.getProperty("curPregAntiDComment","") %>' />"/> <br/>
+                value="<carlos:encode value='<%= props.getProperty("curPregAntiDComment","") %>' context="htmlAttribute"/>"/> <br/>
 
             <input type="checkbox" name="curPregAntiDReactionYes"
                     <%="checked='checked'".equals(props.getProperty("curPregAntiDReactionYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
@@ -569,7 +570,7 @@
                 <%="checked='checked'".equals(props.getProperty("curPregAntiDReactionNo", "")) ? "checked=\"checked\"" : ""%>>No</input> <label>Any
             adverse reaction?</label> <br/>
 
-            <c:set var="__enc_1"><e:forUriComponent value='<%= demographicNo %>' /></c:set>
+            <c:set var="__enc_1"><carlos:encode value='<%= demographicNo %>' context="uriComponent"/></c:set>
             <input type="checkbox" name="curPregBloodDrawnYes"
                     <%="checked='checked'".equals(props.getProperty("curPregBloodDrawnYes", "")) ? "checked=\"checked\"" : ""%>>Yes</input> <input
                 type="checkbox" name="curPregBloodDrawnNo"
@@ -580,12 +581,12 @@
         <fieldset>
             <legend>Comments</legend>
             <textarea name="comments"
-                      style="width: 45em;"><e:forHtmlContent value='<%= props.getProperty("comments", "") %>' /></textarea></fieldset>
+                      style="width: 45em;"><carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea></fieldset>
 
         <input type="submit" value="<fmt:message key='global.save'/>"/> <%
                 if ( h != null && h.get("ID") != null){ %> <input
             type="button"
-            onClick="javascript: popup(700,600,'addRhInjection?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />&amp;workflowId=<e:forJavaScriptAttribute value='<%= String.valueOf(h.get("ID")) %>' />&amp;formId=<e:forJavaScriptAttribute value='<%= String.valueOf(formId) %>' />','addInjection');"
+            onClick="javascript: popup(700,600,'addRhInjection?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&amp;workflowId=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScriptAttribute"/>&amp;formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="javaScriptAttribute"/>','addInjection');"
             value="Add Injection"/> <%-- a style="color:blue; " href="javascript: function myFunction() {return false; }" onClick="popup(700,600,'addRhInjection?demographic_no=<%=demographicNo%>&amp;workflowId=<%=h.get("ID")%>&amp;formId=<%=formId%>','addInjection')">Add Injection</a --%>
                 <%}%>
         </form>
@@ -596,7 +597,7 @@
                 method="post" target="_blank">
 
         <input type="hidden" name="id" id="deleteId"/>
-        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
 
         <input type="hidden" name="delete" value="delete"/>
         </form>
@@ -629,7 +630,7 @@
                 //console.log("calling get renal dosing information");
                 var url = "<%= request.getContextPath() %>/form/RhInjectionDisplay";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<e:forJavaScript value='${__enc_1}' />&id=<e:forJavaScript value='<%= String.valueOf(h.get("ID")) %>' />&date=<e:forJavaScript value='<%= String.valueOf((Date) h.get("completion_date")) %>' />&rand=" + ran_number;  //hack to get around ie caching the page
+                var params = "demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>&id=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="javaScript"/>&date=<carlos:encode value='<%= String.valueOf((Date) h.get("completion_date")) %>' context="javaScript"/>&rand=" + ran_number;  //hack to get around ie caching the page
                 //console.log("params" + params);
                 CarlosAjax.updater('injectionInfo', url, {method: 'get', parameters: params});
                 //alert(origRequest.responseText);

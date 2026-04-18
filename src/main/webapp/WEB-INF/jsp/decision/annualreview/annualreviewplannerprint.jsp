@@ -64,6 +64,7 @@
 <%@ page import="org.w3c.dom.Document" %>
 <%@ page import="org.w3c.dom.Node" %>
 <%@ page import="org.w3c.dom.NodeList" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
     String folderPath = pageContext.getServletContext().getRealPath("/decision/annualreview/");
@@ -151,7 +152,7 @@
         StringBuilder checkedJson = new StringBuilder("[");
         for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
             if (ci > 0) checkedJson.append(",");
-            checkedJson.append("\"").append(Encode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+            checkedJson.append("\"").append(SafeEncode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
         }
         checkedJson.append("]");
         out.print(checkedJson.toString());

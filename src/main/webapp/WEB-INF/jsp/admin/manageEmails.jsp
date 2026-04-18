@@ -2,6 +2,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -297,7 +298,7 @@
                             <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ senderAccountList }" var="senderAccount">
                                 <option value="${ senderAccount.senderEmail }">
-                                    ${e:forHtml(senderAccount.senderFirstName)} ${e:forHtml(senderAccount.senderLastName)} (${e:forHtml(senderAccount.senderEmail)})
+                                    ${carlos:forHtml(senderAccount.senderFirstName)} ${carlos:forHtml(senderAccount.senderLastName)} (${carlos:forHtml(senderAccount.senderEmail)})
                                 </option>
                             </c:forEach>
                         </select>
@@ -308,7 +309,7 @@
                             <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ emailStatusList }" var="status">
                                 <option value="${ status }">
-                                    ${e:forHtml(status)}
+                                    ${carlos:forHtml(status)}
                                 </option>
                             </c:forEach>
                         </select>

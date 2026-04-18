@@ -47,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.List" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
@@ -147,8 +148,8 @@
 
     <div align="center">
         <form action="<%= request.getContextPath() %>/form/createpdf" method="POST">
-            <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' />"/>
-            <input type="hidden" name="form_id" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("form_id")) %>' />"/>
+            <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="form_id" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("form_id")) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="__title" value="PatientEcounterWorksheet"/>
             <input type="hidden" name="__cfgfile" value="patientEncounterWorksheetCfg"/>
             <input type="hidden" name="__template" value="patientEncounterWorksheet"/>

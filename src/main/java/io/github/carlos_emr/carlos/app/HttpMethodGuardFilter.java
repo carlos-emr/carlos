@@ -134,7 +134,7 @@ public class HttpMethodGuardFilter implements Filter {
      */
     private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
             "createbillingreportaction",  // PDF/CSV download — GET is correct for file downloads
-            "createdate"                  // ScheduleCreateDate2Action (schedule bulk-date editor):
+            "createdate",                 // ScheduleCreateDate2Action (schedule bulk-date editor):
                                           // GET serves month-navigation reloads (bFirstDisp=0);
                                           // ScheduleCreateDate2Action.execute() enforces POST for
                                           // real mutations (bFirstDisp null or "1") internally.
@@ -145,6 +145,11 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
+            "addappointment"              // ViewAppointmentWrite2Action — view gate that loads the
+                                          // add-appointment form. The name starts with "add" so it
+                                          // matches MUTATOR_ACTION_PREFIXES, but the action itself
+                                          // only renders a JSP — the actual write goes through
+                                          // appointment/AddRecord (which IS a POST-only mutator).
     );
 
     /**

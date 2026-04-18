@@ -52,6 +52,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
@@ -153,7 +155,7 @@
             </tr>
         </table>
 
-        <p><b><font color='red'><e:forHtmlContent value='<%= StringUtils.noNull(errormsg) %>' />
+        <p><b><font color='red'><carlos:encode value='<%= StringUtils.noNull(errormsg) %>' context="html"/>
         </font></b>
 
         <table width="100%" border="0" cellpadding="2" bgcolor="#eeeeee">

@@ -31,6 +31,8 @@
 
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -127,7 +129,7 @@
                 <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
-                           value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" placeholder="Service Begin Date">
+                           value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" placeholder="Service Begin Date">
                 </div>
             </div>
             <div class="mb-3" id="providerDiv">
@@ -135,7 +137,7 @@
 
                 <div>
 
-                    <input type="text" id="numDays" name="numDays" value="<e:forHtmlAttribute value='<%= numDays %>' />"
+                    <input type="text" id="numDays" name="numDays" value="<carlos:encode value='<%= numDays %>' context="htmlAttribute"/>"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>

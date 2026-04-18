@@ -33,6 +33,8 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
@@ -47,7 +49,7 @@
                 <% if(fieldName.equals("pg1_priCare") ) {%>
                 opener.document.forms[0].pg1_priCare.value = v;
                 <% } else {%>
-                opener.document.forms[0]["<e:forJavaScriptBlock value='<%= StringUtils.noNull(fieldName) %>' />"].value = v;
+                opener.document.forms[0]["<carlos:encode value='<%= StringUtils.noNull(fieldName) %>' context="javaScriptBlock"/>"].value = v;
                 <% }%>
                 opener.recheckForm();
             }
@@ -95,10 +97,10 @@
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                onClick='typeInData("<e:forJavaScriptAttribute value='<%= firstName + " " + lastName %>' />");'>
-                <td nowrap><e:forHtmlContent value='<%= firstName %>' />
+                onClick='typeInData("<carlos:encode value='<%= firstName + " " + lastName %>' context="javaScriptAttribute"/>");'>
+                <td nowrap><carlos:encode value='<%= firstName %>' context="html"/>
                 </td>
-                <td nowrap><e:forHtmlContent value='<%= lastName %>' />
+                <td nowrap><carlos:encode value='<%= lastName %>' context="html"/>
                 </td>
             </tr>
             <%

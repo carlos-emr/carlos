@@ -29,6 +29,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -173,7 +175,7 @@
                             if (provider.getProviderNo().equals(Provider.SYSTEM_PROVIDER_NO)) continue;
 
                     %>
-                    <option value="<%=provider.getProviderNo()%>"><e:forHtmlContent value='<%= provider.getFormattedName() %>' />
+                    <option value="<%=provider.getProviderNo()%>"><carlos:encode value='<%= provider.getFormattedName() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -195,7 +197,7 @@
 
                         for (Program program : programs) {
                     %>
-                    <option value="<%=program.getId()%>"><e:forHtmlContent value='<%= program.getName() + " (" + program.getType() + ")" %>' />
+                    <option value="<%=program.getId()%>"><carlos:encode value='<%= program.getName() + " (" + program.getType() + ")" %>' context="html"/>
                     </option>
                     <%
                         }

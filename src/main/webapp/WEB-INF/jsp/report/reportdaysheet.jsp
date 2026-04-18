@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -55,7 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -254,20 +255,20 @@
             }
             if (bFistL) {
                 bFistL = false;
-                String encodedProviderNo = Encode.forUriComponent(provider_no);
-                String encodedSdate = Encode.forUriComponent(sdate);
-                String encodedEdate = Encode.forUriComponent(edate);
-                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + Encode.forUriComponent(request.getParameter("dsmode")) : "";
+                String encodedProviderNo = SafeEncode.forUriComponent(provider_no);
+                String encodedSdate = SafeEncode.forUriComponent(sdate);
+                String encodedEdate = SafeEncode.forUriComponent(edate);
+                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + SafeEncode.forUriComponent(request.getParameter("dsmode")) : "";
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
-        <e:forHtmlContent value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' />
+        <carlos:encode value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>
     </div>
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>" title="<fmt:message key="report.reportdaysheet.msgAppointmentTime"/>"><fmt:message key="report.reportdaysheet.msgTime"/></a></th>
-            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>" title="<fmt:message key="report.reportdaysheet.msgPatientLastName"/>"><fmt:message key="report.reportdaysheet.msgName"/></a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
             <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPhone"/></a></th>
             <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgGender"/></a></th>
             <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgHealthCard"/></a></th>
@@ -288,19 +289,19 @@
             count++;
         %>
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<fmt:message key="report.reportapptsheet.msgEndTime"/><%=Encode.forHtmlAttribute(rsdemo.getString("end_time")) %>">
-              <%=Encode.forHtmlContent(rsdemo.getString("start_time").substring(0,5)) %></td>
-            <td><%=rsdemo.getString("name") == null ? "." : Encode.forHtmlContent(Misc.toUpperLowerCase(rsdemo.getString("name"))) %>
-            <td><%=rsdemo.getString("phone") == null ? "" : Encode.forHtmlContent(rsdemo.getString("phone")) %></td>
-            <td><%=rsdemo.getString("sex") == null ? "" : Encode.forHtmlContent(rsdemo.getString("sex")) %></td>
-            <td><%=rsdemo.getString("hin") == null ? "" : Encode.forHtmlContent(rsdemo.getString("hin")) %></td>
-            <td><%=rsdemo.getString("ver") == null ? "" : Encode.forHtmlContent(rsdemo.getString("ver")) %></td>
-            <td><%=rsdemo.getString("chart_no") == null ? "" : Encode.forHtmlContent(rsdemo.getString("chart_no")) %></td>
+            <td title="<carlos:encode value='<%= "End Time: "+rsdemo.getString("end_time") %>' context="htmlAttribute"/>"><carlos:encode value='<%= rsdemo.getString("start_time").substring(0, 5) %>' context="html"/></td>
+            <td><%=rsdemo.getString("name") == null ? "." : ""%><carlos:encode value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' context="html"/></td>
             <% if (!bDob) {%>
-             <td><%=rsdemo.getString("roster_status") == null ? "" : Encode.forHtmlContent(rsdemo.getString("roster_status")) %></td>
+            <td><carlos:encode value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' context="html"/></td>
             <% } else {
+                String dob = rsdemo.getString("dob");
             %>
-            <td><%=rsdemo.getString("dob") == null ? "" : Encode.forHtmlContent(rsdemo.getString("doc")) %></td>
+            <td><carlos:encode value='<%= dob == null ? "" : dob %>' context="html"/></td>
             <% }%>
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>
@@ -317,11 +318,11 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<%=rsdemo.getString("doc_last_name") == null ? "" : Encode.forHtmlContent(rsdemo.getString("doc_last_name")) %>, <%=initial%>]
+                [<carlos:encode value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' context="html"/>, <carlos:encode value='<%= String.valueOf(initial) %>' context="html"/>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<%= Encode.forHtmlContent(rd) %>]&nbsp; <% } %> <%= Encode.forHtmlContent(daySheetBean.getString(rsdemo, "reason")) %>&nbsp;
+            %> [<carlos:encode value='<%= rd %>' context="html"/>]&nbsp; <% } %> <carlos:encode value='<%= daySheetBean.getString(rsdemo, "reason") %>' context="html"/>&nbsp;
             </td>
         </tr>
         <%

@@ -47,6 +47,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.issueList" var="i18nIssueList"/>
 <fmt:message key="global.disease" var="i18nDiseaseRegistry"/>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.codeType" var="i18nCodeType"/>
@@ -63,14 +64,14 @@
 
         <script type="text/javascript">
             var i18n = {
-                issueList:          '${e:forJavaScript(i18nIssueList)}',
-                diseaseRegistry:    '${e:forJavaScript(i18nDiseaseRegistry)}',
-                codeType:           '${e:forJavaScript(i18nCodeType)}',
-                code:               '${e:forJavaScript(i18nCode)}',
-                description:        '${e:forJavaScript(i18nDescription)}',
-                confirmClear:       '${e:forJavaScript(i18nConfirmClear)}',
-                confirmAutomatch:   '${e:forJavaScript(i18nConfirmAutomatch)}',
-                automatchResult:    '${e:forJavaScript(i18nAutomatchResult)}'
+                issueList:          '${carlos:forJavaScript(i18nIssueList)}',
+                diseaseRegistry:    '${carlos:forJavaScript(i18nDiseaseRegistry)}',
+                codeType:           '${carlos:forJavaScript(i18nCodeType)}',
+                code:               '${carlos:forJavaScript(i18nCode)}',
+                description:        '${carlos:forJavaScript(i18nDescription)}',
+                confirmClear:       '${carlos:forJavaScript(i18nConfirmClear)}',
+                confirmAutomatch:   '${carlos:forJavaScript(i18nConfirmAutomatch)}',
+                automatchResult:    '${carlos:forJavaScript(i18nAutomatchResult)}'
             };
 
             function setfocus() {

@@ -67,6 +67,8 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <script type="application/javascript">
     /**
@@ -320,7 +322,7 @@
                    placeholder="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                    NAME="keyword" ID="keyword"
                    aria-label="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
-                   VALUE="<e:forHtmlContent value='<%= keyWord %>' />" SIZE="17" MAXLENGTH="100"
+                   VALUE="<carlos:encode value='<%= keyWord %>' context="html"/>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 

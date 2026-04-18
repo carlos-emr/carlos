@@ -28,6 +28,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -49,7 +50,7 @@
 
     <table width="100%">
         <tr>
-            <td class="Header1">${e:forHtml(ReportName)}</td>
+            <td class="Header1">${carlos:forHtml(ReportName)}</td>
         </tr>
     </table>
     <table width="100%">
@@ -60,14 +61,14 @@
                 <c:if test="${not empty claimsError.techSpec}">
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#CCCCFF">
                     <tr>
-                        <td width="15%"><b>MOH Office: ${e:forHtml(claimsError.MOHoffice)}</b></td>
-                        <td width="15%"><b>Provider #: ${e:forHtml(claimsError.providerNumber)} </b></td>
-                        <td width="11%"><b>Group #: ${e:forHtml(claimsError.groupNumber)} </b></td>
-                        <td width="11%"><b>Opr.#: ${e:forHtml(claimsError.operatorNumber)}</b></td>
-                        <td width="11%"><b>Sp. Code: ${e:forHtml(claimsError.specialtyCode)}</b></td>
-                        <td width="11%"><b>Spec.#: ${e:forHtml(claimsError.techSpec)} </b></td>
-                        <td width="11%"><b>Station #: ${e:forHtml(claimsError.stationNumber)} </b></td>
-                        <td width="15%"><b>Clm Date: ${e:forHtml(claimsError.claimProcessDate)}</b></td>
+                        <td width="15%"><b>MOH Office: ${carlos:forHtml(claimsError.MOHoffice)}</b></td>
+                        <td width="15%"><b>Provider #: ${carlos:forHtml(claimsError.providerNumber)} </b></td>
+                        <td width="11%"><b>Group #: ${carlos:forHtml(claimsError.groupNumber)} </b></td>
+                        <td width="11%"><b>Opr.#: ${carlos:forHtml(claimsError.operatorNumber)}</b></td>
+                        <td width="11%"><b>Sp. Code: ${carlos:forHtml(claimsError.specialtyCode)}</b></td>
+                        <td width="11%"><b>Spec.#: ${carlos:forHtml(claimsError.techSpec)} </b></td>
+                        <td width="11%"><b>Station #: ${carlos:forHtml(claimsError.stationNumber)} </b></td>
+                        <td width="15%"><b>Clm Date: ${carlos:forHtml(claimsError.claimProcessDate)}</b></td>
                     </tr>
                 </table>
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#F1E9FE">
@@ -95,16 +96,16 @@
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#F1E9FE">
                     <tr bgcolor="#F9F1FE">
                         <td width="23%" colspan="3">
-                            ${e:forHtml(claimsError.patient_last)}, &nbsp;${e:forHtml(claimsError.patient_first)}
+                            ${carlos:forHtml(claimsError.patient_last)}, &nbsp;${carlos:forHtml(claimsError.patient_first)}
                         </td>
-                        <td width="3%">${e:forHtml(claimsError.patient_sex)}</td>
-                        <td width="9%">${e:forHtml(claimsError.province_code)}</td>
+                        <td width="3%">${carlos:forHtml(claimsError.patient_sex)}</td>
+                        <td width="9%">${carlos:forHtml(claimsError.province_code)}</td>
                         <td width="65%" colspan="10">
-                            ${e:forHtml(claimsError.reCode1)} &nbsp;
-                            ${e:forHtml(claimsError.reCode2)} &nbsp;
-                            ${e:forHtml(claimsError.reCode3)} &nbsp;
-                            ${e:forHtml(claimsError.reCode4)} &nbsp;
-                            ${e:forHtml(claimsError.reCode5)}&nbsp;
+                            ${carlos:forHtml(claimsError.reCode1)} &nbsp;
+                            ${carlos:forHtml(claimsError.reCode2)} &nbsp;
+                            ${carlos:forHtml(claimsError.reCode3)} &nbsp;
+                            ${carlos:forHtml(claimsError.reCode4)} &nbsp;
+                            ${carlos:forHtml(claimsError.reCode5)}&nbsp;
                         </td>
                     </tr>
                 </table>
@@ -114,33 +115,33 @@
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#F1E9FE">
                     <tr bgcolor="#F9F1FE">
                         <td width="10%">
-                            ${e:forHtml(claimsError.hin)} &nbsp; ${e:forHtml(claimsError.ver)}
+                            ${carlos:forHtml(claimsError.hin)} &nbsp; ${carlos:forHtml(claimsError.ver)}
                         </td>
-                        <td width="6%">${e:forHtml(claimsError.dob)}</td>
-                        <td width="7%">${e:forHtml(claimsError.account)}</td>
-                        <td width="3%">${e:forHtml(claimsError.payee)}</td>
-                        <td width="9%">${e:forHtml(claimsError.referNumber)}</td>
-                        <td width="7%">${e:forHtml(claimsError.facilityNumber)}</td>
-                        <td width="9%">${e:forHtml(claimsError.admitDate)}</td>
+                        <td width="6%">${carlos:forHtml(claimsError.dob)}</td>
+                        <td width="7%">${carlos:forHtml(claimsError.account)}</td>
+                        <td width="3%">${carlos:forHtml(claimsError.payee)}</td>
+                        <td width="9%">${carlos:forHtml(claimsError.referNumber)}</td>
+                        <td width="7%">${carlos:forHtml(claimsError.facilityNumber)}</td>
+                        <td width="9%">${carlos:forHtml(claimsError.admitDate)}</td>
                         <td width="5%">
-                            ${e:forHtml(claimsError.heCode1)} &nbsp;
-                            ${e:forHtml(claimsError.heCode2)} &nbsp;
-                            ${e:forHtml(claimsError.heCode3)} &nbsp;
-                            ${e:forHtml(claimsError.heCode4)} &nbsp;
-                            ${e:forHtml(claimsError.heCode5)}&nbsp;
+                            ${carlos:forHtml(claimsError.heCode1)} &nbsp;
+                            ${carlos:forHtml(claimsError.heCode2)} &nbsp;
+                            ${carlos:forHtml(claimsError.heCode3)} &nbsp;
+                            ${carlos:forHtml(claimsError.heCode4)} &nbsp;
+                            ${carlos:forHtml(claimsError.heCode5)}&nbsp;
                         </td>
-                        <td width="5%">${e:forHtml(claimsError.servicecode)}</td>
-                        <td width="6%">${e:forHtml(claimsError.amountsubmit)}</td>
-                        <td width="4%">${e:forHtml(claimsError.serviceno)}</td>
-                        <td width="7%">${e:forHtml(claimsError.servicedate)}</td>
-                        <td width="4%">${e:forHtml(claimsError.dxcode)}</td>
+                        <td width="5%">${carlos:forHtml(claimsError.servicecode)}</td>
+                        <td width="6%">${carlos:forHtml(claimsError.amountsubmit)}</td>
+                        <td width="4%">${carlos:forHtml(claimsError.serviceno)}</td>
+                        <td width="7%">${carlos:forHtml(claimsError.servicedate)}</td>
+                        <td width="4%">${carlos:forHtml(claimsError.dxcode)}</td>
                         <td width="2%"></td>
                         <td width="12%">
-                            ${e:forHtml(claimsError.code1)} &nbsp;
-                            ${e:forHtml(claimsError.code2)} &nbsp;
-                            ${e:forHtml(claimsError.code3)} &nbsp;
-                            ${e:forHtml(claimsError.code4)} &nbsp;
-                            ${e:forHtml(claimsError.code5)}&nbsp;
+                            ${carlos:forHtml(claimsError.code1)} &nbsp;
+                            ${carlos:forHtml(claimsError.code2)} &nbsp;
+                            ${carlos:forHtml(claimsError.code3)} &nbsp;
+                            ${carlos:forHtml(claimsError.code4)} &nbsp;
+                            ${carlos:forHtml(claimsError.code5)}&nbsp;
                         </td>
                     </tr>
                 </table>
@@ -150,8 +151,8 @@
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#F1E9FE">
                     <tr>
                         <td width="20%"><b>Error/Description</b></td>
-                        <td width="20%">${e:forHtml(claimsError.explain)}</td>
-                        <td width="60%">${e:forHtml(claimsError.error)}</td>
+                        <td width="20%">${carlos:forHtml(claimsError.explain)}</td>
+                        <td width="60%">${carlos:forHtml(claimsError.error)}</td>
                     </tr>
                 </table>
                 </c:if>
@@ -160,10 +161,10 @@
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#CCCCFF">
                     <tr>
                         <td width="20%"><b>Record Counts: [ </b></td>
-                        <td width="20%"><b>Header 1: ${e:forHtml(claimsError.header1Count)} </b></td>
-                        <td width="20%"><b>Header 2: ${e:forHtml(claimsError.header2Count)}</b></td>
-                        <td width="20%"><b>Item: ${e:forHtml(claimsError.itemCount)} </b></td>
-                        <td width="20%"><b>Message: ${e:forHtml(claimsError.messageCount)} ]</b></td>
+                        <td width="20%"><b>Header 1: ${carlos:forHtml(claimsError.header1Count)} </b></td>
+                        <td width="20%"><b>Header 2: ${carlos:forHtml(claimsError.header2Count)}</b></td>
+                        <td width="20%"><b>Item: ${carlos:forHtml(claimsError.itemCount)} </b></td>
+                        <td width="20%"><b>Message: ${carlos:forHtml(claimsError.messageCount)} ]</b></td>
                     </tr>
                 </table>
                 </c:if>
@@ -190,19 +191,19 @@
         </tr>
         <c:forEach var="batchAck" items="${batchAcks.batchAckReportBeanVector}">
             <tr>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.batchNumber)}</td>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.operatorNumber)}</td>
-                <td class="dataTable" width="7%">${e:forHtml(batchAck.providerNumber)}</td>
-                <td class="dataTable" width="4%">${e:forHtml(batchAck.groupNumber)}</td>
-                <td class="dataTable" width="7%">${e:forHtml(batchAck.batchCreateDate)}</td>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.batchSequenceNumber)}</td>
-                <td class="dataTable" width="7%">${e:forHtml(batchAck.microStart)}</td>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.microEnd)}</td>
-                <td class="dataTable" width="7%">${e:forHtml(batchAck.microType)}</td>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.claimNumber)}</td>
-                <td class="dataTable" width="5%">${e:forHtml(batchAck.recordNumber)}</td>
-                <td class="dataTable" width="12%">${e:forHtml(batchAck.batchProcessDate)}</td>
-                <td class="dataTable" width="15%">${e:forHtml(batchAck.explain)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.batchNumber)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.operatorNumber)}</td>
+                <td class="dataTable" width="7%">${carlos:forHtml(batchAck.providerNumber)}</td>
+                <td class="dataTable" width="4%">${carlos:forHtml(batchAck.groupNumber)}</td>
+                <td class="dataTable" width="7%">${carlos:forHtml(batchAck.batchCreateDate)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.batchSequenceNumber)}</td>
+                <td class="dataTable" width="7%">${carlos:forHtml(batchAck.microStart)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.microEnd)}</td>
+                <td class="dataTable" width="7%">${carlos:forHtml(batchAck.microType)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.claimNumber)}</td>
+                <td class="dataTable" width="5%">${carlos:forHtml(batchAck.recordNumber)}</td>
+                <td class="dataTable" width="12%">${carlos:forHtml(batchAck.batchProcessDate)}</td>
+                <td class="dataTable" width="15%">${carlos:forHtml(batchAck.explain)}</td>
             </tr>
         </c:forEach>
         </c:if>
@@ -212,7 +213,7 @@
             <c:forEach var="msg" items="${messages}">
                 <tr>
                     <td>
-                        <pre>${e:forHtml(msg)}</pre>
+                        <pre>${carlos:forHtml(msg)}</pre>
                     </td>
                 </tr>
             </c:forEach>
@@ -235,17 +236,17 @@
             </tr>
             <c:forEach var="outputSpec" items="${outputSpecs.EDTOBECOutputSecifiationBeanVector}">
                 <tr>
-                    <td class="dataTable" width="8%">${e:forHtml(outputSpec.healthNo)}</td>
-                    <td class="dataTable" width="3%">${e:forHtml(outputSpec.version)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.responseCode)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.identifier)}</td>
-                    <td class="dataTable" width="3%">${e:forHtml(outputSpec.sex)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.DOB)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.expiry)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.lastName)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.firstName)}</td>
-                    <td class="dataTable" width="10%">${e:forHtml(outputSpec.secondName)}</td>
-                    <td class="dataTable" width="16%">${e:forHtml(outputSpec.MOH)}</td>
+                    <td class="dataTable" width="8%">${carlos:forHtml(outputSpec.healthNo)}</td>
+                    <td class="dataTable" width="3%">${carlos:forHtml(outputSpec.version)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.responseCode)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.identifier)}</td>
+                    <td class="dataTable" width="3%">${carlos:forHtml(outputSpec.sex)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.DOB)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.expiry)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.lastName)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.firstName)}</td>
+                    <td class="dataTable" width="10%">${carlos:forHtml(outputSpec.secondName)}</td>
+                    <td class="dataTable" width="16%">${carlos:forHtml(outputSpec.MOH)}</td>
                 </tr>
             </c:forEach>
         </c:if>

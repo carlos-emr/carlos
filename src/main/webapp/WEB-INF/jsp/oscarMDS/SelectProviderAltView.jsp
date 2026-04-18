@@ -34,6 +34,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData, java.util.ArrayList" %>
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -42,16 +43,16 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
-    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
-    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
-    <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
+    <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
     <title><fmt:message key="oscarMDS.selectProvider.title"/></title>
 </head>
 <%String docId = request.getParameter("doc_no");%>
 <script language='JavaScript'>
 
     function doStuff() {
-        var docId = '<e:forJavaScriptBlock value='<%= docId %>' />';
+        var docId = '<carlos:encode value='<%= docId %>' context="javaScriptBlock"/>';
         var allSelected = "";
         if (document.providerSelectForm.selectedProviders.selectedIndex == -1) {
             alert("Please select at least one providers");

@@ -39,6 +39,8 @@
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -118,7 +120,7 @@
             function changeGroup(s) {
                 var newGroupNo = s.options[s.selectedIndex].value;
                 newGroupNo = s.options[s.selectedIndex].value;
-                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate?providerid=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
+                self.location.href = "${pageContext.request.contextPath}/schedule/EditTemplate?providerid=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' context="uriComponent"/>&providername=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("providername")), StandardCharsets.UTF_8)%>&step=" + newGroupNo;
 
             }
 
@@ -140,7 +142,7 @@
                         <input type="hidden" name="step" value="">
                         <tr bgcolor="#CCFFCC">
                             <td nowrap>
-                                <p><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />
+                                <p><fmt:message key="schedule.scheduleedittemplate.formProvider"/>: <carlos:encode value='<%= StringUtils.noNull(request.getParameter("providername")) %>' context="html"/>
                                 </p>
                             </td>
                             <td align='right'><select name="name">
@@ -162,9 +164,9 @@
                                     }
                                 %>
                             </select> <input type="hidden" name="providerid"
-                                             value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                                             value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' context="htmlAttribute"/>"> <input
                                     type="hidden" name="providername"
-                                    value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />">
+                                    value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providername")) %>' context="htmlAttribute"/>">
                             <td align='right'><input type="button"
                                                      value='<fmt:message key="schedule.scheduleedittemplate.btnEdit"/>'
                                                      onclick="document.forms['addtemplatecode1'].dboperation.value='<%= opEdit %>'; document.forms['addtemplatecode1'].submit();">
@@ -185,9 +187,9 @@
                                 </option>
                                 <% } %>
                             </select> <input type="hidden" name="providerid"
-                                             value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                                             value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' context="htmlAttribute"/>"> <input
                                     type="hidden" name="providername"
-                                    value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />"> <input
+                                    value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providername")) %>' context="htmlAttribute"/>"> <input
                                     type="button" value='<fmt:message key="encounter.Index.btnGo"/>'
                                     onclick="document.forms['addtemplatecode1'].step.value=document.forms[1].step1.options[document.forms[1].step1.selectedIndex].value; document.forms['addtemplatecode1'].submit();">
                             </td>
@@ -264,9 +266,9 @@
                            onclick="document.forms['addtemplatecode'].dboperation.value='<%= opDelete %>'; document.forms['addtemplatecode'].submit();">
                 </td>
                 <td align="right"><input type="hidden" name="providerid"
-                                         value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' />"> <input
+                                         value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerid")) %>' context="htmlAttribute"/>"> <input
                         type="hidden" name="providername"
-                        value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("providername")) %>' />"> <input
+                        value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providername")) %>' context="htmlAttribute"/>"> <input
                         type="hidden" name="dboperation" value=""> <input
                         type="button"
                         value='<fmt:message key="schedule.scheduleedittemplate.btnSave"/>'

@@ -17,6 +17,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -26,6 +27,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -79,7 +81,7 @@
     <title>
         <fmt:message key="oscarMDS.index.title"/>
     </title>
-    <base href="<e:forHtmlAttribute value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' />">
+    <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>">
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
     <link rel="stylesheet" type="text/css" media="all"
@@ -134,12 +136,12 @@
                     <table>
                         <tr>
                             <td align="left" valign="top">
-                                <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
-                                <input type="hidden" name="searchProviderNo" value="<e:forHtmlAttribute value='<%= searchProviderNo %>' />"/>
-                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
-                                <input type="hidden" name="status" value="<e:forHtmlAttribute value='<%= ackStatus %>' />"/>
+                                <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"/>
+                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+                                <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="selectedProviders"/>
                                 <input type="hidden" name="favorites" value=""/>
                                 <input type="hidden" name="isListView" value=""/>
@@ -151,10 +153,10 @@
                                        onClick="switchView();"/>
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
-                                       <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(providerNo) %>' /></c:set>
+                                       <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
                                        value="<fmt:message key="oscar                                       
 MDS.index.btnSearch"/>"
-                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch?providerNo=<e:forJavaScriptAttribute value='${__enc_1}' />'"/>
+                                       onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch?providerNo=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnLoadAll"/>"
@@ -164,8 +166,8 @@ MDS.index.btnSearch"/>"
                             </td>
 
                             <td align="right" valign="top">
-                                                     <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(providerNo) %>' /></c:set>
-           <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<e:forJavaScriptAttribute value='${__enc_2}' />');"
+                                                     <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
+           <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/insideLabUpload')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
@@ -213,7 +215,7 @@ MDS.index.btnSearch"/>"
                                 <summary>
                                     <a id="totalAll" href="javascript:void(0);"
                                        onclick="un_bold(this);changeView(CATEGORY_ALL);">
-                                        All (<span id="totalNumDocs">${e:forHtml(requestScope.categoryData.totalNumDocs)}</span>)
+                                        All (<span id="totalNumDocs">${carlos:forHtml(requestScope.categoryData.totalNumDocs)}</span>)
                                     </a>
                                 </summary>
                                 <ul>
@@ -222,7 +224,7 @@ MDS.index.btnSearch"/>"
                                         <li>
                                             <a id="totalDocs" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_DOCUMENTS);"
-                                               title="Documents">Documents (<span id="totalDocsNum">${e:forHtml(requestScope.categoryData.totalDocs)}</span>)
+                                               title="Documents">Documents (<span id="totalDocsNum">${carlos:forHtml(requestScope.categoryData.totalDocs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -231,7 +233,7 @@ MDS.index.btnSearch"/>"
                                         <li>
                                             <a id="totalHL7s" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_HL7);" title="HL7">
-                                                HL7 (<span id="totalHL7Num">${e:forHtml(requestScope.categoryData.totalLabs)}</span>)
+                                                HL7 (<span id="totalHL7Num">${carlos:forHtml(requestScope.categoryData.totalLabs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -258,7 +260,7 @@ MDS.index.btnSearch"/>"
                                 <summary>
                                     <a id="patient0all" href="javascript:void(0);"
                                        onclick="un_bold(this);changeView(CATEGORY_PATIENT,0)"
-                                       title="Unmatched">Unmatched (<span id="patientNumDocs0">${e:forHtml(requestScope.categoryData.unmatchedDocs + requestScope.categoryData.unmatchedLabs)}</span>)
+                                       title="Unmatched">Unmatched (<span id="patientNumDocs0">${carlos:forHtml(requestScope.categoryData.unmatchedDocs + requestScope.categoryData.unmatchedLabs)}</span>)
                                     </a>
                                 </summary>
 
@@ -268,7 +270,7 @@ MDS.index.btnSearch"/>"
                                             <a id="patient0docs" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_PATIENT_SUB,0,CATEGORY_TYPE_DOC);"
                                                title="Documents">
-                                                Documents (<span id="pDocNum_0">${e:forHtml(requestScope.categoryData.unmatchedDocs)}</span>)
+                                                Documents (<span id="pDocNum_0">${carlos:forHtml(requestScope.categoryData.unmatchedDocs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -277,7 +279,7 @@ MDS.index.btnSearch"/>"
                                             <a id="patient0hl7s" href="javascript:void(0);"
                                                onclick="un_bold(this);changeView(CATEGORY_PATIENT_SUB,0,CATEGORY_TYPE_HL7);"
                                                title="HL7">
-                                                HL7 (<span id="pLabNum_0">${e:forHtml(requestScope.categoryData.unmatchedLabs)}</span>)
+                                                HL7 (<span id="pLabNum_0">${carlos:forHtml(requestScope.categoryData.unmatchedLabs)}</span>)
                                             </a>
                                         </li>
                                     </c:if>
@@ -311,8 +313,8 @@ MDS.index.btnSearch"/>"
                                             <summary>
                                                 <a id="patient${patientId}all" href="javascript:void(0);"
                                                    onclick="un_bold(this);changeView(CATEGORY_PATIENT,${patientId});"
-                                                   title="${e:forHtmlAttribute(patientName)}">
-                                                    ${e:forHtml(patientName)} (<span
+                                                   title="${carlos:forHtmlAttribute(patientName)}">
+                                                    ${carlos:forHtml(patientName)} (<span
                                                         id="patientNumDocs${patientId}">${numDocs}</span>)
                                                 </a>
                                             </summary>
@@ -429,18 +431,18 @@ MDS.index.btnSearch"/>"
             }
             out.print(catVal);
         %>;
-        let selected_category_patient = "<e:forJavaScriptBlock value='<%= StringUtils.noNull((String)request.getAttribute("selectedCategoryPatient")) %>' />";
-        var selected_category_type = "<e:forJavaScriptBlock value='<%= selectedCategoryType == null ? "" : selectedCategoryType %>' />";
-        var searchProviderNo = "<e:forJavaScriptBlock value='<%= searchProviderNo == null ? "" : searchProviderNo %>' />";
-        var firstName = "<e:forJavaScriptBlock value='<%= patientFirstName == null ? "" : patientFirstName %>' />";
-        var lastName = "<e:forJavaScriptBlock value='<%= patientLastName == null ? "" : patientLastName %>' />";
-        var hin = "<e:forJavaScriptBlock value='<%= patientHealthNumber == null ? "" : patientHealthNumber %>' />";
-        var providerNo = "<e:forJavaScriptBlock value='<%= providerNo == null ? "" : providerNo %>' />";
-        var searchStatus = "<e:forJavaScriptBlock value='<%= ackStatus == null ? "": ackStatus %>' />";
+        let selected_category_patient = "<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("selectedCategoryPatient")) %>' context="javaScriptBlock"/>";
+        var selected_category_type = "<carlos:encode value='<%= selectedCategoryType == null ? "" : selectedCategoryType %>' context="javaScriptBlock"/>";
+        var searchProviderNo = "<carlos:encode value='<%= searchProviderNo == null ? "" : searchProviderNo %>' context="javaScriptBlock"/>";
+        var firstName = "<carlos:encode value='<%= patientFirstName == null ? "" : patientFirstName %>' context="javaScriptBlock"/>";
+        var lastName = "<carlos:encode value='<%= patientLastName == null ? "" : patientLastName %>' context="javaScriptBlock"/>";
+        var hin = "<carlos:encode value='<%= patientHealthNumber == null ? "" : patientHealthNumber %>' context="javaScriptBlock"/>";
+        var providerNo = "<carlos:encode value='<%= providerNo == null ? "" : providerNo %>' context="javaScriptBlock"/>";
+        var searchStatus = "<carlos:encode value='<%= ackStatus == null ? "": ackStatus %>' context="javaScriptBlock"/>";
         var abnormalStatus = "<%=abnormalStatus == null || "all".equals(abnormalStatus) ? "L" : (abnormalStatus.equals("normalOnly") ? "N" : "A")%>"
         var url = ctx + "/documentManager/inboxManage?";
-        const startDate = "<e:forJavaScriptBlock value='<%= StringUtils.noNull((String)request.getAttribute("startDate")) %>' />";
-        const endDate = "<e:forJavaScriptBlock value='<%= StringUtils.noNull((String)request.getAttribute("endDate")) %>' />";
+        const startDate = "<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("startDate")) %>' context="javaScriptBlock"/>";
+        const endDate = "<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("endDate")) %>' context="javaScriptBlock"/>";
         var abortController = null;
         var canLoad = true;
         var isListView = <%= isListView == null ? "null" : Boolean.parseBoolean(isListView) %>;

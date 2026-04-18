@@ -87,6 +87,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -285,9 +286,9 @@
         <% } %>
 
         <!--popup menu for encounter type -->
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js"
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js"
                 type="text/javascript"></script>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/menutility.js"
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/menutility.js"
                 type="text/javascript"></script>
 
         <script type="text/javascript"
@@ -296,28 +297,28 @@
         <!-- Pre-computed i18n strings, safely encoded for JavaScript embedding -->
         <script>
             var i18n = {
-                msgWrongDOB:                  '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgWrongDOB") %>' />',
-                msgNameRequired:              '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgNameRequired") %>' />',
-                msgWrongDate:                 '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate") %>' />',
-                msgWrongHIN:                  '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongHIN") %>' />',
-                msgBlankRoster:               '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgBlankRoster") %>' />',
-                msgForbiddenRosterDate:       '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgForbiddenRosterDate") %>' />',
-                msgLeaveBlank:                '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgLeaveBlank") %>' />',
-                msgWrongRosterDate:           '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgWrongRosterDate") %>' />',
-                msgWrongRosterEnrolledTo:     '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgWrongRosterEnrolledTo") %>' />',
-                msgWrongRosterTerminationDate:'<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgWrongRosterTerminationDate") %>' />',
-                msgNoTerminationReason:       '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgNoTerminationReason") %>' />',
-                msgWrongPatientStatusDate:    '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.search.msgWrongPatientStatusDate") %>' />',
-                msgWrongReferral:             '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' />',
-                msgPromptStatus:              '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' />',
-                msgInvalidEntry:              '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' />',
-                updateCBIReminder:            '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' />',
-                btnCancel:                    '<e:forJavaScriptBlock value='<%= oscarResources.getString("global.btnCancel") %>' />',
-                btnBack:                      '<e:forJavaScriptBlock value='<%= oscarResources.getString("global.btnBack") %>' />',
-                msgConfirmClearConsent:       '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' />',
-                msgConfirmEnrolledToMRP:      '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP") %>' />',
-                msgConfirmClearEnrolledTo:    '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo") %>' />',
-                msgAjaxError:                 '<e:forJavaScriptBlock value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgAjaxError") %>' />'
+                msgWrongDOB:                  '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgWrongDOB") %>' context="javaScriptBlock"/>',
+                msgNameRequired:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgNameRequired") %>' context="javaScriptBlock"/>',
+                msgWrongDate:                 '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongDate") %>' context="javaScriptBlock"/>',
+                msgWrongHIN:                  '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongHIN") %>' context="javaScriptBlock"/>',
+                msgBlankRoster:               '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgBlankRoster") %>' context="javaScriptBlock"/>',
+                msgForbiddenRosterDate:       '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgForbiddenRosterDate") %>' context="javaScriptBlock"/>',
+                msgLeaveBlank:                '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgLeaveBlank") %>' context="javaScriptBlock"/>',
+                msgWrongRosterDate:           '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgWrongRosterDate") %>' context="javaScriptBlock"/>',
+                msgWrongRosterEnrolledTo:     '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgWrongRosterEnrolledTo") %>' context="javaScriptBlock"/>',
+                msgWrongRosterTerminationDate:'<carlos:encode value='<%= oscarResources.getString("demographic.search.msgWrongRosterTerminationDate") %>' context="javaScriptBlock"/>',
+                msgNoTerminationReason:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgNoTerminationReason") %>' context="javaScriptBlock"/>',
+                msgWrongPatientStatusDate:    '<carlos:encode value='<%= oscarResources.getString("demographic.search.msgWrongPatientStatusDate") %>' context="javaScriptBlock"/>',
+                msgWrongReferral:             '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgWrongReferral") %>' context="javaScriptBlock"/>',
+                msgPromptStatus:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgPromptStatus") %>' context="javaScriptBlock"/>',
+                msgInvalidEntry:              '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgInvalidEntry") %>' context="javaScriptBlock"/>',
+                updateCBIReminder:            '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.updateCBIReminder") %>' context="javaScriptBlock"/>',
+                btnCancel:                    '<carlos:encode value='<%= oscarResources.getString("global.btnCancel") %>' context="javaScriptBlock"/>',
+                btnBack:                      '<carlos:encode value='<%= oscarResources.getString("global.btnBack") %>' context="javaScriptBlock"/>',
+                msgConfirmClearConsent:       '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearConsent") %>' context="javaScriptBlock"/>',
+                msgConfirmEnrolledToMRP:      '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmEnrolledToMRP") %>' context="javaScriptBlock"/>',
+                msgConfirmClearEnrolledTo:    '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgConfirmClearEnrolledTo") %>' context="javaScriptBlock"/>',
+                msgAjaxError:                 '<carlos:encode value='<%= oscarResources.getString("demographic.demographiceditdemographic.msgAjaxError") %>' context="javaScriptBlock"/>'
             };
 
             function showAlert(message) {
@@ -671,7 +672,7 @@
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
             var numMenus = 1;
-            var encURL = "${e:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<e:forJavaScript value='<%= curProvider_no %>' />&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
+            var encURL = "${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScript"/>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
 
             function showMenu(menuNumber, eventObj) {
                 var menuId = 'menu' + menuNumber;
@@ -780,7 +781,7 @@
 
             </security:oscarSec>
 
-            var demographicNo = '<e:forJavaScriptBlock value='<%= demographic_no %>' />';
+            var demographicNo = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
 
 
             function checkRosterStatus2() {
@@ -986,22 +987,13 @@
                                         out.println("failed!!!");
                                     } else {
                                 %>
-                                <span class="patient-header-name"><e:forHtmlContent value='<%= demographic.getLastName() %>' />, <e:forHtmlContent value='<%= demographic.getFirstName() %>' /></span>
+                                <span class="patient-header-name"><carlos:encode value='<%= demographic.getLastName() %>' context="html"/>, <carlos:encode value='<%= demographic.getFirstName() %>' context="html"/></span>
                                 <%
-                                    String sexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
-                                    String genderI18nKey;
-                                    switch (sexCode) {
-                                        case "M":  genderI18nKey = "global.gender.male";        break;
-                                        case "F":  genderI18nKey = "global.gender.female";      break;
-                                        case "X":  genderI18nKey = "global.gender.intersex";    break;
-                                        case "O":  genderI18nKey = "global.gender.other";       break;
-                                        default:   genderI18nKey = "global.gender.undisclosed"; break;
-                                    }
-                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                    String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex());
                                 %>
-                                <span class="patient-header-details"><e:forHtmlContent value='<%= genderDisplayText %>' /> &middot; <e:forHtmlContent value='<%= demographic.getAgeAsOf(new Date()) %>' /> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <e:forHtmlContent value='<%= birthYear %>' />-<e:forHtmlContent value='<%= birthMonth %>' />-<e:forHtmlContent value='<%= birthDate %>' /></span>
+                                <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
-                                <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <e:forHtmlContent value='<%= demographic.getHin() %>' /><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <e:forHtmlContent value='<%= demographic.getVer() %>' /><% } %></span>
+                                <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <carlos:encode value='<%= demographic.getHin() %>' context="html"/><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <carlos:encode value='<%= demographic.getVer() %>' context="html"/><% } %></span>
                                 <% } %>
                                 <span class="patient-header-appt"><fmt:message key="demographic.demographiceditdemographic.msgNextAppt"/>: <oscar:nextAppt demographicNo='<%=demographic.getDemographicNo().toString()%>'/></span>
 
@@ -1048,20 +1040,20 @@
                                     <%
                                         if ("ON".equals(prov)) {
                                     %>
-                                    <c:set var="__encBillingHistoryDemoNo"><e:forUriComponent value='<%= String.valueOf(demographic.getDemographicNo()) %>' /></c:set>
+                                    <c:set var="__encBillingHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encBillingHistoryUrl" value="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONHistory?demographic_no=${__encBillingHistoryDemoNo}" />
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<e:forJavaScriptAttribute value='${__encBillingHistoryUrl}' />')">
+                                       onClick="popupPage(500,800,'<carlos:encode value='${__encBillingHistoryUrl}' context="javaScriptAttribute"/>')">
                                         <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                                     <%
                                     } else {
                                     %>
-                                    <c:set var="__encInvoiceLastName"><e:forUriComponent value='<%= StringUtils.defaultString(demographic.getLastName()) %>' /></c:set>
-                                    <c:set var="__encInvoiceFirstName"><e:forUriComponent value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' /></c:set>
-                                    <c:set var="__encInvoiceDemoNo"><e:forUriComponent value='<%= String.valueOf(demographic.getDemographicNo()) %>' /></c:set>
+                                    <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
                                     <a href="#"
-                                       onclick="popupPage(800,1000,'<e:forJavaScriptAttribute value='${__encInvoiceUrl}' />');return false;">
+                                       onclick="popupPage(800,1000,'<carlos:encode value='${__encInvoiceUrl}' context="javaScriptAttribute"/>');return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
 
 
@@ -1102,7 +1094,7 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient?providerNo=<e:forJavaScriptAttribute value='<%= curProvider_no %>' />&demographicNo=<e:forJavaScriptAttribute value='<%= demographic_no %>' />')"><fmt:message key="global.prescriptions"/></a>
+                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>')"><fmt:message key="global.prescriptions"/></a>
                             </td>
                         </tr>
 
@@ -1119,16 +1111,16 @@
                             <tr>
                                 <td><a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'${e:forHtml(ctx)}/prevention/ViewPreventionIndex?demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />');return false;">
+                                        onClick="popupPage(700,960,'${carlos:forHtml(ctx)}/prevention/ViewPreventionIndex?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>');return false;">
                                     <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
                             </tr>
                         </security:oscarSec>
                         <tr>
                             <td>
-                                <c:set var="__enc_1"><e:forUriComponent value='<%= demographic_no %>' /></c:set>
+                                <c:set var="__enc_1"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
                                 <a
                                         href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<e:forJavaScriptAttribute value='${__enc_1}' />');return false;">
+                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');return false;">
                                     <fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
@@ -1139,17 +1131,17 @@
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR1&demographic_no=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' />');">AR1</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR1&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR1</a>
                             </td>
                         </tr>
                         <tr>
                             <td><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR2&demographic_no=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' />');">AR2</a>
+                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR2&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR2</a>
                             </td>
                         </tr>
                         <% } %>
-                                           <c:set var="__enc_2"><e:forUriComponent value='<%= demographic_no %>' /></c:set>
+                                           <c:set var="__enc_2"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
                     <tr class="Header">
                             <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalResources"/></td>
                         </tr>
@@ -1158,7 +1150,7 @@
                                 <td>
 
                                     <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList?method=list&&demographic_no=<e:forJavaScriptAttribute value='${__enc_2}' />','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
+                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList?method=list&&demographic_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
                                         Manager</a><br>
                                 </td>
                             </tr>
@@ -1181,7 +1173,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&apptProvider=<e:forUriComponent value='<%= apptProvider != null ? apptProvider : "" %>' />&appointment=<e:forUriComponent value='<%= appointment != null ? appointment : "" %>' />"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&apptProvider=<carlos:encode value='<%= apptProvider != null ? apptProvider : "" %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>
@@ -1237,13 +1229,13 @@
                                             <td>
                                                 <div class="demo-toolbar">
                                                     <span class="demo-toolbar-id">
-                                                        <a href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= head %>' />">#<e:forHtmlContent value='<%= head %>' /></a>
+                                                        <a href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= head %>' context="uriComponent"/>">#<carlos:encode value='<%= head %>' context="html"/></a>
                                                         <%
                                                             for (int i = 0; i < records.size(); i++) {
                                                                 if (((String) records.get(i)).equals(demographic_no)) {
-                                                        %>, #<e:forHtmlContent value='<%= demographic_no %>' /><%
+                                                        %>, #<carlos:encode value='<%= demographic_no %>' context="html"/><%
                                                                 } else {
-                                                        %>, <a href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= String.valueOf(records.get(i)) %>' />">#<e:forHtmlContent value='<%= String.valueOf(records.get(i)) %>' /></a><%
+                                                        %>, <a href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(records.get(i)) %>' context="uriComponent"/>">#<carlos:encode value='<%= String.valueOf(records.get(i)) %>' context="html"/></a><%
                                                                 }
                                                             }
                                                         %>
@@ -1410,7 +1402,7 @@
                 step: 1
             });
         </script>
-    <c:set var="__enc_3"><e:forUriComponent value='<%= demographic_no %>' /></c:set>
+    <c:set var="__enc_3"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
     </oscar:oscarPropertiesCheck>
 
     <script type="text/javascript">
@@ -1427,7 +1419,7 @@
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<e:forJavaScript value='${__enc_3}' />&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
+            var params = "demographic=<carlos:encode value='${__enc_3}' context="javaScript"/>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
             fetch(url + '?' + params, {
                 method: 'GET',
                 credentials: 'same-origin',
@@ -1444,7 +1436,7 @@
         
         function checkInsuranceEligibility() {
             let params = {};
-            params.demographic = '<e:forJavaScriptBlock value='<%= demographic_no %>' />';
+            params.demographic = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
             params.method = 'checkElig';
             params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
             let url = '${ctx}/billing/CA/BC/ManageTeleplan';

@@ -46,6 +46,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
@@ -58,8 +59,8 @@
         <tr>
             <td bgcolor="white"><fmt:formatDate pattern="MM/dd/yy"
                                                 value="${allergy.entry_date}"/></td>
-            <td bgcolor="white">${e:forHtml(allergy.description)}</td>
-            <td bgcolor="white">${e:forHtml(allergy.reaction)}</td>
+            <td bgcolor="white">${carlos:forHtml(allergy.description)}</td>
+            <td bgcolor="white">${carlos:forHtml(allergy.reaction)}</td>
         </tr>
     </c:forEach>
 </table>

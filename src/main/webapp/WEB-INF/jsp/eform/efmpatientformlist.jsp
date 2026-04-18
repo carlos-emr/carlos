@@ -39,6 +39,8 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -132,7 +134,7 @@
 			}
 
 			function updateAjax() {
-				let parentAjaxId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
+				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 				if (parentAjaxId !== "null") {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -186,17 +188,17 @@
                 </svg>
                 <fmt:message key="eform.showmyform.msgFormLybrary"/>
             </h2>
-            <span><e:forHtmlContent value='<%= demographic.getDisplayName() %>' /></span>
+            <span><carlos:encode value='<%= demographic.getDisplayName() %>' context="html"/></span>
         </div>
         <div class="menu-columns">
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />">
+                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
-                <a href="efmformslistadd?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />"
+                <a href="efmformslistadd?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
-                <a href="efmpatientformlist?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
+                <a href="efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmpatientformlist"/>
@@ -205,7 +207,7 @@
                     <jsp:param name="parentAjaxId" value="<%=parentAjaxId%>"/>
                 </jsp:include>
 
-                <a href="efmpatientformlistdeleted?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
+                <a href="efmpatientformlistdeleted?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
@@ -246,25 +248,25 @@
                         for (int i = 0; i < eForms.size(); i++) {
                             HashMap<String, ? extends Object> curform = eForms.get(i);
                     %>
-                    <c:set var="__enc_1"><e:forUriComponent value='<%= appointment %>' /></c:set>
+                    <c:set var="__enc_1"><carlos:encode value='<%= appointment %>' context="uriComponent"/></c:set>
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('efmshowform_data?fdid=<e:forUriComponent value='<%= (String) curform.get("fdid") %>' />&appointment=<e:forJavaScriptAttribute value='${__enc_1}' />', '<%="FormP" + i%>'); return false;"
+                               ONCLICK="popupPage('efmshowform_data?fdid=<carlos:encode value='<%= (String) curform.get("fdid") %>' context="uriComponent"/>&appointment=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>', '<%="FormP" + i%>'); return false;"
                                TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                onmouseover="window.status='
-                                    <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><e:forHtmlContent value='<%= (String)curform.get("formName") %>' />
+                                    <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String)curform.get("formName") %>' context="html"/>
                         </a></td>
-                        <td><e:forHtmlContent value='<%= (String)curform.get("formSubject") %>' />
+                        <td><carlos:encode value='<%= (String)curform.get("formSubject") %>' context="html"/>
                         </td>
-                        <td><e:forHtmlContent value='<%= (String) curform.get("formDate") %>' />
+                        <td><carlos:encode value='<%= (String) curform.get("formDate") %>' context="html"/>
                         </td>
                         <td>
                             <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm" style="display:inline;">
-                                <input type="hidden" name="fdid" value="<e:forHtmlAttribute value='<%= (String) curform.get("fdid") %>' />"/>
-                                <input type="hidden" name="group_view" value="<e:forHtmlAttribute value='<%= groupView %>' />"/>
-                                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
-                                <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />"/>
+                                <input type="hidden" name="fdid" value="<carlos:encode value='<%= (String) curform.get("fdid") %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="group_view" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>
                                 <a style="color:red;" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}">
                                     <fmt:message key="eform.uploadimages.btnDelete"/></a>
                             </form>

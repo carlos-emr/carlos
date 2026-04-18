@@ -77,6 +77,9 @@
 <%@ page import="org.w3c.dom.Document" %>
 <%@ page import="org.w3c.dom.Node" %>
 <%@ page import="org.w3c.dom.NodeList" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DesAnnualReviewPlanDao desAnnualReviewPlanDao = SpringUtils.getBean(DesAnnualReviewPlanDao.class);
 %>
@@ -109,7 +112,7 @@
 </head>
 <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">
 <form name="planner" method="post"
-      action="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />">
+      action="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&formId=<carlos:encode value='<%= form_no %>' context="uriComponent"/>">
     <%
         //save risk&checklist data if required
         if (request.getParameter("submit") != null &&
@@ -226,7 +229,7 @@
         StringBuilder checkedJson = new StringBuilder("[");
         for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
             if (ci > 0) checkedJson.append(",");
-            checkedJson.append("\"").append(Encode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+            checkedJson.append("\"").append(SafeEncode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
         }
         checkedJson.append("]");
     %>
@@ -240,7 +243,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&formId=<e:forUriComponent value='<%= form_no %>' />');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&formId=<carlos:encode value='<%= form_no %>' context="uriComponent"/>');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit');return false;"> Edit
@@ -272,7 +275,7 @@
                                                                                            onclick="javascript:return onExit();"/>
                 <input type="button"
                        name="action" value="Print"
-                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&formId=<e:forJavaScriptAttribute value='<%= form_no %>' />');return false;"/>
+                       onclick="popupPage(700,800,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplannerprint?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&formId=<carlos:encode value='<%= form_no %>' context="javaScriptAttribute"/>');return false;"/>
             </td>
             <td align="right"><a href=#
                                  onClick="popupPage(600,930,'<%= request.getContextPath() %>/decision/annualreview/riskedit');return false;"> Edit

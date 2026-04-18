@@ -34,6 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -69,7 +70,7 @@
             </tr>
         </table>
         <p>
-        <h2><e:forHtmlContent value='<%= msg %>' /></h2>
+        <h2><carlos:encode value='<%= msg %>' context="html"/></h2>
         <p></p>
 
     </center>

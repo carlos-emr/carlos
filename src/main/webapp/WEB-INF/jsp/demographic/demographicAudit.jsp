@@ -53,6 +53,7 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -62,6 +63,8 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <head>
@@ -111,15 +114,15 @@
     <tr bgcolor="<%=(index%2==0)?"ivory":"white"%>">
         <td><%=fmt.format(log.getCreated()) %>
         </td>
-        <td><e:forHtmlContent value='<%= providerDao.getProviderName(log.getProviderNo()) %>' />
+        <td><carlos:encode value='<%= providerDao.getProviderName(log.getProviderNo()) %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= log.getAction() %>' />
+        <td><carlos:encode value='<%= log.getAction() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= log.getContent() %>' />
+        <td><carlos:encode value='<%= log.getContent() %>' context="html"/>
         </td>
-        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? Encode.forHtml(log.getContentId()) : "" %>
+        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? SafeEncode.forHtml(log.getContentId()) : "" %>
         </td>
-        <td><%=log.getData() != null && !"null".equals(log.getData()) ? Encode.forHtml(log.getData()) : "" %>
+        <td><%=log.getData() != null && !"null".equals(log.getData()) ? SafeEncode.forHtml(log.getData()) : "" %>
         </td>
 
 

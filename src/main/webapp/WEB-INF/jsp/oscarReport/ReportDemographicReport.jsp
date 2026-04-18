@@ -45,12 +45,15 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData,java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptDemographicColumnNames" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%!
     // Helper method to check if a value exists in an array
     private boolean containsValue(String[] array, String value) {
@@ -63,7 +66,7 @@
 
     // Helper to safely get string value with HTML encoding
     private String safeValue(String value) {
-        return value == null ? "" : Encode.forHtmlAttribute(value);
+        return value == null ? "" : SafeEncode.forHtmlAttribute(value);
     }
 %>
 
@@ -173,7 +176,7 @@
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport" method="post" onsubmit="return checkQuery();">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
+            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : SafeEncode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
                 <select name="savedQuery" id="savedQuery" class="form-select form-select-sm" style="width:auto;display:inline-block">
@@ -182,7 +185,7 @@
                             RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
                             String qId = sc.id;
                             String qName = sc.queryName;%>
-                    <option value="<e:forHtmlAttribute value='<%= qId %>' />"><e:forHtmlContent value='<%= qName %>' /></option>
+                    <option value="<carlos:encode value='<%= qId %>' context="htmlAttribute"/>"><carlos:encode value='<%= qName %>' context="html"/></option>
                     <%}%>
                 </select>
                 <input type="submit" value="Load Query" name="query" class="btn btn-sm btn-secondary"/>
@@ -368,7 +371,7 @@
                                     for (int i = 0; i < rosterArray.size(); i++) {
                                         String ros = (String) rosterArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="rosterStatus" value="<e:forHtmlAttribute value='<%= ros %>' />" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <e:forHtmlContent value='<%= ros %>' />
+                                    <input type="checkbox" name="rosterStatus" value="<carlos:encode value='<%= ros %>' context="htmlAttribute"/>" <%= containsValue(formBean.getRosterStatus(), ros) ? "checked" : "" %>/> <carlos:encode value='<%= ros %>' context="html"/>
                                 </label>
                                 <%}%>
                             </td>
@@ -392,8 +395,8 @@
                                             String pro = (String) providerArray.get(i);
                                             if (pro != null && !"".equals(pro)) {
                                     %>
-                                    <li><e:forHtmlContent value='<%= providerBean.getProperty(pro, pro) %>' />
-                                        <input type="checkbox" name="providerNo" value="<e:forHtmlAttribute value='<%= pro %>' />" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
+                                    <li><carlos:encode value='<%= providerBean.getProperty(pro, pro) %>' context="html"/>
+                                        <input type="checkbox" name="providerNo" value="<carlos:encode value='<%= pro %>' context="htmlAttribute"/>" <%= containsValue(formBean.getProviderNo(), pro) ? "checked" : "" %>/>
                                     </li>
                                     <%
                                             }
@@ -409,7 +412,7 @@
                                     for (int i = 0; i < patientArray.size(); i++) {
                                         String pat = (String) patientArray.get(i);%>
                                 <label style="display:inline-block; margin-right:8px; font-weight:normal; font-size:12px;">
-                                    <input type="checkbox" name="patientStatus" value="<e:forHtmlAttribute value='<%= pat %>' />" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <e:forHtmlContent value='<%= pat %>' />
+                                    <input type="checkbox" name="patientStatus" value="<carlos:encode value='<%= pat %>' context="htmlAttribute"/>" <%= containsValue(formBean.getPatientStatus(), pat) ? "checked" : "" %>/> <carlos:encode value='<%= pat %>' context="html"/>
                                 </label>
                                 <%}%>
                             </td>
@@ -417,7 +420,7 @@
                         <tr>
                             <td>Demographic ID(s)</td>
                             <td>
-                                <textarea name="demoIds" class="form-control form-control-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? Encode.forHtml(formBean.getDemoIds()) : "" %></textarea>
+                                <textarea name="demoIds" class="form-control form-control-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? SafeEncode.forHtml(formBean.getDemoIds()) : "" %></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -486,7 +489,7 @@
             <table class="table table-sm table-striped table-bordered" style="font-size:13px;">
                 <tr>
                     <%for (int i = 0; i < selectArray.length; i++) {%>
-                    <th><e:forHtmlContent value='<%= dcn.getColumnTitle(selectArray[i]) %>' /></th>
+                    <th><carlos:encode value='<%= dcn.getColumnTitle(selectArray[i]) %>' context="html"/></th>
                     <%}%>
                 </tr>
                 <%
@@ -499,7 +502,7 @@
                             String str = (String) al.get(j);
                             boolean isEmpty = (str == null || str.equals(""));
                     %>
-                    <td><%= isEmpty ? "&nbsp;" : Encode.forHtml(str) %></td>
+                    <td><%= isEmpty ? "&nbsp;" : SafeEncode.forHtml(str) %></td>
                     <%}%>
                 </tr>
                 <%}%>

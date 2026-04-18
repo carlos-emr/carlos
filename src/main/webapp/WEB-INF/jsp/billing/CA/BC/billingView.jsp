@@ -50,6 +50,8 @@
         response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -240,12 +242,12 @@
                 </tr>
                 <tr>
                     <td width="12%" height="16">Patient Name:</td>
-                    <td width="12%"><e:forHtmlContent value='<%= bean.getPatientLastName() + ", " + bean.getPatientFirstName() %>' />&nbsp;</td>
+                    <td width="12%"><carlos:encode value='<%= bean.getPatientLastName() + ", " + bean.getPatientFirstName() %>' context="html"/>&nbsp;</td>
                     <td width="16%">Patient PHN:</td>
-                    <td width="17%"><e:forHtmlContent value='<%= bean.getPatientPHN() %>' />
+                    <td width="17%"><carlos:encode value='<%= bean.getPatientPHN() %>' context="html"/>
                     </td>
                     <td width="19%">Health Card Type:</td>
-                    <td width="24%"><e:forHtmlContent value='<%= bean.getPatientHCType() %>' />
+                    <td width="24%"><carlos:encode value='<%= bean.getPatientHCType() %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -261,13 +263,13 @@
                 </tr>
                 <tr>
                     <td height="16">Patient Address:</td>
-                    <td><e:forHtmlContent value='<%= bean.getPatientAddress1() %>' />
+                    <td><carlos:encode value='<%= bean.getPatientAddress1() %>' context="html"/>
                     </td>
                     <td>City:</td>
-                    <td><e:forHtmlContent value='<%= bean.getPatientAddress2() %>' />
+                    <td><carlos:encode value='<%= bean.getPatientAddress2() %>' context="html"/>
                     </td>
                     <td>Postal:</td>
-                    <td><e:forHtmlContent value='<%= bean.getPatientPostal() %>' />
+                    <td><carlos:encode value='<%= bean.getPatientPostal() %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -309,13 +311,13 @@
                 </tr>
                 <tr>
                     <td height="16">Billing Provider:</td>
-                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getBillingProvider()) %>' />
+                    <td><carlos:encode value='<%= billform.getProviderName(bean.getBillingProvider()) %>' context="html"/>
                     </td>
                     <td>Appointment Provider:</td>
-                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' />
+                    <td><carlos:encode value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' context="html"/>
                     </td>
                     <td>Creator:</td>
-                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getCreator()) %>' />
+                    <td><carlos:encode value='<%= billform.getProviderName(bean.getCreator()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -410,7 +412,7 @@
                                 <td height="14" colspan="4">Correspondence Note</td>
                             </tr>
                             <tr>
-                                <td height="14" colspan="4"><e:forHtmlContent value='<%= bean.getMSPBillingNote() %>' />
+                                <td height="14" colspan="4"><carlos:encode value='<%= bean.getMSPBillingNote() %>' context="html"/>
                                 </td>
                             </tr>
 
@@ -418,7 +420,7 @@
                                 <td height="14" colspan="4">Messages</td>
                             </tr>
                             <tr>
-                                <td height="14" colspan="4"><e:forHtmlContent value='<%= bean.getMessageNotes() %>' />
+                                <td height="14" colspan="4"><carlos:encode value='<%= bean.getMessageNotes() %>' context="html"/>
                                 </td>
                             </tr>
                         </table>

@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
                    objectName="_dashboardDisplay">
@@ -46,7 +47,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>
-        ${e:forHtml(dashboard.name)}
+        ${carlos:forHtml(dashboard.name)}
     </title>
     <link rel="stylesheet" type="text/css"
           href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
@@ -75,23 +76,23 @@
             <!-- Dashboard Heading -->
             <div class="row dashboardHeading">
                 <h2>
-                    ${e:forHtml(dashboard.name)}
+                    ${carlos:forHtml(dashboard.name)}
                 </h2>
                 <hr/>
             </div>
             <center>
                 <c:if test="${fn:length(providers) eq 0}">
-                    <b>${e:forHtml(preferredProvider.fullName)}</b>
+                    <b>${carlos:forHtml(preferredProvider.fullName)}</b>
                 </c:if>
                 <c:if test="${fn:length(providers) gt 0}">
                     <div class="dropdown">
                         <form action="<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }"
                               method="post">
                             <select id="providerNo" name="providerNo">
-                                <option value="${ preferredProvider.providerNo }">${e:forHtml(preferredProvider.fullName)}</option>
+                                <option value="${ preferredProvider.providerNo }">${carlos:forHtml(preferredProvider.fullName)}</option>
                                 <c:forEach items="${ providers }" var="provider">
                                     <option value="${ provider.providerNo }">
-                                        ${e:forHtml(provider.formattedName)}
+                                        ${carlos:forHtml(provider.formattedName)}
                                     </option>
                                 </c:forEach>
                             </select>
@@ -104,7 +105,7 @@
             <div class="row dashboardSubHeading">
                 <div class="col-md-6">
                     Last loaded:
-                    ${e:forHtml(dashboard.lastChecked)}
+                    ${carlos:forHtml(dashboard.lastChecked)}
                     <a href="javascript:void(0)" title="refresh" class="reloadDashboardBtn"
                        id="getDashboard_${ dashboard.id }">
                         <span class="fa-solid fa-arrows-rotate"></span>
@@ -127,7 +128,7 @@
                     <div class="card border-primary categoryPanel">
 
                         <div class="card-header">
-                            <strong>${e:forHtml(panelBean.category)}</strong>
+                            <strong>${carlos:forHtml(panelBean.category)}</strong>
                         </div>
 
                         <div class="card-body">
@@ -139,7 +140,7 @@
 
                                     <!-- Indicator panel heading - by sub category -->
                                     <div class="card-header">
-                                        ${e:forHtml(indicatorPanel.category)}
+                                        ${carlos:forHtml(indicatorPanel.category)}
                                     </div>
 
                                     <div class="card-body">

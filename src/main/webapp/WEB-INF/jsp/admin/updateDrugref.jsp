@@ -48,6 +48,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -58,7 +59,7 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
-        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
         <script>
             function getCsrfToken() {
@@ -71,7 +72,7 @@
             }
 
             function getUpdateTime() {
-                const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
+                const url = "${carlos:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
                 formData.append('CSRF-TOKEN', getCsrfToken());
@@ -119,7 +120,7 @@
             }
 
             function updateDB() {
-                const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
+                const url = "${carlos:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
                 formData.append('CSRF-TOKEN', getCsrfToken());

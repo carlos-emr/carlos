@@ -40,6 +40,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <html>
@@ -121,8 +122,8 @@
                                 <tr>
                                     <td><input type="checkbox" value="${i.index}"
                                                name="resourceId"/></td>
-                                    <td>${e:forHtml(u.resourceType)}</td>
-                                    <td>${e:forHtml(u.description)}</td>
+                                    <td>${carlos:forHtml(u.resourceType)}</td>
+                                    <td>${carlos:forHtml(u.description)}</td>
                                 </tr>
                             </c:forEach>
                         </table>

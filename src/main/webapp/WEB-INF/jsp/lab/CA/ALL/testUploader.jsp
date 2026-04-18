@@ -50,6 +50,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -291,7 +292,7 @@
         </div>
         <span title="<fmt:message key="global.uploadWarningBody"/>"
               style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
-                alt="alert" src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/icon_alertsml.gif"/></span>
+                alt="alert" src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/icon_alertsml.gif"/></span>
 
         <br><br>
         <label for="type"><fmt:message key="lab.ca.all.testUploader.labType"/></label><br>
@@ -318,7 +319,7 @@
 
         <c:forEach var="file" items="${filesStatusMap}">
             <script>
-                addFileNameWithStatus("${e:forJavaScript(file.key)}", "${e:forJavaScript(file.value)}");
+                addFileNameWithStatus("${carlos:forJavaScript(file.key)}", "${carlos:forJavaScript(file.value)}");
             </script>
         </c:forEach>
     </form>

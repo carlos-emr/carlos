@@ -67,9 +67,11 @@
 <%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     double totalPayments = 0;
@@ -300,7 +302,7 @@
                                                                 <td class="secHead" align="left">
                                                                     <h2> INVOICE -
 
-                                                                        ${e:forHtml(billingViewBean.billingNo)}
+                                                                        ${carlos:forHtml(billingViewBean.billingNo)}
                                                                     </h2>
                                                                 </td>
                                                                 <%
@@ -317,26 +319,26 @@
                                                 <tr>
                                                     <td colspan="2" class="title4">
                                                         <div align="left"
-                                                             class="style1"><e:forHtmlContent value='<%= clinic.getClinicName() %>' />
+                                                             class="style1"><carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td colspan="2"
-                                                        class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress() %>' />
-                                                        , <e:forHtmlContent value='<%= clinic.getClinicCity() %>' />
-                                                        , <e:forHtmlContent value='<%= clinic.getClinicProvince() %>' /> <e:forHtmlContent value='<%= clinic.getClinicPostal() %>' />
+                                                        class="address"><carlos:encode value='<%= clinic.getClinicAddress() %>' context="html"/>
+                                                        , <carlos:encode value='<%= clinic.getClinicCity() %>' context="html"/>
+                                                        , <carlos:encode value='<%= clinic.getClinicProvince() %>' context="html"/> <carlos:encode value='<%= clinic.getClinicPostal() %>' context="html"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Telephone:
-                                                        <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : Encode.forHtmlContent(clinic.getClinicPhone())%>
+                                                        <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : SafeEncode.forHtmlContent(clinic.getClinicPhone())%>
                                                     </td>
                                                     <td class="address" id="clinicPhone">&nbsp;</td>
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Fax:
-                                                        <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : Encode.forHtmlContent(clinic.getClinicFax())%>
+                                                        <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : SafeEncode.forHtmlContent(clinic.getClinicFax())%>
                                                     </td>
                                                     <td class="address" id="clinicFax">&nbsp;</td>
                                                 </tr>
@@ -406,22 +408,22 @@
                                             <table width="100%" border="0" cellspacing="2" cellpadding="2">
                                                 <tr>
                                                     <td colspan="2" valign="top" class="secHead">
-                                                        Patient (${e:forHtml(billingViewBean.patientPHN)})
+                                                        Patient (${carlos:forHtml(billingViewBean.patientPHN)})
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td height="64" colspan="2" valign="top">
                                                         <strong>Name:</strong>
-                                                        ${e:forHtml(billingViewBean.patientLastName)},
-                                                        ${e:forHtml(billingViewBean.patientFirstName)}
+                                                        ${carlos:forHtml(billingViewBean.patientLastName)},
+                                                        ${carlos:forHtml(billingViewBean.patientFirstName)}
                                                         <br>
                                                         <strong>Address:</strong>
 
                                                         <div style="padding-left: 5px;">
-                                                            <e:forHtmlContent value='<%= demo.getAddress() %>' /><br>
-                                                            <e:forHtmlContent value='<%= demo.getCity() %>' />,
+                                                            <carlos:encode value='<%= demo.getAddress() %>' context="html"/><br>
+                                                            <carlos:encode value='<%= demo.getCity() %>' context="html"/>,
                                                             <%=demo.getProvince()%><br>
-                                                            <e:forHtmlContent value='<%= demo.getPostal() %>' />
+                                                            <carlos:encode value='<%= demo.getPostal() %>' context="html"/>
                                                         </div>
                                                         <strong>Gender:</strong>
                                                         <%=demo.getSex()%>                              <br>
@@ -450,13 +452,13 @@
                                                     <td>Ref. Type 2</td>
                                                 </tr>
                                                 <tr align="center">
-                                                    <td>${e:forHtml(billingViewBean.serviceDate)}</td>
-                                                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' /></td>
-                                                    <td><e:forHtmlContent value='<%= billform.getProviderName(bean.getBillingProvider()) %>' /></td>
-                                                    <td>${e:forHtml(billingViewBean.referral1)}</td>
-                                                    <td>${e:forHtml(billingViewBean.referType1)}</td>
-                                                    <td>${e:forHtml(billingViewBean.referral2)}</td>
-                                                    <td>${e:forHtml(billingViewBean.referType2)}</td>
+                                                    <td>${carlos:forHtml(billingViewBean.serviceDate)}</td>
+                                                    <td><carlos:encode value='<%= billform.getProviderName(bean.getApptProviderNo()) %>' context="html"/></td>
+                                                    <td><carlos:encode value='<%= billform.getProviderName(bean.getBillingProvider()) %>' context="html"/></td>
+                                                    <td>${carlos:forHtml(billingViewBean.referral1)}</td>
+                                                    <td>${carlos:forHtml(billingViewBean.referType1)}</td>
+                                                    <td>${carlos:forHtml(billingViewBean.referral2)}</td>
+                                                    <td>${carlos:forHtml(billingViewBean.referType2)}</td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -486,14 +488,14 @@
                                                 <tr align="center">
                                                     <td>
                                                             <span class="rcvPayment">
-                                                                                                           <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(bean.getBillingNo()) %>' /></c:set>
+                                                                                                           <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(bean.getBillingNo()) %>' context="uriComponent"/></c:set>
                 <a href="#"
-                                                               onClick="popupPage(300,450,'viewReceivePaymentAction?lineNo=<e:forJavaScriptAttribute value='<%= String.valueOf(bi.getLineNo()) %>' />&amp;billNo=<e:forJavaScriptAttribute value='${__enc_1}' />')">Receive Payment</a>
+                                                               onClick="popupPage(300,450,'viewReceivePaymentAction?lineNo=<carlos:encode value='<%= String.valueOf(bi.getLineNo()) %>' context="javaScriptAttribute"/>&amp;billNo=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')">Receive Payment</a>
                                                             </span>
                                                     </td>
                                                     <td><%=bi.getLineNo()%>
                                                     </td>
-                                                    <td><e:forHtmlContent value='<%= bi.getDescription() %>' />
+                                                    <td><carlos:encode value='<%= bi.getDescription() %>' context="html"/>
                                                     </td>
                                                     <td><%=bi.getServiceCode()%>
                                                     </td>
@@ -501,9 +503,9 @@
                                                     </td>
                                                     <td align="right"><%=bean.getDx1()%>&nbsp;<%=bean.getDx2()%>&nbsp;<%=bean.getDx3()%>
                                                     </td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(unitTotal).replace('$', ' ') %>" context="html"/>
                                                     </td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(lnTotal).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -531,7 +533,7 @@
                                                     <td colspan="2"><%=item.getArchiveDate()%>
                                                     </td>
 
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(amtReceived * -1.0).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -565,7 +567,7 @@
                                                             <c:if test="${ not empty billingViewBean.defaultPayeeInfo }">
                                                                 <tr>
                                                                     <td class="title4 payeeInfo">
-                                                                        ${e:forHtml(billingViewBean.defaultPayeeInfo)}
+                                                                        ${carlos:forHtml(billingViewBean.defaultPayeeInfo)}
                                                                     </td>
                                                                 </tr>
                                                             </c:if>
@@ -580,22 +582,22 @@
                                                                 <% SystemPreferences invoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_use_custom_clinic_info);
                                                                     if (invoiceClinicInfo == null || StringUtils.isNullOrEmpty(invoiceClinicInfo.getValue())) { %>
                                                                 <td class="title4">
-                                                                    <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
+                                                                    <carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address"><e:forHtmlContent value='<%= clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal() %>' /></td>
+                                                                <td class="address"><carlos:encode value='<%= clinic.getClinicAddress()+", "+clinic.getClinicCity()+", "+clinic.getClinicProvince()+" "+clinic.getClinicPostal() %>' context="html"/></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Phone"> Telephone: <e:forHtmlContent value='<%= java.util.Objects.toString(vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone(), "") %>' /></td>
+                                                                <td class="address" id="Phone"> Telephone: <carlos:encode value='<%= java.util.Objects.toString(vecPhones.size() >= 1 ? vecPhones.elementAt(0) : clinic.getClinicPhone(), "") %>' context="html"/></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="address" id="Fax"> Fax: <e:forHtmlContent value='<%= java.util.Objects.toString(vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax(), "") %>' /></td>
+                                                                <td class="address" id="Fax"> Fax: <carlos:encode value='<%= java.util.Objects.toString(vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : clinic.getClinicFax(), "") %>' context="html"/></td>
                                                                 <% } else {
                                                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);
                                                                 %>
 
-                                                                <td class="payeeInfo"><e:forHtmlContent value='<%= customInvoiceClinicInfo.getValue() %>' /></td>
+                                                                <td class="payeeInfo"><carlos:encode value='<%= customInvoiceClinicInfo.getValue() %>' context="html"/></td>
 
                                                                 <% } %>
                                                             </tr>
@@ -603,22 +605,22 @@
                                                         </table>
                                                     </td>
                                                     <td align="right">Subtotal:</td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateSubtotal()).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Total:</td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(bean.calculateTotal()).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Payments:</td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(totalPayments).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td align="right">Refunds:</td>
-                                                    <td align="right"><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace('$', ' ') %>" />
+                                                    <td align="right"><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(totalRefunds).replace('$', ' ') %>" context="html"/>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -630,7 +632,7 @@
                                                     </td>
                                                     <%double gtotal = bean.calculateTotal() - totalPayments - totalRefunds;%>
                                                     <td align="right">
-                                                        <strong><e:forHtmlContent value="<%= java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace('$', ' ') %>" />
+                                                        <strong><carlos:encode value="<%= java.text.NumberFormat.getCurrencyInstance().format(gtotal).replace('$', ' ') %>" context="html"/>
                                                         </strong></td>
                                                 </tr>
                                                 <tr>
@@ -664,7 +666,7 @@
                                                                 <td colspan="2" align="left" valign="bottom">
                                                                     <input type="submit" name="submit" class="header" value="Update Invoice" />
                                                                     <button class="header" value="Edit Invoice"
-                                                                            onclick="editInvoice('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' />')">
+                                                                            onclick="editInvoice('<carlos:encode value='<%= StringUtils.noNull(bean.getBillingMasterNo()) %>' context="javaScriptAttribute"/>')">
                                                                         Edit Invoice
                                                                     </button>
                                                                     <button class="header" onclick="printInvoiceWithoutNotes()">Print</button>

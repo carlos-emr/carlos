@@ -35,6 +35,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@include file="/WEB-INF/jsp/layouts/caisi_html_top.jspf" %>
 <%@ page import="io.github.carlos_emr.carlos.login.Login2Action" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <h2>Please select which facility you would like to currently work in</h2>
 <%
     FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
@@ -58,7 +60,7 @@
             Facility facility = facilityDao.find(facilityId);
     %>
     <li>
-        <a href='?nextPage=<e:forUriComponent value='<%= safeNextPage %>' />&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><e:forHtmlContent value='<%= facility.getName() %>' />
+        <a href='?nextPage=<carlos:encode value='<%= safeNextPage %>' context="uriComponent"/>&<%=Login2Action.SELECTED_FACILITY_ID%>=<%=facility.getId()%>'><carlos:encode value='<%= facility.getName() %>' context="html"/>
         </a></li>
     <%
         }

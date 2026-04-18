@@ -44,10 +44,12 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -79,7 +81,7 @@
 
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
         // check the input data
-        String encodedRoleName = Encode.forHtmlContent(StringUtils.trimToEmpty(role_name));
+        String encodedRoleName = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(role_name));
         if (request.getParameter("action").startsWith("edit")) {
             // update the code
             SecRole secRole = secRoleDao.findByName(request.getParameter("action").substring(4));
@@ -238,7 +240,7 @@
                     List<SecRole> secRoles = secRoleDao.findAll();
                     for(SecRole secRole:secRoles) {
                         %>
-                    "<e:forJavaScriptBlock value='<%= secRole.getName() %>' />",
+                    "<carlos:encode value='<%= secRole.getName() %>' context="javaScriptBlock"/>",
                     <%}%>
                     ""
                 ];
@@ -263,7 +265,7 @@
                 <label class="form-label" for="role_name"><fmt:message key="admin.provideraddrole.rolename"/></label>
                 <div>
                     <input type="text" name="role_name" id="role_name"
-                           value="<e:forHtmlAttribute value='<%= prop.getProperty("role_name", "") %>' />"
+                           value="<carlos:encode value='<%= prop.getProperty("role_name", "") %>' context="htmlAttribute"/>"
                            maxlength='30'>
                     <input type="submit" name="submit" value="<fmt:message key="admin.provideraddrole.search"/>" class="btn btn-secondary"
                            onclick="javascript:return onSearch();">
@@ -272,7 +274,7 @@
             <div class="mb-3">
                 <div>
                     <input
-                            type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'/> <% if (!"search".equals(action)) {%>
+                            type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'/> <% if (!"search".equals(action)) {%>
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                            onclick="javascript:return onSave();"> <% }%>

@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -95,13 +97,13 @@
         }
 
     %>
-    <td>HIN: <e:forHtmlContent value='<%= hin %>' /> FName: <e:forHtmlContent value='<%= firstname %>' /> LName: <e:forHtmlContent value='<%= lastname %>' />
-        DOBYEAR: <e:forHtmlContent value='<%= dobyear %>' />-<e:forHtmlContent value='<%= dobmonth %>' />-<e:forHtmlContent value='<%= dobdate %>' /> End Date: <e:forHtmlContent value='<%= endyear %>' />-<e:forHtmlContent value='<%= endmonth %>' />-<e:forHtmlContent value='<%= enddate %>' />
-        EFF Date: <e:forHtmlContent value='<%= effyear %>' />-<e:forHtmlContent value='<%= effmonth %>' />-<e:forHtmlContent value='<%= effdate %>' />
+    <td>HIN: <carlos:encode value='<%= hin %>' context="html"/> FName: <carlos:encode value='<%= firstname %>' context="html"/> LName: <carlos:encode value='<%= lastname %>' context="html"/>
+        DOBYEAR: <carlos:encode value='<%= dobyear %>' context="html"/>-<carlos:encode value='<%= dobmonth %>' context="html"/>-<carlos:encode value='<%= dobdate %>' context="html"/> End Date: <carlos:encode value='<%= endyear %>' context="html"/>-<carlos:encode value='<%= endmonth %>' context="html"/>-<carlos:encode value='<%= enddate %>' context="html"/>
+        EFF Date: <carlos:encode value='<%= effyear %>' context="html"/>-<carlos:encode value='<%= effmonth %>' context="html"/>-<carlos:encode value='<%= effdate %>' context="html"/>
     </td>
     <script LANGUAGE="JavaScript">
         <!--
-        Attach('<e:forJavaScriptBlock value='<%= lastname %>' />', '<e:forJavaScriptBlock value='<%= firstname %>' />', '<e:forJavaScriptBlock value='<%= hin %>' />', '<e:forJavaScriptBlock value='<%= dobyear %>' />', '<e:forJavaScriptBlock value='<%= dobmonth %>' />', '<e:forJavaScriptBlock value='<%= dobdate %>' />', '<e:forJavaScriptBlock value='<%= vercode %>' />', '<e:forJavaScriptBlock value='<%= sex %>' />', '<e:forJavaScriptBlock value='<%= effyear %>' />', '<e:forJavaScriptBlock value='<%= effmonth %>' />', '<e:forJavaScriptBlock value='<%= effdate %>' />', '<e:forJavaScriptBlock value='<%= endyear %>' />', '<e:forJavaScriptBlock value='<%= endmonth %>' />', '<e:forJavaScriptBlock value='<%= enddate %>' />');
+        Attach('<carlos:encode value='<%= lastname %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= firstname %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= hin %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= dobyear %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= dobmonth %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= dobdate %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= vercode %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= sex %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= effyear %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= effmonth %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= effdate %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= endyear %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= endmonth %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= enddate %>' context="javaScriptBlock"/>');
 
         -->
 

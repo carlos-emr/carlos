@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <html>
@@ -47,7 +48,7 @@
                        placeholder="Enter code" aria-label=".form-control-sm"
                        required maxlength="6">
                 <div id="otpInputFeedback" class="invalid-feedback">
-                    ${e:forHtml(requestScope.mfaValidateCodeErr)}
+                    ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
                 </div>
             </div>
 

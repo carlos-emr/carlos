@@ -78,6 +78,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String country = request.getLocale().getCountry();
     CarlosProperties carlosVariables = CarlosProperties.getInstance();
@@ -206,8 +208,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' />"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= "GRP: " + rsgroup.getString("mygroup_no") %>' />
+                    <option value="<carlos:encode value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' context="htmlAttribute"/>"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><carlos:encode value='<%= "GRP: " + rsgroup.getString("mygroup_no") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -216,8 +218,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= rsgroup.getString("provider_no") %>' />"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' />
+                    <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><carlos:encode value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' context="html"/>
                     </option>
                     <%
                         }

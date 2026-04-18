@@ -49,6 +49,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -75,13 +76,13 @@
                 resultMsg = "";
             }
         %>
-        <e:forHtml value='<%= resultMsg %>' />
+        <carlos:encode value='<%= resultMsg %>' context="forHtml"/>
         <br/>
         <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm?prevention=<%=URLEncoder.encode(prevention,"UTF-8")%>"><fmt:message key="admin.lotaddrecord.btnAddAnother"/>
-            <e:forHtmlContent value='<%= prevention %>' />
+            <carlos:encode value='<%= prevention %>' context="html"/>
         </a> <br/>
         <a href="${pageContext.request.contextPath}/admin/LotNrSearchResults?search_mode=search_prev&keyword=<%=URLEncoder.encode(prevention,"UTF-8")%>&orderby=prevention_type&dboperation=lotnr_search_prevention&limit1=0&limit2=10&button=submit"><fmt:message key="admin.lotaddrecord.btnViewLots"/>
-            <e:forHtmlContent value='<%= prevention %>' />
+            <carlos:encode value='<%= prevention %>' context="html"/>
         </a>
     </center>
     </body>

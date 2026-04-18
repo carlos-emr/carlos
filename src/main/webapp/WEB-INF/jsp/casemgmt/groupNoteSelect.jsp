@@ -29,6 +29,8 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -101,9 +103,9 @@
     <!-- current links? -->
 
     <tr>
-        <td><e:forHtmlContent value='<%= demographic.getFormattedName() %>' />
+        <td><carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= String.valueOf(link.isAnonymous()) %>' />
+        <td><carlos:encode value='<%= String.valueOf(link.isAnonymous()) %>' context="html"/>
         </td>
     </tr>
 
@@ -115,7 +117,7 @@
 
 <h5>Select clients for group note</h5>
 <form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction" method="post">
-    <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
+    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
     <table>
 
         <%
@@ -126,8 +128,8 @@
                 }
         %>
         <tr>
-            <td><input type="checkbox" name="group_client_id" value="<e:forHtmlAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />"/></td>
-            <td><e:forHtmlContent value='<%= demographic.getFormattedName() %>' />
+            <td><input type="checkbox" name="group_client_id" value="<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="htmlAttribute"/>"/></td>
+            <td><carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
             </td>
         </tr>
         <%
@@ -153,7 +155,7 @@
     <input type="button" value="cancel" onclick="window.close();"/> &nbsp;&nbsp; <input type="submit"
                                                                                         value="Enter note into selected clients"
                                                                                         onclick="return confirmGroupNote();"/>
-    <input type="hidden" name="programId" value="<e:forHtmlAttribute value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' />"/>
+    <input type="hidden" name="programId" value="<carlos:encode value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' context="htmlAttribute"/>"/>
 </form>
 <% } %>
 </body>

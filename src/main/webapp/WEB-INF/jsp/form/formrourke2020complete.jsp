@@ -54,6 +54,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="demographicMeasurementModal.jsp" %>
 
 <%
@@ -100,7 +101,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript"
             src="<%=request.getContextPath()%>/share/javascript/forms/forms-timed-autosave.js"></script>
-    <title><%= "Rourke2020 Record for " + Encode.forHtmlAttribute(props.getProperty("c_pName", "")) + " DOB: " + props.getProperty("c_birthDate", "")%>
+    <title><%= "Rourke2020 Record for " + SafeEncode.forHtmlAttribute(props.getProperty("c_pName", "")) + " DOB: " + props.getProperty("c_birthDate", "")%>
     </title>
 
     <link rel="stylesheet" type="text/css" href="rourkeStyle.css">

@@ -42,6 +42,8 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String prov = request.getParameter("billRegion");
     String billForm = request.getParameter("billForm");
@@ -173,44 +175,44 @@
 
 
 <form method="post" name="editBillingForm" action="/billing">
-    <input type="hidden" name="billNo_old" id="billNo_old" value="<e:forHtmlAttribute value='<%= billNo %>' />"/>
-    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<e:forHtmlAttribute value='<%= status %>' />"/>
-    <input type="hidden" name="apptProvider_no" id="apptProvider_no" value="<e:forHtmlAttribute value='<%= apptProvider_no %>' />"/>
-    <input type="hidden" name="providerview" id="providerview" value="<e:forHtmlAttribute value='<%= providerview %>' />"/>
-    <input type="hidden" name="service_date" id="service_date" value="<e:forHtmlAttribute value='<%= service_date %>' />"/>
-    <input type="hidden" name="appointment_date" id="appointment_date" value="<e:forHtmlAttribute value='<%= appointment_date %>' />"/>
-    <input type="hidden" name="billing_date" id="billing_date" value="<e:forHtmlAttribute value='<%= billing_date %>' />"/>
-    <input type="hidden" name="demographic_name" id="demographic_name" value="<e:forHtmlAttribute value='<%= demoname %>' />"/>
-    <input type="hidden" name="appointment_no" id="appointment_no" value="<e:forHtmlAttribute value='<%= appointment_no %>' />"/>
-    <input type="hidden" name="clinic_no" id="clinic_no" value="<e:forHtmlAttribute value='<%= clinicNo %>' />"/>
-    <input type="hidden" name="demographic_no" id="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
-    <input type="hidden" name="asstProvider_no" id="asstProvider_no" value="<e:forHtmlAttribute value='<%= asstProvider_no %>' />"/>
-    <input type="hidden" name="assgProvider_no" id="assgProvider_no" value="<e:forHtmlAttribute value='<%= assgProvider_no %>' />"/>
+    <input type="hidden" name="billNo_old" id="billNo_old" value="<carlos:encode value='<%= billNo %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="billStatus_old" id="billStatus_old" value="<carlos:encode value='<%= status %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="apptProvider_no" id="apptProvider_no" value="<carlos:encode value='<%= apptProvider_no %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="providerview" id="providerview" value="<carlos:encode value='<%= providerview %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="service_date" id="service_date" value="<carlos:encode value='<%= service_date %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="appointment_date" id="appointment_date" value="<carlos:encode value='<%= appointment_date %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="billing_date" id="billing_date" value="<carlos:encode value='<%= billing_date %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demographic_name" id="demographic_name" value="<carlos:encode value='<%= demoname %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="appointment_no" id="appointment_no" value="<carlos:encode value='<%= appointment_no %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="clinic_no" id="clinic_no" value="<carlos:encode value='<%= clinicNo %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demographic_no" id="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="asstProvider_no" id="asstProvider_no" value="<carlos:encode value='<%= asstProvider_no %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="assgProvider_no" id="assgProvider_no" value="<carlos:encode value='<%= assgProvider_no %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="sex" id="sex"/>
-    <input type="hidden" name="m_review" id="m_review" value="<e:forHtmlAttribute value='<%= m_review %>' />"/>
-    <input type="hidden" name="xml_provider" id="xml_provider" value="<e:forHtmlAttribute value='<%= xml_provider %>' />"/>
-    <input type="hidden" name="dxCode" id="dxCode" value="<e:forHtmlAttribute value='<%= dxCode %>' />"/>
-    <input type="hidden" name="dxCode1" id="dxCode1" value="<e:forHtmlAttribute value='<%= dxCode1 %>' />"/>
-    <input type="hidden" name="dxCode2" id="dxCode2" value="<e:forHtmlAttribute value='<%= dxCode2 %>' />"/>
-    <input type="hidden" name="service_code" id="service_code" value="<e:forHtmlAttribute value='<%= service_code %>' />"/>
-    <input type="hidden" name="xml_visittype" id="xml_visittype" value="<e:forHtmlAttribute value='<%= xml_visittype %>' />"/>
-    <input type="hidden" name="xml_location" id="xml_location" value="<e:forHtmlAttribute value='<%= xml_location %>' />"/>
-    <input type="hidden" name="xml_vdate" id="xml_vdate" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />"/>
+    <input type="hidden" name="m_review" id="m_review" value="<carlos:encode value='<%= m_review %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="xml_provider" id="xml_provider" value="<carlos:encode value='<%= xml_provider %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="dxCode" id="dxCode" value="<carlos:encode value='<%= dxCode %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="dxCode1" id="dxCode1" value="<carlos:encode value='<%= dxCode1 %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="dxCode2" id="dxCode2" value="<carlos:encode value='<%= dxCode2 %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="service_code" id="service_code" value="<carlos:encode value='<%= service_code %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="xml_visittype" id="xml_visittype" value="<carlos:encode value='<%= xml_visittype %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="xml_location" id="xml_location" value="<carlos:encode value='<%= xml_location %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="xml_vdate" id="xml_vdate" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"/>
 
 
     <input type="hidden" name="checkFlag" id="checkFlag"/>
     <input type="hidden" name="rfcheck" id="rfcheck"/>
     <input type="hidden" name="referralDocName" id="referralDocName"/>
-    <input type="hidden" name="referralCode" id="referralCode" value="<e:forHtmlAttribute value='<%= referralCode %>' />"/>
+    <input type="hidden" name="referralCode" id="referralCode" value="<carlos:encode value='<%= referralCode %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="referralSpet" id="referralSpet"/>
-    <input type="hidden" name="site" id="site" value="<e:forHtmlAttribute value='<%= site %>' />"/>
-    <input type="hidden" name="xml_billtype" id="xml_billtype" value="<e:forHtmlAttribute value='<%= xml_billtype %>' />"/>
+    <input type="hidden" name="site" id="site" value="<carlos:encode value='<%= site %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="xml_billtype" id="xml_billtype" value="<carlos:encode value='<%= xml_billtype %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="ohip_version" id="ohip_version" value="V03G"/>
-    <input type="hidden" name="hin" id="hin" value="<e:forHtmlAttribute value='<%= demoHIN %>' />"/>
-    <input type="hidden" name="ver" id="ver" value="<e:forHtmlAttribute value='<%= demoVer %>' />"/>
-    <input type="hidden" name="hc_type" id="hc_type" value="<e:forHtmlAttribute value='<%= demoHCTYPE %>' />"/>
-    <input type="hidden" name="start_time" id="start_time" value="<e:forHtmlAttribute value='<%= start_time %>' />"/>
-    <input type="hidden" name="demographic_dob" id="demographic_dob" value="<e:forHtmlAttribute value='<%= demoDOB %>' />"/>
+    <input type="hidden" name="hin" id="hin" value="<carlos:encode value='<%= demoHIN %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="ver" id="ver" value="<carlos:encode value='<%= demoVer %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="hc_type" id="hc_type" value="<carlos:encode value='<%= demoHCTYPE %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="start_time" id="start_time" value="<carlos:encode value='<%= start_time %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demographic_dob" id="demographic_dob" value="<carlos:encode value='<%= demoDOB %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="url_back" id="url_back">
 
     <%
@@ -254,8 +256,8 @@
 
         }
     %>
-    <input type="hidden" name="curBillForm" id="curBillForm" value="<e:forHtmlAttribute value='<%= curBillForm %>' />"/>
-    <input type="hidden" name="billForm" id="billForm" value="<e:forHtmlAttribute value='<%= billForm %>' />"/>
+    <input type="hidden" name="curBillForm" id="curBillForm" value="<carlos:encode value='<%= curBillForm %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='<%= billForm %>' context="htmlAttribute"/>"/>
     <center>
         <p>
             Do you want to edit the billing?

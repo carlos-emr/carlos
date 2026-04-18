@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -134,7 +136,7 @@
                                         searchstring = "";
                                 %> Search
                                 table for name: <input type="text" size="30" name="searchstring"
-                                                       value="<e:forHtmlAttribute value='<%= searchstring %>' />"/> <input type="submit" value="Search"
+                                                       value="<carlos:encode value='<%= searchstring %>' context="htmlAttribute"/>"/> <input type="submit" value="Search"
                                                                                             onclick="return reloadPage()"/>
                             </td>
                         <tr>
@@ -159,7 +161,7 @@
                             <td class="ButtonCell"><input type="submit" value="DELETE"
                                                           onclick="deleteMapping(<%= mapping.getId() %>)"></td>
                             <td class="ButtonCell"><input type="button" value="REMAP"
-                                                          onclick="remap('<e:forJavaScriptAttribute value='<%= String.valueOf(mapping.getId()) %>' />','<e:forJavaScriptAttribute value='<%= mapping.getIdentCode() %>' />','<e:forJavaScriptAttribute value='<%= mapping.getName() %>' />','<e:forJavaScriptAttribute value='<%= mapping.getLabType() %>' />')">
+                                                          onclick="remap('<carlos:encode value='<%= String.valueOf(mapping.getId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getIdentCode() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getLabType() %>' context="javaScriptAttribute"/>')">
                             </td>
                             <td class="TableCell"><%= mapping.getIdentCode() %>
                             </td>

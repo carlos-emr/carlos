@@ -37,6 +37,7 @@
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,java.sql.*, org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObjectGeneric" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -44,6 +45,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -121,8 +123,8 @@
         <%@ include file="rbtTopNav.jspf" %>
 
     <h3>
-        ${e:forHtml(reportobject.title)}<br>
-        <small>${e:forHtml(reportobject.description)}</small>
+        ${carlos:forHtml(reportobject.title)}<br>
+        <small>${carlos:forHtml(reportobject.description)}</small>
     </h3>
 
     <div class="reportBorderDiv row">
@@ -131,7 +133,7 @@
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-danger">
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        ${e:forHtml(htmlOut)}
+                        ${carlos:forHtml(htmlOut)}
                     </div>
                 </c:when>
                 <c:otherwise>
@@ -157,7 +159,7 @@
                 <label><%=(x + 1)%>
                 </label>
                 <%}%>
-                <input type="hidden" class="btn btn-secondary" name="csv" value="<e:forHtmlAttribute value='<%= csvList.get(x) %>' />">
+                <input type="hidden" class="btn btn-secondary" name="csv" value="<carlos:encode value='<%= csvList.get(x) %>' context="htmlAttribute"/>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLS">
             </form>
@@ -177,7 +179,7 @@
                 <samp style="font-size: 11px;">
                     <%
                         for (int x = 0; x < sqlList.size(); x++) {
-                            out.println((x + 1) + ")" + Encode.forHtml(sqlList.get(x).trim()));
+                            out.println((x + 1) + ")" + SafeEncode.forHtml(sqlList.get(x).trim()));
                         }
                     %>
                 </samp>

@@ -38,12 +38,13 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
         <title>Edit Favorites</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -138,7 +139,7 @@
                     params.append('special', special);
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     if (csrfEl) params.append('CSRF-TOKEN', csrfEl.value);
-                    var url = "${e:forJavaScript(ctx)}" + "/rx/updateFavorite2?method=ajaxEditFavorite";
+                    var url = "${carlos:forJavaScript(ctx)}" + "/rx/updateFavorite2?method=ajaxEditFavorite";
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';

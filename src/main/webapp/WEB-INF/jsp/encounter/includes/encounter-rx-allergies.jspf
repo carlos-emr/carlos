@@ -1,4 +1,5 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%-- Row: Allergies and Prescriptions --%>
 <div class="encounter-card card mb-1" id="presTopTable">
     <div class="card-header d-flex align-items-center">
@@ -33,7 +34,7 @@
                 <div class="presBox" id="allergyBox">
                     <ul>
                         <c:forEach var="allergy" items="${allergies}">
-                            <li><e:forHtmlContent value='${allergy.description}'/></li>
+                            <li><carlos:encode value='${allergy.description}' context="html"/></li>
                         </c:forEach>
                     </ul>
                 </div>
@@ -47,10 +48,10 @@
                                 <c:forEach var="rx" items="${prescriptions}">
                                     <tr>
                                         <td<c:if test="${rx.current}"> class="rx-current"</c:if> valign="top">
-                                            ${e:forHtml(rx.rxDate)}
+                                            ${carlos:forHtml(rx.rxDate)}
                                         </td>
                                         <td<c:if test="${rx.current}"> class="rx-current"</c:if>>
-                                            ${e:forHtml(fn:replace(rx.fullOutLine, ';', ' '))}&nbsp;&nbsp;&nbsp;${e:forHtml(rx.endDate)}
+                                            ${carlos:forHtml(fn:replace(rx.fullOutLine, ';', ' '))}&nbsp;&nbsp;&nbsp;${carlos:forHtml(rx.endDate)}
                                         </td>
                                     </tr>
                                 </c:forEach>

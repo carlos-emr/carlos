@@ -31,6 +31,8 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 
@@ -115,8 +117,8 @@
                 async: true,
                 data: {
                     method: "<%=method%>",
-                    id: "<e:forJavaScriptBlock value='<%= id %>' />",
-                    oldPaymentType: "<e:forJavaScriptBlock value='<%= type %>' />",
+                    id: "<carlos:encode value='<%= id %>' context="javaScriptBlock"/>",
+                    oldPaymentType: "<carlos:encode value='<%= type %>' context="javaScriptBlock"/>",
                     paymentType: document.getElementById("paymentType").value
                 },
                 url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
@@ -160,7 +162,7 @@
 
 <center>
     <input id="paymentType" name="paymentType" type="text"
-           value="<e:forHtmlAttribute value='<%= type %>' />" placeholder="Please input a new payment type"
+           value="<carlos:encode value='<%= type %>' context="htmlAttribute"/>" placeholder="Please input a new payment type"
            size="38"/>
     <%
         if (isModify) {

@@ -28,6 +28,8 @@
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -68,13 +70,13 @@
                         plast = prop.getProperty("last_name", "");
                         pfirst = prop.getProperty("first_name", "");
                 %>
-                <option value="<e:forHtmlAttribute value='<%= pohipno %>' />" <%=proNo.equals(pohipno) ? "selected" : ""%>><e:forHtmlContent value='<%= plast %>' />,<e:forHtmlContent value='<%= pfirst %>' />
+                <option value="<carlos:encode value='<%= pohipno %>' context="htmlAttribute"/>" <%=proNo.equals(pohipno) ? "selected" : ""%>><carlos:encode value='<%= plast %>' context="html"/>,<carlos:encode value='<%= pfirst %>' context="html"/>
                 </option>
                 <%
                     }
                 %>
             </select><input type=submit name='submit' value='Generate'> <input
-                    type="hidden" name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"> <input
+                    type="hidden" name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"> <input
                     type='button' name='print' value='Print' onClick='window.print()'>
                 <input type='button' name='close' value='Close'
                        onClick='window.close()'></th>
@@ -102,21 +104,21 @@
 
         %>
     <tr>
-        <td><e:forHtmlContent value='<%= account %>' />
+        <td><carlos:encode value='<%= account %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoLast %>' />
+        <td><carlos:encode value='<%= demoLast %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= servicedate %>' />
+        <td><carlos:encode value='<%= servicedate %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= servicecode %>' />
+        <td><carlos:encode value='<%= servicecode %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= serviceno %>' />
+        <td><carlos:encode value='<%= serviceno %>' context="html"/>
         </td>
-        <td align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+        <td align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
         </td>
-        <td align=right><e:forHtmlContent value='<%= amountpay %>' />
+        <td align=right><carlos:encode value='<%= amountpay %>' context="html"/>
         </td>
-        <td align=right><e:forHtmlContent value='<%= explain %>' />
+        <td align=right><carlos:encode value='<%= explain %>' context="html"/>
         </td>
     </tr>
 
@@ -153,21 +155,21 @@
                 amountpay = prop.getProperty("amountpay", "");
         %>
         <tr <%=i % 2 == 0 ? "class='myGreen'" : "" %>>
-            <td align="center"><e:forHtmlContent value='<%= account %>' />
+            <td align="center"><carlos:encode value='<%= account %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= demoLast %>' />
+            <td><carlos:encode value='<%= demoLast %>' context="html"/>
             </td>
-            <td align="center"><e:forHtmlContent value='<%= servicedate %>' />
+            <td align="center"><carlos:encode value='<%= servicedate %>' context="html"/>
             </td>
-            <td align="center"><e:forHtmlContent value='<%= servicecode %>' />
+            <td align="center"><carlos:encode value='<%= servicecode %>' context="html"/>
             </td>
-            <td align="center"><e:forHtmlContent value='<%= serviceno %>' />
+            <td align="center"><carlos:encode value='<%= serviceno %>' context="html"/>
             </td>
-            <td align="right"><e:forHtmlContent value='<%= amountsubmit %>' />
+            <td align="right"><carlos:encode value='<%= amountsubmit %>' context="html"/>
             </td>
-            <td align="right"><e:forHtmlContent value='<%= amountpay %>' />
+            <td align="right"><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
-            <td align="right"><e:forHtmlContent value='<%= explain %>' />
+            <td align="right"><carlos:encode value='<%= explain %>' context="html"/>
             </td>
         </tr>
 

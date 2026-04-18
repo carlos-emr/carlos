@@ -168,6 +168,7 @@
 		<url-pattern>/*</url-pattern>
 		<dispatcher>REQUEST</dispatcher>
 		<dispatcher>FORWARD</dispatcher>
+		<dispatcher>INCLUDE</dispatcher>
 	</filter-mapping>
     <!-- LoggedInUserFilter runs in the documented custom-filter gap between
          Struts prepare and execute so action requests have derived
@@ -186,6 +187,7 @@
 		<url-pattern>/*</url-pattern>
 		<dispatcher>REQUEST</dispatcher>
 		<dispatcher>FORWARD</dispatcher>
+		<dispatcher>INCLUDE</dispatcher>
 	</filter-mapping>
     <filter>
             <filter-name>WebServiceSessionInvalidatingFilter</filter-name>

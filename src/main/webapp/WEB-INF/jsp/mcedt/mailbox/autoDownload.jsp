@@ -38,6 +38,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom" %>
 
@@ -167,16 +168,16 @@
                     </thead>
                     <c:forEach var="r" items="${resourceList}" varStatus="loopStatus">
                         <tr bgcolor="${loopStatus.index % 2 == 0 ? '#FFF' : '#EEE'}">
-                            <td>${e:forHtml(r.resourceID)}</td>
+                            <td>${carlos:forHtml(r.resourceID)}</td>
                             <td>
                                     <%-- <fmt:formatDate value="${i:toDate(r.createTimestamp)}"/> --%>
                                 <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
                             </td>
-                            <td>${e:forHtml(r.resourceType)}</td>
+                            <td>${carlos:forHtml(r.resourceType)}</td>
                                 <%-- <td>${e:forHtml(r.result.code)} - ${e:forHtml(r.result.msg)}</td>
                                 <td>${e:forHtml(r.status)}</td> --%>
-                            <td>${e:forHtml(r.description)}</td>
-                            <td>${e:forHtml(r.downloadStatus)}</td>
+                            <td>${carlos:forHtml(r.description)}</td>
+                            <td>${carlos:forHtml(r.downloadStatus)}</td>
                         </tr>
                     </c:forEach>
                 </table>

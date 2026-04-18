@@ -36,6 +36,8 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page
         import="java.io.*,java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils, java.math.BigInteger,ca.ontario.health.edt.ResponseResult" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -94,7 +96,7 @@
             var files = document.getElementsByClassName("fileNames");
             var progress = document.getElementsByClassName("progress");
             var status = document.getElementsByClassName("status");
-            var connection = '<e:forJavaScriptBlock value='<%= connection %>' />';
+            var connection = '<carlos:encode value='<%= connection %>' context="javaScriptBlock"/>';
             if (connection != "failed") {
                 for (var i = 0; i < files.length; i++) {
                     // Step 1 set all the available statuses

@@ -5,6 +5,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -39,8 +40,8 @@
                 ReceivePayment2Action frm = (ReceivePayment2Action) request.getAttribute("receivePaymentActionForm");
             %> <%=java.text.NumberFormat.getCurrencyInstance().format(new Double(frm.getAmountReceived()))%>
             <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/> 
-            ${e:forHtml(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-            ${e:forHtml(receivePaymentActionForm.billingmasterNo)}</div>
+            ${carlos:forHtml(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
+            ${carlos:forHtml(receivePaymentActionForm.billingmasterNo)}</div>
         <div align="center">
             <button
                     onclick="opener.window.location.reload();self.close();return false;">Close
@@ -57,9 +58,9 @@
             <legend><fmt:message key="oscar.billing.CA.BC.title"/></legend>
             <div class="msgDisplay">
                 <p><fmt:message key="oscar.billing.CA.BC.invoice"/> 
-                    ${e:forHtml(receivePaymentActionForm.billNo)}</p>
+                    ${carlos:forHtml(receivePaymentActionForm.billNo)}</p>
                 <p><fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-                    ${e:forHtml(receivePaymentActionForm.billingmasterNo)}</p>
+                    ${carlos:forHtml(receivePaymentActionForm.billingmasterNo)}</p>
             </div>
             <p><label> <fmt:message key="oscar.billing.CA.BC.amount"/>
                 <input type="text" maxlength="6" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->

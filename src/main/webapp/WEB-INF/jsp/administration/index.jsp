@@ -75,6 +75,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -296,7 +298,7 @@
         <span class="d-flex align-items-center gap-1">
             <i class="fa-solid fa-circle-question"></i>
             <%if (resourcehelpHtml.isEmpty()) { %>
-            <a href="#" ONCLICK="popupPage(600,750,'<e:forJavaScriptAttribute value='<%= resourcebaseurl %>' />');return false;" title=""
+            <a href="#" ONCLICK="popupPage(600,750,'<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptAttribute"/>');return false;" title=""
                onmouseover="window.status='';return true"><fmt:message key="global.help"/></a>
             <%} else {%>
             <div id="help-link">

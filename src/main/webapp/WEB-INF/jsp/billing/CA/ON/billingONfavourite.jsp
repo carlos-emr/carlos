@@ -37,6 +37,7 @@
 
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";
@@ -48,7 +49,7 @@
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code
             String name = request.getParameter("name");
-            String safeName = Encode.forHtml(name);
+            String safeName = SafeEncode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("edit".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -99,7 +100,7 @@
 
         } else if (request.getParameter("action").startsWith("add")) {
             String name = request.getParameter("name");
-            String safeName = Encode.forHtml(name);
+            String safeName = SafeEncode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("add".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -167,7 +168,7 @@
                 action = "search";
             } else {
                 boolean ni = dbObj.delBillingFavouriteList(name, user_no);
-                String safeName = Encode.forHtml(name);
+                String safeName = SafeEncode.forHtml(name);
                 if (ni) {
                     msg = safeName + " is deleted.<br>"
                             + "Type in a name and search first to see if it is available.";
@@ -222,6 +223,8 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -366,7 +369,7 @@
                         List sL = dbObj.getBillingFavouriteList();
                         for (int i = 0; i < sL.size(); i = i + 2) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= (String) sL.get(i) %>' />"><e:forHtmlContent value='<%= (String) sL.get(i) %>' />
+                    <option value="<carlos:encode value='<%= (String) sL.get(i) %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) sL.get(i) %>' context="html"/>
                     </option>
                     <%
                         }
@@ -389,7 +392,7 @@
             <tr class="myGreen">
                 <td style="text-align:right"><b>Name</b></td>
                 <td><input class="form-control d-inline-block w-auto" type="text" name="name"
-                           value="<e:forHtmlAttribute value='<%= prop.getProperty("name", "") %>' />" maxlength='50'/>
+                           value="<carlos:encode value='<%= prop.getProperty("name", "") %>' context="htmlAttribute"/>" maxlength='50'/>
                     (e.g. Flu shot) <input class="btn btn-secondary" type="submit" name="submit" value="Search"
                                            onclick="javascript:return onSearch();"></td>
             </tr>
@@ -402,15 +405,15 @@
                 <td style="text-align:right"><b>Service Code <%=i + 1%>
                 </b></td>
                 <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="serviceCode<%=i%>"
-                           value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceCode"+i, "") %>' />"
+                           value="<carlos:encode value='<%= prop.getProperty("serviceCode"+i, "") %>' context="htmlAttribute"/>"
                            maxlength='50' onblur="upCaseCtrl(this)"/> (e.g. A001A) <b>Unit</b><input class="form-control form-control-sm d-inline-block w-auto"
                                                                                                      type="text"
                                                                                                      name="serviceUnit<%=i%>"
-                                                                                                     value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceUnit"+i, "") %>' />"
+                                                                                                     value="<carlos:encode value='<%= prop.getProperty("serviceUnit"+i, "") %>' context="htmlAttribute"/>"
                                                                                                      maxlength='2'/>
                     (e.g. 1, 12) <b>@</b><input class="form-control form-control-sm d-inline-block w-auto" type="text"
                                                 name="serviceAt<%=i%>"
-                                                value="<e:forHtmlAttribute value='<%= prop.getProperty("serviceAt"+i, "") %>' />"
+                                                value="<carlos:encode value='<%= prop.getProperty("serviceAt"+i, "") %>' context="htmlAttribute"/>"
                                                 maxlength='4'/> (e.g. 0.85)
                 </td>
             </tr>
@@ -422,15 +425,15 @@
             <tr>
                 <td style="text-align:right"><b>Dx</b></td>
                 <td><input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx"
-                           value="<e:forHtmlAttribute value='<%= prop.getProperty("dx", "") %>' />" maxlength='4'/>
+                           value="<carlos:encode value='<%= prop.getProperty("dx", "") %>' context="htmlAttribute"/>" maxlength='4'/>
                     (e.g. 012) <b>Dx1</b> <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx1"
-                                                 value="<e:forHtmlAttribute value='<%= prop.getProperty("dx1", "") %>' />" maxlength='4'/> <b>Dx2</b>
-                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<e:forHtmlAttribute value='<%= prop.getProperty("dx2", "") %>' />"
+                                                 value="<carlos:encode value='<%= prop.getProperty("dx1", "") %>' context="htmlAttribute"/>" maxlength='4'/> <b>Dx2</b>
+                    <input class="form-control form-control-sm d-inline-block w-auto" type="text" name="dx2" value="<carlos:encode value='<%= prop.getProperty("dx2", "") %>' context="htmlAttribute"/>"
                            maxlength='4'/></td>
             </tr>
             <tr>
                 <td style="text-align:center" class="myGreen" colspan="2"><input
-                        type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'> <input
+                        type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'> <input
                         type="submit" name="submit" class="btn btn-primary"
                         value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                         onclick="javascript:return onSave();"> <input class="btn btn-secondary" type="button"

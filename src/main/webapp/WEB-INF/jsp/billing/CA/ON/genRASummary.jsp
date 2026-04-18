@@ -51,6 +51,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -198,7 +200,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE' nowrap>
             <form action="/billing/CA/ON/ViewGenRASummary"><input type="hidden"
-                                                   name="rano" value="<e:forHtmlAttribute value='<%= raNo %>' />"> <select name="proNo">
+                                                   name="rano" value="<carlos:encode value='<%= raNo %>' context="htmlAttribute"/>"> <select name="proNo">
                 <!--option value="all"  <%--=proNo.equals("all")?"selected":""--%>>All Providers</option-->
 
                 <%
@@ -212,12 +214,12 @@
                         pfirst = prov.getFirstName();
 
                 %>
-                <option value="<e:forHtmlAttribute value='<%= pohipno %>' />"<%=
+                <option value="<carlos:encode value='<%= pohipno %>' context="htmlAttribute"/>"<%=
                         pohipno != null && pohipno.equals(proNo) ? " selected=\"selected\"" : ""
-                %>><e:forHtmlContent value='<%= plast %>' />,<e:forHtmlContent value='<%= pfirst %>' /></option>
+                %>><carlos:encode value='<%= plast %>' context="html"/>,<carlos:encode value='<%= pfirst %>' context="html"/></option>
                 <% } %>
             </select> <input type="submit" name="submit" value="Generate"> <a
-                    href="/billing/CA/ON/ViewGenRASummaryDetail?rano=<e:forUriComponent value='<%= raNo %>' />&proNo=">Detail</a></form>
+                    href="/billing/CA/ON/ViewGenRASummaryDetail?rano=<carlos:encode value='<%= raNo %>' context="uriComponent"/>&proNo=">Detail</a></form>
         </th>
     </tr>
 </table>
@@ -340,29 +342,29 @@
 %>
 
         <tr>
-            <td height="16"><e:forHtmlContent value='<%= account %>' />
+            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
             </td>
-            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
             </td>
         </tr>
 
@@ -376,29 +378,29 @@
 				BigTotal = BigTotal.add(bdFee);
 %>
         <tr>
-            <td height="16"><e:forHtmlContent value='<%= account %>' />
+            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
             </td>
-            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
             </td>
         </tr>
 
@@ -409,28 +411,28 @@
 				BigOTotal = BigOTotal.add(bdOFee);
 %>
         <tr>
-            <td height="16"><e:forHtmlContent value='<%= account %>' />
+            <td height="16"><carlos:encode value='<%= account %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+            <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+            <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+            <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+            <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
             </td>
-            <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+            <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
             </td>
-            <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-            <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+            <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+            <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
             </td>
             <td height="16" align=right>N/A</td>
             <td height="16" align=right>N/A</td>
-            <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+            <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
             </td>
-            <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+            <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
             </td>
         </tr>
             <%
@@ -554,29 +556,29 @@
                         }
             %>
             <tr>
-                <td height="16"><e:forHtmlContent value='<%= account %>' />
+                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
                 </td>
-                <!--<td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+                <!--<td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
                 </td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
                 </td>
             </tr>
 
@@ -588,29 +590,29 @@
                     BigTotal = BigTotal.add(bdFee);
             %>
             <tr>
-                <td height="16"><e:forHtmlContent value='<%= account %>' />
+                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
                 </td>
-                <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+                <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
                 </td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
                 </td>
             </tr>
 
@@ -621,28 +623,28 @@
                 BigOTotal = BigOTotal.add(bdOFee);
             %>
             <tr>
-                <td height="16"><e:forHtmlContent value='<%= account %>' />
+                <td height="16"><carlos:encode value='<%= account %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_docname %>' />
+                <td height="16"><carlos:encode value='<%= demo_docname %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_name %>' />
+                <td height="16"><carlos:encode value='<%= demo_name %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= demo_hin %>' />
+                <td height="16"><carlos:encode value='<%= demo_hin %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicedate %>' />
+                <td height="16"><carlos:encode value='<%= servicedate %>' context="html"/>
                 </td>
-                <td height="16"><e:forHtmlContent value='<%= servicecode %>' />
+                <td height="16"><carlos:encode value='<%= servicecode %>' context="html"/>
                 </td>
-                <!-- <td width="8%" height="16"><e:forHtmlContent value='<%= serviceno %>' /></td>-->
-                <td height="16" align=right><e:forHtmlContent value='<%= amountsubmit %>' />
+                <!-- <td width="8%" height="16"><carlos:encode value='<%= serviceno %>' context="html"/></td>-->
+                <td height="16" align=right><carlos:encode value='<%= amountsubmit %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountpay %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountpay %>' context="html"/>
                 </td>
                 <td height="16" align=right>N/A</td>
                 <td height="16" align=right>N/A</td>
-                <td height="16" align=right><e:forHtmlContent value='<%= amountOB %>' />
+                <td height="16" align=right><carlos:encode value='<%= amountOB %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= explain %>' />
+                <td height="16" align=right><carlos:encode value='<%= explain %>' context="html"/>
                 </td>
             </tr>
 
@@ -666,13 +668,13 @@
                 <td height="16"></td>
                 <td height="16"></td>
                 <td height="16">Total</td>
-                <td height="16" align=right><e:forHtmlContent value='<%= BigCTotal.toPlainString() %>' />
+                <td height="16" align=right><carlos:encode value='<%= BigCTotal.toPlainString() %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= BigPTotal.toPlainString() %>' /><!-- <e:forHtmlContent value='<%= BigOTotal.toPlainString() %>' />--></td>
-                <td height="16" align=right><e:forHtmlContent value='<%= BigTotal.toPlainString() %>' /><!--<e:forHtmlContent value='<%= BigLTotal.toPlainString() %>' />--></td>
-                <td height="16" align=right><e:forHtmlContent value='<%= BigHTotal.toPlainString() %>' />
+                <td height="16" align=right><carlos:encode value='<%= BigPTotal.toPlainString() %>' context="html"/><!-- <carlos:encode value='<%= BigOTotal.toPlainString() %>' context="html"/>--></td>
+                <td height="16" align=right><carlos:encode value='<%= BigTotal.toPlainString() %>' context="html"/><!--<carlos:encode value='<%= BigLTotal.toPlainString() %>' context="html"/>--></td>
+                <td height="16" align=right><carlos:encode value='<%= BigHTotal.toPlainString() %>' context="html"/>
                 </td>
-                <td height="16" align=right><e:forHtmlContent value='<%= BigOBTotal.toPlainString() %>' />
+                <td height="16" align=right><carlos:encode value='<%= BigOBTotal.toPlainString() %>' context="html"/>
                 </td>
                 <td height="16"></td>
             </tr>

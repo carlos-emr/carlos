@@ -6,6 +6,7 @@
 <%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
       String roleName2$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 	boolean authed=true;
@@ -102,12 +103,12 @@ if(!authed) {
 %>
 		<tr>
 			<td id="faxType_<%=faxJob.getId()%>" class="small"><%=type%></td>
-			<td class="small"><e:forHtmlContent value='<%= providerName %>' />(<e:forHtmlContent value='<%= faxJob.getUser() %>' />)</td>
-			<td id="patientName_<%=faxJob.getId()%>" class="small"><e:forHtmlContent value='<%= demographicName %>' /></td>
-			<td class="small"><e:forHtmlContent value='<%= faxJob.getRecipient() %>' /></td>
-			<td id="status<%=count%>" class="small" ><e:forHtmlContent value='<%= faxJob.getStatus() %>' /></td>
-			<td class="small" title="<e:forHtmlAttribute value='<%= faxJob.getStatusString() %>' />" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
-			<e:forHtmlContent value='<%= faxJob.getStatusString() %>' /></td>
+			<td class="small"><carlos:encode value='<%= providerName %>' context="html"/>(<carlos:encode value='<%= faxJob.getUser() %>' context="html"/>)</td>
+			<td id="patientName_<%=faxJob.getId()%>" class="small"><carlos:encode value='<%= demographicName %>' context="html"/></td>
+			<td class="small"><carlos:encode value='<%= faxJob.getRecipient() %>' context="html"/></td>
+			<td id="status<%=count%>" class="small" ><carlos:encode value='<%= faxJob.getStatus() %>' context="html"/></td>
+			<td class="small" title="<carlos:encode value='<%= faxJob.getStatusString() %>' context="htmlAttribute"/>" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
+			<carlos:encode value='<%= faxJob.getStatusString() %>' context="html"/></td>
 			<td class="small"><%=DateFormatUtils.format(faxJob.getStamp(), "yyyy-MM-dd HH:mm:ss")%></td>
 			<td class="small">
 <div class="btn-group">
