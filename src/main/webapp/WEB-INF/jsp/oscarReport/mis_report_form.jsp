@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -106,7 +107,7 @@
                     <%
                         for (FunctionalCentre functionalCentre : functionalCentres) {
                     %>
-                    <option value="<%=functionalCentre.getAccountId()%>"><e:forHtmlContent value='<%= functionalCentre.getAccountId() + ", " + functionalCentre.getDescription() %>' />
+                    <option value="<%=functionalCentre.getAccountId()%>"><carlos:encode value='<%= functionalCentre.getAccountId() + ", " + functionalCentre.getDescription() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -126,7 +127,7 @@
                         for (Program program : programs) {
                             if ("Service".equalsIgnoreCase(program.getType())) {
                     %>
-                    <option value="<%=program.getId()%>"><e:forHtmlContent value='<%= program.getName() + " (" + program.getType() + ")" %>' />
+                    <option value="<%=program.getId()%>"><carlos:encode value='<%= program.getName() + " (" + program.getType() + ")" %>' context="html"/>
                     </option>
                     <%
                             }

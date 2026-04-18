@@ -32,6 +32,7 @@
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -53,7 +54,7 @@
     <script type="text/javascript">
         if (window.opener && !window.opener.closed) {
             <% if ("visitreport".equals(action)) { %>
-            window.opener.location.href = "<%=request.getContextPath()%>/administration/?show=<e:forJavaScript value='<%= action %>' />";
+            window.opener.location.href = "<%=request.getContextPath()%>/administration/?show=<carlos:encode value='<%= action %>' context="javaScript"/>";
             <% } else { %>
             window.opener.location.reload();
             <% } %>

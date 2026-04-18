@@ -30,6 +30,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -115,14 +116,14 @@
 <%
     if (providerIdList != null) {
 %>
-<span style="font-weight:bold">Providers : </span><e:forHtmlContent value='<%= providerNamesList.toString() %>' />
+<span style="font-weight:bold">Providers : </span><carlos:encode value='<%= providerNamesList.toString() %>' context="html"/>
 <br/>
 <%
     }
 
     if (programIds != null) {
 %>
-<span style="font-weight:bold">Programs : </span><e:forHtmlContent value='<%= programNamesList.toString() %>' />
+<span style="font-weight:bold">Programs : </span><carlos:encode value='<%= programNamesList.toString() %>' context="html"/>
 <br/>
 <%
     }
@@ -151,9 +152,9 @@
             int[] dataRow = cds4ReportUIBean.getDataRow(cdsFormOption);
     %>
     <tr>
-        <td><e:forHtmlContent value='<%= cdsFormOption.getCdsDataCategory() %>' />
+        <td><carlos:encode value='<%= cdsFormOption.getCdsDataCategory() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= cdsFormOption.getCdsDataCategoryName() %>' />
+        <td><carlos:encode value='<%= cdsFormOption.getCdsDataCategoryName() %>' context="html"/>
         </td>
         <%
             for (int dataElement : dataRow) {

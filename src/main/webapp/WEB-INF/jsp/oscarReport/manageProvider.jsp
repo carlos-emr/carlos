@@ -73,6 +73,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -121,12 +122,12 @@
 
                 %>
                 <tr>
-                    <td><e:forHtmlContent value='<%= mg.getId().getMyGroupNo() %>' /></td>
-                    <td><e:forHtmlContent value='<%= p.getLastName() + ", " + p.getFirstName() %>' /></td>
+                    <td><carlos:encode value='<%= mg.getId().getMyGroupNo() %>' context="html"/></td>
+                    <td><carlos:encode value='<%= p.getLastName() + ", " + p.getFirstName() %>' context="html"/></td>
                     <td>
                         <input type="checkbox"
                                name="provider<%=count1%>"
-                               value="<e:forHtmlAttribute value='<%= p.getProviderNo() + "|" + mg.getId().getMyGroupNo() %>' />"
+                               value="<carlos:encode value='<%= p.getProviderNo() + "|" + mg.getId().getMyGroupNo() %>' context="htmlAttribute"/>"
                                 <%=status.equals("A")?"checked":""%>>
                     </td>
                 </tr>

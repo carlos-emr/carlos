@@ -75,6 +75,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     Locale requestLocale = request.getLocale();
@@ -94,7 +95,7 @@
     <fmt:message key="oscarReport.RptByExample.MsgConfirmDelete" var="msgConfirmDelete"/>
     <script type="text/javascript">
         // Localized confirm-delete message rendered server-side for i18n support
-        var msgConfirmDelete = '${e:forJavaScript(msgConfirmDelete)}';
+        var msgConfirmDelete = '${carlos:forJavaScript(msgConfirmDelete)}';
         /**
          * Populates the hidden newQuery and newName fields with the selected
          * favourite's data and submits the edit form.
@@ -181,17 +182,17 @@
             <tbody>
                 <c:forEach var="favorite" items="${allFavorites.favoriteVector}">
                     <tr>
-                        <td>${e:forHtml(favorite.queryName)}</td>
-                        <td>${e:forHtml(favorite.query)}</td>
+                        <td>${carlos:forHtml(favorite.queryName)}</td>
+                        <td>${carlos:forHtml(favorite.query)}</td>
                         <td class="text-nowrap">
                             <input type="button"
                                    class="btn btn-outline-secondary btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgEdit'/>"
-                                   onclick="set('${e:forJavaScript(favorite.query)}', '${e:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
+                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"
-                                   onclick="confirmDelete('${e:forJavaScript(favorite.id)}'); return false;"/>
+                                   onclick="confirmDelete('${carlos:forJavaScript(favorite.id)}'); return false;"/>
                         </td>
                     </tr>
                 </c:forEach>

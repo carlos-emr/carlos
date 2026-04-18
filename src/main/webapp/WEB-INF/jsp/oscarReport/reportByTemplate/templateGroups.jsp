@@ -36,6 +36,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
 <html>
     <head>
@@ -98,7 +99,7 @@
                                         <tr class="">
                                             <td title="${ groupName }">
                                                 <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup?groupName=${ groupName }">
-                                                    ${e:forHtml(groupName)}
+                                                    ${carlos:forHtml(groupName)}
                                                 </a>
                                             </td>
                                             <td>
@@ -140,7 +141,7 @@
                     <div class="row">
                         <c:choose>
                             <c:when test="${ not empty templatesInGroup }">
-                                <h4>Templates in Group: ${e:forHtml(templatesInGroup[0].groupName)}</h4>
+                                <h4>Templates in Group: ${carlos:forHtml(templatesInGroup[0].groupName)}</h4>
                             </c:when>
                             <c:otherwise>
                                 <h4>Templates in Group:</h4>
@@ -177,10 +178,10 @@
                                                     <c:if test="${ template ne '0'}">
                                                         <td title="">
                                                             <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=${ template }"
-                                                               class="contentLink"> ${e:forHtml(templates[template].title)} </a>
+                                                               class="contentLink"> ${carlos:forHtml(templates[template].title)} </a>
                                                         </td>
                                                         <td>
-                                                            ${e:forHtml(templates[template].description)}
+                                                            ${carlos:forHtml(templates[template].description)}
                                                         </td>
 
                                                         <td>
@@ -249,7 +250,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title" id="selectTemplatesModalLabel">Select templates for group: ${e:forHtml(templatesInGroup[0].groupName)}</h3>
+                    <h3 class="modal-title" id="selectTemplatesModalLabel">Select templates for group: ${carlos:forHtml(templatesInGroup[0].groupName)}</h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -260,7 +261,7 @@
                                     multiple>
                                 <c:if test="${ not empty templatesNotInGroup}">
                                     <c:forEach var="template" items="${ templatesNotInGroup }">
-                                        <option value="${template.templateId}">${e:forHtml(template.title)}</option>
+                                        <option value="${template.templateId}">${carlos:forHtml(template.title)}</option>
                                     </c:forEach>
                                 </c:if>
                             </select>

@@ -43,6 +43,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -75,8 +76,8 @@
 
     <%@ include file="rbtTopNav.jspf" %>
     <h3>
-        ${e:forHtml(curreport.title)}<br/>
-        <small>${e:forHtml(curreport.description)}</small>
+        ${carlos:forHtml(curreport.title)}<br/>
+        <small>${carlos:forHtml(curreport.description)}</small>
     </h3>
 
 
@@ -85,14 +86,14 @@
     <%}%>
 
     <div class="xmlBorderDiv">
-        <pre style="font-size: 11px;"><e:forHtmlContent value='<%= xml %>' /></pre>
+        <pre style="font-size: 11px;"><carlos:encode value='<%= xml %>' context="html"/></pre>
     </div>
 
     <div id="viewTemplateActions" class="form-actions noprint">
         <input type="button" class="btn btn-secondary" value="Back" onclick="javascript: window.history.back();return false;"/>
         <input type="button" class="btn btn-secondary" value="Print" onclick="javascript: window.print();"/>
         <input type="button" class="btn btn-primary" value="Edit"
-               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<e:forUriComponent value='<%= templateid %>' />&opentext=1'"/>
+               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= templateid %>' context="uriComponent"/>&opentext=1'"/>
     </div>
 
 </html>
