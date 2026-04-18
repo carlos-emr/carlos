@@ -81,7 +81,7 @@
 
         <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters" enctype="multipart/form-data">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="goto" value="<e:forHtmlAttribute value='<%= StringUtils.defaultString(request.getParameter("goto")) %>' />"/>
+            <input type="hidden" name="goto" value="<carlos:encode value='<%= StringUtils.defaultString(request.getParameter("goto")) %>' context="htmlAttribute"/>"/>
             <table class="table table-sm" style="font-size:13px;">
                 <tr>
                     <td style="width:120px; font-weight:bold;"><fmt:message key="report.ManageLetters.label.selectLetter"/></td>

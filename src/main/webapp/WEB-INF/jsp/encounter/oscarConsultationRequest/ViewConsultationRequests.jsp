@@ -411,9 +411,9 @@
                                    value="${msgSearchBtn}"/>
                         </div>
                     </div>
-                    <input type="hidden" name="currentTeam" id="currentTeam" value="<e:forHtmlAttribute value='<%= team != null ? team : "" %>' />"/>
-                    <input type="hidden" name="orderby" id="orderby" value="<e:forHtmlAttribute value='<%= orderby != null ? orderby : "" %>' />"/>
-                    <input type="hidden" name="desc" id="desc" value="<e:forHtmlAttribute value='<%= desc != null ? desc : "" %>' />"/>
+                    <input type="hidden" name="currentTeam" id="currentTeam" value="<carlos:encode value='<%= team != null ? team : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="orderby" id="orderby" value="<carlos:encode value='<%= orderby != null ? orderby : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="desc" id="desc" value="<carlos:encode value='<%= desc != null ? desc : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="offset" id="offset" value="<carlos:encode value='<%= String.valueOf(offset) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="limit" id="limit" value="<carlos:encode value='<%= String.valueOf(limit) %>' context="htmlAttribute"/>"/>
                 </div>
@@ -639,7 +639,7 @@
                             </td>
                             <% if (bMultisites) { %>
                             <td style="background-color: <carlos:encode value='<%= siteBgColor.get(siteName)==null || siteBgColor.get(siteName).length()== 0 ? "#FFFFFF" : siteBgColor.get(siteName) %>' context="htmlAttribute"/>">
-                                <e:forHtmlContent value='<%= siteShortName.get(siteName) != null ? siteShortName.get(siteName) : "" %>' />
+                                <carlos:encode value='<%= siteShortName.get(siteName) != null ? siteShortName.get(siteName) : "" %>' context="html"/>
                             </td>
                             <%} %>
                         </tr>

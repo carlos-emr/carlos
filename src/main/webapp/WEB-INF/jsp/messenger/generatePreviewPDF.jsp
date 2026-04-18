@@ -481,10 +481,10 @@
                                 <tr>
                                     <td colspan="3"><input type="hidden" name="srcText" id="srcText" value=''/>
 
-                                        <input type="hidden" name="attachmentCount" id="attachmentCount" value='<e:forHtmlAttribute value='<%= request.getParameter("attachmentCount")==null?"0":request.getParameter("attachmentCount") %>' />'/>
-                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<e:forHtmlAttribute value='<%= demographic_no != null ? demographic_no : "" %>' />'/>
-                                        <input type="hidden" name="isPreview" id="isPreview" value='<e:forHtmlAttribute value='<%= request.getParameter("isPreview")==null?"false":request.getParameter("isPreview") %>' />'/>
-                                        <input type="hidden" name="isAttaching" id="isAttaching" value='<e:forHtmlAttribute value='<%= request.getParameter("isAttaching")==null?"false":request.getParameter("isAttaching") %>' />'/>
+                                        <input type="hidden" name="attachmentCount" id="attachmentCount" value='<carlos:encode value='<%= request.getParameter("attachmentCount")==null?"0":request.getParameter("attachmentCount") %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="isPreview" id="isPreview" value='<carlos:encode value='<%= request.getParameter("isPreview")==null?"false":request.getParameter("isPreview") %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="isAttaching" id="isAttaching" value='<carlos:encode value='<%= request.getParameter("isAttaching")==null?"false":request.getParameter("isAttaching") %>' context="htmlAttribute"/>'/>
                                         <input type="hidden" name="isNew" id="isNew" value='true'/>
                                         <input type="hidden" name="attachmentTitle" id="attachmentTitle" value=''/></td>
                                 </tr>

@@ -135,7 +135,7 @@
                 <label>Start Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="fromDateParam" id="fromDateParam"
-                           value="<e:forHtmlAttribute value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' />"
+                           value="<carlos:encode value='<%= request.getAttribute("fromDateParam") != null ? (String)request.getAttribute("fromDateParam") : "" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -146,7 +146,7 @@
                 <label>End Date:</label>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="toDateParam" id="toDateParam"
-                           value="<e:forHtmlAttribute value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' />"
+                           value="<carlos:encode value='<%= request.getAttribute("toDateParam") != null ? (String)request.getAttribute("toDateParam") : "" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

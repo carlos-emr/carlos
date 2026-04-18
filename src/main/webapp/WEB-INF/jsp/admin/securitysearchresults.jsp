@@ -138,7 +138,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />
+                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
             </td>
         </tr>
     </table>

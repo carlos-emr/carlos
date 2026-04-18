@@ -1310,8 +1310,8 @@
         </button>
     </security:oscarSec>
 
-    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.defaultString(demo.getLastName()) %>' /></c:set>
-    <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.defaultString(demo.getFirstName()) %>' /></c:set>
+    <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.defaultString(demo.getLastName()) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.defaultString(demo.getFirstName()) %>' context="uriComponent"/></c:set>
     <button type="button" class            
 ="btn btn-link" title="View previous invoices for this patient"
             onclick="popup(800, 1000, '<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?lastName=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&firstName=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&filterPatient=true&demographicNo=<carlos:encode value='<%= String.valueOf(demo.getDemographicNo()) %>' context="javaScriptAttribute"/>','InvoiceList');return false;">

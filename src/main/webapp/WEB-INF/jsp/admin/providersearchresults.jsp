@@ -238,17 +238,17 @@
             <td style="text-align:center"><a
                     href='${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= provider.getId() %>' context="uriComponent"/>'><carlos:encode value='<%= provider.getId() %>' context="html"/>
             </a></td>
-            <td><e:forHtmlContent value='<%= (provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName()) %>' />
+            <td><carlos:encode value='<%= (provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName()) %>' context="html"/>
             </td>
-            <td style="text-align:center"><e:forHtmlContent value='<%= provider.getOhipNo() == null ? "" : provider.getOhipNo() %>' />
+            <td style="text-align:center"><carlos:encode value='<%= provider.getOhipNo() == null ? "" : provider.getOhipNo() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= provider.getSpecialty() == null ? "" : provider.getSpecialty() %>' />
+            <td><carlos:encode value='<%= provider.getSpecialty() == null ? "" : provider.getSpecialty() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= provider.getTeam() == null ? "" : provider.getTeam() %>' />
+            <td><carlos:encode value='<%= provider.getTeam() == null ? "" : provider.getTeam() %>' context="html"/>
             </td>
-            <td style="text-align:center"><e:forHtmlContent value='<%= provider.getSex() == null ? "" : provider.getSex() %>' />
+            <td style="text-align:center"><carlos:encode value='<%= provider.getSex() == null ? "" : provider.getSex() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= provider.getPhone() == null ? "" : provider.getPhone() %>' />
+            <td><carlos:encode value='<%= provider.getPhone() == null ? "" : provider.getPhone() %>' context="html"/>
             </td>
             <td><%= (provider.getStatus() != null) ? ("1".equals(provider.getStatus()) ? "Active" : "Inactive") : "" %>
             </td>

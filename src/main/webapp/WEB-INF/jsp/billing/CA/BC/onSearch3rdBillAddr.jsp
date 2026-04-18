@@ -230,7 +230,7 @@
            value="<carlos:encode value='<%= param2 %>' context="htmlAttribute"/>">
     <table width="95%" border="0">
         <tr>
-            <td align="left">Results based on keyword(s): <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
+            <td align="left">Results based on keyword(s): <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
             </td>
         </tr>
         </form>

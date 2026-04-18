@@ -105,7 +105,7 @@
                     <%if (request.getAttribute("returnMessage") != null) { %>
                     <table>
                         <tr>
-                            <td style="font-color: red;"><e:forHtmlContent value='<%= request.getAttribute("returnMessage") != null ? request.getAttribute("returnMessage").toString() : "" %>' />
+                            <td style="font-color: red;"><carlos:encode value='<%= request.getAttribute("returnMessage") != null ? request.getAttribute("returnMessage").toString() : "" %>' context="html"/>
                             </td>
                         </tr>
                     </table>

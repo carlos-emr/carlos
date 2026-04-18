@@ -521,7 +521,7 @@
                     }
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
-                        var demoNo = '<e:forJavaScriptBlock value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' />';
+                        var demoNo = '<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' context="javaScriptBlock"/>';
                         var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
                         bc.postMessage({ action: 'refresh' });
                         bc.close();
@@ -897,8 +897,8 @@
                         </select>
                         <% } %>
 
-                        <input type="hidden" name="docType" value="<e:forHtmlAttribute value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' />">
-                        <input type="hidden" name="docId" value="<e:forHtmlAttribute value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' />">
+                        <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
                 <tr>

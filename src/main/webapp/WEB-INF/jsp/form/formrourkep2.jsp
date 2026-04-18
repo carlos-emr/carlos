@@ -443,7 +443,7 @@
                                                     name="p2_breastFeeding4m"
                                     <carlos:encode value='<%= props.getProperty("p2_breastFeeding4m", "") %>' context="htmlAttribute"/> /></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= (resource == null ? "" : resource) + "n_breastFeeding" %>' />');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                      onclick="popup('<carlos:encode value='<%= (resource == null ? "" : resource) + "n_breastFeeding" %>' context="javaScriptAttribute"/>');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"

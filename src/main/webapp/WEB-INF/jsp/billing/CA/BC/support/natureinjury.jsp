@@ -99,7 +99,7 @@
     <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel1()) %>' context="html"/></td>
     <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel2()) %>' context="html"/></td>
     <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel3()) %>' context="html"/></td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= c.getUsagenote() != null ? new String(c.getUsagenote()) : "" %>' /></td>
+    <td class="SmallerText"><carlos:encode value='<%= c.getUsagenote() != null ? new String(c.getUsagenote()) : "" %>' context="html"/></td>
     </tr>
     <%
             color = !(color);

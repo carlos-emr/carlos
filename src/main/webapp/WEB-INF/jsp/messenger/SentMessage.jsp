@@ -65,6 +65,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Build role string for security validation
     String userrole = (String) session.getAttribute("userrole");
@@ -133,7 +134,7 @@
 </table>
 <div class="alert alert-success" role="alert" style="margin-left:20px; margin-right:20px; margin-top: 20px;">
     <fmt:message
-					key="messenger.SentMessage.msgMessageSentTo" /> <e:forHtmlContent value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' />
+					key="messenger.SentMessage.msgMessageSentTo" /> <carlos:encode value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' context="html"/>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">

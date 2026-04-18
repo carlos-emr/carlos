@@ -236,8 +236,8 @@
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
                 <span style="margin-right:15px;"><fmt:message key="prevention.reporting.totalPatients"/>: <strong><%=list.size()%></strong></span>
-                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.ineligible"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(ineligible, "0") %>' /></strong></span>
-                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.upToDate"/>: <strong><e:forHtmlContent value='<%= StringUtils.defaultString(done, "0") %>' /> = <e:forHtmlContent value='<%= StringUtils.defaultString(percentage, "0") %>' />%</strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.ineligible"/>: <strong><carlos:encode value='<%= StringUtils.defaultString(ineligible, "0") %>' context="html"/></strong></span>
+                <span style="margin-right:15px;"><fmt:message key="prevention.reporting.upToDate"/>: <strong><carlos:encode value='<%= StringUtils.defaultString(done, "0") %>' context="html"/> = <carlos:encode value='<%= StringUtils.defaultString(percentage, "0") %>' context="html"/>%</strong></span>
                 <span style="margin-right:15px;"><carlos:encode value='<%= String.valueOf(request.getAttribute("patientSet")) %>' context="html"/></span>
             </div>
 
@@ -308,7 +308,7 @@
                         if (!demo.getCellPhone().isEmpty()) { %><br/>C: <carlos:encode value='<%= demo.getCellPhone() %>' context="html"/><%
                         }
                     %></td>
-                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(demo.getEmail()) %>' /></td>
+                    <td><carlos:encode value='<%= StringUtils.defaultString(demo.getEmail()) %>' context="html"/></td>
                     <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
@@ -320,9 +320,9 @@ else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><e:forHtmlContent value='<%= StringUtils.defaultString(dis.state) %>' /></span></td>
+%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
-                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(dis.lastDate) %>' /></td>
+                    <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>
 
                     <% } else {
                         Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
@@ -344,10 +344,10 @@ else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><e:forHtmlContent value='<%= StringUtils.defaultString(dis.state) %>' /></span></td>
+%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numShots) %>' context="html"/></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
-                    <td><e:forHtmlContent value='<%= StringUtils.defaultString(dis.lastDate) %>' /></td>
+                    <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>
 
                     <%}%>
                     <%

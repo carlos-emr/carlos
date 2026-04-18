@@ -562,7 +562,7 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.groupNo"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
-                    <input type="text" name="mygroup_no" value="<e:forHtmlAttribute value='<%= myGroupNo != null ? myGroupNo : "" %>' />"
+                    <input type="text" name="mygroup_no" value="<carlos:encode value='<%= myGroupNo != null ? myGroupNo : "" %>' context="htmlAttribute"/>"
                            class="pref-input form-select-sm" maxlength="10">
                     <a href="<%= request.getContextPath() %>/provider/ViewProviderDisplayMyGroup" class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-users"></i> <fmt:message key="provider.providerpreference.link.viewGroups"/>
@@ -861,7 +861,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultBillingDxCode"/></div>
                 <div class="pref-value" style="display:flex; align-items:center; gap:8px;">
                     <input type="text" name="dxCode" id="dxCode"
-                           value="<e:forHtmlAttribute value='<%= providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "" %>' />"
+                           value="<carlos:encode value='<%= providerPreference.getDefaultDxCode() != null ? providerPreference.getDefaultDxCode() : "" %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" maxlength="5">
                     <button type="button" class="pref-link" data-bs-toggle="modal" data-bs-target="#dxSearchModal">
                         <i class="fas fa-search"></i> <fmt:message key="provider.providerpreference.btn.search"/>

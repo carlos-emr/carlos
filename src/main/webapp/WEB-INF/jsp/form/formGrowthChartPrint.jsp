@@ -69,7 +69,7 @@
                 <c:set var="__enc_2"><carlos:encode value='<%= cfgGraphic[1] %>' context="uriComponent"/></c:set>
                 document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_1}' context="javaScript"/>&__cfgGraphicFile=<carlos:encode value='${__enc_2}' context="javaScript"/>";
                 <% }else{%>
-                <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
+                <c:set var="__enc_3"><carlos:encode value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' context="uriComponent"/></c:set>
                 document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_3}' context="javaScript"/>";
                 <% }%>
                 document.all.growth.submit();
@@ -80,7 +80,7 @@
                 document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_4}' context="javaScript"/>&__cfgGraphicFile=<carlos:encode value='${__enc_5}' context="javaScript"/>";
                 <% }else{%>
                 document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_6}' context="javaScript"/>";
-                <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
+                <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' context="uriComponent"/></c:set>
                 <%                 
 }%>
                 document.getElementById('growth').submit();

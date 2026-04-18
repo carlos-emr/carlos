@@ -342,16 +342,16 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
                     %>
                     <tr <%=(deleted) ? "style='text-decoration: line-through' " : "" %>
                             bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<carlos:encode value='<%= appointment.getId().toString() %>' context="htmlAttribute"/>"
-                            demographic_no="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no) %>' context="htmlAttribute"/>" provider_no="<e:forHtmlAttribute value='<%= provider!=null?provider.getId():"" %>' />">
+                            demographic_no="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no) %>' context="htmlAttribute"/>" provider_no="<carlos:encode value='<%= provider!=null?provider.getId():"" %>' context="htmlAttribute"/>">
                         <c:set var="__enc_5"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_6"><carlos:encode value='<%= appointment.getId().toString() %>' context="uriComponent"/></c:set>
                         <td align=                                              
 "center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol?demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&appointment_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"><e:forHtmlContent value='<%= appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "" %>' />
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol?demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&appointment_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"><carlos:encode value='<%= appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "" %>' context="html"/>
                         </a></td>
-                        <td align="center"><e:forHtmlContent value='<%= appointment.getStartTime() != null ? appointment.getStartTime().toString() : "" %>' />
+                        <td align="center"><carlos:encode value='<%= appointment.getStartTime() != null ? appointment.getStartTime().toString() : "" %>' context="html"/>
                         </td>
-                        <td align="center"><e:forHtmlContent value='<%= appointment.getEndTime() != null ? appointment.getEndTime().toString() : "" %>' />
+                        <td align="center"><carlos:encode value='<%= appointment.getEndTime() != null ? appointment.getEndTime().toString() : "" %>' context="html"/>
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
@@ -363,7 +363,7 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
                         <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? Encode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + Encode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
-                        <td><e:forHtmlContent value='<%= (provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()) %>' />
+                        <td><carlos:encode value='<%= (provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()) %>' context="html"/>
                         </td>
                         <%} else { %>
                         <td>N/A</td>

@@ -101,7 +101,7 @@
     <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactId" value="0"/>
     <input type="text" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doPersonalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><e:forHtmlContent value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' /></a>
+    <a href="#" onclick="doPersonalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a>
 
     &nbsp;
     SDM:<input type="checkbox" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.sdm"/>

@@ -263,7 +263,7 @@
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
-        <e:forHtmlContent value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' />
+        <carlos:encode value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>
     </div>
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
@@ -292,17 +292,17 @@
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
             <td title="<carlos:encode value='<%= "End Time: "+rsdemo.getString("end_time") %>' context="htmlAttribute"/>"><carlos:encode value='<%= rsdemo.getString("start_time").substring(0, 5) %>' context="html"/></td>
             <td><%=rsdemo.getString("name") == null ? "." : ""%><carlos:encode value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' context="html"/></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' /></td>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' /></td>
+            <td><carlos:encode value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' context="html"/></td>
+            <td><carlos:encode value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' context="html"/></td>
             <% if (!bDob) {%>
-            <td><e:forHtmlContent value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' /></td>
+            <td><carlos:encode value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' context="html"/></td>
             <% } else {
                 String dob = rsdemo.getString("dob");
             %>
-            <td><e:forHtmlContent value='<%= dob == null ? "" : dob %>' /></td>
+            <td><carlos:encode value='<%= dob == null ? "" : dob %>' context="html"/></td>
             <% }%>
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>

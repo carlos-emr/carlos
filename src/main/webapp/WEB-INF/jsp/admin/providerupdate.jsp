@@ -235,7 +235,7 @@
         %>
         <p>
         <h2><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />"><e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
+            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>"><carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/>
             </a>
         </h2>
         <%

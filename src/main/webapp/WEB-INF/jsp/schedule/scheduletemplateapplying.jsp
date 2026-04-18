@@ -308,8 +308,8 @@
                     form.method = 'post';
                     form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
                     var fields = {
-                        'provider_no': '<e:forJavaScriptBlock value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />',
-                        'provider_name': '<e:forJavaScriptBlock value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' />',
+                        'provider_no': '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>',
+                        'provider_name': '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>',
                         'sdate': s.options[s.selectedIndex].value,
                         'delete': '1',
                         'deldate': 'all'

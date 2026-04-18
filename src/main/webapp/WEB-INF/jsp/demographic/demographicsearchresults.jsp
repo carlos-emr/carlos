@@ -441,7 +441,7 @@
                     <%
                     } else {
                     %>
-                    <c:set var="__enc_1"><e:forUriComponent value='<%= head != null ? head : dem_no %>' /></c:set>
+                    <c:set var="__enc_1"><carlos:encode value='<%= head != null ? head : dem_no %>' context="uriComponent"/></c:set>
                     <a title="Master Demographic File" href="javascript:void(0)"
                        onclick="popup(700,1027,'DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= dem_no %>' context="html"/>
                     </a></td>
@@ -485,13 +485,13 @@
                     </caisi:isModuleLoad>
                     <td class="chartNo"><carlos:encode value='<%= demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo() %>' context="html"/>
                     </td>
-                    <td class="sex"><e:forHtmlContent value='<%= demo.getSex() == null ? "" : demo.getSex() %>' />
+                    <td class="sex"><carlos:encode value='<%= demo.getSex() == null ? "" : demo.getSex() %>' context="html"/>
                     </td>
-                    <td class="dob"><e:forHtmlContent value='<%= demo.getFormattedDob() == null ? "" : demo.getFormattedDob() %>' />
+                    <td class="dob"><carlos:encode value='<%= demo.getFormattedDob() == null ? "" : demo.getFormattedDob() %>' context="html"/>
                     </td>
                     <td class="doctor"><%
                         String providerShortName = Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12);
-                        %><e:forHtmlContent value='<%= providerShortName == null ? "" : providerShortName %>' />
+                        %><carlos:encode value='<%= providerShortName == null ? "" : providerShortName %>' context="html"/>
                     </td>
                     <td class="rosterStatus"><carlos:encode value='<%= demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus() %>' context="html"/>
                     </td>

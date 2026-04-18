@@ -1060,7 +1060,7 @@
                                         <div class="preventionProcedure"
                                              onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?id=<carlos:encode value='<%= hdata.get("id") %>' context="javaScriptAttribute"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>','addPreventionData')"
                                              title="fade=[on] header=[<carlos:encode value='<%= (String)hdata.get("age") %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= (String)hExt.get("comments") %>' context="htmlAttribute"/>&lt;br/&gt;Administered By: <carlos:encode value='<%= (String)hdata.get("provider_name") %>' context="htmlAttribute"/>]">
-                                            <p <%=r(hdata.get("refused"), result)%>>Age: <e:forHtmlContent value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' /> <br/>
+                                            <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
@@ -1107,8 +1107,8 @@
                                         String[] prevs = (String[]) setHash.get("prevList");
                                 %>
                                 <div class="immSet">
-                                    <h2 style="display: block;"><e:forHtmlContent value='<%= setHash.get("title") != null ? String.valueOf(setHash.get("title")) : "" %>' />
-                                        <span><e:forHtmlContent value='<%= setHash.get("effective") != null ? String.valueOf(setHash.get("effective")) : "" %>' /></span></h2>
+                                    <h2 style="display: block;"><carlos:encode value='<%= setHash.get("title") != null ? String.valueOf(setHash.get("title")) : "" %>' context="html"/>
+                                        <span><carlos:encode value='<%= setHash.get("effective") != null ? String.valueOf(setHash.get("effective")) : "" %>' context="html"/></span></h2>
                                     <!--a style="font-size:xx-small;" onclick="javascript:showHideItem('<%="prev"+setNum%>')" href="javascript: function myFunction() {return false; }" >show/hide</a-->
                                     <a href="#"
                                        onclick="var el=document.getElementById('<%="prev"+setNum%>'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
@@ -1146,7 +1146,7 @@
                                                 String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
                                         %>
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
-                                            <p <%=r(hdata.get("refused"), result)%>>Age: <e:forHtmlContent value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' /> <br/>
+                                            <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <carlos:encode value='<%= (String) hdata.get("prevention_date_no_time") %>' context="html"/>
                                                                                             </p>
@@ -1191,14 +1191,14 @@
             %>
 
             <input type="hidden" id="preventProcedureProvider<%=i%>-<%=k%>"
-                   name="preventProcedureProvider<%=i%>-<%=k%>" value="<e:forHtmlAttribute value='<%= hdata.get("provider_name") != null ? String.valueOf(hdata.get("provider_name")) : "" %>' />"/>
+                   name="preventProcedureProvider<%=i%>-<%=k%>" value="<carlos:encode value='<%= hdata.get("provider_name") != null ? String.valueOf(hdata.get("provider_name")) : "" %>' context="htmlAttribute"/>"/>
 
             <input type="hidden" id="preventProcedureStatus<%=i%>-<%=k%>"
                    name="preventProcedureStatus<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= hdata.get("refused") != null ? String.valueOf(hdata.get("refused")) : "" %>' />">
+                   value="<carlos:encode value='<%= hdata.get("refused") != null ? String.valueOf(hdata.get("refused")) : "" %>' context="htmlAttribute"/>">
             <input type="hidden" id="preventProcedureAge<%=i%>-<%=k%>"
                    name="preventProcedureAge<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' />">
+                   value="<carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="htmlAttribute"/>">
             <input type="hidden" id="preventProcedureDate<%=i%>-<%=k%>"
                    name="preventProcedureDate<%=i%>-<%=k%>"
                    value="<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>">

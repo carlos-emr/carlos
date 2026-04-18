@@ -114,8 +114,8 @@ itinglist/Add2WaitingList";
     <%-- Normal success display (non-WL path shouldn't reach here due to redirect, but kept for safety) --%>
     <h2><fmt:message key="demographic.demographicupdatearecord.msgSuccessful"/></h2>
     <p>
-        <a href="DemographicEdit?demographic_no=<e:forUriComponent value='<%= demographicNo != null ? demographicNo : "" %>' />">
-            <e:forHtmlContent value='<%= demographicNo != null ? demographicNo : "" %>' /></a>
+        <a href="DemographicEdit?demographic_no=<carlos:encode value='<%= demographicNo != null ? demographicNo : "" %>' context="uriComponent"/>">
+            <carlos:encode value='<%= demographicNo != null ? demographicNo : "" %>' context="html"/></a>
     </p>
     <% } %>
 

@@ -1064,13 +1064,13 @@ input[id^='acklabel_']{
 
                                 <% if (bShortcutForm) { %>
                                 <c:set var="__enc_2"><carlos:encode value='<%= formName %>' context="uriComponent"/></c:set>
-                                <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.defaultString(demographicID) %>' /></c:set>
+                                <c:set var="__enc_3"><carlos:encode value='<%= StringUtils.defaultString(demographicID) %>' context="uriComponent"/></c:set>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<carlos:encode value='<%= formNameShort %>' context="htmlAttribute"/>"
                                        onClick="popupStart(700, 1024, '/form/forwardshortcutname?formname=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>', '<carlos:encode value='<%= formNameShort %>' context="javaScriptAttribute"/>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
                                 <c:set var="__enc_4"><carlos:encode value='<%= formName2 %>' context="uriComponent"/></c:set>
-                                <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.defaultString(demographicID) %>' /></c:set>
+                                <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.defaultString(demographicID) %>' context="uriComponent"/></c:set>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<carlos:encode value='<%= formName2Short %>' context="htmlAttribute"/>"
                                        onClick="popupStart(700, 1024, '/form/forwardshortcutname?formname=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>', '<carlos:encode value='<%= formName2Short %>' context="javaScriptAttribute"/>')">
                                 <% } %>

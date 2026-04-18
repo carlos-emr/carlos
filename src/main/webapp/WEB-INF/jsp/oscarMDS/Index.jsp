@@ -431,13 +431,13 @@ MDS.index.btnSearch"/>"
             out.print(catVal);
         %>;
         let selected_category_patient = "<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("selectedCategoryPatient")) %>' context="javaScriptBlock"/>";
-        var selected_category_type = "<e:forJavaScriptBlock value='<%= selectedCategoryType == null ? "" : selectedCategoryType %>' />";
-        var searchProviderNo = "<e:forJavaScriptBlock value='<%= searchProviderNo == null ? "" : searchProviderNo %>' />";
-        var firstName = "<e:forJavaScriptBlock value='<%= patientFirstName == null ? "" : patientFirstName %>' />";
-        var lastName = "<e:forJavaScriptBlock value='<%= patientLastName == null ? "" : patientLastName %>' />";
-        var hin = "<e:forJavaScriptBlock value='<%= patientHealthNumber == null ? "" : patientHealthNumber %>' />";
-        var providerNo = "<e:forJavaScriptBlock value='<%= providerNo == null ? "" : providerNo %>' />";
-        var searchStatus = "<e:forJavaScriptBlock value='<%= ackStatus == null ? "": ackStatus %>' />";
+        var selected_category_type = "<carlos:encode value='<%= selectedCategoryType == null ? "" : selectedCategoryType %>' context="javaScriptBlock"/>";
+        var searchProviderNo = "<carlos:encode value='<%= searchProviderNo == null ? "" : searchProviderNo %>' context="javaScriptBlock"/>";
+        var firstName = "<carlos:encode value='<%= patientFirstName == null ? "" : patientFirstName %>' context="javaScriptBlock"/>";
+        var lastName = "<carlos:encode value='<%= patientLastName == null ? "" : patientLastName %>' context="javaScriptBlock"/>";
+        var hin = "<carlos:encode value='<%= patientHealthNumber == null ? "" : patientHealthNumber %>' context="javaScriptBlock"/>";
+        var providerNo = "<carlos:encode value='<%= providerNo == null ? "" : providerNo %>' context="javaScriptBlock"/>";
+        var searchStatus = "<carlos:encode value='<%= ackStatus == null ? "": ackStatus %>' context="javaScriptBlock"/>";
         var abnormalStatus = "<%=abnormalStatus == null || "all".equals(abnormalStatus) ? "L" : (abnormalStatus.equals("normalOnly") ? "N" : "A")%>"
         var url = ctx + "/documentManager/inboxManage?";
         const startDate = "<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("startDate")) %>' context="javaScriptBlock"/>";

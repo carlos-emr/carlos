@@ -128,7 +128,7 @@
                 <div class="doc-item">
                     <label>
                         <input type="checkbox" name="attachedDocs" value="<%= doc.getDocumentNo() %>">
-                        <e:forHtmlContent value='<%= doc.getDocdesc() != null ? doc.getDocdesc() : "Document #" + doc.getDocumentNo() %>' />
+                        <carlos:encode value='<%= doc.getDocdesc() != null ? doc.getDocdesc() : "Document #" + doc.getDocumentNo() %>' context="html"/>
                     </label>
                 </div>
                 <%  }

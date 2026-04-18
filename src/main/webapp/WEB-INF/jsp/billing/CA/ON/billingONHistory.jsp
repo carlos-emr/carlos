@@ -149,7 +149,7 @@
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
             <em><carlos:encode value='<%= patientDisplayName %>' context="html"/></em>
-            &nbsp;(<e:forHtmlContent value='<%= demographicNoParam != null ? demographicNoParam : "" %>' />)
+            &nbsp;(<carlos:encode value='<%= demographicNoParam != null ? demographicNoParam : "" %>' context="html"/>)
         </span>
     </div>
 </nav>

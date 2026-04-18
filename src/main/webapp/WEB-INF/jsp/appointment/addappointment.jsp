@@ -1100,7 +1100,7 @@ Ontario, Canada
         </div>
         <%-- Patient alert banner: always rendered so JavaScript can show/hide it when patient is selected via autocomplete --%>
         <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
-            <span id="patientAlertText"><e:forHtmlContent value='<%= alert != null ? alert : "" %>' /></span>
+            <span id="patientAlertText"><carlos:encode value='<%= alert != null ? alert : "" %>' context="html"/></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
         <%
@@ -1165,7 +1165,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
                                 <input type="time" name="start_time" class="form-control form-control-sm"
-                                       value='<e:forHtmlAttribute value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' />'
+                                       value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
@@ -1175,7 +1175,7 @@ Ontario, Canada
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
-                                       value='<e:forHtmlAttribute value='<%= request.getParameter("end_time") == null ? "" : request.getParameter("end_time") %>' />'
+                                       value='<carlos:encode value='<%= request.getParameter("end_time") == null ? "" : request.getParameter("end_time") %>' context="htmlAttribute"/>'
                                        onChange="checkTimeTypeIn(this)">
                             </div>
                         </div>
@@ -1307,7 +1307,7 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="location" tabindex="4" value="<e:forHtmlAttribute value='<%= loc != null ? loc : "" %>' />" class="form-control form-control-sm">
+                                <input type="text" name="location" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
@@ -1346,7 +1346,7 @@ Ontario, Canada
                                 </select>
                                 <% } else { %>
                                 <input type="text" name="status" class="form-control form-control-sm"
-                                       value='<e:forHtmlAttribute value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' />'>
+                                       value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
                         </div>

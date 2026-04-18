@@ -140,10 +140,10 @@
                         <option value="ServiceCode"><fmt:message key="report.reportonbilledphcp.option.serviceCode"/></option>
                     </select></td>
                 <td nowrap><fmt:message key="report.reportonbilledphcp.label.start"/> <input type="text" name="startDate"
-                                        id="startDate" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />" size="10"
+                                        id="startDate" value="<carlos:encode value='<%= startDate!=null?startDate:"" %>' context="htmlAttribute"/>" size="10"
                                         readonly> <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDate_cal">
                     <fmt:message key="report.reportonbilledphcp.label.end"/> <input type="text" name="endDate" id="endDate"
-                               value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />" size="10" readonly> <img
+                               value="<carlos:encode value='<%= endDate!=null?endDate:"" %>' context="htmlAttribute"/>" size="10" readonly> <img
                             src="<%= request.getContextPath() %>/images/cal.gif" id="endDate_cal"></td>
                 <td><fmt:message key="report.reportonbilledphcp.label.provider"/> <select name="providerNoDoctor">
                     <option value=""><fmt:message key="report.reportonbilledphcp.option.doctor"/></option>

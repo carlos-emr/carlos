@@ -158,7 +158,7 @@
             <div class="col-md-4">
                 <label><fmt:message key="admin.logReport.startDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />"
+                    <input type="text" name="startDate" id="startDate1" value="<carlos:encode value='<%= startDate!=null?startDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -167,7 +167,7 @@
             <div class="col-md-4">
                 <label><fmt:message key="admin.logReport.endDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />"
+                    <input type="text" name="endDate" id="endDate1" value="<carlos:encode value='<%= endDate!=null?endDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -215,7 +215,7 @@
     </button>
 
 
-    <p><fmt:message key="admin.logReport.period"/> ( <e:forHtmlContent value='<%= startDate == null ? "" : startDate %>' /> ~ <e:forHtmlContent value='<%= endDate == null ? "" : endDate %>' />)</p>
+    <p><fmt:message key="admin.logReport.period"/> ( <carlos:encode value='<%= startDate == null ? "" : startDate %>' context="html"/> ~ <carlos:encode value='<%= endDate == null ? "" : endDate %>' context="html"/>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH><fmt:message key="admin.logReport.table.time"/></TH>

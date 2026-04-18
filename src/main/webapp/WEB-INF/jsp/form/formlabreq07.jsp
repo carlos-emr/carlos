@@ -378,7 +378,7 @@
                                 <% if (!oscarProps.getProperty("lab_req_override", "true").equals("true")) { %>
                                 <%=oscarProps.getProperty("clinic_no", "").startsWith("1022") ? "Physician:" : "Family Physician:"%>
                                 <br>
-                                <e:forHtmlContent value='<%= props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "") %>' />&nbsp;<br>
+                                <carlos:encode value='<%= props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "") %>' context="html"/>&nbsp;<br>
                                 <% } %>
 
                                 <input type="hidden" style="width: 100%" name="clinicName"

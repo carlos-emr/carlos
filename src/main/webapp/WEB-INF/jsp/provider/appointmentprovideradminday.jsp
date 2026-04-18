@@ -892,8 +892,8 @@
     <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
     <input type="hidden" id="scheduleVisibleProviderNos" value="<carlos:encode value='<%= java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(",")) %>' context="htmlAttribute"/>"/>
     <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
-    <input type="hidden" id="scheduleViewAll" value="<e:forHtmlAttribute value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' />"/>
-    <input type="hidden" id="scheduleView" value="<e:forHtmlAttribute value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' />"/>
+    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
@@ -1428,7 +1428,7 @@
                                             function changeSite(sel) {
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
-                                                var newGroupNo = "<e:forJavaScriptBlock value='<%= mygroupno == null ? ".default" : mygroupno %>' />";
+                                                var newGroupNo = "<carlos:encode value='<%= mygroupno == null ? ".default" : mygroupno %>' context="javaScriptBlock"/>";
                                                 postViaForm("<%= request.getContextPath() %>/provider/providercontrol?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + encodeURIComponent(newGroupNo) + "&site=" + encodeURIComponent(siteName), "attachment");
                                             }
                                         </script>
@@ -1852,17 +1852,17 @@
                                                            <c:set var="__enc_4"><carlos:encode value='<%= strDay %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_5"><carlos:encode value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_6"><carlos:encode value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1) %>' context="uriComponent"/></c:set>
-                                                           <c:set var="__enc_7"><e:forUriComponent value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' /></c:set>
+                                                           <c:set var="__enc_7"><carlos:encode value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' context="uriComponent"/></c:set>
     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<e:forJavaScriptAttribute value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' />','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
+                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
                                                     </td>
                                                     <td class="hourmin"
                                                         width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor='" + Encode.forHtmlAttribute((String) dateTimeCodeBean.get("color" + hourmin.toString())) + "'") : ""%>
-                                                        title='<e:forHtmlAttribute value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' />'>
+                                                        title='<carlos:encode value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' context="htmlAttribute"/>'>
                                                                         <span color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white"%>'><carlos:encode value='<%= hourmin.toString() %>' context="html"/>
                                                                         </span>
                                                     </td>

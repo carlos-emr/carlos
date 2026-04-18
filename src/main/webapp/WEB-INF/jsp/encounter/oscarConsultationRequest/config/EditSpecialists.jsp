@@ -121,7 +121,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>
-                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= lName + " " + fName + " " + (proLetters == null ? "" : proLetters) %>' /></a></td>
+                                <td><a href="<%= url %>"><carlos:encode value='<%= lName + " " + fName + " " + (proLetters == null ? "" : proLetters) %>' context="html"/></a></td>
                                 <td><carlos:encode value='<%= address %>' context="html"/></td>
                                 <td><carlos:encode value='<%= phone %>' context="html"/></td>
                                 <td><carlos:encode value='<%= fax %>' context="html"/></td>

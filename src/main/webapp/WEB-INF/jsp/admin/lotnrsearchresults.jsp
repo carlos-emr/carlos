@@ -131,7 +131,7 @@
         <table width="100%" border="0">
             <tr>
                 <td align="left"><i><fmt:message key="admin.search.keywords"/></i>
-                    : <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />
+                    : <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
                 </td>
             </tr>
         </table>
@@ -180,11 +180,11 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == limit2) {
         %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>

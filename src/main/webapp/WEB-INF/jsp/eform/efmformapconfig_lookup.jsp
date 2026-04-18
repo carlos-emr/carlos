@@ -39,7 +39,7 @@
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid fid");
         return;
     }
-%><input type="hidden" name="oscarAPCacheLookupType" value="<e:forHtmlAttribute value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' />"/><%
+%><input type="hidden" name="oscarAPCacheLookupType" value="<carlos:encode value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' context="htmlAttribute"/>"/><%
     String[] keys = request.getParameterValues("key");
     if (keys == null) {
         keys = new String[0];

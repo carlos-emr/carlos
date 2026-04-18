@@ -209,12 +209,12 @@ def rewrite_tag(match: re.Match, stats: FileStats) -> str:
     value = match.group("value")
     context = CONTEXT_MAP[suffix]
 
-    # If the value is a scriptlet with an explicit null guard, leave it as-is.
-    # The guarded form already renders empty for null; rewriting is unnecessary
-    # churn (though still safe).
+    # Track whether the scriptlet had an explicit null guard. The guarded form
+    # already renders empty for null; wrapping it in carlos:encode is just a
+    # redundant safety layer. We still migrate (for uniformity with the CI
+    # lint) but count it as "guarded_skipped" for informational purposes.
     if is_scriptlet_value_guarded(value):
         stats.skipped_guarded_tags += 1
-        return match.group(0)
 
     stats.tag_rewrites += 1
 

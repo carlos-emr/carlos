@@ -903,7 +903,7 @@
                         %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId != null ? parentAjaxId : "" %>' />&bFirstDisp=false&messageID=null&demographic_no=<e:forUriComponent value='<%= demoviewParam != null ? demoviewParam : "" %>' />')">
+                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"

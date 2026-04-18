@@ -177,14 +177,14 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10"
-                                    value="<e:forHtmlAttribute value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' />"> <input
+                                    value="<carlos:encode value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' context="htmlAttribute"/>"> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Diagnostic Code</font></td>
                             <td width="50%"><input type="text" name="diag_code" size="20"
-                                                   value="<e:forHtmlAttribute value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' />"></td>
+                                                   value="<carlos:encode value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' context="htmlAttribute"/>"></td>
                         </tr>
                         <tr>
                             <td width="29%"><font

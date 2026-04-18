@@ -999,9 +999,9 @@
                 }
             }
             if (document.forms[0].dxCode.value == "" && document.forms[0].dxCode1.value == "" && document.forms[0].dxCode2.value == "") {
-                document.forms[0].dxCode.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />';
-                document.forms[0].dxCode1.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' />';
-                document.forms[0].dxCode2.value = '<e:forJavaScriptBlock value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' />';
+                document.forms[0].dxCode.value = '<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="javaScriptBlock"/>';
+                document.forms[0].dxCode1.value = '<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="javaScriptBlock"/>';
+                document.forms[0].dxCode2.value = '<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="javaScriptBlock"/>';
             }
         }
 
@@ -1514,7 +1514,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
 								<input type="text" class="form-control" id="service_date" name="service_date" readonly
-                                       value="<e:forHtmlAttribute value='<%= request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday %>' />"
+                                       value="<carlos:encode value='<%= request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday %>' context="htmlAttribute"/>"
                                        style="width: 80px; height:14px;  vertical-align: bottom;">
                                 <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
                                     <img src="${ pageContext.request.contextPath }/images/cal.gif"
@@ -1565,21 +1565,21 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            onchange="changeCodeDesc();"
-                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />"/>
+                                                           value="<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="htmlAttribute"/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' />"/>
+                                                           value="<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="htmlAttribute"/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' />"/>
+                                                           value="<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="htmlAttribute"/>"/>
                                                 </td>
                                             </tr>
                                         </table>
@@ -1613,25 +1613,25 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                 <tr>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
                                                onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
                                                style="width: 20px;"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' />"/>@
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
                                         <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
                                                style="width: 30px"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' />"/><br/>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
                                         <% } %></td>
                                     <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
                                         <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
                                                onBlur="upCaseCtrl(this)"/>x
                                         <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
                                                style="width: 20px;"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' />"/>@
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
                                         <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
                                                style="width: 30px"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' />"/><br/>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
                                         <% } %></td>
                                 </tr>
                             </table>
@@ -1694,7 +1694,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                     ></select>
                                         <script>
                                             changeSite(document.getElementById("site"));
-                                            document.getElementById("xml_provider").value = '<e:forJavaScriptBlock value='<%= request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider") %>' />';
+                                            document.getElementById("xml_provider").value = '<carlos:encode value='<%= request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider") %>' context="javaScriptBlock"/>';
                                         </script>
                                         <%
                                             // multisite end ==========================================
@@ -1925,7 +1925,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                         %>
 											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' context="htmlAttribute"/>"
 											class="form-control" readonly>
 											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"

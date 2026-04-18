@@ -87,7 +87,7 @@
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoChartLabelAction?demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' /><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
+            data="printDemoChartLabelAction?demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/><%=request.getParameter("labelName")==null?"":"&labelName="+Encode.forUriComponent(request.getParameter("labelName"))%>"
             height="80%" width="100%"></object>
     </body>
 </html>

@@ -111,7 +111,7 @@
 <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
 <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
 <input type="hidden" name="formId" value="<carlos:encode value='<%= String.valueOf(formId) %>' context="htmlAttribute"/>"/>
-<input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= appointmentNo != null ? appointmentNo : "" %>' />"/>
+<input type="hidden" name="appointmentNo" value="<carlos:encode value='<%= appointmentNo != null ? appointmentNo : "" %>' context="htmlAttribute"/>"/>
 
 <table cellpadding="0" cellspacing="0" class="Header" class="hidePrint">
     <tr>

@@ -486,7 +486,7 @@
     <form name="ReProcessBillingForm" method="post" action="reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<e:forHtmlAttribute value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' />">
+               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>">
 
 
         <table class="table table-striped table-sm sortable" id="resultsTable">

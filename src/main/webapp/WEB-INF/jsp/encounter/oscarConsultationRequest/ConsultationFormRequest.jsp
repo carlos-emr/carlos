@@ -2468,7 +2468,7 @@ if (userAgent != null) {
                                                     if (request.getAttribute("id") != null) {
                                                 %>
                                                 <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate"
-                                                           value="<e:forHtmlAttribute value='<%= thisForm.getReferalDate() != null ? thisForm.getReferalDate().replace("/", "-") : "" %>' />"/>
+                                                           value="<carlos:encode value='<%= thisForm.getReferalDate() != null ? thisForm.getReferalDate().replace("/", "-") : "" %>' context="htmlAttribute"/>"/>
                                                 <%
                                                 } else {
                                                     // Format as YYYY-MM-DD for HTML5 date input
@@ -2656,7 +2656,7 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <div class="input-group input-group-sm" style="max-width:220px;">
                                                 <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
-                                                       value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "" %>' />"/>
+                                                       value="<carlos:encode value='<%= thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "" %>' context="htmlAttribute"/>"/>
                                             </div>
                                         </td>
                                     </tr>
@@ -2666,11 +2666,11 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <%-- Hidden fields keep existing server-side processing unchanged --%>
                                             <input type="hidden" id="appointmentHour" name="appointmentHour"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentHour() != null ? thisForm.getAppointmentHour() : "" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentHour() != null ? thisForm.getAppointmentHour() : "" %>' context="htmlAttribute"/>"/>
                                             <input type="hidden" id="appointmentMinute" name="appointmentMinute"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentMinute() != null ? thisForm.getAppointmentMinute() : "" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentMinute() != null ? thisForm.getAppointmentMinute() : "" %>' context="htmlAttribute"/>"/>
                                             <input type="hidden" id="appointmentPm" name="appointmentPm"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentPm() != null ? thisForm.getAppointmentPm() : "AM" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentPm() != null ? thisForm.getAppointmentPm() : "AM" %>' context="htmlAttribute"/>"/>
                                             <div class="input-group input-group-sm" style="max-width:180px;">
                                                 <input type="time" class="form-control form-control-sm" id="appointmentTimeDisplay"
                                                        oninput="syncTimeToHiddenFields(this.value)"/>

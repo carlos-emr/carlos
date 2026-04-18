@@ -456,7 +456,7 @@
             <fmt:message key='billing.billingCorrection.msgOfficeClaimNo'/>
         </td>
         <td class="bCellData">
-            <e:forHtmlContent value='<%= billingmasterNo != null ? billingmasterNo : "" %>' />
+            <carlos:encode value='<%= billingmasterNo != null ? billingmasterNo : "" %>' context="html"/>
         </td>
         <td align="left" class="bCellData">
             <font color="#000000"><fmt:message key='billing.billingCorrection.msgLastUpdate'/>: <carlos:encode value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' context="html"/>

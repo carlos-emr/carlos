@@ -1057,8 +1057,8 @@
                                     <%
                                     } else {
                                     %>
-                                    <c:set var="__encInvoiceLastName"><e:forUriComponent value='<%= StringUtils.defaultString(demographic.getLastName()) %>' /></c:set>
-                                    <c:set var="__encInvoiceFirstName"><e:forUriComponent value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' /></c:set>
+                                    <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
                                     <a href="#"
@@ -1182,7 +1182,7 @@
                         </special:SpecialPlugin>
                         <tr>
                             <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&apptProvider=<e:forUriComponent value='<%= apptProvider != null ? apptProvider : "" %>' />&appointment=<e:forUriComponent value='<%= appointment != null ? appointment : "" %>' />"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&apptProvider=<carlos:encode value='<%= apptProvider != null ? apptProvider : "" %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
                         </tr>
 
                     </table>

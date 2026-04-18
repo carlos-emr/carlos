@@ -233,7 +233,7 @@
         </script>
     </head>
     <body>
-    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />&nbsp;<input
+    <h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></h3>&nbsp;<carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>&nbsp;<input
             type="button" class="btn-link" value="<fmt:message key="report.reportindex.formAllProviders"/>"
             onclick="location = location.href.replace(/(\?|\&)(keyword)([^&]*)/, '').replace(/(\?|\&)(submit)([^&]*)/, '');">
     <div class="container-fluid">

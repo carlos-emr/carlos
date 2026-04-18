@@ -521,7 +521,7 @@
                             <td><b><a href="javascript:showNotes()"
                                       onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
                                       onMouseOut="hideLayer()"
-                                      onclick="popPage('<e:forJavaScriptAttribute value='<%= (resource == null ? "" : resource) + "n_breastFeeding" %>' />');return false"><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
+                                      onclick="popPage('<carlos:encode value='<%= (resource == null ? "" : resource) + "n_breastFeeding" %>' context="javaScriptAttribute"/>');return false"><fmt:message key="encounter.formRourke2006_1.btnBreastFeeding"/><br/>
                             </a><span
                                     onMouseOver="popLayer('<fmt:message key='encounter.formRourke2006.footnote1'/>')"
                                     onMouseOut="hideLayer()"><fmt:message key='encounter.formRourke2006_1.msgBreastFeedingDescr'/></span></b></td>

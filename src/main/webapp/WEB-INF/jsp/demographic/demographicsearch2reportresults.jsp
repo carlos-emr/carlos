@@ -269,15 +269,15 @@
                 </td>
                 <td><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getFirstName()) %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= demo.getAge() == null ? "" : String.valueOf(demo.getAge()) %>' />
+                <td><carlos:encode value='<%= demo.getAge() == null ? "" : String.valueOf(demo.getAge()) %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= demo.getRosterStatus() == null ? "" : demo.getRosterStatus() %>' />
+                <td><carlos:encode value='<%= demo.getRosterStatus() == null ? "" : demo.getRosterStatus() %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= demo.getSex() == null ? "" : demo.getSex() %>' />
+                <td><carlos:encode value='<%= demo.getSex() == null ? "" : demo.getSex() %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= demo.getFormattedDob() == null ? "" : demo.getFormattedDob() %>' />
+                <td><carlos:encode value='<%= demo.getFormattedDob() == null ? "" : demo.getFormattedDob() %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= providerBean.getProperty(demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()) %>' />
+                <td><carlos:encode value='<%= providerBean.getProperty(demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()) %>' context="html"/>
                 </td>
             </tr>
             <%

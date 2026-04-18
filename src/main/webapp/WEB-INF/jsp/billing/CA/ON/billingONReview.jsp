@@ -647,7 +647,7 @@
                                     <td style="width:20%"><carlos:encode value='<%= providerBean.getProperty(xmlProviderSeparatorIndex >= 0 ? xmlProvider.substring(0, xmlProviderSeparatorIndex) : "", "") %>' context="html"/>
                                     </td>
                                     <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
-                                    <td style="width:20%"><e:forHtmlContent value='<%= assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "") %>' />
+                                    <td style="width:20%"><carlos:encode value='<%= assgProvider_no == null ? "N/A" : providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
                                     </td>
                                 </tr>
                                 <tr>

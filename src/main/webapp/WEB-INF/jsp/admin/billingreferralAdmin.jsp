@@ -156,13 +156,13 @@
                 <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.nameOrReferralId'/>"
-                           value="<e:forHtmlAttribute value='<%= name != null ? name : "" %>' />">
+                           value="<carlos:encode value='<%= name != null ? name : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.specialty'/>"
-                           value="<e:forHtmlAttribute value='<%= specialty != null ? specialty : "" %>' />">
+                           value="<carlos:encode value='<%= specialty != null ? specialty : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <input type="text" name="addressQuery" id="addressQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.address'/>"
-                           value="<e:forHtmlAttribute value='<%= addressQ != null ? addressQ : "" %>' />">
+                           value="<carlos:encode value='<%= addressQ != null ? addressQ : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <fmt:message key="admin.billingreferralAdmin.label.includeHidden"/>:
                     <input type="checkbox" name="showHidden"

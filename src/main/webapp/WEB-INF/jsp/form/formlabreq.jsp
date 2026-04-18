@@ -359,7 +359,7 @@
                      should really be rewritten more elegantly at some later point in time. --%>
                                 <br><%=oscarProps.getProperty("clinic_no", "").startsWith("1022") ? "Physician:" : "Family Physician:"%>
                                 <br>
-                                <e:forHtmlContent value='<%= props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "") %>' />&nbsp;<br>
+                                <carlos:encode value='<%= props.getProperty("provName", "") == null ? "" : props.getProperty("provName", "") %>' context="html"/>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicName"
                                        value="<carlos:encode value='<%= props.getProperty("clinicName","") %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= props.getProperty("clinicName", "") %>' context="html"/>&nbsp;<br>
                                 <input type="hidden" style="width: 100%" name="clinicAddress"

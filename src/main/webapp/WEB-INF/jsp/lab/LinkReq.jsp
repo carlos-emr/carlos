@@ -222,9 +222,9 @@
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
 <form action="<%=request.getContextPath()%>/lab/ViewLinkReq" method="post">
-    <input type="hidden" name="table" value="<e:forHtmlAttribute value='<%= table != null ? table : "" %>' />"/>
-    <input type="hidden" name="rptid" value="<e:forHtmlAttribute value='<%= rptId != null ? rptId : "" %>' />"/>
-    <input type="hidden" name="reqid" value="<e:forHtmlAttribute value='<%= reqId != null ? reqId : "" %>' />"/>
+    <input type="hidden" name="table" value="<carlos:encode value='<%= table != null ? table : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="rptid" value="<carlos:encode value='<%= rptId != null ? rptId : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reqid" value="<carlos:encode value='<%= reqId != null ? reqId : "" %>' context="htmlAttribute"/>"/>
 
     <p>&nbsp;</p>
     Requisition Date: <carlos:encode value='<%= reqDateLink %>' context="html"/>

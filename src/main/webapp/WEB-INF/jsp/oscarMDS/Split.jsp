@@ -104,7 +104,7 @@
                 %>
                 <li>
                     <img class="page"
-                         src='<e:forHtmlAttribute value='<%= request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i %>' />'/>
+                         src='<carlos:encode value='<%= request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + java.net.URLEncoder.encode(documentId != null ? documentId : "", StandardCharsets.UTF_8) + "&curPage=" + i %>' context="htmlAttribute"/>'/>
                 </li>
                 <%
                     }
@@ -114,8 +114,8 @@
     </div>
 </div>
 
-<input type="hidden" id="document_no" value="<e:forHtmlAttribute value='<%= documentId != null ? documentId : "" %>' />"/>
+<input type="hidden" id="document_no" value="<carlos:encode value='<%= documentId != null ? documentId : "" %>' context="htmlAttribute"/>"/>
 <input type="hidden" id="queueID" value="${carlos:forHtmlAttribute(param.queueID)}"/>
-<input type="hidden" id="demoName" value="<e:forHtmlAttribute value='<%= demoName != null ? demoName : "" %>' />"/>
+<input type="hidden" id="demoName" value="<carlos:encode value='<%= demoName != null ? demoName : "" %>' context="htmlAttribute"/>"/>
 </body>
 </html>

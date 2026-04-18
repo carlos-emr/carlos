@@ -798,34 +798,34 @@
                                     <td nowrap width="30%" align="center"><a id="trigger"
                                                                              href="#">[<fmt:message key="billing.servicedate"/>]</a><br>
                                         <textarea name="billDate" cols="11" rows="5"
-                                                  readonly><e:forHtmlContent value='<%= request.getParameter("billDate") != null ? request.getParameter("billDate") : "" %>' /></textarea>
+                                                  readonly><carlos:encode value='<%= request.getParameter("billDate") != null ? request.getParameter("billDate") : "" %>' context="html"/></textarea>
                                     </td>
                                     <td nowrap align="center"><fmt:message key="billing.billingCorrection.formServiceCode"/> x <fmt:message key="billing.billingCorrection.formUnit"/><br>
                                         <input type="text" name="serviceDate0" size="5" maxlength="5"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate0")!=null?request.getParameter("serviceDate0"):"" %>' />">x
+                                               value="<carlos:encode value='<%= request.getParameter("serviceDate0")!=null?request.getParameter("serviceDate0"):"" %>' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit0" size="2" maxlength="2"
                                                style=""
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit0")!=null?request.getParameter("serviceUnit0"):"" %>' />"><br>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit0")!=null?request.getParameter("serviceUnit0"):"" %>' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate1" size="5" maxlength="5"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate1")!=null?request.getParameter("serviceDate1"):"" %>' />">x
+                                               value="<carlos:encode value='<%= request.getParameter("serviceDate1")!=null?request.getParameter("serviceDate1"):"" %>' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit1" size="2" maxlength="2"
                                                style=""
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit1")!=null?request.getParameter("serviceUnit1"):"" %>' />"><br>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit1")!=null?request.getParameter("serviceUnit1"):"" %>' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate2" size="5" maxlength="5"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate2")!=null?request.getParameter("serviceDate2"):"" %>' />">x
+                                               value="<carlos:encode value='<%= request.getParameter("serviceDate2")!=null?request.getParameter("serviceDate2"):"" %>' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit2" size="2" maxlength="2"
                                                style=""
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit2")!=null?request.getParameter("serviceUnit2"):"" %>' />"><br>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit2")!=null?request.getParameter("serviceUnit2"):"" %>' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate3" size="5" maxlength="5"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate3")!=null?request.getParameter("serviceDate3"):"" %>' />">x
+                                               value="<carlos:encode value='<%= request.getParameter("serviceDate3")!=null?request.getParameter("serviceDate3"):"" %>' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit3" size="2" maxlength="2"
                                                style=""
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit3")!=null?request.getParameter("serviceUnit3"):"" %>' />"><br>
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit3")!=null?request.getParameter("serviceUnit3"):"" %>' context="htmlAttribute"/>"><br>
                                         <input type="text" name="serviceDate4" size="5" maxlength="5"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceDate4")!=null?request.getParameter("serviceDate4"):"" %>' />">x
+                                               value="<carlos:encode value='<%= request.getParameter("serviceDate4")!=null?request.getParameter("serviceDate4"):"" %>' context="htmlAttribute"/>">x
                                         <input type="text" name="serviceUnit4" size="2" maxlength="2"
                                                style=""
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("serviceUnit4")!=null?request.getParameter("serviceUnit4"):"" %>' />">
+                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit4")!=null?request.getParameter("serviceUnit4"):"" %>' context="htmlAttribute"/>">
                                     </td>
                                     <td valign="top">
                                         <table border="0" cellspacing="0" cellpadding="0" width="100%">
@@ -834,7 +834,7 @@
                                                        onClick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="billing.hospitalBilling.formDx"/></a><br>
                                                     <input type="text" name="dxCode" size="5" maxlength="5"
                                                            onDblClick="dxScriptAttach('dxCode')"
-                                                           value="<e:forHtmlAttribute value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' />">
+                                                           value="<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="htmlAttribute"/>">
                                                 </td>
                                                 <td>Cal.% mode<br>
                                                     <select name="rulePerc">
@@ -855,9 +855,9 @@
                                                 href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="billing.hospitalBilling.btnReferral"/>
                                         </a> <input type="text" name="referralCode" size="5"
                                                     maxlength="6"
-                                                    value="<e:forHtmlAttribute value='<%= request.getParameter("referralCode")!=null?request.getParameter("referralCode"):r_doctor_ohip %>' />"><br>
+                                                    value="<carlos:encode value='<%= request.getParameter("referralCode")!=null?request.getParameter("referralCode"):r_doctor_ohip %>' context="htmlAttribute"/>"><br>
                                         <input type="text" name="referralDocName" size="22" maxlength="30"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("referralDocName")!=null?request.getParameter("referralDocName"):r_doctor %>' />">
+                                               value="<carlos:encode value='<%= request.getParameter("referralDocName")!=null?request.getParameter("referralDocName"):r_doctor %>' context="htmlAttribute"/>">
                                     </td>
                                 </tr>
                             </table>
@@ -1086,7 +1086,7 @@
                                             } %>
                                         <!--input type="text" name="xml_vdate" id="xml_vdate" value="<%--=request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):visitdate--%>" size='10' maxlength='10' -->
                                         <input type="text" name="xml_vdate" id="xml_vdate"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' context="htmlAttribute"/>"
                                                size='10' maxlength='10'> <img
                                             src="<%= request.getContextPath() %>/images/cal.gif" id="xml_vdate_cal"></td>
                                     <td colspan="2"><a href="#"
@@ -1142,7 +1142,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
@@ -1193,7 +1193,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
@@ -1244,7 +1244,7 @@
                                                 id="sc<%=(""+i).substring(0,1)+serviceCode%>"
                                                 onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span></font></b>
                                         <input type="text" name="unit_xml_<%=serviceCode%>"
-                                               value="<e:forHtmlAttribute value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' />"
+                                               value="<carlos:encode value='<%= request.getParameter("unit_xml_"+serviceCode)!=null? request.getParameter("unit_xml_"+serviceCode):"" %>' context="htmlAttribute"/>"
                                                size="1" maxlength="2" style="width: 20px; height: 12px;"/></td>
                                     <td <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>><font
                                             size="-1"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>

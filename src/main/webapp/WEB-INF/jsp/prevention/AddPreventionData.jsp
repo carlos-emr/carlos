@@ -530,10 +530,10 @@
                                 opt.setAttribute('expiryDate', output);
                                 opt.text = item.lotNumber;
 
-                                if (startup2 && item.lotNumber == '<e:forJavaScriptBlock value='<%= addByLotNbr != null ? addByLotNbr : "" %>' />') {
+                                if (startup2 && item.lotNumber == '<carlos:encode value='<%= addByLotNbr != null ? addByLotNbr : "" %>' context="javaScriptBlock"/>') {
                                     opt.selected = true;
                                     startup2 = false;
-                                } else if (startup && item.lotNumber == '<e:forJavaScriptBlock value='<%= existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "" %>' />') {
+                                } else if (startup && item.lotNumber == '<carlos:encode value='<%= existingPrevention != null && existingPrevention.get("lot") != null ? (String)existingPrevention.get("lot") : "" %>' context="javaScriptBlock"/>') {
                                     opt.selected = true;
                                     startup = false;
                                 }
@@ -669,20 +669,20 @@
                 <h3 class="alert alert-danger"><fmt:message key="oscarprevention.addpreventiondata.preventionNotFound"/></h3>
                 <%} else { %>
                 <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return handleFormSubmission()">
-                    <input type="hidden" name="prevention" value="<e:forHtmlAttribute value='<%= prevention != null ? prevention : "" %>' />"/>
-                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no != null ? demographic_no : "" %>' />"/>
-                    <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= provider != null ? provider : "" %>' />"/>
+                    <input type="hidden" name="prevention" value="<carlos:encode value='<%= prevention != null ? prevention : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="providerNo" value="<carlos:encode value='<%= provider != null ? provider : "" %>' context="htmlAttribute"/>"/>
                     <%if (snomedId != null) {%>
-                    <input type="hidden" name="snomedId" value="<e:forHtmlAttribute value='<%= snomedId != null ? snomedId : "" %>' />"/>
+                    <input type="hidden" name="snomedId" value="<carlos:encode value='<%= snomedId != null ? snomedId : "" %>' context="htmlAttribute"/>"/>
                     <%} %>
                     <% if (id != null) { %>
-                    <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= id != null ? id : "" %>' />"/>
-                    <input type="hidden" name="layoutType" value="<e:forHtmlAttribute value='<%= layoutType != null ? layoutType : "" %>' />"/>
+                    <input type="hidden" name="id" value="<carlos:encode value='<%= id != null ? id : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="layoutType" value="<carlos:encode value='<%= layoutType != null ? layoutType : "" %>' context="htmlAttribute"/>"/>
 
                     <div class="prevention">
                         <fieldset>
                             <legend><fmt:message key="oscarprevention.addpreventiondata.summary"/></legend>
-                            <textarea class="form-control form-control-sm" name="summary" readonly><e:forHtmlContent value='<%= summary != null ? summary : "" %>' /></textarea>
+                            <textarea class="form-control form-control-sm" name="summary" readonly><carlos:encode value='<%= summary != null ? summary : "" %>' context="html"/></textarea>
 
                         </fieldset>
                     </div>
@@ -692,7 +692,7 @@
                     <div class="row g-2">
                     <div class="col-md-5">
                         <fieldset>
-                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <e:forHtmlContent value='<%= prevention != null ? prevention : "" %>' />
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <carlos:encode value='<%= prevention != null ? prevention : "" %>' context="html"/>
                             </legend>
                             <div>
                                 <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
@@ -710,7 +710,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<e:forHtmlAttribute value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' />"
+                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -718,7 +718,7 @@
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<e:forHtmlAttribute value='<%= providerName != null ? providerName : "" %>' />"/>
+                                                                                              value="<carlos:encode value='<%= providerName != null ? providerName : "" %>' context="htmlAttribute"/>"/>
                                 <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
@@ -733,7 +733,7 @@
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
-                                                                                            value="<e:forHtmlAttribute value='<%= creatorName != null ? creatorName : "" %>' />"
+                                                                                            value="<carlos:encode value='<%= creatorName != null ? creatorName : "" %>' context="htmlAttribute"/>"
                                                                                             readonly/></div>
                                 </div>
                             </div>
@@ -1034,7 +1034,7 @@
                     <div class="row g-2">
                     <div class="col-md-5">
                         <fieldset>
-                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <e:forHtmlContent value='<%= prevention != null ? prevention : "" %>' />
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <carlos:encode value='<%= prevention != null ? prevention : "" %>' context="html"/>
                             </legend>
                             <div>
                                 <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
@@ -1052,7 +1052,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<e:forHtmlAttribute value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' />"
+                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -1060,7 +1060,7 @@
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<e:forHtmlAttribute value='<%= providerName != null ? providerName : "" %>' />"/>
+                                                                                              value="<carlos:encode value='<%= providerName != null ? providerName : "" %>' context="htmlAttribute"/>"/>
                                 <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
@@ -1075,7 +1075,7 @@
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
-                                                                                            value="<e:forHtmlAttribute value='<%= creatorName != null ? creatorName : "" %>' />"
+                                                                                            value="<carlos:encode value='<%= creatorName != null ? creatorName : "" %>' context="htmlAttribute"/>"
                                                                                             readonly/></div>
                                 </div>
                             </div>
@@ -1287,7 +1287,7 @@
                     <div class="row g-2">
                     <div class="col-md-5">
                         <fieldset>
-                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <e:forHtmlContent value='<%= prevention != null ? prevention : "" %>' />
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <carlos:encode value='<%= prevention != null ? prevention : "" %>' context="html"/>
                             </legend>
                             <div>
                                 <input name="given" type="radio" class="form-check-input" value="given"      <%=checked(completed,"0")%>
@@ -1305,7 +1305,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
-                                                                                                          value="<e:forHtmlAttribute value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' />"
+                                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
                                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -1313,7 +1313,7 @@
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm"
                                                                                                               name="providerName"
                                                                                                               id="providerName"
-                                                                                                              value="<e:forHtmlAttribute value='<%= providerName != null ? providerName : "" %>' />"/>
+                                                                                                              value="<carlos:encode value='<%= providerName != null ? providerName : "" %>' context="htmlAttribute"/>"/>
                                 <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {
@@ -1328,7 +1328,7 @@
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="creator" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.creator"/></label></div>
                                     <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="creator"
-                                                                                            value="<e:forHtmlAttribute value='<%= creatorName != null ? creatorName : "" %>' />"
+                                                                                            value="<carlos:encode value='<%= creatorName != null ? creatorName : "" %>' context="htmlAttribute"/>"
                                                                                             readonly/></div>
                                 </div>
                             </div>
@@ -1373,7 +1373,7 @@
                     <div class="row g-2">
                     <div class="col-md-5">
                         <fieldset>
-                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <e:forHtmlContent value='<%= prevention != null ? prevention : "" %>' />
+                            <legend><fmt:message key="oscarprevention.addpreventiondata.prevention"/> <carlos:encode value='<%= prevention != null ? prevention : "" %>' context="html"/>
                             </legend>
                             <div>
                                 <input name="given" type="radio" class="form-check-input"
@@ -1388,7 +1388,7 @@
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
-                                                                                          value="<e:forHtmlAttribute value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' />"
+                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
                                                                                           required></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
@@ -1396,7 +1396,7 @@
                                     <div class="col-sm-8"><input type="hidden"
                                                                                               name="providerName"
                                                                                               id="providerName"
-                                                                                              value="<e:forHtmlAttribute value='<%= providerName != null ? providerName : "" %>' />"/>
+                                                                                              value="<carlos:encode value='<%= providerName != null ? providerName : "" %>' context="htmlAttribute"/>"/>
                                 <select onchange="javascript:hideExtraName(this);" class="form-select form-select-sm" id="providerDrop" name="provider">
                                     <%
                                         for (int i = 0; i < providers.size(); i++) {

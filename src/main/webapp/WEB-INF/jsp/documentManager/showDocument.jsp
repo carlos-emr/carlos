@@ -392,7 +392,7 @@
                 loc = loc + "/oscarMDS/ViewSplit?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.defaultString(inQueue) %>' /></c:set>
+                <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.defaultString(inQueue) %>' context="uriComponent"/></c:set>
                 loc = loc + "<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");

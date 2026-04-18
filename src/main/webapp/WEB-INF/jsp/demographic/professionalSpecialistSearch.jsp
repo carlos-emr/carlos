@@ -148,7 +148,7 @@
         </table>
         <table width="95%" border="0">
             <tr>
-                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
+                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
                 </td>
             </tr>
         </table>

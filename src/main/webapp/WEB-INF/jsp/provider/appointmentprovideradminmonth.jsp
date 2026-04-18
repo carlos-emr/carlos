@@ -550,7 +550,7 @@
                     function changeSite(sel) {
                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                         var siteName = sel.options[sel.selectedIndex].value;
-                        var newGroupNo = "<e:forJavaScriptBlock value='<%= mygroupno == null ? "all" : mygroupno %>' />";
+                        var newGroupNo = "<carlos:encode value='<%= mygroupno == null ? "all" : mygroupno %>' context="javaScriptBlock"/>";
                         var providerview = "<carlos:encode value='<%= providerview %>' context="javaScriptBlock"/>";
                         if (providerview.indexOf("_grp_") != -1) {
 
@@ -562,7 +562,7 @@
                 </script>
 
                 <select id="site" name="site" onchange="changeSite(this)"
-                        style="background-color: <e:forCssString value='<%= selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite) %>' />">
+                        style="background-color: <carlos:encode value='<%= selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite) %>' context="cssString"/>">
                     <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                     <%
                         for (int i = 0; i < curUserSites.size(); i++) {

@@ -81,8 +81,8 @@
 <form method="post" name="titlesearch" action="/billing/CA/ON/ViewBillingONHistorySpec">
     <table style="width:95%; margin:auto;">
         <tr>
-            <td style="text-align:left"><e:forHtmlContent value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' />
-                (<e:forHtmlContent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />)
+            <td style="text-align:left"><carlos:encode value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' context="html"/>
+                (<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="html"/>)
                 <%=strToday + " - " + strStartDay %>
             </td>
             <td style="text-align:right">Service Code <input type="text"
@@ -91,9 +91,9 @@
                                                              onBlur="upCaseCtrl(this)"/> <input type="hidden" name="day"
                                                                                                 value="<carlos:encode value='<%= strDay %>' context="htmlAttribute"/>"/>
                 <input type="hidden" name="demo_name"
-                       value="<e:forHtmlAttribute value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' />"/> <input
+                       value="<carlos:encode value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' context="htmlAttribute"/>"/> <input
                         type="hidden" name="demographic_no"
-                        value="<e:forHtmlAttribute value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />"/> <input
+                        value="<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="htmlAttribute"/>"/> <input
                         type="submit" name="submit" value="Search"/></td>
         </tr>
     </table>

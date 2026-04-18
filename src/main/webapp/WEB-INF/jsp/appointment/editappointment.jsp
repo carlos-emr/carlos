@@ -853,7 +853,7 @@
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
     <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
-        <span id="patientAlertText"><e:forHtmlContent value='<%= alert != null ? alert : "" %>' /></span>
+        <span id="patientAlertText"><carlos:encode value='<%= alert != null ? alert : "" %>' context="html"/></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <div class="page-header-bar time" id="header">
@@ -1027,7 +1027,7 @@
                     </td>
                     <td>
             	<input type="text" name="keyword" id="keyword" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' />"
+                               value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
@@ -1062,7 +1062,7 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><e:forHtmlContent value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' /></textarea>
+				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
@@ -1117,7 +1117,7 @@
                         </select>
                         <% } else { %>
 		        <input type="text" class="form-control" name="location" tabindex="4"
-                       value="<e:forHtmlAttribute value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' />" >
+                       value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
                     </td>
@@ -1279,7 +1279,7 @@
                         <label><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><e:forHtmlContent value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' /></textarea>
+				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1288,7 +1288,7 @@
                     </td>
                     <td>
                 <input type="text" name="resources" tabindex="5" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' />">
+                               value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
                 <tr>
@@ -1319,7 +1319,7 @@
                 <div class="card">
                     <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : "") %>' />"
+                               value="<carlos:encode value='<%= bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : "") %>' context="htmlAttribute"/>"
                         > <carlos:encode value='<%= dateString2 %>' context="html"/>
                         <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
                         <input type="hidden" name="provider_no" value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>">

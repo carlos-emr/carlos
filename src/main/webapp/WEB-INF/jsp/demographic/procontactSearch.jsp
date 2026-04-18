@@ -210,7 +210,7 @@
 
         <!-- table width="95%" border="0">
 	<tr>
-		<td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' /></td>
+		<td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/></td>
 	</tr>
 </table  -->
 
@@ -226,7 +226,7 @@
 
         <tr style="background-color:white;border:white;">
             <td colspan="3">
-                <strong><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/></strong> <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
+                <strong><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/></strong> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
             </td>
         </tr>
 

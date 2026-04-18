@@ -492,9 +492,9 @@
 
         <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary"><e:forHtmlContent value='<%= eApptDate == null ? "" : eApptDate %>' /></span>
-                <span class="badge bg-info text-dark"><e:forHtmlContent value='<%= eStartTime == null ? "" : eStartTime %>' /> - <e:forHtmlContent value='<%= eEndTime == null ? "" : eEndTime %>' /></span>
-                <span class="fw-bold"><e:forHtmlContent value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' /></span>
+                <span class="badge bg-secondary"><carlos:encode value='<%= eApptDate == null ? "" : eApptDate %>' context="html"/></span>
+                <span class="badge bg-info text-dark"><carlos:encode value='<%= eStartTime == null ? "" : eStartTime %>' context="html"/> - <carlos:encode value='<%= eEndTime == null ? "" : eEndTime %>' context="html"/></span>
+                <span class="fw-bold"><carlos:encode value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' context="html"/></span>
             </div>
             <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <carlos:encode value='<%= mygroupno %>' context="html"/></span>
         </div>

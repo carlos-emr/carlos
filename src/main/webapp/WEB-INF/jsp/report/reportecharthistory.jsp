@@ -142,7 +142,7 @@
         <td align="center"><a
                 href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>"><carlos:encode value='<%= datetime %>' context="html"/>
         </a></td>
-        <td><e:forHtmlContent value='<%= eChart.getSubject() != null ? eChart.getSubject() : "" %>' />
+        <td><carlos:encode value='<%= eChart.getSubject() != null ? eChart.getSubject() : "" %>' context="html"/>
         </td>
         <!--td align="center"><%--=ectsize + "KB" --%></td-->
         <td><carlos:encode value='<%= ProviderData.getProviderName(eChart.getProviderNo()) %>' context="html"/>

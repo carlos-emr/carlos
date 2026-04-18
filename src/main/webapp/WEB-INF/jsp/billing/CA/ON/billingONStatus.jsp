@@ -1013,7 +1013,7 @@
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
                                                                                                  onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= ch1Obj.getDemographic_no() %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= ch1Obj.getDemographic_name() %>' context="html"/>
                         </a></td>
-                        <td style="text-align:center"><e:forHtmlContent value='<%= ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>' />
+                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>' context="html"/>
                         </td>
                         <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getStatus() %>' context="html"/>
                         </td>
