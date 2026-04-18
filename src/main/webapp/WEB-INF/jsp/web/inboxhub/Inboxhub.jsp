@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
@@ -56,7 +57,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <body>
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <script>
-    const contextPath = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+    const contextPath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
     const inboxSearchLabel = "<fmt:message key='inboxhub.form.search'/>";
 
     /**
@@ -76,7 +77,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
     }
 </script>
-<input type="hidden" id="ctx" value="<e:forHtmlAttribute value='${pageContext.request.contextPath}' />"/>
+<input type="hidden" id="ctx" value="<carlos:encode value='${pageContext.request.contextPath}' context="htmlAttribute"/>"/>
 <div class="container-fluid overflow-hidden">
     <div class="row">
         <nav class="inbox-topbar">

@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
 
@@ -58,23 +59,23 @@
 
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${e:forUriComponent(facility.id)}">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${carlos:forUriComponent(facility.id)}">
                 Details </a>
         </display:column>
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${e:forUriComponent(facility.id)}">
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${carlos:forUriComponent(facility.id)}">
                 Edit </a>
         </display:column>
         <display:column sortable="false" title="">
             <a href="javascript:void(0)"
-                    onclick="if(ConfirmDelete('${e:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${e:forJavaScript(facility.id)}').submit()}">
+                    onclick="if(ConfirmDelete('${carlos:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${carlos:forJavaScript(facility.id)}').submit()}">
                 Disable </a>
-            <form id="deleteForm_${e:forHtmlAttribute(facility.id)}" method="post"
+            <form id="deleteForm_${carlos:forHtmlAttribute(facility.id)}" method="post"
                   action="<%=request.getContextPath() %>/PMmodule/FacilityManager" style="display:none">
                 <input type="hidden" name="method" value="delete"/>
-                <input type="hidden" name="id" value="${e:forHtmlAttribute(facility.id)}"/>
-                <input type="hidden" name="name" value="${e:forHtmlAttribute(facility.name)}"/>
+                <input type="hidden" name="id" value="${carlos:forHtmlAttribute(facility.id)}"/>
+                <input type="hidden" name="name" value="${carlos:forHtmlAttribute(facility.name)}"/>
             </form>
         </display:column>
 

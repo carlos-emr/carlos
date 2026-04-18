@@ -83,6 +83,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -495,7 +496,7 @@
                 <span class="badge bg-info text-dark"><e:forHtmlContent value='<%= eStartTime == null ? "" : eStartTime %>' /> - <e:forHtmlContent value='<%= eEndTime == null ? "" : eEndTime %>' /></span>
                 <span class="fw-bold"><e:forHtmlContent value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' /></span>
             </div>
-            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <e:forHtmlContent value='<%= mygroupno %>' /></span>
+            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <carlos:encode value='<%= mygroupno %>' context="html"/></span>
         </div>
 
         <div class="d-flex gap-3 mb-2 small">
@@ -535,16 +536,16 @@
                         bDefProvider = curProvider_no.equals(provider.getProviderNo()) ? true : false;
             %>
             <tr class="<%=bDefProvider?"provider-current":(bAvailProvider?"provider-available":"provider-unavailable")%>">
-                <td class="text-end"><e:forHtmlContent value='<%= provider.getFormattedName() %>' /></td>
+                <td class="text-end"><carlos:encode value='<%= provider.getFormattedName() %>' context="html"/></td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input" name="one<%=i%>"
                            value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"one")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"one") : "") : (bDefProvider? "checked":"")%>
                            onclick="onCheck(this)">
-                    <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getProviderNo() %>' />">
-                    <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getLastName() %>' />">
-                    <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getFirstName() %>' />">
+                    <input type="hidden" name="provider_no<%=i%>" value="<carlos:encode value='<%= provider.getProviderNo() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="last_name<%=i%>" value="<carlos:encode value='<%= provider.getLastName() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="first_name<%=i%>" value="<carlos:encode value='<%= provider.getFirstName() %>' context="htmlAttribute"/>">
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
@@ -590,22 +591,22 @@
                 <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete" var="btnGroupDelete"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupUpdate)}">
+                       value="${carlos:forHtmlAttribute(btnGroupUpdate)}">
                 <input type="button" class="btn btn-secondary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupCancel)}">
+                       value="${carlos:forHtmlAttribute(btnGroupCancel)}">
                 <input type="button" class="btn btn-danger btn-sm"
-                       onclick="if(!confirm('${e:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupDelete)}">
+                       onclick="if(!confirm('${carlos:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       value="${carlos:forHtmlAttribute(btnGroupDelete)}">
                 <% } else { %>
                 <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt" var="btnAddGroupAppt"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnAddGroupAppt)}">
+                       value="${carlos:forHtmlAttribute(btnAddGroupAppt)}">
                 <% } %>
                 <fmt:message key="global.btnBack" var="btnBack"/>
                 <input type="button" class="btn btn-secondary btn-sm"
-                       value="${e:forHtmlAttribute(btnBack)}"
+                       value="${carlos:forHtmlAttribute(btnBack)}"
                        onClick="window.history.go(-1);return false;">
             </div>
         </div>

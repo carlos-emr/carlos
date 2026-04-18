@@ -44,6 +44,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {
@@ -93,7 +94,7 @@
                     <table class="TopStatusBar">
                         <tr>
                             <td><fmt:message key='oscarwaitinglist.displayWaitingList.currentList'/> <c:if test="${not empty waitingListName}">
-                                ${e:forHtml(waitingListName)}
+                                ${carlos:forHtml(waitingListName)}
                             </c:if></td>
                             <td align="right"></td>
 
@@ -165,14 +166,14 @@
                                     </tr>
                                     <tr>
                                         <td class="${styleClass}">
-                                            ${e:forHtml(waitingListBean.position)}
+                                            ${carlos:forHtml(waitingListBean.position)}
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
-                                                ${e:forHtml(waitingListBean.patientName)}
+                                            <a href="#" onclick="popupDemographicPage('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forJavaScript(e:forUriComponent(waitingListBean.demographicNo))}'); return false;">
+                                                ${carlos:forHtml(waitingListBean.patientName)}
                                             </a>
                                             <input type="button" value="<fmt:message key='oscarwaitinglist.displayWaitingList.update'/>" name="update_${ctr.index}" style="font-size: 7pt;"
-                                                   onClick="updateWaitingList('${e:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
+                                                   onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
                                             <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
@@ -199,12 +200,12 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${e:forJavaScript(waitingListBean.patientName)}', '${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.patientName)}', '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
                                                 <fmt:message key='oscarwaitinglist.displayWaitingList.makeAppointment'/>
                                             </a>
                                         </td>
                                         <td class="${styleClass}">
-                                            <a href="#" onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}', '${e:forJavaScript(WLId)}');"><fmt:message key='oscarwaitinglist.displayWaitingList.remove'/></a>
+                                            <a href="#" onClick="removePatient('${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(WLId)}');"><fmt:message key='oscarwaitinglist.displayWaitingList.remove'/></a>
                                         </td>
                                     </tr>
                                     </c:forEach>
@@ -277,7 +278,7 @@
         }
 
         function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
-            var nbPatients = parseInt('${e:forJavaScript(nbPatients)}');
+            var nbPatients = parseInt('${carlos:forJavaScript(nbPatients)}');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;
             } else {

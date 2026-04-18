@@ -55,6 +55,7 @@
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -85,7 +86,7 @@
 	SecurityManager securityManager = new SecurityManager();
 	if(securityManager.hasWriteAccess("_" + request.getParameter("issue_code"),roleName$)) {
 %>
-<a href="javascript:void(0)" title='Add Item' onclick="return showEdit(event,'<fmt:message key="<%= paramTitle %>" />','',0,'','','','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("addUrl") %>' />0', '<e:forJavaScriptAttribute value='<%= paramCmd %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("identUrl") %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("cppIssue") %>' />','','<e:forJavaScriptAttribute value='<%= paramDemoNo %>' />');">+</a>
+<a href="javascript:void(0)" title='Add Item' onclick="return showEdit(event,'<fmt:message key="<%= paramTitle %>" />','',0,'','','','<carlos:encode value='<%= (String) request.getAttribute("addUrl") %>' context="javaScriptAttribute"/>0', '<carlos:encode value='<%= paramCmd %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String) request.getAttribute("identUrl") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String) request.getAttribute("cppIssue") %>' context="javaScriptAttribute"/>','','<carlos:encode value='<%= paramDemoNo %>' context="javaScriptAttribute"/>');">+</a>
 <% } else { %>
 	&nbsp;
 <% } %>
@@ -93,7 +94,7 @@
 </div>
 <div class="nav-menu-title">
 <h3>
-	<a href="javascript:void(0)" onclick="return showIssueHistory('<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographicNo")) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(request.getAttribute("issueIds")) %>' />');">
+	<a href="javascript:void(0)" onclick="return showIssueHistory('<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(request.getAttribute("issueIds")) %>' context="javaScriptAttribute"/>');">
 <fmt:message key="<%= paramTitle %>" /></a>
 </h3>
 </div>
@@ -174,19 +175,19 @@
                 <a class="links"
                    onmouseover="this.className='linkhover'"
                    onmouseout="this.className='links'"
-                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<e:forHtmlAttribute value='<%= note.getNote() %>' />"
+                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<carlos:encode value='<%= note.getNote() %>' context="htmlAttribute"/>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
-                   onclick="showEdit(event,'<fmt:message key="${param.title}" />','<%= note.getId() %>','<e:forJavaScript value='<%= editors.toString() %>' />','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("addUrl") %>' /><%= note.getId() %>', '<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("cmd")) %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("identUrl") %>' />','<e:forJavaScriptAttribute value='<%= strNoteIssues.toString() %>' />','<e:forJavaScriptAttribute value='<%= strNoteExts %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' />');return false;">
+                   onclick="showEdit(event,'<fmt:message key="${param.title}" />','<%= note.getId() %>','<carlos:encode value='<%= editors.toString() %>' context="javaScript"/>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<carlos:encode value='<%= (String) request.getAttribute("addUrl") %>' context="javaScriptAttribute"/><%= note.getId() %>', '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("cmd")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String) request.getAttribute("identUrl") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= strNoteIssues.toString() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= strNoteExts %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>');return false;">
             </c:when>
             <c:otherwise>
                 <a class="topLinks"
                    onmouseover="this.className='topLinkhover'"
                    onmouseout="this.className='topLinks'"
-                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<e:forHtmlAttribute value='<%= note.getNote() %>' />"
+                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<carlos:encode value='<%= note.getNote() %>' context="htmlAttribute"/>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
-                   onclick="showEdit(event,'<fmt:message key="${param.title}" />','<%= note.getId() %>','<e:forJavaScript value='<%= editors.toString() %>' />','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("addUrl") %>' /><%= note.getId() %>', '<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("cmd")) %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("identUrl") %>' />','<e:forJavaScriptAttribute value='<%= strNoteIssues.toString() %>' />','<e:forJavaScriptAttribute value='<%= strNoteExts %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' />');return false;">
+                   onclick="showEdit(event,'<fmt:message key="${param.title}" />','<%= note.getId() %>','<carlos:encode value='<%= editors.toString() %>' context="javaScript"/>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<carlos:encode value='<%= (String) request.getAttribute("addUrl") %>' context="javaScriptAttribute"/><%= note.getId() %>', '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("cmd")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String) request.getAttribute("identUrl") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= strNoteIssues.toString() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= strNoteExts %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>');return false;">
             </c:otherwise>
         </c:choose>
 
@@ -199,8 +200,8 @@
 
 
 
-<input type="hidden" id="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("cmd")) %>' />num" value="${num}">
-<input type="hidden" id="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("cmd")) %>' />threshold" value="0">
+<input type="hidden" id="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("cmd")) %>' context="htmlAttribute"/>num" value="${num}">
+<input type="hidden" id="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("cmd")) %>' context="htmlAttribute"/>threshold" value="0">
 
 <%!
     String getNoteExts(Long noteId, List<CaseManagementNoteExt> lcme) {

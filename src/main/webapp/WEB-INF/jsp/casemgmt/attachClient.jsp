@@ -52,6 +52,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css"
       href='${request.contextPath}/css/tigris.css'/>
 <link rel="stylesheet" type="text/css"
@@ -197,7 +198,7 @@
                         <option value="">Any</option>
                         <c:forEach var="gen" items="${genders}">
                             <option value="${gen.code}">
-                                ${e:forHtml(gen.description)}
+                                ${carlos:forHtml(gen.description)}
                             </option>
                         </c:forEach>
                     </select></td>
@@ -226,20 +227,20 @@
 
                 <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${e:forUriComponent(client.demographicNo)}&demographicNo=${e:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${e:forHtml(client.demographicNo)}</a>
+                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${carlos:forUriComponent(client.demographicNo)}&demographicNo=${carlos:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${carlos:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="javascript:popupPage(600,800,'client','${e:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${e:forUriComponent(client.currentRecord)}&amp;consent=${e:forUriComponent(consent)}')">${e:forHtml(client.formattedName)}</a>
+                        href="javascript:popupPage(600,800,'client','${carlos:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${carlos:forUriComponent(client.currentRecord)}&amp;consent=${carlos:forUriComponent(consent)}')">${carlos:forHtml(client.formattedName)}</a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">
-                ${e:forHtml(client.yearOfBirth)}/${e:forHtml(client.monthOfBirth)}/${e:forHtml(client.dateOfBirth)}
+                ${carlos:forHtml(client.yearOfBirth)}/${carlos:forHtml(client.monthOfBirth)}/${carlos:forHtml(client.dateOfBirth)}
             </display:column>
             <display:column sortable="true" title="Gender" sortProperty="sexDesc">
-                ${e:forHtml(client.sexDesc)}
+                ${carlos:forHtml(client.sexDesc)}
             </display:column>
             <display:column sortable="true" title="Chart No" sortProperty="chartNo">
-                ${e:forHtml(client.chartNo)}
+                ${carlos:forHtml(client.chartNo)}
             </display:column>
             <display:column sortable="true" title="Admitted to Program">
                 <c:choose>
@@ -262,7 +263,7 @@
 
                         <c:when test="${client.headRecord == null}">
                             <input type="radio" name="head"
-                                   value="${e:forHtmlAttribute(client.demographicNo)}">
+                                   value="${carlos:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;
@@ -274,7 +275,7 @@
                     <c:choose>
                         <c:when test="${client.headRecord == null}">
                             <input type="checkbox" name="records"
-                                   value="${e:forHtmlAttribute(client.demographicNo)}">
+                                   value="${carlos:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;

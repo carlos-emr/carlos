@@ -98,6 +98,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -317,7 +318,7 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:message key="messenger.generatePreviewPDF.attachDocumentFor"/> <e:forHtmlContent value='<%= demoName %>' />
+                        <td><fmt:message key="messenger.generatePreviewPDF.attachDocumentFor"/> <carlos:encode value='<%= demoName %>' context="html"/>
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
@@ -364,17 +365,17 @@
                                 <tr>
                                     <td>
                                         <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel?demographic_no=" + encDemoNo; %>
-                                        <input type="checkbox" name="uriArray" value="<e:forHtmlAttribute value='<%= currentURI %>' />"
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
 
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value="<e:forHtmlAttribute value='<%= demoName %>' /> <fmt:message key='messenger.generatePreviewPDF.info'/>" style="display: none"/></td>
-                                    <td><e:forHtmlContent value='<%= demoName %>' /> <fmt:message key="messenger.generatePreviewPDF.info"/></td>
+                                                value="<carlos:encode value='<%= demoName %>' context="htmlAttribute"/> <fmt:message key='messenger.generatePreviewPDF.info'/>" style="display: none"/></td>
+                                    <td><carlos:encode value='<%= demoName %>' context="html"/> <fmt:message key="messenger.generatePreviewPDF.info"/></td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<e:forJavaScriptAttribute value='<%= currentURI %>' />')"/>
+                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -397,18 +398,18 @@
                                 <tr>
                                     <td>
                                         <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
-                                        <input type="checkbox" name="uriArray" value="<e:forHtmlAttribute value='<%= currentURI %>' />"
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value='<fmt:message key="messenger.generatePreviewPDF.encounter"/> <e:forHtmlAttribute value='<%= ec.getTimestamp().toString() %>' />'
+                                                value='<fmt:message key="messenger.generatePreviewPDF.encounter"/> <carlos:encode value='<%= ec.getTimestamp().toString() %>' context="htmlAttribute"/>'
                                                 style="display: none"/></td>
-                                    <td><e:forHtmlContent value='<%= ec.getTimestamp().toString() %>' />
+                                    <td><carlos:encode value='<%= ec.getTimestamp().toString() %>' context="html"/>
                                     </td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type=button value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<e:forJavaScriptAttribute value='<%= currentURI %>' />')"/>
+                                            type=button value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -454,7 +455,7 @@
 
                                         %> <% currentURI = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo; %>
 
-                                        <input type="checkbox" name="uriArray" value="<e:forHtmlAttribute value='<%= currentURI %>' />"
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
@@ -463,7 +464,7 @@
                                     <td><fmt:message key="messenger.generatePreviewPDF.currentPrescriptions"/></td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<e:forJavaScriptAttribute value='<%= currentURI %>' />')"/>
+                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>

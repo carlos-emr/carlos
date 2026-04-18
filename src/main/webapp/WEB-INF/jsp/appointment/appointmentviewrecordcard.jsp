@@ -57,6 +57,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ include file="/WEB-INF/jsp/common/webAppContextAndSuperMgr.jsp" %>
@@ -215,21 +216,21 @@
                                 %>
                                 <b style="font-size:14pt"><%=firstLine %>
                                 </b><br/>
-                                <e:forHtmlContent value='<%= provider.getSpecialty() %>' /><br/>
+                                <carlos:encode value='<%= provider.getSpecialty() %>' context="html"/><br/>
                                 <br/>
-                                <e:forHtmlContent value='<%= clinic.getClinicAddress() %>' /><br/>
-                                <e:forHtmlContent value='<%= clinic.getClinicCity() %>' />
-                                , <e:forHtmlContent value='<%= clinic.getClinicProvince() %>' />  <e:forHtmlContent value='<%= clinic.getClinicPostal() %>' />
+                                <carlos:encode value='<%= clinic.getClinicAddress() %>' context="html"/><br/>
+                                <carlos:encode value='<%= clinic.getClinicCity() %>' context="html"/>
+                                , <carlos:encode value='<%= clinic.getClinicProvince() %>' context="html"/>  <carlos:encode value='<%= clinic.getClinicPostal() %>' context="html"/>
                                 <br/>
-                                <e:forHtmlContent value='<%= phone %>' /><br/>
-                                Fax <e:forHtmlContent value='<%= fax %>' /> <br/>
+                                <carlos:encode value='<%= phone %>' context="html"/><br/>
+                                Fax <carlos:encode value='<%= fax %>' context="html"/> <br/>
                             </td>
                         </tr>
 
                         <tr> <!-- patient name -->
                             <td colspan="2">
                                 <b>Name</b>: <span
-                                    style="text-decoration: underline;"><e:forHtmlContent value='<%= appt.getName() %>' /></span>
+                                    style="text-decoration: underline;"><carlos:encode value='<%= appt.getName() %>' context="html"/></span>
                             </td>
                         </tr>
 

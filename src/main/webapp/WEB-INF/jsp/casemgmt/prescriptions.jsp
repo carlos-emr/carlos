@@ -49,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 Prescriptions
 <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
     <tr class="title">
@@ -76,21 +77,21 @@ Prescriptions
             </c:if>
             <td bgcolor="white">
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo="${e:forHtmlAttribute(param.providerNo)}"
-                                          demoNo="${e:forHtmlAttribute(param.demographicNo)}"
-                                          programId="${e:forHtmlAttribute(sessionScope.case_program_id)}">
+                                          providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                          demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
+                                          programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}">
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=${e:forUriComponent(prescription.regionalIdentifier)}&cn=${e:forUriComponent(prescription.customName)}">
-                        ${e:forHtml(prescription.special)}
+                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&cn=${carlos:forUriComponent(prescription.customName)}">
+                        ${carlos:forHtml(prescription.special)}
                     </a>
                 </caisirole:SecurityAccess>
 
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo="${e:forHtmlAttribute(param.providerNo)}"
-                                          demoNo="${e:forHtmlAttribute(param.demographicNo)}"
-                                          programId="${e:forHtmlAttribute(sessionScope.case_program_id)}"
+                                          providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                          demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
+                                          programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}"
                                           reverse="true">
-                    <span <%= styleColor%> >${e:forHtml(prescription.special)}</span>
+                    <span <%= styleColor%> >${carlos:forHtml(prescription.special)}</span>
                 </caisirole:SecurityAccess>
             </td>
 

@@ -21,6 +21,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -114,7 +115,7 @@
 </div>
 
 <input type="hidden" id="document_no" value="<e:forHtmlAttribute value='<%= documentId != null ? documentId : "" %>' />"/>
-<input type="hidden" id="queueID" value="${ e:forHtmlAttribute(param.queueID) }"/>
+<input type="hidden" id="queueID" value="${carlos:forHtmlAttribute(param.queueID)}"/>
 <input type="hidden" id="demoName" value="<e:forHtmlAttribute value='<%= demoName != null ? demoName : "" %>' />"/>
 </body>
 </html>

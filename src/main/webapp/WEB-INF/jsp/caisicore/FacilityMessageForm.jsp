@@ -42,6 +42,7 @@
 %>
 
 <%@page import="java.util.Calendar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -124,10 +125,10 @@
                     <c:choose>
                         <c:when
                                 test="${facility.id == facilityMessageForm.map.facility_message.facilityId}">
-                            <option value="${e:forHtmlAttribute(facility.id)}" selected>${e:forHtml(facility.name)}</option>
+                            <option value="${carlos:forHtmlAttribute(facility.id)}" selected>${carlos:forHtml(facility.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="${e:forHtmlAttribute(facility.id)}">${e:forHtml(facility.name)}</option>
+                            <option value="${carlos:forHtmlAttribute(facility.id)}">${carlos:forHtml(facility.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>
@@ -143,10 +144,10 @@
                         <c:choose>
                             <c:when
                                     test="${program.id == facilityMessageForm.map.facility_message.programId}">
-                                <option value="${e:forHtmlAttribute(program.id)}" selected>${e:forHtml(program.name)}</option>
+                                <option value="${carlos:forHtmlAttribute(program.id)}" selected>${carlos:forHtml(program.name)}</option>
                             </c:when>
                             <c:otherwise>
-                                <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
+                                <option value="${carlos:forHtmlAttribute(program.id)}">${carlos:forHtml(program.name)}</option>
                             </c:otherwise>
                         </c:choose>
 

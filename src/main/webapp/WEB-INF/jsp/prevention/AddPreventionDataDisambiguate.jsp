@@ -56,6 +56,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -302,7 +303,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<e:forUriComponent value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' />&prevention=<e:forUriComponent value='<%= prevention %>' />&demographic_no=<e:forUriComponent value='<%= demographicNo %>' />&prevResultDesc=<e:forUriComponent value='<%= prevResultDesc %>' />"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

@@ -31,6 +31,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="tickler.ticklerAdd.additionalMessage" var="ticklerAdditionalMessage"/>
 <script type="text/javascript">
@@ -78,7 +79,7 @@
                 <select class="form-select required" name="ticklerCategoryId">
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
                         <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
-                            ${e:forHtml(ticklerCategory.category)}
+                            ${carlos:forHtml(ticklerCategory.category)}
                         </option>
                     </c:forEach>
                 </select>
@@ -94,7 +95,7 @@
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
                         <option value="${ provider.providerNo }">
-                            ${e:forHtml(provider.formattedName)}
+                            ${carlos:forHtml(provider.formattedName)}
                         </option>
                     </c:forEach>
                 </select>
@@ -151,7 +152,7 @@
                     <option value=""></option>
                     <c:forEach items="${ textSuggestions }" var="textSuggestion">
                         <option>
-                            ${e:forHtml(textSuggestion.suggestedText)}
+                            ${carlos:forHtml(textSuggestion.suggestedText)}
                         </option>
                     </c:forEach>
                 </select>

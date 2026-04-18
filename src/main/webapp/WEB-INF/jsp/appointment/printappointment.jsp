@@ -30,6 +30,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -71,7 +72,7 @@
     <%}%>
     <br>
     <object id="apptpdf" type="application/pdf"
-            data="printAppointmentReceiptAction?appointment_no=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' />"
+            data="printAppointmentReceiptAction?appointment_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>"
             height="80%" width="100%"></object>
     </body>
 </html>

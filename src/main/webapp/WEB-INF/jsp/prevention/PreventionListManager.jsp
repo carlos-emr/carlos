@@ -39,6 +39,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -118,11 +119,11 @@
                 prevName = h.get("name");
                 prevDesc = h.get("desc");
         %>
-        <tr class="prevention-item" id="<e:forHtmlAttribute value='<%= prevId %>' />" prevention-data="<e:forHtmlAttribute value='<%= prevName %>' />">
+        <tr class="prevention-item" id="<carlos:encode value='<%= prevId %>' context="htmlAttribute"/>" prevention-data="<carlos:encode value='<%= prevName %>' context="htmlAttribute"/>">
             <td class="item-active" title="<fmt:message key='oscarprevention.preventionlistmanager.available'/>"></td>
-            <td><e:forHtmlContent value='<%= prevName %>' />
+            <td><carlos:encode value='<%= prevName %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= prevDesc %>' />
+            <td><carlos:encode value='<%= prevDesc %>' context="html"/>
             </td>
         </tr>
 
@@ -163,7 +164,7 @@
 
 
 <!-- property value from database: hidden-->
-<input type="hidden" name="property-bin" id="property-bin" style="width:1200px" value="<e:forHtmlAttribute value='<%= customPreventionItems %>' />">
+<input type="hidden" name="property-bin" id="property-bin" style="width:1200px" value="<carlos:encode value='<%= customPreventionItems %>' context="htmlAttribute"/>">
 
 
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

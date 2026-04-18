@@ -97,6 +97,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -331,7 +332,7 @@
             function addByLot() {
                 var input = document.getElementById('lotNumberToAdd2');
                 var lotNbr = input ? input.value : '';
-                popup(600, 900, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<e:forJavaScript value='<%= demographic_no %>' />&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
+                popup(600, 900, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScript"/>&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
             }
         </script>
 
@@ -634,7 +635,7 @@
             <td class="MainTableTopRowRightColumnx">
                 <table class="TopStatusBarx">
                     <tr>
-                        <td><h4><e:forHtmlContent value='<%= nameAge %>' /></h4>
+                        <td><h4><carlos:encode value='<%= nameAge %>' context="html"/></h4>
                         </td>
 
                         <td></td>
@@ -664,17 +665,17 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' />
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' />
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
                             <%
                                             }
@@ -707,17 +708,17 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' /><%=ispa1 %>
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/><%=ispa1 %>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' /><%=ispa1 %>
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/><%=ispa1 %>
                             </a></li>
                             <%
                                             }
@@ -744,17 +745,17 @@
                                             if (mappings != null && mappings.size() > 1) {%>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' />
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= prevName %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />">
-                                <e:forHtmlContent value='<%= displayName %>' />
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
                             <%
                                             }
@@ -768,7 +769,7 @@
                 <oscar:oscarPropertiesCheck property="IMMUNIZATION_IN_PREVENTION"
                                             value="yes">
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="javascript:popup(700,960,'<%=request.getContextPath()%>/encounter/immunization/initSchedule?demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />','oldImms')">Old
+                       onclick="javascript:popup(700,960,'<%=request.getContextPath()%>/encounter/immunization/initSchedule?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>','oldImms')">Old
                         <fmt:message key="global.immunizations"/></a>
                     <br>
                 </oscar:oscarPropertiesCheck></td>
@@ -896,9 +897,9 @@
 
 
                     <div>
-                        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
-                        <input type="hidden" name="hin" value="<e:forHtmlAttribute value='<%= hin %>' />"/>
-                        <input type="hidden" name="mrp" value="<e:forHtmlAttribute value='<%= mrp %>' />"/>
+                        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="hin" value="<carlos:encode value='<%= hin %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="mrp" value="<carlos:encode value='<%= mrp %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="module" value="prevention">
                                 <%
                  if (!io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
@@ -943,15 +944,15 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= h.get("name") %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                            <span title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />"
-                                                  style="font-weight: bold;"><e:forHtmlContent value='<%= h.get("name") %>' /><%=ispa1%></span>
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                            <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
+                                                  style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1%></span>
                                         </a>
                                         <% } else { %>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= h.get("name") %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                            <span title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />"
-                                                  style="font-weight: bold;"><e:forHtmlContent value='<%= h.get("name") %>' /><%=ispa1 %></span>
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                            <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
+                                                  style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1 %></span>
                                         </a>
                                         <% } %>
                                         <br/>
@@ -967,18 +968,18 @@
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
-                                     title="fade=[on] header=[<e:forHtmlAttribute value='<%= (String)hdata.get("age") %>' /> -- Date:<e:forHtmlAttribute value='<%= (String)hdata.get("prevention_date_no_time") %>' />] body=[<e:forHtmlAttribute value='<%= (String)hExt.get("comments") %>' />&lt;br/&gt;Administered By: <e:forHtmlAttribute value='<%= (String)hdata.get("provider_name") %>' />]">
+                                     title="fade=[on] header=[<carlos:encode value='<%= (String)hdata.get("age") %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= (String)hExt.get("comments") %>' context="htmlAttribute"/>&lt;br/&gt;Administered By: <carlos:encode value='<%= (String)hdata.get("provider_name") %>' context="htmlAttribute"/>]">
 
 
                                     <p <%=r(hdata.get("refused"),result)%> >
-                                        Age: <e:forHtmlContent value='<%= (String)hdata.get("age") %>' /> <%if(result!=null && result.equals("abnormal")){out.print("result:"+Encode.forHtml(result));}%>
+                                        Age: <carlos:encode value='<%= (String)hdata.get("age") %>' context="html"/> <%if(result!=null && result.equals("abnormal")){out.print("result:"+Encode.forHtml(result));}%>
                                         <br/>
                                         <!--<%=refused(hdata.get("refused"))%>-->
-                                        Date: <e:forHtmlContent value='<%= (String)hdata.get("prevention_date_no_time") %>' />
+                                        Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
                                                 <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                     if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
                                     <div class="comments">
-                                        <span><e:forHtmlContent value='<%= (String) hExt.get("comments") %>' /></span>
+                                        <span><carlos:encode value='<%= (String) hExt.get("comments") %>' context="html"/></span>
                                     </div>
                                     <% } else { %>
                                     <span class="footnote">1</span>
@@ -992,7 +993,7 @@
 
                                             if (!dhirLogs.isEmpty()) {
                                     %> <span class="footnote"
-                                             style="background-color:black;color:white"><e:forHtmlContent value='<%= dhirLogs.get(0).getStatus() %>' /></span> <%
+                                             style="background-color:black;color:white"><carlos:encode value='<%= dhirLogs.get(0).getStatus() %>' context="html"/></span> <%
                                 } else {
                                     if (dhirEnabled && !StringUtils.isEmpty(snomedId)) {
                                         if ((ispa && hasIspaConsent) || (!ispa && hasNonIspaConsent)) {
@@ -1041,9 +1042,9 @@
                                         </div>
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
-                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?2=2&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<e:forUriComponent value='<%= h.get("name") %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
-                                                <span title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />"
-                                                      style="font-weight: bold;"><e:forHtmlContent value='<%= h.get("name") %>' /><%=ispa1 %></span>
+                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?2=2&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                                <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
+                                                      style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1 %></span>
                                             </a>
 
                                                 <br/>
@@ -1057,15 +1058,15 @@
                                                 result = hExt.get("result");
                                         %>
                                         <div class="preventionProcedure"
-                                             onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?id=<e:forJavaScriptAttribute value='<%= hdata.get("id") %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />','addPreventionData')"
-                                             title="fade=[on] header=[<e:forHtmlAttribute value='<%= (String)hdata.get("age") %>' /> -- Date:<e:forHtmlAttribute value='<%= (String)hdata.get("prevention_date_no_time") %>' />] body=[<e:forHtmlAttribute value='<%= (String)hExt.get("comments") %>' />&lt;br/&gt;Administered By: <e:forHtmlAttribute value='<%= (String)hdata.get("provider_name") %>' />]">
+                                             onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?id=<carlos:encode value='<%= hdata.get("id") %>' context="javaScriptAttribute"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>','addPreventionData')"
+                                             title="fade=[on] header=[<carlos:encode value='<%= (String)hdata.get("age") %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= (String)hExt.get("comments") %>' context="htmlAttribute"/>&lt;br/&gt;Administered By: <carlos:encode value='<%= (String)hdata.get("provider_name") %>' context="htmlAttribute"/>]">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <e:forHtmlContent value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' /> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
-                                                Date: <e:forHtmlContent value='<%= (String)hdata.get("prevention_date_no_time") %>' />
+                                                Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                      if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
                                             <div class="comments">
-                                                <span><e:forHtmlContent value='<%= (String) hExt.get("comments") %>' /></span>
+                                                <span><carlos:encode value='<%= (String) hExt.get("comments") %>' context="html"/></span>
                                             </div>
                                             <% } else { %>
                                             <span class="footnote">1</span>
@@ -1078,7 +1079,7 @@
 
                                                     if (!dhirLogs.isEmpty()) {
                                             %> <span class="footnote"
-                                                     style="background-color:black;color:white"><e:forHtmlContent value='<%= dhirLogs.get(0).getStatus() %>' /></span> <%
+                                                     style="background-color:black;color:white"><carlos:encode value='<%= dhirLogs.get(0).getStatus() %>' context="html"/></span> <%
                                         } else {
                                             if (dhirEnabled && !StringUtils.isEmpty(snomedId)) {
                                                 if ((ispa && hasIspaConsent) || (!ispa && hasNonIspaConsent)) {
@@ -1126,9 +1127,9 @@
                                     <div class="preventionSection">
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
-                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?3=3&prevention=<e:forUriComponent value='<%= h.get("name") %>' />&amp;demographic_no=<e:forJavaScriptAttribute value='<%= demographic_no %>' />&amp;prevResultDesc=<e:forUriComponent value='<%= h.get("resultDesc") %>' />','addPreventionData<%=Math.abs(h.get("name").hashCode())%>')">
-                                                <span title="<e:forHtmlAttribute value='<%= h.get("desc") %>' />"
-                                                      style="font-weight: bold;"><e:forHtmlContent value='<%= h.get("name") %>' /></span>
+                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?3=3&prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(h.get("name").hashCode())%>')">
+                                                <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
+                                                      style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/></span>
                                             </a> <br/>
                                             </p>
                                         </div>
@@ -1147,7 +1148,7 @@
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <e:forHtmlContent value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' /> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
-                                                Date: <e:forHtmlContent value='<%= (String) hdata.get("prevention_date_no_time") %>' />
+                                                Date: <carlos:encode value='<%= (String) hdata.get("prevention_date_no_time") %>' context="html"/>
                                                                                             </p>
                                         </div>
                                         <%}%>
@@ -1171,7 +1172,7 @@
 			</input>
             </td>
 
-            <input type="hidden" id="demographicNo" name="demographicNo" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+            <input type="hidden" id="demographicNo" name="demographicNo" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
 
             <%
                 for (int i = 0; i < prevList.size(); i++) {
@@ -1181,7 +1182,7 @@
 
                     if (alist.size() > 0) { %>
             <input type="hidden" id="preventionHeader<%=i%>"
-                   name="preventionHeader<%=i%>" value="<e:forHtmlAttribute value='<%= h.get("name") %>' />">
+                   name="preventionHeader<%=i%>" value="<carlos:encode value='<%= h.get("name") %>' context="htmlAttribute"/>">
 
             <%
                 for (int k = 0; k < alist.size(); k++) {
@@ -1200,61 +1201,61 @@
                    value="<e:forHtmlAttribute value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' />">
             <input type="hidden" id="preventProcedureDate<%=i%>-<%=k%>"
                    name="preventProcedureDate<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= (String)hdata.get("prevention_date_no_time") %>' />">
+                   value="<carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="htmlAttribute"/>">
             <% String comments = hExt.get("comments");
                 if (comments != null && !comments.isEmpty()) {%>
             <input type="hidden" id="preventProcedureComments<%=i%>-<%=k%>"
                    name="preventProcedureComments<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= comments %>' />">
+                   value="<carlos:encode value='<%= comments %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String result = hExt.get("result");
                 if (result != null && !result.isEmpty()) {%>
             <input type="hidden" id="preventProcedureResult<%=i%>-<%=k%>"
                    name="preventProcedureResult<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= result %>' />">
+                   value="<carlos:encode value='<%= result %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String reason = hExt.get("reason");
                 if (reason != null && !reason.isEmpty()) {%>
             <input type="hidden" id="preventProcedureReason<%=i%>-<%=k%>"
                    name="preventProcedureReason<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= reason %>' />">
+                   value="<carlos:encode value='<%= reason %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String nameOfVaccine = hExt.get("name");
                 if (nameOfVaccine != null && !nameOfVaccine.isEmpty()) {%>
             <input type="hidden" id="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
                    name="preventProcedureNameOfVaccine<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= nameOfVaccine %>' />">
+                   value="<carlos:encode value='<%= nameOfVaccine %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String manufacture = hExt.get("manufacture");
                 if (manufacture != null && !manufacture.isEmpty()) {%>
             <input type="hidden" id="preventProcedureManufacture<%=i%>-<%=k%>"
                    name="preventProcedureManufacture<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= manufacture %>' />">
+                   value="<carlos:encode value='<%= manufacture %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String lotID = hExt.get("lot");
                 if (lotID != null && !lotID.isEmpty()) {%>
             <input type="hidden" id="preventProcedureLotID<%=i%>-<%=k%>"
                    name="preventProcedureLotID<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= lotID %>' />">
+                   value="<carlos:encode value='<%= lotID %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String doseAdministered = hExt.get("dose");
                 if (doseAdministered != null && !doseAdministered.isEmpty()) {%>
             <input type="hidden" id="preventProcedureDoseAdministered<%=i%>-<%=k%>"
                    name="preventProcedureDoseAdministered<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= doseAdministered %>' />">
+                   value="<carlos:encode value='<%= doseAdministered %>' context="htmlAttribute"/>">
             <% } %>
 
             <% String locationOfShot = hExt.get("location");
                 if (locationOfShot != null && !locationOfShot.isEmpty()) {%>
             <input type="hidden" id="preventProcedureLocationOfShot<%=i%>-<%=k%>"
                    name="preventProcedureLocationOfShot<%=i%>-<%=k%>"
-                   value="<e:forHtmlAttribute value='<%= locationOfShot %>' />">
+                   value="<carlos:encode value='<%= locationOfShot %>' context="htmlAttribute"/>">
             <% }
             }
             }
@@ -1425,7 +1426,7 @@
                 function(item) {
                     input.value = '';
                     var vPath = '<%=request.getContextPath()%>';
-                    var demographicNo = '<e:forJavaScriptBlock value='<%= demographic_no %>' />';
+                    var demographicNo = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
                     var url = vPath + '/prevention/AddPrevention?1=1'
                         + '&prevention=' + encodeURIComponent(item.name)
                         + '&demographic_no=' + demographicNo
@@ -1538,9 +1539,9 @@
                             activeIdx = -1;
                             var lotNum = item.lotNumber || '';
                             if (lotNum.length > 0) {
-                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<e:forJavaScript value='<%= demographic_no %>' />&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScript"/>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
                             } else {
-                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?search=true&demographic_no=<e:forJavaScript value='<%= demographic_no %>' />&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                                popup(465, 635, '<%=request.getContextPath()%>/prevention/AddPrevention?search=true&demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScript"/>&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
                             }
                         });
                         dropdown.appendChild(div);

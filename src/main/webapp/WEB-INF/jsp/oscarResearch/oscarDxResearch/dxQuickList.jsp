@@ -44,6 +44,7 @@ Required Parameters to plug-in:
 
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <table id="dxCodeQuicklist">
     <tr>
         <td class="heading">
@@ -66,7 +67,7 @@ Required Parameters to plug-in:
                          onchange="javascript:changeList(this,'${ demographicNo }','${ providerNo }');">
                 <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
                     <option value="${ quickLists.quickListName }" ${ quickLists.quickListName eq param.quickList || quickLists.lastUsed eq 'Selected' ? 'selected' : '' } >
-                        ${e:forHtml(quickLists.quickListName)}
+                        ${carlos:forHtml(quickLists.quickListName)}
                     </option>
                 </c:forEach>
             </select>
@@ -79,8 +80,8 @@ Required Parameters to plug-in:
                             add
                         </a>
 					</span>
-                        ${e:forHtml(item.type)}:
-                        ${e:forHtml(item.description)}
+                        ${carlos:forHtml(item.type)}:
+                        ${carlos:forHtml(item.description)}
                     </li>
                 </c:forEach>
             </ul>

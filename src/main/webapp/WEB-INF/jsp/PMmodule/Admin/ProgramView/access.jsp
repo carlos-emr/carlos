@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!-- 
 /*
 * 
@@ -42,7 +43,7 @@
 	<display:column sortable="true" title="Role(s)">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
-				<li>${e:forHtml(role.name)}</li>
+				<li>${carlos:forHtml(role.name)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>

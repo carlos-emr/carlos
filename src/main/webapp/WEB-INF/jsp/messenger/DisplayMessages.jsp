@@ -85,6 +85,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Build security role string from session attributes
     String userrole = (String) session.getAttribute("userrole");
@@ -279,7 +280,7 @@
                 <fmt:message key="messenger.DisplayMessages.msgArchived"/>
         <%      break;
             case 3: %>
-                Messages related to <e:forHtmlContent value='<%= demographic_name %>' />
+                Messages related to <carlos:encode value='<%= demographic_name %>' context="html"/>
         <%      break;
         }%>
     </h4>
@@ -287,7 +288,7 @@
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
-                   value="<e:forHtmlContent value='<%= DisplayMessagesBeanId.getFilter() %>' />">
+                   value="<carlos:encode value='<%= DisplayMessagesBeanId.getFilter() %>' context="html"/>">
             <button name="btnSearch" type="submit" class="btn btn-primary" title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
@@ -510,7 +511,7 @@
                                 <tr class="<%=rowClass%>">
                                     <td style="width:25px;">
                                     <%if (pageType != 1){%>
-                                       <input type="checkbox" name="messageNo" value="<e:forHtmlAttribute value='<%= dm.getMessageId() %>' />">
+                                       <input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>">
                                      <% } %>
 
                                     </td>
@@ -537,8 +538,8 @@
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<e:forUriComponent value='<%= dm.getMessageId() %>' />&boxType=<%=pageType%>">
-                                        <e:forHtmlContent value='<%= dm.getThesubject() %>' />
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>">
+                                        <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%
                                        String atta = dm.getAttach();
@@ -547,8 +548,8 @@
                                             &nbsp;<i class="fa-solid fa-paperclip" title="attachment"></i>
                                     <% } %>
                                     </td>
-                                    <td title="<e:forHtmlAttribute value='<%= dm.getThedate() %>' />&nbsp;&nbsp;<e:forHtmlAttribute value='<%= dm.getThetime() %>' />">
-                                    	<e:forHtmlContent value='<%= dm.getThedate() %>' />
+                                    <td title="<carlos:encode value='<%= dm.getThedate() %>' context="htmlAttribute"/>&nbsp;&nbsp;<carlos:encode value='<%= dm.getThetime() %>' context="htmlAttribute"/>">
+                                    	<carlos:encode value='<%= dm.getThedate() %>' context="html"/>
 
                                     </td>
                                     <td>

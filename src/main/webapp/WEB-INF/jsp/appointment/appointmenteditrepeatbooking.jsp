@@ -83,6 +83,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="exitConfirmMsg" key="appointment.appointmentgrouprecords.msgExitConfirmation"/>
@@ -367,7 +368,7 @@
             }
 
             function onExit() {
-                if (confirm("${e:forJavaScript(exitConfirmMsg)}")) {
+                if (confirm("${carlos:forJavaScript(exitConfirmMsg)}")) {
                     window.close();
                 }
             }
@@ -465,7 +466,7 @@
                     <div class="input-group">
                         <input type="text" name="endDate" id="endDate"
                                class="form-control form-control-sm" style="width: 9rem;"
-                               value="<e:forHtmlAttribute value='<%= UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy") %>' />"
+                               value="<carlos:encode value='<%= UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy") %>' context="htmlAttribute"/>"
                                readonly>
                         
                           <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
@@ -487,7 +488,7 @@
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>
                         </button>
                         <button type="button" class="btn btn-danger btn-sm"
-                                onclick="if (confirm('${e:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
+                                onclick="if (confirm('${carlos:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>
                         </button>
                         <% } else { %>

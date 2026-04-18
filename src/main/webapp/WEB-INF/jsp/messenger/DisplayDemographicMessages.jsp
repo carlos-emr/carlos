@@ -77,6 +77,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Build role string for security check
     String userrole = (String) session.getAttribute("userrole");
@@ -194,7 +195,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><h2>Messages related to <e:forHtmlContent value='<%= demographic_name %>' />
+                            <div class="DivContentTitle"><h2>Messages related to <carlos:encode value='<%= demographic_name %>' context="html"/>
                             </h2></div>
                         </td>
                         <td></td>
@@ -297,7 +298,7 @@
                                     %>
                                     <tr>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'
-                                            width="75"><input type="checkbox" name="messageNo" value="<e:forHtmlAttribute value='<%= dm.getMessageId() %>' />"/> <%
+                                            width="75"><input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>"/> <%
                                             String atta = dm.getAttach();
                                             if (atta.equals("1")) {
                                         %><img src="img/clip4.jpg">
@@ -306,13 +307,13 @@
                                             %> &nbsp;
                                         </td>
 
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><e:forHtmlContent value='<%= dm.getSentby() %>' />
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><carlos:encode value='<%= dm.getSentby() %>' context="html"/>
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><a
-                                                href="<%=request.getContextPath()%>/messenger/ViewMessage?from=encounter&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&msgCount=<e:forUriComponent value='<%= msgCount %>' />&orderBy=<e:forUriComponent value='<%= orderby %>' />&messageID=<e:forUriComponent value='<%= dm.getMessageId() %>' />&messagePosition=<e:forUriComponent value='<%= dm.getMessagePosition() %>' />">
-                                            <e:forHtmlContent value='<%= dm.getThesubject() %>' />
+                                                href="<%=request.getContextPath()%>/messenger/ViewMessage?from=encounter&demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&msgCount=<carlos:encode value='<%= msgCount %>' context="uriComponent"/>&orderBy=<carlos:encode value='<%= orderby %>' context="uriComponent"/>&messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&messagePosition=<carlos:encode value='<%= dm.getMessagePosition() %>' context="uriComponent"/>">
+                                            <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                         </a></td>
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><e:forHtmlContent value='<%= dm.getThedate() %>' />
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><carlos:encode value='<%= dm.getThedate() %>' context="html"/>
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
                                             <oscar:nameage demographicNo="<%= dm.getDemographic_no() %>"></oscar:nameage>

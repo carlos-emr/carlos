@@ -57,6 +57,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -260,7 +261,7 @@
             }
 
             function onExit() {
-                if (confirm('${e:forJavaScript(msgExitConfirmation)}')) {
+                if (confirm('${carlos:forJavaScript(msgExitConfirmation)}')) {
                     window.close();
                 }
             }
@@ -273,7 +274,7 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm('${e:forJavaScript(msgDeleteConfirmation)}'));
+                    return (confirm('${carlos:forJavaScript(msgDeleteConfirmation)}'));
                 }
             }
         </script>
@@ -311,23 +312,23 @@
                         <fmt:message key="year.plural" var="labelYearPlural"/>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked
-                                   data-label="${e:forHtmlAttribute(labelDay)}" data-label-plural="${e:forHtmlAttribute(labelDayPlural)}" onclick='onCheck(this)'>
-                            <label class="form-check-label" for="dateUnit_day">${e:forHtml(labelDay)}</label>
+                                   data-label="${carlos:forHtmlAttribute(labelDay)}" data-label-plural="${carlos:forHtmlAttribute(labelDayPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_day">${carlos:forHtml(labelDay)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week"
-                                   data-label="${e:forHtmlAttribute(labelWeek)}" data-label-plural="${e:forHtmlAttribute(labelWeekPlural)}" onclick='onCheck(this)'>
-                            <label class="form-check-label" for="dateUnit_week">${e:forHtml(labelWeek)}</label>
+                                   data-label="${carlos:forHtmlAttribute(labelWeek)}" data-label-plural="${carlos:forHtmlAttribute(labelWeekPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_week">${carlos:forHtml(labelWeek)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month"
-                                   data-label="${e:forHtmlAttribute(labelMonth)}" data-label-plural="${e:forHtmlAttribute(labelMonthPlural)}" onclick='onCheck(this)'>
-                            <label class="form-check-label" for="dateUnit_month">${e:forHtml(labelMonth)}</label>
+                                   data-label="${carlos:forHtmlAttribute(labelMonth)}" data-label-plural="${carlos:forHtmlAttribute(labelMonthPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_month">${carlos:forHtml(labelMonth)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year"
-                                   data-label="${e:forHtmlAttribute(labelYear)}" data-label-plural="${e:forHtmlAttribute(labelYearPlural)}" onclick='onCheck(this)'>
-                            <label class="form-check-label" for="dateUnit_year">${e:forHtml(labelYear)}</label>
+                                   data-label="${carlos:forHtmlAttribute(labelYear)}" data-label-plural="${carlos:forHtmlAttribute(labelYearPlural)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_year">${carlos:forHtml(labelYear)}</label>
                         </div>
                     </div>
                 </div>
@@ -344,7 +345,7 @@
                                 }
                             %>
                         </select>
-                        <span id="everyUnitLabel" class="text-muted">${e:forHtml(labelDayPlural)}</span>
+                        <span id="everyUnitLabel" class="text-muted">${carlos:forHtml(labelDayPlural)}</span>
                     </div>
                 </div>
 

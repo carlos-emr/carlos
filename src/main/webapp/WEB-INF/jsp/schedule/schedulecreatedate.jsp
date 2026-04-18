@@ -62,6 +62,7 @@
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
@@ -296,7 +297,7 @@
 
                 </td>
                 <td><br>
-                    <b><e:forHtmlContent value='<%= provider_name %>' />
+                    <b><carlos:encode value='<%= provider_name %>' context="html"/>
                     </b> &nbsp; &nbsp; <font size="-1"><fmt:message key="schedule.schedulecreatedate.msgEffective"/>&nbsp;<b>(<%=scheduleRscheduleBean.sdate + " - " + scheduleRscheduleBean.edate%>
                         )</b></font>
                     <center>
@@ -318,13 +319,13 @@
                             %>
                             <tr>
                                 <td BGCOLOR="#CCFFCC" width="50%" align="center"><a
-                                        href="${pageContext.request.contextPath}/schedule/CreateDate?provider_no=<e:forUriComponent value='<%= provider_no %>' />&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate?provider_no=<carlos:encode value='<%= provider_no %>' context="uriComponent"/>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=-1&bFirstDisp=0">
                                     &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                                      BORDER="0"
                                                      ALT='<fmt:message key="schedule.schedulecreatedate.btnLastMonthTip"/>'
                                                      vspace="2"> <fmt:message key="schedule.schedulecreatedate.btnLastMonth"/>&nbsp;&nbsp; </a> <b><span
                                         CLASS=title><%=year%>-<%=month%></span></b> <a
-                                        href="${pageContext.request.contextPath}/schedule/CreateDate?provider_no=<e:forUriComponent value='<%= provider_no %>' />&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
+                                        href="${pageContext.request.contextPath}/schedule/CreateDate?provider_no=<carlos:encode value='<%= provider_no %>' context="uriComponent"/>&provider_name=<%=URLEncoder.encode(provider_name, StandardCharsets.UTF_8)%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&delta=1&bFirstDisp=0">
                                     &nbsp;&nbsp;<fmt:message key="schedule.schedulecreatedate.btnNextMonth"/><img
                                         src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                                         ALT='<fmt:message key="schedule.schedulecreatedate.btnNextMonthTip"/>'
@@ -384,10 +385,10 @@
                                             }
 
                             %>
-                            <c:set var="__enc_1"><e:forUriComponent value='<%= provider_no %>' /></c:set>
+                            <c:set var="__enc_1"><carlos:encode value='<%= provider_no %>' context="uriComponent"/></c:set>
                             <td bgcolor='<%=bgcolor                                                                     
 .toString()%>'><a href="#"
-                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup?provider_no=<e:forJavaScriptAttribute value='${__enc_1}' />&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
+                                                                     onclick="popupPage(260,720,'${pageContext.request.contextPath}/schedule/DatePopup?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&year=<%=year%>&month=<%=month%>&day=<%=dateGrid[i][j]%>&bFirstDisp=1')">
                                 <font color="red"><%= dateGrid[i][j] %>
                                 </font> <font size="-3"
                                               color="blue"><%=strHolidayName.toString()%>
@@ -410,7 +411,7 @@
                             <tr>
                                 <td bgcolor="#CCFFCC">
                                     <div align="right"><!--input type="hidden" name="available" value="0"-->
-                                        <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />">
+                                        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= provider_no %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="Submit" value=" Next "> <input
                                                 type="submit"
                                                 value='<fmt:message key="schedule.schedulecreatedate.btnNext"/>'>

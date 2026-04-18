@@ -95,6 +95,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -591,7 +592,7 @@
             <% if(existingPrevention != null && snomedId != null && existingPrevention.get("brandSnomedId") != null) { %>
             document.addEventListener('DOMContentLoaded', function () {
                 startup = true;
-                document.getElementById('cvcName').value = '<e:forJavaScriptBlock value='<%= (String)existingPrevention.get("brandSnomedId") %>' />';
+                document.getElementById('cvcName').value = '<carlos:encode value='<%= (String)existingPrevention.get("brandSnomedId") %>' context="javaScriptBlock"/>';
                 changeCVCName();
             });
             <% } %>
@@ -622,7 +623,7 @@
                 <table class="TopStatusBar" style="width: 100%">
                     <tr>
                         <td style="background-color:silver;">
-                            <e:forHtmlContent value='<%= nameage %>' />
+                            <carlos:encode value='<%= nameage %>' context="html"/>
                         </td>
                         <td style="background-color:silver;">&nbsp;
 
@@ -654,7 +655,7 @@
                 <ul class="alert alert-danger"><%
                     for (String error : errorList) {
                 %>
-                    <li><e:forHtmlContent value='<%= error %>' />
+                    <li><carlos:encode value='<%= error %>' context="html"/>
                     </li>
                     <%
                         }
@@ -723,7 +724,7 @@
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= h.get("providerNo") %>' />" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= h.get("lastName") + " " + h.get("firstName") %>' />
+                                    <option value="<carlos:encode value='<%= h.get("providerNo") %>' context="htmlAttribute"/>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><carlos:encode value='<%= h.get("lastName") + " " + h.get("firstName") %>' context="html"/>
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
@@ -770,7 +771,7 @@
                                             }
                                         }
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= tn.getSnomedConceptId() %>' />" <%=selected%>><e:forHtmlContent value='<%= tn.getDisplayName() %>' />
+                                <option value="<carlos:encode value='<%= tn.getSnomedConceptId() %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= tn.getDisplayName() %>' context="html"/>
                                 </option>
                                 <%
                                     }
@@ -785,7 +786,7 @@
                                 <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
                                 <div class="col-sm-8"><input
                                     type="text" class="form-control form-control-sm" id="name" name="name"
-                                    value="<e:forHtmlAttribute value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' />"/></div>
+                                    value="<carlos:encode value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' context="htmlAttribute"/>"/></div>
                             </div></span>
                             <%
 
@@ -794,7 +795,7 @@
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
-                                                                      value="<e:forHtmlAttribute value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' />"/></div>
+                                                                      value="<carlos:encode value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <%
                             }
@@ -804,7 +805,7 @@
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="name" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.name"/></label></div>
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" id="name" name="name"
-                                                                  value="<e:forHtmlAttribute value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' />"/></div>
+                                                                  value="<carlos:encode value='<%= !pBrand.isEmpty() ? pBrand : str((extraData.get("name")),"") %>' context="htmlAttribute"/>"/></div>
                             </div>
 
                             <% } %>
@@ -924,7 +925,7 @@
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="din" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.din"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<e:forHtmlAttribute value='<%= str((extraData.get("din")), pDIN) %>' />"/></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="din" id="din" value="<carlos:encode value='<%= str((extraData.get("din")), pDIN) %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <%
                                 String dose = str((extraData.get("dose")), "");
@@ -949,7 +950,7 @@
 
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="dose" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.dose"/></label></div>
-                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<e:forHtmlAttribute value='<%= d1 %>' />"/></div>
+                                <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="dose" id="dose" value="<carlos:encode value='<%= d1 %>' context="htmlAttribute"/>"/></div>
                             </div>
                             <div class="row g-2 align-items-center mb-1">
                                 <div class="col-sm-4"><label for="doseUnit" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.doseunit"/></label></div>
@@ -977,7 +978,7 @@
                                 <%
                                     for (String lotnr : lotNrList) {
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= lotnr %>' />" <%= (lotnr.equals(lot) ? " selected" : "") %>><e:forHtmlContent value='<%= lotnr %>' />
+                                <option value="<carlos:encode value='<%= lotnr %>' context="htmlAttribute"/>" <%= (lotnr.equals(lot) ? " selected" : "") %>><carlos:encode value='<%= lotnr %>' context="html"/>
                                 </option>
                                 <%}%>
                                 <option value="-1"><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
@@ -1008,7 +1009,7 @@
                                 <div class="col-sm-4"><label for="manufacture" class="col-form-label col-form-label-sm"><fmt:message key="oscarprevention.addpreventiondata.manufacture"/></label></div>
                                 <div class="col-sm-8"><input type="text" class="form-control form-control-sm" name="manufacture"
                                                                                  id="manufacture"
-                                                                                 value="<e:forHtmlAttribute value='<%= str((extraData.get("manufacture")), pMaker) %>' />"/></div>
+                                                                                 value="<carlos:encode value='<%= str((extraData.get("manufacture")), pMaker) %>' context="htmlAttribute"/>"/></div>
                             </div>
                         </fieldset>
                     </div><!-- end col-md-7 -->
@@ -1065,7 +1066,7 @@
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= h.get("providerNo") %>' />" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= h.get("lastName") + " " + h.get("firstName") %>' />
+                                    <option value="<carlos:encode value='<%= h.get("providerNo") %>' context="htmlAttribute"/>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><carlos:encode value='<%= h.get("lastName") + " " + h.get("firstName") %>' context="html"/>
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
@@ -1318,7 +1319,7 @@
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= h.get("providerNo") %>' />" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= h.get("lastName") + " " + h.get("firstName") %>' />
+                                    <option value="<carlos:encode value='<%= h.get("providerNo") %>' context="htmlAttribute"/>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><carlos:encode value='<%= h.get("lastName") + " " + h.get("firstName") %>' context="html"/>
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>
@@ -1401,7 +1402,7 @@
                                         for (int i = 0; i < providers.size(); i++) {
                                             Map<String, String> h = providers.get(i);
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= h.get("providerNo") %>' />" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= h.get("lastName") + " " + h.get("firstName") %>' />
+                                    <option value="<carlos:encode value='<%= h.get("providerNo") %>' context="htmlAttribute"/>" <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><carlos:encode value='<%= h.get("lastName") + " " + h.get("firstName") %>' context="html"/>
                                     </option>
                                     <%}%>
                                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %> ><fmt:message key="oscarprevention.addpreventiondata.other"/></option>

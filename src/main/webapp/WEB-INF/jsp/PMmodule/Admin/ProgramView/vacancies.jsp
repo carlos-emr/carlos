@@ -30,6 +30,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <script>
     /**
@@ -87,11 +88,11 @@
         <tbody>
             <c:forEach var="vacancy" items="${vacancies}">
                 <tr>
-                    <td>${e:forHtml(vacancy.name)}</td>
-                    <td>${e:forHtml(vacancy.status)}</td>
-                    <td>${e:forHtml(vacancy.dateCreated)}</td>
-                    <td>${e:forHtml(vacancy.dateClosed)}</td>
-                    <td>${e:forHtml(vacancy.reasonClosed)}</td>
+                    <td>${carlos:forHtml(vacancy.name)}</td>
+                    <td>${carlos:forHtml(vacancy.status)}</td>
+                    <td>${carlos:forHtml(vacancy.dateCreated)}</td>
+                    <td>${carlos:forHtml(vacancy.dateClosed)}</td>
+                    <td>${carlos:forHtml(vacancy.reasonClosed)}</td>
                 </tr>
             </c:forEach>
         </tbody>

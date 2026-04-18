@@ -41,6 +41,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -287,7 +288,7 @@
             <select name="serviceIdSent" id="serviceIdSent" class="serviceIdSent">
                 <c:forEach var="r" items="${serviceIds}">
                     <option value="${r}" ${r == serviceIdSent ? 'selected="selected"' : ''}>
-                        ${e:forHtml(r)}
+                        ${carlos:forHtml(r)}
                     </option>
                 </c:forEach>
             </select>
@@ -297,9 +298,9 @@
                 <option value="" ${resourceType == '' ? 'selected="selected"' : ''}> - All - </option>
                 <c:forEach var="r" items="${mcedtTypeList.data}">
                     <option value="${r.resourceType}" ${r.resourceType == resourceType ? 'selected="selected"' : ''}>
-                        ${e:forHtml(r.resourceType)} -
-                        ${e:forHtml(r.access)} -
-                        ${e:forHtml(r.descriptionEn)}
+                        ${carlos:forHtml(r.resourceType)} -
+                        ${carlos:forHtml(r.access)} -
+                        ${carlos:forHtml(r.descriptionEn)}
                     </option>
                 </c:forEach>
             </select>
@@ -316,7 +317,7 @@
             <select name="pageNo" id="pageNo">
                 <c:forEach var="i" begin="1" end="${resultSize}">
                     <option value="${i}" ${i == pageNo ? 'selected="selected"' : ''}>
-                        ${e:forHtml(i)}
+                        ${carlos:forHtml(i)}
                     </option>
                 </c:forEach>
             </select>
@@ -353,13 +354,13 @@
                                     <input type="checkbox" value="${r.resourceID}" name="resourceId"/>
                                 </c:if>
                             </td>
-                            <td>${e:forHtml(r.resourceID)}</td>
+                            <td>${carlos:forHtml(r.resourceID)}</td>
                             <td>
                                 <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
                             </td>
-                            <td>${e:forHtml(r.resourceType)}</td>
-                            <td>${e:forHtml(r.description)}</td>
-                            <td>${e:forHtml(r.status)}</td>
+                            <td>${carlos:forHtml(r.resourceType)}</td>
+                            <td>${carlos:forHtml(r.description)}</td>
+                            <td>${carlos:forHtml(r.status)}</td>
                             <td>
                                 <c:if test="${r.status == 'UPLOADED'}">
                                     <button class="noBorder blackBox flatLink font12 small"
@@ -416,7 +417,7 @@
             </tr>
             <tr>
                 <td>ID</td>
-                <td>${e:forHtml(d.resourceID)}</td>
+                <td>${carlos:forHtml(d.resourceID)}</td>
             </tr>
             <tr>
                 <td>Created</td>
@@ -425,11 +426,11 @@
             </tr>
             <tr>
                 <td>Description</td>
-                <td>${e:forHtml(d.description)}</td>
+                <td>${carlos:forHtml(d.description)}</td>
             </tr>
             <tr>
                 <td>Resource type</td>
-                <td>${e:forHtml(d.resourceType)}</td>
+                <td>${carlos:forHtml(d.resourceType)}</td>
             </tr>
             <tr>
                 <td>Modified</td>
@@ -438,11 +439,11 @@
             </tr>
             <tr>
                 <td>Result</td>
-                <td>${e:forHtml(d.result.code)} - ${e:forHtml(d.result.msg)}</td>
+                <td>${carlos:forHtml(d.result.code)} - ${carlos:forHtml(d.result.msg)}</td>
             </tr>
             <tr>
                 <td>Status</td>
-                <td>${e:forHtml(d.status)}</td>
+                <td>${carlos:forHtml(d.status)}</td>
             </tr>
             <tr>
                 <td></td>

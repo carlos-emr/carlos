@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -117,7 +118,7 @@
         </tr>
         <% if (saveError != null) { %>
         <tr>
-            <td colspan="2" style="color: red; padding: 4px;"><e:forHtmlContent value='<%= saveError %>' /></td>
+            <td colspan="2" style="color: red; padding: 4px;"><carlos:encode value='<%= saveError %>' context="html"/></td>
         </tr>
         <% } %>
         <tr>

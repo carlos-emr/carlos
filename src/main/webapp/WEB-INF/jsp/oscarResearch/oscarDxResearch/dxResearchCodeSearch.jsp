@@ -50,6 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <!DOCTYPE html>
@@ -131,11 +132,11 @@
                     <c:forEach var="code" items="${allMatchedCodes.dxCodeSearchBeanVector}" varStatus="loopStatus">
                         <tr>
                             <td>
-                                <input type="checkbox" name="searchCodes" value="${e:forHtmlAttribute(code.dxSearchCode)}"
+                                <input type="checkbox" name="searchCodes" value="${carlos:forHtmlAttribute(code.dxSearchCode)}"
                                     ${code.exactMatch == 'checked' ? 'checked' : ''} />
-                                ${e:forHtml(code.dxSearchCode)}
+                                ${carlos:forHtml(code.dxSearchCode)}
                             </td>
-                            <td>${e:forHtml(code.description)}</td>
+                            <td>${carlos:forHtml(code.description)}</td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty allMatchedCodes.dxCodeSearchBeanVector}">

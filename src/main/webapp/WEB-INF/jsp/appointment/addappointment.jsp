@@ -137,6 +137,7 @@ Ontario, Canada
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -496,27 +497,27 @@ Ontario, Canada
                     warnMsgId.style.display = "none";
                 }
 
-                document.forms[0].duration.value = "<e:forJavaScriptBlock value='<%= apptObj.getDuration() %>' />";
-                //document.forms[0].chart_no.value = "<e:forJavaScriptBlock value='<%= apptObj.getChart_no() %>' />";
-                document.forms[0].keyword.value = "<e:forJavaScriptBlock value='<%= apptObj.getName() %>' />";
-                document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= apptObj.getDemographic_no() %>' />";
-                document.forms[0].reason.value = "<e:forJavaScriptBlock value='<%= apptObj.getReason() %>' />";
-                document.forms[0].reasonCode.value = "<e:forJavaScriptBlock value='<%= apptObj.getReasonCode() %>' />";
-                document.forms[0].notes.value = "<e:forJavaScriptBlock value='<%= apptObj.getNotes() %>' />";
-                document.forms[0].resources.value = "<e:forJavaScriptBlock value='<%= apptObj.getResources() %>' />";
-                document.forms[0].type.value = "<e:forJavaScriptBlock value='<%= apptObj.getType() %>' />";
-                document.forms[0].location.value = "<e:forJavaScriptBlock value='<%= apptObj.getLocation() %>' />";
-                if ('<e:forJavaScriptBlock value='<%= apptObj.getUrgency() %>' />' == 'critical') {
+                document.forms[0].duration.value = "<carlos:encode value='<%= apptObj.getDuration() %>' context="javaScriptBlock"/>";
+                //document.forms[0].chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
+                document.forms[0].keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
+                document.forms[0].demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
+                document.forms[0].reasonCode.value = "<carlos:encode value='<%= apptObj.getReasonCode() %>' context="javaScriptBlock"/>";
+                document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
+                document.forms[0].resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
+                document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
+                document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
                 }
 
                 <%if("true".equals(pros.getProperty("appointment.paste.status","false"))) {%>
-                var statusCode = "<e:forJavaScriptBlock value='<%= apptObj.getStatus() %>' />";
+                var statusCode = "<carlos:encode value='<%= apptObj.getStatus() %>' context="javaScriptBlock"/>";
                 statusCode = statusCode.substring(0, 1); //the selector only supports setting the first status
                 document.forms[0].status.value = statusCode;
                 <%}%>
                 <%if("true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
-                document.forms[0].location.value = "<e:forJavaScriptBlock value='<%= apptObj.getLocation() %>' />";
+                document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 <%}%>
 
 
@@ -811,7 +812,7 @@ Ontario, Canada
                         data: {
                             method: "update",
                             page: "addappointment",
-                            pageId: "<e:forJavaScriptBlock value='<%= curProvider_no %>' />|" + apptDate + "|" + startTime + "|" + endTime,
+                            pageId: "<carlos:encode value='<%= curProvider_no %>' context="javaScriptBlock"/>|" + apptDate + "|" + startTime + "|" + endTime,
                             lock: true,
                             timeout: <%=timeoutSeconds%>,
                             cleanupExisting: true
@@ -883,7 +884,7 @@ Ontario, Canada
                     data: {
                         method: "cancel",
                         page: "addappointment",
-                        pageId: "<e:forJavaScriptBlock value='<%= curProvider_no %>' />|" + apptDate + "|" + startTime + "|" + endTime
+                        pageId: "<carlos:encode value='<%= curProvider_no %>' context="javaScriptBlock"/>|" + apptDate + "|" + startTime + "|" + endTime
                     },
                     dataType: 'json',
                     async: false,
@@ -1091,10 +1092,10 @@ Ontario, Canada
             boolean showStatusBanner = !patientStatus.equals("") || !rosterStatus.equals("");
         %>
         <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
-             title='<e:forHtmlAttribute value='<%= statusExp %>' />'
+             title='<carlos:encode value='<%= statusExp %>' context="htmlAttribute"/>'
              data-roster-label="<fmt:message key="Appointment.msgRosterStatus"/>"
              style="<%= showStatusBanner ? "" : "display:none" %>" role="alert">
-            <span id="patientStatusText"><e:forHtmlContent value='<%= patientStatus %>' />&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<e:forHtmlContent value='<%= rosterStatus %>' /></span>
+            <span id="patientStatusText"><carlos:encode value='<%= patientStatus %>' context="html"/>&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<carlos:encode value='<%= rosterStatus %>' context="html"/></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
         <%-- Patient alert banner: always rendered so JavaScript can show/hide it when patient is selected via autocomplete --%>
@@ -1123,7 +1124,7 @@ Ontario, Canada
         <table width="100%" class="alert alert-info">
             <% for (String recommendation : billingRecommendations) { %>
             <tr>
-                <td><e:forHtmlContent value='<%= recommendation %>' />
+                <td><carlos:encode value='<%= recommendation %>' context="html"/>
                 </td>
             </tr>
             <% } %>
@@ -1134,9 +1135,9 @@ Ontario, Canada
               action="<%=request.getContextPath()%>/appointment/appointmentcontrol"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
-            <input type="hidden" name="year" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' />">
-            <input type="hidden" name="month" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' />">
-            <input type="hidden" name="day" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' />">
+            <input type="hidden" name="year" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' context="htmlAttribute"/>">
+            <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
+            <input type="hidden" name="day" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="fromAppt" value="1">
 
 
@@ -1172,7 +1173,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
-                                       value="<e:forHtmlAttribute value='<%= duration %>' />" onChange="checkPageLock()" onblur="calculateEndTime();">
+                                       value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
                                        value='<e:forHtmlAttribute value='<%= request.getParameter("end_time") == null ? "" : request.getParameter("end_time") %>' />'
                                        onChange="checkTimeTypeIn(this)">
@@ -1182,7 +1183,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="keyword">
                                 Patient:
                                 <fmt:message key="Appointment.doNotBook" var="doNotBookMsg"/>
-                                <input type="button" value="(${e:forHtmlAttribute(doNotBookMsg)})"
+                                <input type="button" value="(${carlos:forHtmlAttribute(doNotBookMsg)})"
                                    class="btn btn-link btn-sm p-0" onclick="onNotBook();">
                             </label>
                             <div class="col-sm-8">
@@ -1221,11 +1222,11 @@ Ontario, Canada
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
                                     <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
-                                        value="<e:forHtmlAttribute value='<%= name %>' />"
-                                        placeholder="${e:forHtmlAttribute(formNamePlaceholderMsg)}">
+                                        value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
+                                        placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
-                                           title="${e:forHtmlAttribute(btnSearchMsg)}"><i class="fa-solid fa-magnifying-glass"></i></button>
+                                           title="${carlos:forHtmlAttribute(btnSearchMsg)}"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -1238,7 +1239,7 @@ Ontario, Canada
                                             <c:forEach items="${ reasonCodes.items }" var="reason">
                                                 <c:if test="${ reason.active }">
                                                     <option value="${ reason.id }" id="${ reason.value }">
-                                                        ${e:forHtml(reason.label)}
+                                                        ${carlos:forHtml(reason.label)}
                                                     </option>
                                                 </c:if>
                                             </c:forEach>
@@ -1251,7 +1252,7 @@ Ontario, Canada
                                 <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
-                                          placeholder="${e:forHtmlAttribute(formReasonMsg)}"
+                                          placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
                                           maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : Encode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
                             </div>
                         </div>
@@ -1281,9 +1282,9 @@ Ontario, Canada
                                     <% for (Site s : sites) {
                                         String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? Encode.forHtmlAttribute(s.getBgColor()) : "";
                                     %>
-                                    <option value="<e:forHtmlAttribute value='<%= s.getName() %>' />"
-                                            class="<e:forHtmlAttribute value='<%= s.getShortName() %>' />"
-                                            style="background-color: <%=safeBgColorAttr%>" <%=s.getName().equals(loc) ? "selected" : "" %>><e:forHtmlContent value='<%= s.getName() %>' />
+                                    <option value="<carlos:encode value='<%= s.getName() %>' context="htmlAttribute"/>"
+                                            class="<carlos:encode value='<%= s.getShortName() %>' context="htmlAttribute"/>"
+                                            style="background-color: <%=safeBgColorAttr%>" <%=s.getName().equals(loc) ? "selected" : "" %>><carlos:encode value='<%= s.getName() %>' context="html"/>
                                     </option>
                                     <% } %>
                                 </select>
@@ -1299,7 +1300,7 @@ Ontario, Canada
                                             for (Program program : programs) {
                                                 String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
                                     %>
-                                    <option value="<%=program.getId()%>" <%=program.getId().toString().equals(sessionLocation) ? "selected='selected'" : ""%>><e:forHtmlContent value='<%= description %>' />
+                                    <option value="<%=program.getId()%>" <%=program.getId().toString().equals(sessionLocation) ? "selected='selected'" : ""%>><carlos:encode value='<%= description %>' context="html"/>
                                     </option>
                                     <% }
                                     }
@@ -1334,12 +1335,12 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
                                 <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
-                                <select class="form-select form-select-sm" name="status" style="background-color:<e:forHtmlAttribute value='<%= (allStatus.get(0)).getColor() %>' />" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <select class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
-                                    <option class="<e:forHtmlAttribute value='<%= (allStatus.get(i)).getStatus() %>' />"
-                                            style="background-color:<e:forHtmlAttribute value='<%= (allStatus.get(i)).getColor() %>' />"
-                                            value="<e:forHtmlAttribute value='<%= (allStatus.get(i)).getStatus() %>' />"
-                                            <%=(allStatus.get(i)).getStatus().equals(request.getParameter("status")) ? "SELECTED" : ""%>><e:forHtmlContent value='<%= (allStatus.get(i)).getDescription() %>' />
+                                    <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
+                                            style="background-color:<carlos:encode value='<%= (allStatus.get(i)).getColor() %>' context="htmlAttribute"/>"
+                                            value="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
+                                            <%=(allStatus.get(i)).getStatus().equals(request.getParameter("status")) ? "SELECTED" : ""%>><carlos:encode value='<%= (allStatus.get(i)).getDescription() %>' context="html"/>
                                     </option>
                                     <% } %>
                                 </select>
@@ -1360,11 +1361,11 @@ Ontario, Canada
                                     for (int j = 0; j < types.size(); j++) {
                                 %>
                                     <option data-dur="<%= types.get(j).getDuration() %>"
-                                            data-reason="<e:forHtmlAttribute value='<%= types.get(j).getReason() %>' />"
-                                            data-loc="<e:forHtmlAttribute value='<%= types.get(j).getLocation() %>' />"
-                                            data-notes="<e:forHtmlAttribute value='<%= types.get(j).getNotes() %>' />"
-                                            data-resources="<e:forHtmlAttribute value='<%= types.get(j).getResources() %>' />">
-                                        <e:forHtmlContent value='<%= types.get(j).getName() %>' />
+                                            data-reason="<carlos:encode value='<%= types.get(j).getReason() %>' context="htmlAttribute"/>"
+                                            data-loc="<carlos:encode value='<%= types.get(j).getLocation() %>' context="htmlAttribute"/>"
+                                            data-notes="<carlos:encode value='<%= types.get(j).getNotes() %>' context="htmlAttribute"/>"
+                                            data-resources="<carlos:encode value='<%= types.get(j).getResources() %>' context="htmlAttribute"/>">
+                                        <carlos:encode value='<%= types.get(j).getName() %>' context="html"/>
                                     </option>
                                 <% } %>
                                 </select>
@@ -1382,7 +1383,7 @@ Ontario, Canada
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
                                 <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
-                                          placeholder="${e:forHtmlAttribute(formNotesMsg)}"
+                                          placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
                                           maxlength="255"><%=bFirstDisp ? "" : Encode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
@@ -1408,7 +1409,7 @@ Ontario, Canada
                                 %>
                                 <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
                                 <span class="form-control-plaintext form-control-sm"><%=create.format(pattern)%></span>
-                                <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= curProvider_no %>' />">
+                                <input type="hidden" name="provider_no" value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>">
                                 <input type="hidden" name="dboperation" value="search_titlename">
                                 <input type="hidden" name="creator"
                                        value='<%=Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)%>'>
@@ -1449,7 +1450,7 @@ Ontario, Canada
                         searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                     }
                 %>
-                <input type="hidden" name="search_mode" id="search_mode" value="<e:forHtmlAttribute value='<%= searchMode %>' />">
+                <input type="hidden" name="search_mode" id="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
                 <input type="hidden" name="originalpage"
                        value="<%=request.getContextPath() %>/appointment/addappointment">
                 <input type="hidden" name="limit1" value="0">
@@ -1507,12 +1508,12 @@ Ontario, Canada
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <fmt:message key="appointment.addappointment.btnRepeat" var="btnRepeatMsg"/>
                     <input type="button" id="apptRepeatButton" class="btn btn-primary"
-                           value="${e:forHtmlAttribute(btnRepeatMsg)}"
+                           value="${carlos:forHtmlAttribute(btnRepeatMsg)}"
                            onclick="onButRepeat()" <%=disabled%>>
                     <% } %>
                     <fmt:message key="global.btnBack" var="btnBackMsg"/>
                     <input type="button" id="backButton" class="btn btn-secondary"
-                           value="${e:forHtmlAttribute(btnBackMsg)}"
+                           value="${carlos:forHtmlAttribute(btnBackMsg)}"
                            onClick="cancelPageLock(); if (window.opener) { window.close(); } else { window.history.back(); }">
 
                 </div>
@@ -1527,16 +1528,16 @@ Ontario, Canada
                     <div class="card-header">
                         <fmt:message key="appointment.addappointment.msgDemgraphics"/>
                         <a title="Master File"
-                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= demoNo %>' />','master')"
+                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>','master')"
                            href="javascript: function myFunction() {return false; }"><fmt:message key="appointment.addappointment.btnEdit"/></a>
-                        &nbsp;<fmt:message key="appointment.addappointment.msgSex"/>: <e:forHtmlContent value='<%= sex %>' />
-                        &nbsp;<fmt:message key="appointment.addappointment.msgDOB"/>: <e:forHtmlContent value='<%= dob %>' />
+                        &nbsp;<fmt:message key="appointment.addappointment.msgSex"/>: <carlos:encode value='<%= sex %>' context="html"/>
+                        &nbsp;<fmt:message key="appointment.addappointment.msgDOB"/>: <carlos:encode value='<%= dob %>' context="html"/>
                     </div>
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgHin"/>:</strong> <e:forHtmlContent value='<%= hin.replace("null", "") %>' /></li>
-                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgAddress"/>:</strong> <e:forHtmlContent value='<%= StringUtils.trimToEmpty(address) %>' />, <e:forHtmlContent value='<%= StringUtils.trimToEmpty(city) %>' />, <e:forHtmlContent value='<%= StringUtils.trimToEmpty(province) %>' />, <e:forHtmlContent value='<%= StringUtils.trimToEmpty(postal) %>' /></li>
-                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgPhone"/>:</strong> <b><fmt:message key="appointment.addappointment.msgH"/></b>: <e:forHtmlContent value='<%= StringUtils.trimToEmpty(phone) %>' /> <b><fmt:message key="appointment.addappointment.msgW"/></b>: <e:forHtmlContent value='<%= StringUtils.trimToEmpty(phone2) %>' /></li>
-                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgEmail"/>:</strong> <e:forHtmlContent value='<%= StringUtils.trimToEmpty(email) %>' /></li>
+                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgHin"/>:</strong> <carlos:encode value='<%= hin.replace("null", "") %>' context="html"/></li>
+                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgAddress"/>:</strong> <carlos:encode value='<%= StringUtils.trimToEmpty(address) %>' context="html"/>, <carlos:encode value='<%= StringUtils.trimToEmpty(city) %>' context="html"/>, <carlos:encode value='<%= StringUtils.trimToEmpty(province) %>' context="html"/>, <carlos:encode value='<%= StringUtils.trimToEmpty(postal) %>' context="html"/></li>
+                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgPhone"/>:</strong> <b><fmt:message key="appointment.addappointment.msgH"/></b>: <carlos:encode value='<%= StringUtils.trimToEmpty(phone) %>' context="html"/> <b><fmt:message key="appointment.addappointment.msgW"/></b>: <carlos:encode value='<%= StringUtils.trimToEmpty(phone2) %>' context="html"/></li>
+                        <li class="list-group-item"><strong><fmt:message key="appointment.addappointment.msgEmail"/>:</strong> <carlos:encode value='<%= StringUtils.trimToEmpty(email) %>' context="html"/></li>
                     </ul>
                 </div>
             </div>
@@ -1568,7 +1569,7 @@ Ontario, Canada
                     <div class="card-header"><fmt:message key="appointment.addappointment.msgFormsSaved"/></div>
                     <ul class="list-group list-group-flush">
                         <% for (String[] fr : formResults) { %>
-                        <li class="list-group-item"><strong><e:forHtmlContent value='<%= fr[0] %>' />:</strong>
+                        <li class="list-group-item"><strong><carlos:encode value='<%= fr[0] %>' context="html"/>:</strong>
                             <% if ("true".equals(fr[1])) { %>
                             <fmt:message key="appointment.addappointment.msgFormCompleted"/>
                             <% } else { %>
@@ -1618,7 +1619,7 @@ Ontario, Canada
                                 <tr>
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
-                                    <td><e:forHtmlContent value='<%= p.getFormattedName() %>' /></td>
+                                    <td><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></td>
                                     <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? pageContext.getAttribute("statusNoShow") : (a.getStatus().startsWith("C") ? pageContext.getAttribute("statusCancelled") : ""))%></td>
                                 </tr>
                             <%
@@ -1636,7 +1637,7 @@ Ontario, Canada
                                 <tr>
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
-                                    <td><e:forHtmlContent value='<%= p.getFormattedName() %>' /></td>
+                                    <td><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></td>
                                     <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? pageContext.getAttribute("statusNoShow") : (a.getStatus().startsWith("C") ? pageContext.getAttribute("statusCancelled") : ""))%></td>
                                 </tr>
                             <%

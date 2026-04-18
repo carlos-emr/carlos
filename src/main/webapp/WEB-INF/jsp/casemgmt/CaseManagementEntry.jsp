@@ -42,6 +42,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -58,7 +59,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
         var flag =<%= request.getAttribute("change_flag") == null ? "null" : Encode.forJavaScript((String)request.getAttribute("change_flag")) %>;
 
@@ -195,9 +196,9 @@
                 XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
-                var demographicNo = '${e:forJavaScript(param.demographicNo)}';
+                var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
                 var noteId = '<e:forJavaScriptBlock value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' />';
-                var programId = '${e:forJavaScript(case_program_id)}';
+                var programId = '${carlos:forJavaScript(case_program_id)}';
                 XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
             }
 
@@ -233,12 +234,12 @@
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">
-            <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull((String)session.getAttribute("user")) %>' />">
+            <input type="hidden" name="providerNo" value="<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("user")) %>' context="htmlAttribute"/>">
         </c:if>
         <c:if test="${param.providerNo!=null}">
             <input type="hidden" name="providerNo" id="providerNo"/>
         </c:if>
-        <input type="hidden" name="caseNote.program_no" value="<e:forHtmlAttribute value='<%= pId %>' />"/>
+        <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
@@ -250,30 +251,30 @@
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    ${e:forHtml(requestScope.demoName)}
+                    ${carlos:forHtml(requestScope.demoName)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    ${e:forHtml(param.demoName)}
+                    ${carlos:forHtml(param.demoName)}
                 </c:if>
             </I>
             <br>
             &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Age:
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    ${e:forHtml(requestScope.demoAge)}
+                    ${carlos:forHtml(requestScope.demoAge)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    ${e:forHtml(param.demoAge)}
+                    ${carlos:forHtml(param.demoAge)}
                 </c:if>
             </I>
             <br>
             &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; DOB:
             <I>
                 <c:if test="${not empty requestScope.demoName}">
-                    ${e:forHtml(requestScope.demoDOB)}
+                    ${carlos:forHtml(requestScope.demoDOB)}
                 </c:if>
                 <c:if test="${empty requestScope.demoName}">
-                    ${e:forHtml(param.demoDOB)}
+                    ${carlos:forHtml(param.demoDOB)}
                 </c:if>
             </I></b>
         <br><br>
@@ -391,7 +392,7 @@
         <span id="spanMsg" style="color:blue">
             <c:if test="${not empty casemgmt}">
                 <c:forEach var="message" items="${casemgmt}">
-                    <i>${e:forHtml(message)}</i>
+                    <i>${carlos:forHtml(message)}</i>
                 </c:forEach>
             </c:if>
 	    </span>
@@ -434,15 +435,15 @@
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
                     <c:url value="${sessionScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
-                                              providerNo="${e:forHtmlAttribute(param.providerNo)}"
-                                              demoNo="${e:forHtmlAttribute(param.demographicNo)}" programId="<%=pId%>">
+                                              providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                              demoNo="${carlos:forHtmlAttribute(param.demographicNo)}" programId="<%=pId%>">
                         <tr>
                             <td class="fieldTitle"><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
-                                ${e:forHtml(caseNote.billing_code)}
+                                ${carlos:forHtml(caseNote.billing_code)}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<e:forJavaScriptAttribute value='<%= StringUtils.noNull((String)session.getAttribute("billing_url")) %>' />','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>

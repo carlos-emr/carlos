@@ -51,6 +51,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
@@ -308,15 +309,15 @@
                        enctype="multipart/form-data" class="form"
                        onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
-           value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />" size="20"/>
+           value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>" size="20"/>
     <input type="hidden" name="functionId"
-           value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />" size="20"/>
-    <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />" size="20"/>
-    <input type="hidden" name="mode" value="<e:forHtmlAttribute value='<%= mode %>' />"/>
+           value="<carlos:encode value='<%= formdata.getFunctionId() %>' context="htmlAttribute"/>" size="20"/>
+    <input type="hidden" name="functionid" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>" size="20"/>
+    <input type="hidden" name="mode" value="<carlos:encode value='<%= mode %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="docCreator"
-           value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />"/>
-    <input type="hidden" name="reviewerId" value="<e:forHtmlAttribute value='<%= formdata.getReviewerId() %>' />"/>
-    <input type="hidden" name="reviewDateTime" value="<e:forHtmlAttribute value='<%= formdata.getReviewDateTime() %>' />"/>
+           value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reviewerId" value="<carlos:encode value='<%= formdata.getReviewerId() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reviewDateTime" value="<carlos:encode value='<%= formdata.getReviewDateTime() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <table width="100%" height="100%" class="layouttable">
@@ -327,7 +328,7 @@
                     <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
                     <% for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = doctypes.get(i); %>
-                    <option value="<e:forHtmlAttribute value='<%= doctype %>' />" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                    <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>" <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -347,7 +348,7 @@
                             consultShown = true;
                         }
                 %>
-                <option value="<e:forHtmlAttribute value='<%= reportClass %>' />" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><e:forHtmlContent value='<%= reportClass %>' />
+                <option value="<carlos:encode value='<%= reportClass %>' context="htmlAttribute"/>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><carlos:encode value='<%= reportClass %>' context="html"/>
                 </option>
                 <% } %>
             </select>
@@ -355,7 +356,7 @@
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
-            <td><input type="text" name="docSubClass" id="docSubClass" value="<e:forHtmlAttribute value='<%= formdata.getDocSubClass() %>' />"
+            <td><input type="text" name="docSubClass" id="docSubClass" value="<carlos:encode value='<%= formdata.getDocSubClass() %>' context="htmlAttribute"/>"
                        style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </td>
@@ -364,7 +365,7 @@
             <td>Description:</td>
             <td><input <% if (linkhtmlerrors.containsKey("descmissing")) {%>
                     class="warning" <%}%> type="text" name="docDesc" size="30"
-                    onfocus="checkDefaultValue(this)" value="<e:forHtmlAttribute value='<%= formdata.getDocDesc() %>' />"></td>
+                    onfocus="checkDefaultValue(this)" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"></td>
         </tr>
         <tr>
             <td>Added By:</td>
@@ -380,8 +381,8 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(pd.get("providerNo")) %>' />" <%=selected%>><e:forHtmlContent value='<%= String.valueOf(pd.get("lastName")) %>' />
-                        , <e:forHtmlContent value='<%= String.valueOf(pd.get("firstName")) %>' />
+                    <option value="<carlos:encode value='<%= String.valueOf(pd.get("providerNo")) %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= String.valueOf(pd.get("lastName")) %>' context="html"/>
+                        , <carlos:encode value='<%= String.valueOf(pd.get("firstName")) %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
