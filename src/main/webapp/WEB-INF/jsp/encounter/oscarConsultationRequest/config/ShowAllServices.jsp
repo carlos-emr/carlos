@@ -67,6 +67,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -96,7 +97,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -125,7 +126,7 @@
                             String url = contextPath + "/encounter/ShowAllServices?serviceId="
                                 + Encode.forUriComponent(id) + "&serviceDesc=" + Encode.forUriComponent(desc);
                     %>
-                    <a href="<%= url %>" class="list-group-item list-group-item-action"><e:forHtmlContent value='<%= desc %>' /></a>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><carlos:encode value='<%= desc %>' context="html"/></a>
                     <% } %>
                 </div>
             </div>

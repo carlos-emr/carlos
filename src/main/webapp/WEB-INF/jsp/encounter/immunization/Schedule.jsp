@@ -99,6 +99,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -209,7 +210,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <e:forHtmlContent value='<%= last_name %>' />, <e:forHtmlContent value='<%= first_name %>' /> <e:forHtmlContent value='<%= sex %>' /> <e:forHtmlContent value='<%= age %>' />
+                        <carlos:encode value='<%= last_name %>' context="html"/>, <carlos:encode value='<%= first_name %>' context="html"/> <carlos:encode value='<%= sex %>' context="html"/> <carlos:encode value='<%= age %>' context="html"/>
                     </td>
                     <td>
                     </td>
@@ -226,7 +227,7 @@
         </td>
         <td class="MainTableRightColumn">
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule" method="post">
-                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demoNo %>' />">
+                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
                         <td>
@@ -280,7 +281,7 @@
                                        id="chkSet<%=i%>"/>
                                 <a href=#
                                    onclick="javascript:showSetName('tblSet<%=i%>', 'chkSet<%=i%>');" <%=fontStyle%> >
-                                    <e:forHtmlContent value='<%= set.getAttribute("name") %>' />
+                                    <carlos:encode value='<%= set.getAttribute("name") %>' context="html"/>
                                 </a>
                                 &nbsp;&nbsp;
 
@@ -290,7 +291,7 @@
                                 <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
+                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
                                 </form>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
@@ -298,7 +299,7 @@
                                 <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= demoNo %>' />"/>
+                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
                                 </form>
                                 <%}%>
 
@@ -318,7 +319,7 @@
                                     <%
                                         for (int j = 0; j < columns.getLength(); j++) {
                                             Element column = (Element) columns.item(j);%>
-                                    <td class="head"><e:forHtmlContent value='<%= column.getAttribute("name") %>' />&nbsp;</td>
+                                    <td class="head"><carlos:encode value='<%= column.getAttribute("name") %>' context="html"/>&nbsp;</td>
                                     <%
                                             colCount = j + 2;
                                         }
@@ -343,7 +344,7 @@
                                             <%   }else{%>
 
                                 <tr>
-                                    <td class="head"><e:forHtmlContent value='<%= sName %>' />
+                                    <td class="head"><carlos:encode value='<%= sName %>' context="html"/>
                                     </td>
                                     <% }
 

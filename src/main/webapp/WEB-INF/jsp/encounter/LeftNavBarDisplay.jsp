@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -78,15 +79,15 @@
 %>
 <script type="text/javascript">
 <% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
-itemColours['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = '<e:forJavaScriptBlock value='<%= acItem.bgColour() %>' />';
-autoCompList.push('<e:forJavaScriptBlock value='<%= acItem.key() %>' />');
-autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJavaScriptBlock value='<%= acItem.jsExpression() %>' />";
+itemColours['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= acItem.bgColour() %>' context="javaScriptBlock"/>';
+autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = "<carlos:encode value='<%= acItem.jsExpression() %>' context="javaScriptBlock"/>";
 <% } %>
 </script>
 <%
     }
 %>
-<input type=hidden name="reloadUrl" value="<e:forHtmlAttribute value='<%= dao.getReloadUrl() %>' />"/>
+<input type=hidden name="reloadUrl" value="<carlos:encode value='<%= dao.getReloadUrl() %>' context="htmlAttribute"/>"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
     String rh = dao.getRightHeadingID();
@@ -100,9 +101,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<e:forJavaScriptAttribute value='<%= rightCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= rightCfg.url() %>' />'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
 <%      } else { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="<e:forHtmlAttribute value='<%= dao.getRightURL() %>' />">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<carlos:encode value='<%= dao.getRightURL() %>' context="htmlAttribute"/>">&#43;</a></h3>
 <%      } %>
     </div>
     <%
@@ -119,7 +120,7 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
     %>
     <div id='menu<%=rh%>' class='menu' style='width: <%=menuWidth%>px;'
          onclick='event.cancelBubble = true;'>
-        <h3 style='text-align: center'><e:forHtmlContent value='<%= dao.getMenuHeader() %>' />
+        <h3 style='text-align: center'><carlos:encode value='<%= dao.getMenuHeader() %>' context="html"/>
         </h3>
         <%
             String menuCallback = dao.getMenuCallback();
@@ -143,9 +144,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
                }
                popupOnclick += " return false;";
 %>
-           onclick="<%=popupOnclick%>"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
+           onclick="<%=popupOnclick%>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } else { %>
-           onclick="<e:forHtmlContent value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' />"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
+           onclick="<carlos:encode value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' context="html"/>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } %>
         </a>
         <%
@@ -178,10 +179,10 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<e:forJavaScriptAttribute value='<%= leftCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= leftCfg.url() %>' />'); return false;"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } else { %>
-        <h3 onclick="<e:forJavaScriptAttribute value='<%= dao.getLeftURL() + "; return false;" %>' />"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
+        <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } %>
     </div>

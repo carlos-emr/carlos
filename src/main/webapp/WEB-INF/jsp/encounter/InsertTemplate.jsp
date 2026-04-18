@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
@@ -63,7 +64,7 @@
             %>
             <script>
             <% if (tmplValue != null && !tmplValue.isEmpty()) { %>
-                var text = "<e:forJavaScriptBlock value='<%= tmplValue %>' />";
+                var text = "<carlos:encode value='<%= tmplValue %>' context="javaScriptBlock"/>";
                 write2Parent(text);
             <% } else { %>
                 window.close();

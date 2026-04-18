@@ -31,6 +31,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -140,9 +141,9 @@
 
                         </tr>
                         <tr>
-                            <td class="Cell" width="20%">To Map to Loinc Code : <e:forHtmlContent value='<%= loinc %>' />
+                            <td class="Cell" width="20%">To Map to Loinc Code : <carlos:encode value='<%= loinc %>' context="html"/>
                             </td>
-                            <td class="Cell"><input type="hidden" name="loinc_code" value="<e:forHtmlAttribute value='<%= loinc %>' />"/></td>
+                            <td class="Cell"><input type="hidden" name="loinc_code" value="<carlos:encode value='<%= loinc %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td colspan="2" class="Cell" align="center"><input

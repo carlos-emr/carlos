@@ -32,6 +32,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%
@@ -74,7 +75,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -121,9 +122,9 @@
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>
                                 <td><a href="<%= url %>"><e:forHtmlContent value='<%= lName + " " + fName + " " + (proLetters == null ? "" : proLetters) %>' /></a></td>
-                                <td><e:forHtmlContent value='<%= address %>' /></td>
-                                <td><e:forHtmlContent value='<%= phone %>' /></td>
-                                <td><e:forHtmlContent value='<%= fax %>' /></td>
+                                <td><carlos:encode value='<%= address %>' context="html"/></td>
+                                <td><carlos:encode value='<%= phone %>' context="html"/></td>
+                                <td><carlos:encode value='<%= fax %>' context="html"/></td>
                             </tr>
                             <% } %>
                         </tbody>
