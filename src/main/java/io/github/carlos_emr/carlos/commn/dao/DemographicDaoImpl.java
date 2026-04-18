@@ -1512,16 +1512,30 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @Override
     public String getOrderField(String orderBy, boolean nativeQuery) {
         if (!nativeQuery) {
-            orderBy = getOrderField(orderBy);
+            return getOrderField(orderBy);
         } else {
-            if (orderBy.equals("dob")) {
-                orderBy = "de.year_of_birth, de.month_of_birth, de.date_of_birth ";
+            if ("dob".equals(orderBy)) {
+                return "de.year_of_birth, de.month_of_birth, de.date_of_birth ";
+            } else if ("last_name".equals(orderBy) || "last_name, first_name".equals(orderBy)) {
+                return "de.last_name, de.first_name";
+            } else if ("demographic_no".equals(orderBy)) {
+                return "de.demographic_no";
+            } else if ("chart_no".equals(orderBy)) {
+                return "de.chart_no";
+            } else if ("sex".equals(orderBy)) {
+                return "de.sex";
+            } else if ("provider_no".equals(orderBy)) {
+                return "de.provider_no";
+            } else if ("roster_status".equals(orderBy)) {
+                return "de.roster_status";
+            } else if ("patient_status".equals(orderBy)) {
+                return "de.patient_status";
+            } else if ("phone".equals(orderBy)) {
+                return "de.phone";
             } else {
-                orderBy = "de." + orderBy;
+                return "de.last_name, de.first_name";
             }
         }
-
-        return orderBy;
     }
 
     @Override
