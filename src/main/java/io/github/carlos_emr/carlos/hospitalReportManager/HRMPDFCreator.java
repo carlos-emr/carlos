@@ -223,6 +223,7 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 try {
                     Files.copy(path, outputStream);
                 } finally {
+                    // saveAsTempPDF documents a possible null return on conversion failure
                     if (path != null) {
                         Files.deleteIfExists(path);
                     }

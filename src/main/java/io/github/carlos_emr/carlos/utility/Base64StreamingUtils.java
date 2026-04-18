@@ -92,8 +92,10 @@ public final class Base64StreamingUtils {
         if (rawSize <= 0) {
             return 32;
         }
-        // Cap to a safe int value to avoid overflow for pathologically large inputs
+        // Ceiling division: Base64 emits 4 output bytes per 3 input bytes; adding 2 before
+        // dividing by 3 rounds up for non-multiple-of-3 inputs.
         long encoded = ((rawSize + 2) / 3) * 4;
+        // Cap to a safe int value to avoid overflow for pathologically large inputs
         if (encoded > Integer.MAX_VALUE - 8) {
             return Integer.MAX_VALUE - 8;
         }
