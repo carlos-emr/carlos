@@ -42,6 +42,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.LabRequestReportLinkDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -226,7 +227,7 @@
     <input type="hidden" name="reqid" value="<e:forHtmlAttribute value='<%= reqId != null ? reqId : "" %>' />"/>
 
     <p>&nbsp;</p>
-    Requisition Date: <e:forHtmlContent value='<%= reqDateLink %>' />
+    Requisition Date: <carlos:encode value='<%= reqDateLink %>' context="html"/>
     <p>
         Link to Lab Requisition:
         <select name="linkReqId">
@@ -245,8 +246,8 @@
 
                 for (int i = 0; i < req_id.size(); i++) {
             %>
-            <option value="<e:forHtmlAttribute value='<%= req_id.get(i) %>' />" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><e:forHtmlContent value='<%= formDisplayName.get(i) %>' />
-                : <e:forHtmlContent value='<%= formCreated.get(i) %>' /> : <e:forHtmlContent value='<%= patientName.get(i) %>' />
+            <option value="<carlos:encode value='<%= req_id.get(i) %>' context="htmlAttribute"/>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><carlos:encode value='<%= formDisplayName.get(i) %>' context="html"/>
+                : <carlos:encode value='<%= formCreated.get(i) %>' context="html"/> : <carlos:encode value='<%= patientName.get(i) %>' context="html"/>
             </option>
             <% } %>
         </select>

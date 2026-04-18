@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -134,8 +135,8 @@
             <td align="right" class="Text"
                 nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + Encode.forHtml(provider.getFormattedName()) : "<b>Signed Off By Provider No.:</b> " + Encode.forHtml(provider.getProviderNo())) + " on " + Encode.forHtml(String.valueOf(hl7_link.getSignedOn())) : "")%>
                 <input type="checkbox" name="cmd_sign" onclick="Sign(this);"
-                       value="<e:forHtmlAttribute value='<%= pid %>' />" <%=(signed ? "checked disabled" : "")%> /><input
-                        type="hidden" name="pid" value="<e:forHtmlAttribute value='<%= pid %>' />"/>Sign
+                       value="<carlos:encode value='<%= pid %>' context="htmlAttribute"/>" <%=(signed ? "checked disabled" : "")%> /><input
+                        type="hidden" name="pid" value="<carlos:encode value='<%= pid %>' context="htmlAttribute"/>"/>Sign
             </td>
         </tr>
     </table>
@@ -156,15 +157,15 @@
         </tr>
         <tr>
             <td class="Text" width="100px">Patient:</td>
-            <td class="Text"><e:forHtmlContent value='<%= hl7pid.getPatientName() %>' />
+            <td class="Text"><carlos:encode value='<%= hl7pid.getPatientName() %>' context="html"/>
             </td>
             <td class="Text" align="right">DOB:</td>
-            <td class="Text" width="100px"><e:forHtmlContent value='<%= ConversionUtils.toDateString(hl7pid.getDateOfBirth()) %>' />
+            <td class="Text" width="100px"><carlos:encode value='<%= ConversionUtils.toDateString(hl7pid.getDateOfBirth()) %>' context="html"/>
             </td>
         </tr>
         <tr>
             <td class="Text">PHN:</td>
-            <td class="Text"><e:forHtmlContent value='<%= hl7pid.getExternalId() %>' />
+            <td class="Text"><carlos:encode value='<%= hl7pid.getExternalId() %>' context="html"/>
             </td>
             <td class="Text" align="right">Age:</td>
             <td class="Text"><%=age%>
@@ -174,7 +175,7 @@
             <td class="Text"></td>
             <td class="Text"></td>
             <td class="Text" align="right">Sex:</td>
-            <td class="Text"><e:forHtmlContent value='<%= hl7pid.getSex() %>' />
+            <td class="Text"><carlos:encode value='<%= hl7pid.getSex() %>' context="html"/>
             </td>
         </tr>
         <tr>
@@ -184,7 +185,7 @@
         </tr>
         <tr>
             <td class="Text">Phone:</td>
-            <td class="Text"><e:forHtmlContent value='<%= hl7pid.getHomeNumber() %>' />
+            <td class="Text"><carlos:encode value='<%= hl7pid.getHomeNumber() %>' context="html"/>
             </td>
             <td class="Text"></td>
             <td class="Text"></td>
@@ -201,7 +202,7 @@
         <tr>
             <td class="Text">Lab:</td>
             <td class="Text"
-                colspan="3"><e:forHtmlContent value='<%= hl7obr.getFillerOrderNumber().substring(0, hl7obr.getFillerOrderNumber().indexOf("-", 3)) %>' />
+                colspan="3"><carlos:encode value='<%= hl7obr.getFillerOrderNumber().substring(0, hl7obr.getFillerOrderNumber().indexOf("-", 3)) %>' context="html"/>
             </td>
         </tr>
         <tr>
@@ -209,7 +210,7 @@
             <td class="Text"><%=Encode.forHtml(hl7obr.getOrderingProvider()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Requested On:</td>
-            <td class="Text"><e:forHtmlContent value='<%= String.valueOf(hl7obr.getRequestedDateTime()) %>' />
+            <td class="Text"><carlos:encode value='<%= String.valueOf(hl7obr.getRequestedDateTime()) %>' context="html"/>
             </td>
         </tr>
         <tr>
@@ -217,7 +218,7 @@
             <td class="Text"><%=Encode.forHtml(hl7obr.getResultCopiesTo()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Observed On:</td>
-            <td class="Text"><e:forHtmlContent value='<%= String.valueOf(hl7obr.getOberservationDateTime()) %>' />
+            <td class="Text"><carlos:encode value='<%= String.valueOf(hl7obr.getOberservationDateTime()) %>' context="html"/>
             </td>
         </tr>
         <%
@@ -253,9 +254,9 @@
         </tr>
         <tr>
             <td class="Text" colspan="3"><b>Service
-                Id:</b><e:forHtmlContent value='<%= hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" ")) %>' />
+                Id:</b><carlos:encode value='<%= hl7_obr.getUniversalServiceId().substring(hl7_obr.getUniversalServiceId().indexOf(" ")) %>' context="html"/>
             </td>
-            <td class="Text" nowrap><b>Last Modified:</b><e:forHtmlContent value='<%= String.valueOf(hl7_obr.getResultsReportStatusChange()) %>' />
+            <td class="Text" nowrap><b>Last Modified:</b><carlos:encode value='<%= String.valueOf(hl7_obr.getResultsReportStatusChange()) %>' context="html"/>
             </td>
             <td class="Text" nowrap colspan="3"><b>Result
                 Status:</b><%=(hl7_obr.getResultStatus().equalsIgnoreCase("f") ? "Final" : "Pending")%>
@@ -287,7 +288,7 @@
         <tr>
             <td>&nbsp;</td>
             <td class="Text" nowrap
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><e:forHtmlContent value='<%= hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" ")) %>' />
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" ")) %>' context="html"/>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>">
                 <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : Encode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
@@ -295,13 +296,13 @@
             <td class="Text"
                 class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? Encode.forHtml(hl7_obx.getObservationResults()) : "<b>" + Encode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
             </td>
-            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><e:forHtmlContent value='<%= hl7_obx.getReferenceRange() %>' />
+            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getReferenceRange() %>' context="html"/>
             </td>
-            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><e:forHtmlContent value='<%= hl7_obx.getUnits() %>' />
+            <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getUnits() %>' context="html"/>
             </td>
             <td class="Text" nowrap
-                title="<e:forHtmlAttribute value='<%= hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ") %>' />"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><e:forHtmlContent value='<%= ((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " ") %>' />
+                title="<carlos:encode value='<%= hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ") %>' context="htmlAttribute"/>"
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= ((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " ") %>' context="html"/>
             </td>
         </tr>
         <%
@@ -318,7 +319,7 @@
         </tr>
         <tr>
             <td colspan="7"><textarea name="notes" rows="7"
-                                      style="width: 100%;"><e:forHtmlContent value='<%= Misc.check(hl7_message.getNotes(), "") %>' /></textarea>
+                                      style="width: 100%;"><carlos:encode value='<%= Misc.check(hl7_message.getNotes(), "") %>' context="html"/></textarea>
             </td>
         </tr>
         <tr class="LightBG">
