@@ -33,6 +33,7 @@
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.UserPreference2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -47,8 +48,8 @@
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:message key="provider.pref.title"/></title>
-    <script src="${e:forHtmlAttribute(ctx)}/js/checkPassword.js.jsp"></script>
-    <script src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${carlos:forHtmlAttribute(ctx)}/js/checkPassword.js.jsp"></script>
+    <script src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
     <script>
         jQuery(document).ready(function () {
             //jQuery("#general").hide();

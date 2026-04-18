@@ -25,6 +25,8 @@
 -->
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
       String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
       boolean authed=true;
@@ -100,11 +102,11 @@ if(!authed) {
 <div class="card card-body bg-body-tertiary">
 	<dl class="row">
 		<dt>Clinic</dt>
-		<dd><e:forHtmlContent value='<%= clinic %>' /></dd>
+		<dd><carlos:encode value='<%= clinic %>' context="html"/></dd>
 		<dt>Visits Between</dt>
-		<dd><e:forHtmlContent value='<%= dateBegin %>' />
+		<dd><carlos:encode value='<%= dateBegin %>' context="html"/>
 			and
-			<e:forHtmlContent value='<%= dateEnd %>' /></dd>
+			<carlos:encode value='<%= dateEnd %>' context="html"/></dd>
 		<dt>Run on</dt>
 		<dd><%=MyDateFormat.getMysqlStandardDate(curYear, curMonth,
 					curDay)%></dd>

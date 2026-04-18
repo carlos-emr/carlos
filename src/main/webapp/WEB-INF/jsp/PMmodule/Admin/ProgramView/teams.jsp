@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!-- 
 /*
 * 
@@ -41,14 +42,14 @@
 	<display:column sortable="true" title="Staff">
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
-				<li>${e:forHtml(provider.provider.formattedName)} (${e:forHtml(provider.role.name)})</li>
+				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
 	</display:column>
 	<display:column sortable="true" title="Clients">
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
-				<li>${e:forHtml(admission.client.formattedName)}</li>
+				<li>${carlos:forHtml(admission.client.formattedName)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>

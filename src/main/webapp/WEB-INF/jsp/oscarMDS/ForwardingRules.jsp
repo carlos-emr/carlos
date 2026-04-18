@@ -29,6 +29,8 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -96,7 +98,7 @@
 <body>
 <div class="container">
 <form method="post" name="RULES" action="ForwardingRules">
-    <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+    <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
     <input type="hidden" name="operation" value="update">
     <input type="hidden" name="remProviderNum" value="">
 
@@ -134,10 +136,10 @@
                     <ul class="list-unstyled ms-3 mt-1 mb-0">
                         <%for (int i = 0; i < frwdProviders.size(); i++) {%>
                         <li>
-                            <e:forHtmlContent value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' />
-                            <e:forHtmlContent value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' />
+                            <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="html"/>
+                            <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="html"/>
                             <a href="#" class="text-danger ms-2" style="font-size:12px;"
-                               onclick="return removeProvider('<e:forJavaScriptAttribute value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' />', '<e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' /> <e:forJavaScript value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' />')">Remove</a>
+                               onclick="return removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScript"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScript"/>')">Remove</a>
                         </li>
                         <%}%>
                     </ul>
@@ -174,7 +176,7 @@
                                 for (int i = 0; i < providers.size(); i++) {
                                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
                                     if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                            <option value="<e:forHtmlAttribute value='<%= prov_no %>' />"><e:forHtmlContent value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' /> <e:forHtmlContent value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' /></option>
+                            <option value="<carlos:encode value='<%= prov_no %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context="html"/> <carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' context="html"/></option>
                             <% }
                             } %>
                         </optgroup>

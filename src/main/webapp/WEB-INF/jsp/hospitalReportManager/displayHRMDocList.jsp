@@ -18,11 +18,14 @@
 <%@page import="java.util.*, io.github.carlos_emr.carlos.hospitalReportManager.*,io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -138,19 +141,19 @@
                     <tr>
 
                         <td><a href="#"
-                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<e:forUriComponent value='<%= String.valueOf(curhrmdoc.get("id")) %>' />', 'HRM Report'); return false;"
-                        ><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_type")) %>' />
+                               ONCLICK="popupPage('<%=request.getContextPath() %>/hospitalReportManager/Display?id=<carlos:encode value='<%= String.valueOf(curhrmdoc.get("id")) %>' context="uriComponent"/>', 'HRM Report'); return false;"
+                        ><carlos:encode value='<%= String.valueOf(curhrmdoc.get("report_type")) %>' context="html"/>
                         </a></td>
-                        <td><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("description")) %>' />
+                        <td><carlos:encode value='<%= String.valueOf(curhrmdoc.get("description")) %>' context="html"/>
                         </td>
-                        <td><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_status")) %>' />
+                        <td><carlos:encode value='<%= String.valueOf(curhrmdoc.get("report_status")) %>' context="html"/>
                         </td>
-                        <td style="text-align: center;"><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("report_date")) %>' />
+                        <td style="text-align: center;"><carlos:encode value='<%= String.valueOf(curhrmdoc.get("report_date")) %>' context="html"/>
                         </td>
-                        <td style="text-align: center;"><e:forHtmlContent value='<%= String.valueOf(curhrmdoc.get("time_received")) %>' />
+                        <td style="text-align: center;"><carlos:encode value='<%= String.valueOf(curhrmdoc.get("time_received")) %>' context="html"/>
                         </td>
-                        <td><%=curhrmdoc.get("category") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("category"))) : "" %>
-                        <td><%=curhrmdoc.get("class_subclass") != null ? Encode.forHtml(String.valueOf(curhrmdoc.get("class_subclass"))) : "" %>
+                        <td><%=curhrmdoc.get("category") != null ? SafeEncode.forHtml(String.valueOf(curhrmdoc.get("category"))) : "" %>
+                        <td><%=curhrmdoc.get("class_subclass") != null ? SafeEncode.forHtml(String.valueOf(curhrmdoc.get("class_subclass"))) : "" %>
                     </tr>
                     <%
                         }

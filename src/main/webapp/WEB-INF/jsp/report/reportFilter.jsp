@@ -51,6 +51,7 @@
     Vector vec = reportFilter.getNameList(reportId, n);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -115,7 +116,7 @@
     <center>
         <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="80%">
             <tr BGCOLOR="#CCFFFF">
-                <th><e:forHtmlContent value='<%= reportName %>' />
+                <th><carlos:encode value='<%= reportName %>' context="html"/>
                 </th>
             </tr>
         </table>
@@ -126,7 +127,7 @@
             </td>
             <td width="10%" align="right" nowrap><a
                     href="<%= request.getContextPath() %>/report/ViewReportFormRecord"><fmt:message key="report.reportList.backToReportList"/></a> | <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportList.configuration"/></a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>"><fmt:message key="report.reportList.configuration"/></a></td>
         </tr>
     </table>
     <table width="100%" border="0" cellspacing="2" cellpadding="2">
@@ -144,18 +145,18 @@
                 <td align="right" width="20%"><b><input type="checkbox"
                                                         name="<%="filter_" + itemId%>" <%="1".equals(itemId)?"checked":""%>></b>
                 </td>
-                <td><e:forHtmlContent value='<%= strElt[0] %>' />
+                <td><carlos:encode value='<%= strElt[0] %>' context="html"/>
                 </td>
                 <td width="5%" align="right"><input type="hidden"
-                                                    name="<%="value_" + itemId%>" value="<e:forHtmlAttribute value='<%= strElt[1] %>' />"> <input
-                        type="hidden" name="<%="position_" + itemId%>" value="<e:forHtmlAttribute value='<%= strElt[2] %>' />">
+                                                    name="<%="value_" + itemId%>" value="<carlos:encode value='<%= strElt[1] %>' context="htmlAttribute"/>"> <input
+                        type="hidden" name="<%="position_" + itemId%>" value="<carlos:encode value='<%= strElt[2] %>' context="htmlAttribute"/>">
                     <input type="hidden" name="<%="dateFormat_" + itemId%>"
-                           value="<e:forHtmlAttribute value='<%= strElt[5] %>' />"></td>
+                           value="<carlos:encode value='<%= strElt[5] %>' context="htmlAttribute"/>"></td>
             </tr>
             <% } %>
             <tr bgcolor="silver">
                 <td colspan="2" align="center"><input type="hidden" name="id"
-                                                      value="<e:forHtmlAttribute value='<%= reportId %>' />"> <input type="submit" name="submit"
+                                                      value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>"> <input type="submit" name="submit"
                     value="<fmt:message key='report.reportList.reportHtml'/>"> | <input
                         type="submit" name="submit"
                         value="<fmt:message key='report.reportList.reportCsv'/>"></td>

@@ -27,6 +27,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
@@ -56,7 +58,7 @@
     <title>Note History</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 
 </head>
@@ -68,26 +70,26 @@
 <br>
 Client name:
 <I> <c:if test="${not empty requestScope.demoName}">
-    ${e:forHtml(requestScope.demoName)}
+    ${carlos:forHtml(requestScope.demoName)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    ${e:forHtml(param.demoName)}
+    ${carlos:forHtml(param.demoName)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Age:
 <I> <c:if test="${not empty requestScope.demoName}">
-    ${e:forHtml(requestScope.demoAge)}
+    ${carlos:forHtml(requestScope.demoAge)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    ${e:forHtml(param.demoAge)}
+    ${carlos:forHtml(param.demoAge)}
 </c:if> </I>
 <br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; DOB:
 <I> <c:if test="${not empty requestScope.demoName}">
-    ${e:forHtml(requestScope.demoDOB)}
+    ${carlos:forHtml(requestScope.demoDOB)}
 </c:if>
 <c:if test="${empty requestScope.demoName}">
-    ${e:forHtml(param.demoDOB)}
+    ${carlos:forHtml(param.demoDOB)}
 </c:if> </I>
 <br>
 <br>
@@ -99,7 +101,7 @@ Client name:
     <tr>
         <td class="fieldValue">
             <textarea name="caseNote_history" cols="107" rows="29" wrap="soft">
-                <e:forHtmlContent value='<%= caseNote_history %>' />                       
+                <carlos:encode value='<%= caseNote_history %>' context="html"/>                       
             </textarea>
         </td>
     </tr>

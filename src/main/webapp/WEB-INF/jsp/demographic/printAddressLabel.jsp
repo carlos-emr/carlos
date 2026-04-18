@@ -45,6 +45,8 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -79,11 +81,11 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <e:forHtmlContent value='<%= defaultPrinterName %>' />
+    <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
     <object id="pdf" type="application/pdf"
-            data="printDemoAddressLabelAction?demographic_no=<e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' />"
+            data="printDemoAddressLabelAction?demographic_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>"
             height="80%" width="100%"></object>
     </body>
 </html>

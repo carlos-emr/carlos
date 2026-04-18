@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -31,11 +32,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         <div class="document-card card mb-1 shadow-sm" id="labdoc_${labResult.segmentID}" style="height: 100%;">
             <div class="card-body">
                 <div class="card-title fw-bold">
-                    ${e:forHtml(labResult.labType)}:
-                    <e:forHtmlContent value='${labResult.patientName}' />
+                    ${carlos:forHtml(labResult.labType)}:
+                    <carlos:encode value='${labResult.patientName}' context="html"/>
                 </div>
                 <iframe
-                    src="${e:forHtmlAttribute(labLinks[loopStatus.index])}"
+                    src="${carlos:forHtmlAttribute(labLinks[loopStatus.index])}"
                     width="100%"
                     height="100%"
                     style="padding-bottom: 25px;"

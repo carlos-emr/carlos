@@ -73,12 +73,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String country = request.getLocale().getCountry();
     CarlosProperties carlosVariables = CarlosProperties.getInstance();
@@ -123,15 +123,19 @@
 
 </security:oscarSec>
 
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language}"/>
+
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${flatpickrLanguage}">
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="report.reportindex.title"/></title>
 
         <!-- Flatpickr -->
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
-        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/<fmt:message key="global.language.code"/>.js"></script>
+        <c:if test="${flatpickrLanguage != 'en'}">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forHtmlAttribute(flatpickrLanguage)}.js"></script>
+        </c:if>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
         <style>
@@ -184,23 +188,27 @@
 
         <script>
           document.addEventListener("DOMContentLoaded", function () {
-            const localeCode = "<fmt:message key='global.language.code'/>";
-        
-            const fromPicker = flatpickr("#asdate", {
+            const localeCode = "${carlos:forJavaScript(flatpickrLanguage)}";
+            const fromPickerOptions = {
               dateFormat: "Y-m-d",
-              locale: localeCode,
               allowInput: true,
               onChange: syncFrom,
               onClose: syncFrom
-            });
-        
-            const toPicker = flatpickr("#aedate", {
+            };
+            const toPickerOptions = {
               dateFormat: "Y-m-d",
-              locale: localeCode,
               allowInput: true,
               onChange: syncTo,
               onClose: syncTo
-            });
+            };
+
+            if (localeCode !== "en") {
+              fromPickerOptions.locale = localeCode;
+              toPickerOptions.locale = localeCode;
+            }
+
+            const fromPicker = flatpickr("#asdate", fromPickerOptions);
+            const toPicker = flatpickr("#aedate", toPickerOptions);
         
             function syncFrom(selectedDates, dateStr, instance) {
               const fromDate = instance.selectedDates[0];
@@ -279,9 +287,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<%=Encode.forHtmlAttribute("_grp_"+rsgroup.getString("mygroup_no")) %>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>>
-                            <fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<%=Encode.forHtml(rsgroup.getString("mygroup_no")) %>
+                    <option value="<carlos:encode value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' context="htmlAttribute"/>"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= rsgroup.getString("mygroup_no") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -290,8 +297,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(rsgroup.getString("provider_no")) %>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><%=Encode.forHtmlAttribute(rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name")) %>
+                    <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><carlos:encode value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -328,6 +335,7 @@
                       </button>
                     </div>
                   </div>
+                </td>
                 <td><select name="sTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < 24; i++) {

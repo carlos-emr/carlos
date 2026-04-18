@@ -57,6 +57,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -148,9 +149,9 @@
 <h3><fmt:message key="admin.admin.simulateSubFile2"/></h3>
 <div class="container-fluid card card-body bg-body-tertiary noprint">
 
-    <h4>Simulate Teleplan Report - <e:forHtmlContent value='<%= thisyear %>' />
+    <h4>Simulate Teleplan Report - <carlos:encode value='<%= thisyear %>' context="html"/>
     </h4>
-    <c:if test="${!empty error}">${e:forHtml(error)}</c:if>
+    <c:if test="${!empty error}">${carlos:forHtml(error)}</c:if>
 
     <form action="${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile"
                onsubmit="return checkSubmit();" class="d-flex flex-wrap align-items-center gap-2">
@@ -164,8 +165,8 @@
                     String provNo = (String) list.get(i);
                     ProviderData provider = new ProviderData(provNo);
             %>
-            <option value="<e:forHtmlAttribute value='<%= provider.getOhip_no() %>' />">
-                <e:forHtmlContent value='<%= provider.getLast_name() %>' />,<e:forHtmlContent value='<%= provider.getFirst_name() %>' />
+            <option value="<carlos:encode value='<%= provider.getOhip_no() %>' context="htmlAttribute"/>">
+                <carlos:encode value='<%= provider.getLast_name() %>' context="html"/>,<carlos:encode value='<%= provider.getFirst_name() %>' context="html"/>
             </option>
             <%}%>
         </select>

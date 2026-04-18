@@ -52,6 +52,7 @@
     @since 2026-03-22
 --%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -102,14 +103,14 @@
     }
 %>
 <% if (docIds != null) { for (String id : docIds) { %>
-<span class="doc">Doc #<e:forHtmlContent value='<%= id %>' /></span><br>
+<span class="doc">Doc #<carlos:encode value='<%= id %>' context="html"/></span><br>
 <% } } %>
 <% if (labIds != null) { for (String id : labIds) { %>
-<span class="lab">Lab #<e:forHtmlContent value='<%= id %>' /></span><br>
+<span class="lab">Lab #<carlos:encode value='<%= id %>' context="html"/></span><br>
 <% } } %>
 <% if (hrmIds != null) { for (String id : hrmIds) { %>
-<span class="hrm">HRM #<e:forHtmlContent value='<%= id %>' /></span><br>
+<span class="hrm">HRM #<carlos:encode value='<%= id %>' context="html"/></span><br>
 <% } } %>
 <% if (eformIds != null) { for (String id : eformIds) { %>
-<span class="eform">EForm #<e:forHtmlContent value='<%= id %>' /></span><br>
+<span class="eform">EForm #<carlos:encode value='<%= id %>' context="html"/></span><br>
 <% } } %>

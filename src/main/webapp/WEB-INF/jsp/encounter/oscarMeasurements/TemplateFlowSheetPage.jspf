@@ -47,6 +47,8 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%-- CARLOS StringUtils used via FQ name to avoid conflict with apache commons lang3 StringUtils --%>
@@ -66,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
 	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
@@ -90,11 +93,11 @@
 	LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
 
     // Pre-compute commonly used encoded values for demographic_no and template
-    String safeDemoNoHtml = Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
-    String safeDemoNoUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
-    String safeDemoNoJsUri = Encode.forJavaScriptAttribute(safeDemoNoUri);
-    String safeTempUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp));
-    String safeTempJsUri = Encode.forJavaScriptAttribute(safeTempUri);
+    String safeDemoNoHtml = SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoJsUri = SafeEncode.forJavaScriptAttribute(safeDemoNoUri);
+    String safeTempUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp));
+    String safeTempJsUri = SafeEncode.forJavaScriptAttribute(safeTempUri);
 
     int numElementsToShow = 4;
     Date sdate = null;
@@ -159,7 +162,7 @@
     mFlowsheet.sortToCurrentOrder(recList);
     StringBuffer recListBuffer = new StringBuffer();
     for(int i = 0; i < recList.size(); i++){
-        recListBuffer.append("&amp;measurement="+Encode.forUriComponent((String) recList.get(i)));
+        recListBuffer.append("&amp;measurement="+SafeEncode.forUriComponent((String) recList.get(i)));
     }
 
 
@@ -173,7 +176,7 @@
 <html>
 
 <head>
-<title><e:forHtmlContent value='<%= flowSheet %>' /> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
+<title><carlos:encode value='<%= flowSheet %>' context="html"/> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -184,7 +187,7 @@
 
 <script>
 	function getDemographicNo() {
-		return '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no) %>' />';
+		return '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no) %>' context="javaScriptBlock"/>';
 	}
 	function getContextPath() {
 		return '<%=request.getContextPath()%>';
@@ -322,7 +325,7 @@ div.headPrevention p {
         	selectedItemsStr = "&selectedItems=" + encodeURIComponent(selectedItems.join(','));
         }
 
-        var url = '<e:forJavaScript value='<%= request.getContextPath() %>' />/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<e:forJavaScript value='<%= safeDemoNoUri %>' />&template=<e:forJavaScript value='<%= safeTempUri %>' />';
+        var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<carlos:encode value='<%= safeDemoNoUri %>' context="javaScript"/>&template=<carlos:encode value='<%= safeTempUri %>' context="javaScript"/>';
         if(numEle.length > 0){
         	url = url + '&numEle='+numEle;
         }
@@ -470,7 +473,7 @@ div.recommendations ul{
 <table  class="MainTable" id="scrollNumber1" >
 <tr class="MainTableTopRow">
     <td class="MainTableTopRowLeftColumn"  >
-        <h4><e:forHtmlContent value='<%= flowSheet %>' /></h4>
+        <h4><carlos:encode value='<%= flowSheet %>' context="html"/></h4>
     </td>
     <td class="MainTableTopRowRightColumn" style="text-align: center;">
         <h4><oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></h4>
@@ -499,15 +502,15 @@ div.recommendations ul{
                		<div class="DoNotPrint" style="display:flex; gap:3px; flex-direction: row;">
                         <div class="mb-3">
                    <label for="numEle"> #Of Elements</label>
-                        <input type="text" size="3" id="numEle" value="<e:forHtmlAttribute value='<%= request.getParameter("numEle") != null ? request.getParameter("numEle") : "" %>' />"/>
+                        <input type="text" size="3" id="numEle" value="<carlos:encode value='<%= request.getParameter("numEle") != null ? request.getParameter("numEle") : "" %>' context="htmlAttribute"/>"/>
                         </div>
                         <div class="mb-3">
                    <label for="flowsheetStartDate"> Start Date</label>
-                        <input type="date" size="10" id="flowsheetStartDate" value="<e:forHtmlAttribute value='<%= request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>' />" />
+                        <input type="date" size="10" id="flowsheetStartDate" value="<carlos:encode value='<%= request.getParameter("sdate") != null ? request.getParameter("sdate") : "" %>' context="htmlAttribute"/>" />
                         </div>
                         <div class="mb-3">
                    <label for="flowsheetEndDate"> End Date</label>
-                        <input type="date" size="10" id="flowsheetEndDate" value="<e:forHtmlAttribute value='<%= request.getParameter("edate") != null ? request.getParameter("edate") : "" %>' />"/>
+                        <input type="date" size="10" id="flowsheetEndDate" value="<carlos:encode value='<%= request.getParameter("edate") != null ? request.getParameter("edate") : "" %>' context="htmlAttribute"/>"/>
                         </div>
                         <div class="button-group">
                             <label>&nbsp;</label>
@@ -565,15 +568,15 @@ div.recommendations ul{
                     <% if (pDx == null){ %>
                      <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                          <input type="hidden" name="method" value="dxSave"/>
-                         <input type="hidden" name="flowsheet" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' />"/>
+                         <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' context="htmlAttribute"/>"/>
                          <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
                          <input type="hidden" name="dxCode" value="<%=code.getDxSearchCode()%>"/>
                          <input type="hidden" name="dxCodeType" value="<%=code.getType()%>"/>
                          <a href="javascript:void(0);" onclick="this.closest('form').submit();">
                     <%}else{%>
-                     <span title="<e:forHtmlAttribute value='<%= code.getDescription() %>' />"  style="background-color: yellow;">
+                     <span title="<carlos:encode value='<%= code.getDescription() %>' context="htmlAttribute"/>"  style="background-color: yellow;">
                     <%}%>
-                - <e:forHtmlContent value='<%= desc %>' />
+                - <carlos:encode value='<%= desc %>' context="html"/>
                     <% if (pDx == null){ %>
                          </a>
                      </form>
@@ -605,14 +608,14 @@ div.recommendations ul{
                         String styleColor = "";
                         if(arr[i].isCurrent()){
                     %>
-                    <li title="<e:forHtmlAttribute value='<%= rxD %>' /> - <e:forHtmlAttribute value='<%= rxP %>' />">
+                    <li title="<carlos:encode value='<%= rxD %>' context="htmlAttribute"/> - <carlos:encode value='<%= rxP %>' context="htmlAttribute"/>">
                             <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
-                                <input type="hidden" name="flowsheet" value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' />"/>
+                                <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
-                                <input type="hidden" name="atcCode" value="<e:forHtmlAttribute value='<%= arr[i].getAtcCode() %>' />"/>
+                                <input type="hidden" name="atcCode" value="<carlos:encode value='<%= arr[i].getAtcCode() %>' context="htmlAttribute"/>"/>
                                 <a href="javascript:void(0);" onclick="this.closest('form').submit();">
-                                - <e:forHtmlContent value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' />
+                                - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
                                 </a>
                             </form>
                     </li>
@@ -643,8 +646,8 @@ div.recommendations ul{
                         String rxD = ""+allergies[i].getEntryDate();
                         String rxP = allergies[i].getDescription();
                     %>
-                    <li title="<e:forHtmlAttribute value='<%= rxD %>' /> - <e:forHtmlAttribute value='<%= rxP %>' />">
-                            - <e:forHtmlContent value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' />
+                    <li title="<carlos:encode value='<%= rxD %>' context="htmlAttribute"/> - <carlos:encode value='<%= rxP %>' context="htmlAttribute"/>">
+                            - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
                     </li>
                     <%}%>
                 </ul>
@@ -666,7 +669,7 @@ div.recommendations ul{
 <td class="MainTableRightColumn" style="vertical-align:top;">
 <% if (warnings.size() > 0 || recomendations.size() > 0  || dsProblems) { %>
 <div class="recommendations">
-    <span style="font-size:larger;"><e:forHtmlContent value='<%= flowSheet %>' /> Recommendations</span>
+    <span style="font-size:larger;"><carlos:encode value='<%= flowSheet %>' context="html"/> Recommendations</span>
     <a href="javascript:void(0)" onclick="toggle('recomList'); return false;" style="font-size:x-small;" ><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.templateflowsheet.showhide"/></a>
     <ul id="recomList" style="display:none;">
         <% for (String warn : warnings){ %>
@@ -747,23 +750,23 @@ div.recommendations ul{
 <div class="preventionSection" id="<%=measure%>"  style="overflow: auto;<%=hidden%>" >
     <div class="headPrevention">
 
-        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<e:forHtmlAttribute value='<%= (String) h2.get("display_name") %>' />] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><e:forHtmlAttribute value='<%= (String) h2.get("guideline") %>' />]"   >
-        <c:set var="__enc_1"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' /></c:set>
+        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]"   >
+        <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' context="uriComponent"/></c:set>
         <input type="checkbox" name="selected_item"                
 value="<%= h.get("name")%>"/>
             <%if(h2.get("graphable") != null && ((String) h2.get("graphable")).equals("yes")){%>
             <%if (alist != null && alist.size() > 1) { %>
-               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements?demographic_no=<%= safeDemoNoJsUri %>&type=<e:forJavaScriptAttribute value='${__enc_1}' />');"/>
+               <img class="DoNotPrint" src="img/chart.gif" alt="Plot"  onclick="window.open('${ pageContext.request.contextPath }/encounter/GraphMeasurements?demographic_no=<%= safeDemoNoJsUri %>&type=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');"/>
             <%}else{%>
                <img class="DoNotPrint" src="img/chart.gif" alt="Plot"/>
-                        <c:set var="__enc_2"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' /></c:set>
+                        <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' context="uriComponent"/></c:set>
 <%}%>
            <%}%>
 
 		   <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
-            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<e:forJavaScriptAttribute value='${__enc_2}' />&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
+            <a class="noborder" href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData<%=Math.abs( ((String) h.get("name")).hashCode() ) %>')">
            </security:oscarSec>
-                <span  class="noborder" style="font-weight:bold;"><e:forHtmlContent value='<%= (String) h2.get("display_name") %>' /></span>
+                <span  class="noborder" style="font-weight:bold;"><carlos:encode value='<%= (String) h2.get("display_name") %>' context="html"/></span>
 
            <security:oscarSec roleName="<%=roleName$%>" objectName="_flowsheet" rights="w">
             </a>
@@ -822,12 +825,12 @@ value="<%= h.get("name")%>"/>
             }
 
     %>
-    <c:set var="__enc_3"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' /></c:set>
+    <c:set var="__enc_3"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(measure) %>' context="uriComponent"/></c:set>
     <div class="preventionProcedure" <%=hider%>
-    onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<e:forJavaScriptAttribute value='${__enc_3}' />&amp;id=<e:forJavaScriptAttribute value='<%= String.valueOf(hdata.get("id")) %>' />&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
+    onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&amp;id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
     >
-        <p <%=indColour%> title="fade=[on] header=[<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("age")) %>' /> -- Date:<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("prevention_date")) %>' />] body=[<e:forHtmlAttribute value='<%= com %>' />&lt;br/&gt;Entered By:<e:forHtmlAttribute value='<%= mdb.getProviderFirstName() %>' /> <e:forHtmlAttribute value='<%= mdb.getProviderLastName() %>' />]"><e:forHtmlContent value='<%= String.valueOf(h2.get("value_name")) %>' />: <e:forHtmlContent value='<%= String.valueOf(hdata.get("age")) %>' /> <br/>
-            <e:forHtmlContent value='<%= String.valueOf(hdata.get("prevention_date")) %>' />&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
+        <p <%=indColour%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>&lt;br/&gt;Entered By:<carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>]"><carlos:encode value='<%= String.valueOf(h2.get("value_name")) %>' context="html"/>: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+            <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
             <%}%>
@@ -855,10 +858,10 @@ value="<%= h.get("name")%>"/>
 
 <div class="preventionSection" style="<%=hidden%>" >
     <div class="headPrevention">
-        <c:set var="__enc_4"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType) %>' /></c:set>
-        <p title="fade=[on] header=[<e:forHtmlAttribute value='<%= (String) h2.get("display_name") %>' />] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><e:forHtmlAttribute value='<%= (String) h2.get("guideline") %>' />]">
-            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?prevention=<e:forJavaScriptAttribute value='${__enc_4}' />&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
-                <span title="<e:forHtmlAttribute value='<%= (String) h2.get("guideline") %>' />" style="font-weight:bold;"><e:forHtmlContent value='<%= (String) h2.get("display_name") %>' /></span>
+        <c:set var="__enc_4"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType) %>' context="uriComponent"/></c:set>
+        <p title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]">
+            <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?prevention=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
+                <span title="<carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>" style="font-weight:bold;"><carlos:encode value='<%= (String) h2.get("display_name") %>' context="html"/></span>
             </a>
             &nbsp;
 
@@ -904,9 +907,9 @@ value="<%= h.get("name")%>"/>
                 }
             }
     %>
-    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<e:forJavaScriptAttribute value='<%= String.valueOf(hdata.get("id")) %>' />&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
-        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("age")) %>' /> -- Date:<e:forHtmlAttribute value='<%= String.valueOf(hdata.get("prevention_date")) %>' />] body=[<e:forHtmlAttribute value='<%= com %>' />]" >Age: <e:forHtmlContent value='<%= String.valueOf(hdata.get("age")) %>' /> <br/>
-            <!--<%=refused(hdata.get("refused"))%>-->Date: <e:forHtmlContent value='<%= String.valueOf(hdata.get("prevention_date")) %>' />
+    <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
+        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+            <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
             <%}%>
@@ -1055,7 +1058,7 @@ if(temp.equals("diab2") || temp.equals("chf")) {
         <% for (int i = 0; i < comments.size(); i++){
             String str = (String) comments.get(i);
         %>
-        <li><e:forHtmlContent value='<%= str %>' /></li>
+        <li><carlos:encode value='<%= str %>' context="html"/></li>
         <% }%>
     </ol>
 </div>
@@ -1115,7 +1118,7 @@ if(idExists("WT") && idExists("HT" ) && idExists("BMI")){
         String ret = "";
         String q = "\"";
         if (s != null){
-            ret = "<span style='color:"+colour+"'>"+Encode.forHtml(s)+"</span> </br>";
+            ret = "<span style='color:"+colour+"'>"+SafeEncode.forHtml(s)+"</span> </br>";
         }
         return ret;
     }

@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -74,10 +75,10 @@
                     <c:choose>
                         <c:when
                                 test="${caisiRole.name == issueAdminForm.map.issueAdmin.role}">
-                            <option value="${e:forHtmlAttribute(caisiRole.name)}" selected>${e:forHtml(caisiRole.name)}</option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}" selected>${carlos:forHtml(caisiRole.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="${e:forHtmlAttribute(caisiRole.name)}">${e:forHtml(caisiRole.name)}</option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}">${carlos:forHtml(caisiRole.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>

@@ -37,6 +37,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -224,7 +225,7 @@
                 </select>
             </c:when>
             <c:otherwise>
-                "&quot;${e:forHtml(caseManagementEntryForm.caseNote.encounter_type == null ? '' : caseManagementEntryForm.caseNote.encounter_type)}&quot;"
+                "&quot;${carlos:forHtml(caseManagementEntryForm.caseNote.encounter_type == null ? '' : caseManagementEntryForm.caseNote.encounter_type)}&quot;"
             </c:otherwise>
         </c:choose>
     </span>
@@ -240,7 +241,7 @@
         </span>
         <ul style="float: left; list-style: circle inside; margin: 0px;">
             <c:forEach var="noteIssue" items="${caseManagementEntryForm.caseNote.issues}">
-                <li>${e:forHtml(noteIssue.issue.description)}</li>
+                <li>${carlos:forHtml(noteIssue.issue.description)}</li>
             </c:forEach>
         </ul>
         <br style="clear: both;">
@@ -281,7 +282,7 @@
                 <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
-                    ${e:forHtml(issueCheckList.issueDisplay.description)}
+                    ${carlos:forHtml(issueCheckList.issueDisplay.description)}
                 </a>
 
                 <c:if test="${issueCheckList.used == false}">

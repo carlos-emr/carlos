@@ -34,6 +34,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -82,7 +83,7 @@
         <table width="100%" border="1" cellspacing="2" cellpadding="3">
             <tr class="b">
                 <td><fmt:message key="admin.facility.edit.label.id"/>:</td>
-                <td>${e:forHtml(requestScope.id)}</td>
+                <td>${carlos:forHtml(requestScope.id)}</td>
             </tr>
             <tr class="b">
                 <td><fmt:message key="admin.facility.edit.label.name"/>: *</td>

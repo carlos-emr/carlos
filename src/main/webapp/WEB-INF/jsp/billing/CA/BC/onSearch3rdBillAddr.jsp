@@ -121,6 +121,8 @@
 
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -128,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -162,14 +165,14 @@
 
             function typeInData1(data) {
                 self.close();
-                setOpenerProperty('<e:forJavaScriptBlock value='<%= param %>' />', data);
+                setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data);
             }
 
             <%if(param2.length()>0) {%>
 
             function typeInData2(data1, data2) {
-                setOpenerProperty('<e:forJavaScriptBlock value='<%= param %>' />', data1);
-                setOpenerProperty('<e:forJavaScriptBlock value='<%= param2 %>' />', data2);
+                setOpenerProperty('<carlos:encode value='<%= param %>' context="javaScriptBlock"/>', data1);
+                setOpenerProperty('<carlos:encode value='<%= param2 %>' context="javaScriptBlock"/>', data2);
                 self.close();
             }
 
@@ -223,12 +226,12 @@
             </tr>
     </table>
     <input type='hidden' name='param'
-           value="<e:forHtmlAttribute value='<%= param %>' />">
+           value="<carlos:encode value='<%= param %>' context="htmlAttribute"/>">
     <input type='hidden' name='param2'
-           value="<e:forHtmlAttribute value='<%= param2 %>' />">
+           value="<carlos:encode value='<%= param2 %>' context="htmlAttribute"/>">
     <table width="95%" border="0">
         <tr>
-            <td align="left">Results based on keyword(s): <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
+            <td align="left">Results based on keyword(s): <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
             </td>
         </tr>
         </form>
@@ -250,32 +253,32 @@
                     prop = (Properties) vec.get(i);
                     String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
                     String strOnClick = param.length() > 0 ? "typeInData1('"
-                            + Encode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
-                            + Encode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
-                            + Encode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
+                            + SafeEncode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
+                            + SafeEncode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
+                            + SafeEncode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
                             + "')" : "typeInData1('"
-                            + Encode.forJavaScript(prop.getProperty("city", "")) + "')";
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "")) + "')";
 
             %>
             <tr align="center" bgcolor="<%=bgColor%>" align="center"
                 onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                 onMouseout="this.style.backgroundColor='<%=bgColor%>';"
                 onClick="fillForm('<%= str(prop.getProperty("attention", ""))%>','<%= str(prop.getProperty("company_name", ""))%>','<%= str(prop.getProperty("address", ""))%>','<%=  str(prop.getProperty("city", ""))%>','<%=  str(prop.getProperty("province", ""))%>','<%=  str(prop.getProperty("telephone", ""))%>','<%=  str(prop.getProperty("fax", ""))%>','<%=  str(prop.getProperty("postcode", ""))%>');">
-                <td><e:forHtmlContent value='<%= prop.getProperty("attention", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("attention", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()) %>' />
+                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("company_name", "").toLowerCase()) %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()) %>' />
+                <td><carlos:encode value='<%= WordUtils.capitalize(prop.getProperty("address", "").toLowerCase()) %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("city", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("city", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("postcode", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("postcode", "") %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= prop.getProperty("telephone", "") %>' />
+                <td><carlos:encode value='<%= prop.getProperty("telephone", "") %>' context="html"/>
                 </td>
                 <%-- <td><e:forHtmlContent value='<%= prop.getProperty("fax", "") %>' /></td> --%>
             </tr>
@@ -300,12 +303,12 @@
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<e:forJavaScript value='<%= URLEncoder.encode(param,"UTF-8") %>' />&param2=<e:forJavaScript value='<%= URLEncoder.encode(param2,"UTF-8") %>' />&keyword=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' />&search_mode=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' />&orderby=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' />&limit1=<%=nLastPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<e:forJavaScript value='<%= URLEncoder.encode(param,"UTF-8") %>' />&param2=<e:forJavaScript value='<%= URLEncoder.encode(param2,"UTF-8") %>' />&keyword=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' />&search_mode=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' />&orderby=<e:forJavaScript value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' />&limit1=<%=nNextPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
+                document.nextform.action = "<%= request.getContextPath() %>/billing/CA/BC/ViewOnSearch3rdBillAddr?param=<carlos:encode value='<%= URLEncoder.encode(param,"UTF-8") %>' context="javaScript"/>&param2=<carlos:encode value='<%= URLEncoder.encode(param2,"UTF-8") %>' context="javaScript"/>&keyword=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("keyword")), "UTF-8") %>' context="javaScript"/>&search_mode=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("search_mode")), "UTF-8") %>' context="javaScript"/>&orderby=<carlos:encode value='<%= URLEncoder.encode(StringUtils.noNull(request.getParameter("orderby")), "UTF-8") %>' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 
@@ -337,6 +340,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return org.owasp.encoder.Encode.forJavaScript(d);
+        return org.owasp.encoder.SafeEncode.forJavaScript(d);
     }
 %>

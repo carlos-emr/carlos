@@ -45,6 +45,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
 
@@ -138,12 +140,12 @@
     %>
     <tr bgcolor="<%=bgcolor%>">
         <td align="center"><a
-                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />"><e:forHtmlContent value='<%= datetime %>' />
+                href="<%= request.getContextPath() %>/encounter/ViewEcharthistoryprint?echartid=<%=eChart.getId()%>&demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>"><carlos:encode value='<%= datetime %>' context="html"/>
         </a></td>
-        <td><e:forHtmlContent value='<%= eChart.getSubject() != null ? eChart.getSubject() : "" %>' />
+        <td><carlos:encode value='<%= eChart.getSubject() != null ? eChart.getSubject() : "" %>' context="html"/>
         </td>
         <!--td align="center"><%--=ectsize + "KB" --%></td-->
-        <td><e:forHtmlContent value='<%= ProviderData.getProviderName(eChart.getProviderNo()) %>' />
+        <td><carlos:encode value='<%= ProviderData.getProviderName(eChart.getProviderNo()) %>' context="html"/>
         </td>
     </tr>
     <%
@@ -160,11 +162,11 @@
         nLastPage = Integer.parseInt(strLimit1) - intLimit2;
         if (nLastPage >= 0) {
     %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="report.reportecharthistory.lastPage"/></a> | <%
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><fmt:message key="report.reportecharthistory.lastPage"/></a> | <%
     }
     if (nItems == intLimit2) {
 %> <a
-        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<e:forUriComponent value='<%= splitectsize %>' />">
+        href="<%= request.getContextPath() %>/report/ViewReportecharthistory?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>&splitectsize=<carlos:encode value='<%= splitectsize %>' context="uriComponent"/>">
     <fmt:message key="report.reportecharthistory.nextPage"/></a> <%
     }
 %>

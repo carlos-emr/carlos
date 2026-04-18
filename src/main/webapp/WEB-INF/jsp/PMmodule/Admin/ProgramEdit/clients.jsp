@@ -31,6 +31,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
@@ -82,30 +83,30 @@
     <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
     <display:column property="teamName" sortable="true" title="Team"/>
     <display:column sortable="false" title="">
-        <select name="x" onchange="assignTeam('${e:forJavaScript(admission.id)}',this);">
+        <select name="x" onchange="assignTeam('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
                     <c:when test="${team.id == admission.teamId}">
-                        <option value="${e:forHtmlAttribute(team.id)}" selected>${e:forHtml(team.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(team.id)}" selected>${carlos:forHtml(team.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(team.id)}">${carlos:forHtml(team.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
         </select>
     </display:column>
     <display:column sortable="false" title="Status">
-        <select name="y" onchange="assignStatus('${e:forJavaScript(admission.id)}',this);">
+        <select name="y" onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>
                     <c:when test="${status.id == admission.clientStatusId}">
-                        <option value="${e:forHtmlAttribute(status.id)}" selected>${e:forHtml(status.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(status.id)}" selected>${carlos:forHtml(status.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(status.id)}">${carlos:forHtml(status.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>

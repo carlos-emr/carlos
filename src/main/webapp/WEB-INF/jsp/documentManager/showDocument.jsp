@@ -147,6 +147,7 @@
 <%@ page import="org.owasp.encoder.Encode"%>
 <%@ page import="org.springframework.web.context.WebApplicationContext"%>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -155,6 +156,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
@@ -216,9 +218,9 @@
     String docId = curdoc.getDocId();
     String ackFunc;
     if(skipComment) {
-      ackFunc = "updateStatus('acknowledgeForm_" + Encode.forJavaScript(docId) + "'," + inQueueB + ");";
+      ackFunc = "updateStatus('acknowledgeForm_" + SafeEncode.forJavaScript(docId) + "'," + inQueueB + ");";
     } else {
-      ackFunc = "getDocComment('" + Encode.forJavaScript(docId) + "','" + Encode.forJavaScript(providerNo) + "'," + inQueueB + ");";
+      ackFunc = "getDocComment('" + SafeEncode.forJavaScript(docId) + "','" + SafeEncode.forJavaScript(providerNo) + "'," + inQueueB + ");";
     }
 
     int slash = 0;
@@ -277,7 +279,7 @@
         List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
         for (Tickler t : ticklers) {
             if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
-                notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+                notes.add(tlinkf + SafeEncode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + SafeEncode.forHtml(t.getMessage()) + "</a>");
             }
         }
         numTickler = notes.size();
@@ -391,8 +393,8 @@
                 loc = loc + "/oscarMDS/ViewSplit?document=";
                 loc = loc + id;
                 loc = loc + "&queueID=";
-                <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.defaultString(inQueue) %>' /></c:set>
-                loc = loc + "<e:forJavaScriptBlock value='${__enc_1}' />";
+                <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.defaultString(inQueue) %>' context="uriComponent"/></c:set>
+                loc = loc + "<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>";
                 loc = loc + "&demoName=" + encodeURIComponent(demoName);
                 popupStart(1400, 1400, loc, "Splitter");
             }
@@ -405,7 +407,7 @@
 </c:if>
 <script type="text/javascript">
     var _in_window = <%=( "true".equals(request.getParameter("inWindow")) ? "true" : "false" )%>;
-    var contextpath = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
+    var contextpath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
 </script>
 <div id="labdoc_<%=docId%>" class="content">
     <%
@@ -432,16 +434,16 @@
             }
         }
     %>
-    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<e:forJavaScriptAttribute value='<%= ackFunc %>' />" method="post"
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="javaScriptAttribute"/>" method="post"
           action="javascript:void(0);">
         <input type="hidden" name="CSRF-TOKEN" value="">
-        <input type="hidden" name="segmentID" value="<e:forHtmlAttribute value='<%= docId %>' />">
-        <input type="hidden" name="multiID" value="<e:forHtmlAttribute value='<%= docId %>' />">
-        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+        <input type="hidden" name="segmentID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
+        <input type="hidden" name="multiID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
+        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
         <input type="hidden" name="status" value="A" id="status_<%=docId%>">
         <input type="hidden" name="labType" value="DOC">
         <input type="hidden" name="ajaxcall" value="yes">
-        <input type="hidden" name="comment" id="comment_<%=docId%>" value="<e:forHtmlAttribute value='<%= docCommentTxt %>' />">
+        <input type="hidden" name="comment" id="comment_<%=docId%>" value="<carlos:encode value='<%= docCommentTxt %>' context="htmlAttribute"/>">
         <%
             if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
@@ -460,7 +462,7 @@
                                 boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
                 %>
                 <li><a class="dropdown-item" href="javascript:void(0);"
-                       onclick="runDocMacro('<e:forJavaScriptAttribute value='<%= macroName %>' />','acknowledgeForm_<e:forJavaScriptAttribute value='<%= docId %>' />',<%=closeOnSuccess%>)"><e:forHtmlContent value='<%= macroName %>' /></a></li>
+                       onclick="runDocMacro('<carlos:encode value='<%= macroName %>' context="javaScriptAttribute"/>','acknowledgeForm_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>',<%=closeOnSuccess%>)"><carlos:encode value='<%= macroName %>' context="html"/></a></li>
                 <%
                             }
                         }
@@ -474,14 +476,14 @@
         <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
         <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
                value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
-        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= providerNo %>' />')">
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= providerNo %>' context="javaScriptAttribute"/>')">
 
         <%}%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
-               onClick="ForwardSelectedRows(<e:forJavaScriptAttribute value='<%= docId %>' /> + ':DOC', null, null);">
+               onClick="ForwardSelectedRows(<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/> + ':DOC', null, null);">
         <%if (!ackedOrFiled) { %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
-               onclick="fileDoc('<e:forJavaScriptAttribute value='<%= docId %>' />');">
+               onclick="fileDoc('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">
         <%} %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
                onClick="window.close()">
@@ -495,10 +497,10 @@
 
         %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
-               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage?demographic_no=','msg', '<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage?demographic_no=','msg', '<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
 
-        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<e:forHtmlAttribute value='<%= docId %>' />" value="Tickler" onclick="handleDocSave('<e:forJavaScriptAttribute value='<%= docId %>' />','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler?', 'Tickler','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="Tickler" onclick="handleDocSave('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','addTickler')"/-->
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ViewAddTickler?', 'Tickler','<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -516,24 +518,24 @@
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/encounter/IncomingEncounter?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit?demographic_no=','master','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicEdit?demographic_no=','master','<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
-               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<e:forJavaScriptAttribute value='<%= docId %>' />')" <%=btnDisabled %>>
+               onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/DemographicApptHistory?orderby=appttime&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')" <%=btnDisabled %>>
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
-               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<e:forJavaScriptAttribute value='<%= docId %>' />');" <%=refileBtnVisibility%> >
+               value="<fmt:message key="encounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');" <%=refileBtnVisibility%> >
 
         <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
-                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<e:forJavaScriptAttribute value='<%= docId %>' />'), '<e:forJavaScriptAttribute value='<%= String.valueOf(docCurrentFiledQueue) %>' />')">
+                onchange="handleQueueListChange(this, document.getElementById('refileDoc_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>'), '<carlos:encode value='<%= String.valueOf(docCurrentFiledQueue) %>' context="javaScriptAttribute"/>')">
             <%
                 for (Hashtable ht : queues) {
                     int id = (Integer) ht.get("id");
                     String qName = (String) ht.get("queue");
             %>
-            <option value="<e:forHtmlAttribute value='<%= String.valueOf(id) %>' />" <%=((id == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= qName %>' />
+            <option value="<carlos:encode value='<%= String.valueOf(id) %>' context="htmlAttribute"/>" <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
             </option>
             <%}%>
         </select>
@@ -546,7 +548,7 @@
                 <td class="alert alert-info alert-dismissible fade show">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     <strong><fmt:message key="showDocument.ticklerAlertLabel"/></strong> <fmt:message key="showDocument.ticklerAlertFollowing"/> <%=numTickler%>
-                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<e:forJavaScript value='<%= request.getContextPath() %>' />/tickler/ViewTicklerDemoMain?demoview=<e:forUriComponent value='<%= demographicID %>' />', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
+                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/tickler/ViewTicklerDemoMain?demoview=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
                     <fmt:message key="showDocument.ticklerAlertPending"/>: <%=tickler_note%>
                 </td>
             </tr>
@@ -558,30 +560,30 @@
             <td class="pdfPreviewColumn" style="vertical-align: top;">
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);"
-                       onclick="nextPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);"
-                       onclick="lastPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <a id="firstP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);"
+                       onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);"
+                       onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
                 <a href="<%=url2%>" target="_blank"><img alt="document" id="docImg_<%=docId%>" src="<%=url%>"
-                                                         onerror="this.src='<e:forJavaScriptAttribute value='<%= request.getContextPath() %>' />/images/icon_alert.gif'"/></a>
+                                                         onerror="this.src='<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptAttribute"/>/images/icon_alert.gif'"/></a>
                 <%} else {%>
                 <div id="docDispPDF_<%=docId%>"></div>
                 <%}%>
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
-                    <a id="firstP2_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.first"/></a>
-                    <a id="prevP2_<e:forHtmlAttribute value='<%= docId %>' />" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.previous"/></a>
-                    <a id="nextP2_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);" onclick="nextPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.next"/></a>
-                    <a id="lastP2_<e:forHtmlAttribute value='<%= docId %>' />" href="javascript:void(0);" onclick="lastPage('<e:forJavaScriptAttribute value='<%= docId %>' />','<e:forJavaScriptAttribute value='<%= cp %>' />');"><fmt:message key="dms.incomingDocs.last"/></a>
+                    <a id="firstP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.first"/></a>
+                    <a id="prevP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" style="display: none;" href="javascript:void(0);"
+                       onclick="prevPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="nextPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP2_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" href="javascript:void(0);" onclick="lastPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= cp %>' context="javaScriptAttribute"/>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
             </td>
@@ -589,16 +591,16 @@
             <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">
                 <fieldset>
                     <legend><fmt:message key="inboxmanager.document.PatientMsg"/><span
-                            id="assignedPId_<%=docId%>"><e:forHtmlContent value='${demoName}' /></span></legend>
+                            id="assignedPId_<%=docId%>"><carlos:encode value='${demoName}' context="html"/></span></legend>
                     <table>
                         <tr>
                             <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><e:forHtmlContent value='<%= curdoc.getDateTimeStamp() %>' />
+                            <td><carlos:encode value='<%= curdoc.getDateTimeStamp() %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="inboxmanager.document.ContentType"/></td>
-                            <td><e:forHtmlContent value='<%= contentType %>' />
+                            <td><carlos:encode value='<%= contentType %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
@@ -627,16 +629,16 @@
                                     %>
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                                    <input onclick="split('<e:forJavaScriptAttribute value='<%= docId %>' />','${e:forJavaScript(demoName)}')"
+                                    <input onclick="split('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','${carlos:forJavaScript(demoName)}')"
                                            type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
-                                    <input id="rotate180btn_<e:forHtmlAttribute value='<%= docId %>' />" onclick="rotate180('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                    <input id="rotate180btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate180('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
                                            type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate180"/>">
-                                    <input id="rotate90btn_<e:forHtmlAttribute value='<%= docId %>' />" onclick="rotate90('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                    <input id="rotate90btn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" onclick="rotate90('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
                                             type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate90"/>">
-                                    <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<e:forHtmlAttribute value='<%= docId %>' />"
-                                            onclick="removeFirstPage('<e:forJavaScriptAttribute value='<%= docId %>' />')"
+                                    <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                            onclick="removeFirstPage('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>')"
                                             type="button" class=" btn btn-light btn-sm"
                                             value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
                                 </div>
@@ -645,19 +647,19 @@
 
                     </table>
 
-                    <form id="forms_<e:forHtmlAttribute value='<%= docId %>' />" method="post" onsubmit="return updateDocument('forms_<e:forJavaScriptAttribute value='<%= docId %>' />');">
+                    <form id="forms_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" method="post" onsubmit="return updateDocument('forms_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');">
                         <input type="hidden" name="method" value="documentUpdateAjax">
-                        <input type="hidden" name="documentId" value="<e:forHtmlAttribute value='<%= docId %>' />">
-                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+                        <input type="hidden" name="documentId" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
                                value="<%=numOfPage%>">
                         <input type="hidden" name="displayDocumentAs_<%=docId%>" id="displayDocumentAs_<%=docId%>"
-                               value="<e:forHtmlAttribute value='<%= displayDocumentAs %>' />">
+                               value="<carlos:encode value='<%= displayDocumentAs %>' context="htmlAttribute"/>">
                         <table>
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><e:forHtmlContent value='<%= curdoc.getCreatorName() %>' />
+                                <td><carlos:encode value='<%= curdoc.getCreatorName() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
@@ -669,7 +671,7 @@
                                             for (int j = 0; j < doctypes.size(); j++) {
                                                 String doctype = (String) doctypes.get(j);
                                         %>
-                                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                                        <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                                         </option>
                                         <%}%>
                                     </select>
@@ -678,7 +680,7 @@
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
                                 <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
-                                           value="<e:forHtmlAttribute value='<%= curdoc.getDescription() %>' />"
+                                           value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                            onfocus="this.select(); this.setAttribute('data-original-value', this.value)"
                                            onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"></td>
                             </tr>
@@ -686,7 +688,7 @@
                                 <td><fmt:message key="inboxmanager.document.ObservationDateMsg"/></td>
                                 <td id="observation-calendar">
                                     <input class="input-field" id="observationDate<%=docId%>" name="observationDate"
-                                           type="text" value="<e:forHtmlAttribute value='<%= curdoc.getObservationDate() %>' />">
+                                           type="text" value="<carlos:encode value='<%= curdoc.getObservationDate() %>' context="htmlAttribute"/>">
                                     <a class="calendar-icon" id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);">
@@ -700,22 +702,22 @@
                                 <td><%
                                     if (!demographicID.equals("-1")) {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="true">
-                                    <input type="hidden" value="<e:forHtmlAttribute value='<%= demographicID %>' />" name="demog"
+                                    <input type="hidden" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>" name="demog"
                                            id="demofind<%=docId%>">
-                                    <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
+                                    <input type="hidden" name="demofindName" value="${carlos:forHtmlAttribute(demoName)}"
                                            id="demofindName<%=docId%>">
-                                    <e:forHtmlContent value='${demoName}' /><e:forHtmlContent value='${mrpProviderName}' /><%} else {%>
+                                    <carlos:encode value='${demoName}' context="html"/><carlos:encode value='${mrpProviderName}' context="html"/><%} else {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="false">
-                                    <input type="hidden" name="demog" value="<e:forHtmlAttribute value='<%= demographicID %>' />"
+                                    <input type="hidden" name="demog" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>"
                                            id="demofind<%=docId%>">
-                                    <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
+                                    <input type="hidden" name="demofindName" value="${carlos:forHtmlAttribute(demoName)}"
                                            id="demofindName<%=docId%>">
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
                                            value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
                                     <fmt:message key="showDocument.placeholderSearchDemographic" var="placeholderSearchDemographic"/>
                                     <input type="text" id="autocompletedemo<%=docId%>"
-                                           onchange="checkSave('<e:forJavaScriptAttribute value='<%= docId %>' />');" name="demographicKeyword"
+                                           onchange="checkSave('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');" name="demographicKeyword"
                                            placeholder="${fn:escapeXml(placeholderSearchDemographic)}">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
@@ -748,15 +750,15 @@
                                 <td style="width: 30%; text-align: left;"><a id="saveSucessMsg_<%=docId%>"
                                                                             style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
                                 <td style="width: 30%; text-align: left;"><%if(demographicID.equals("-1")){%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="global.btnSave"/>">
-                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<e:forHtmlAttribute value='<%= docId %>' />"
-                                           onclick="saveNext(<e:forJavaScriptAttribute value='<%= docId %>' />)" disabled
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                                           onclick="saveNext(<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>)" disabled
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
                                         <%}
             else{%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<e:forHtmlAttribute value='<%= docId %>' />" value="<fmt:message key="global.btnSave"/>">
-                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<e:forJavaScriptAttribute value='<%= docId %>' />)"
-                                           id="saveNext<e:forHtmlAttribute value='<%= docId %>' />"
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" value="<fmt:message key="global.btnSave"/>">
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>)"
+                                           id="saveNext<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
 
                                         <%}%>
@@ -780,8 +782,8 @@
 
                                                 if (!s.equals("0") && !s.equals("null") && !pItem.getStatus().equals("X")) {
                                         %>
-                                        <li><e:forHtmlContent value='<%= s %>' /><a href="#"
-                                                     onclick="removeLink('DOC', '<e:forJavaScriptAttribute value='<%= docId %>' />', '<e:forJavaScriptAttribute value='<%= pItem.getProviderNo() %>' />', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
+                                        <li><carlos:encode value='<%= s %>' context="html"/><a href="#"
+                                                     onclick="removeLink('DOC', '<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= pItem.getProviderNo() %>' context="javaScriptAttribute"/>', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
                                         <%
                                                 }
                                             }
@@ -805,7 +807,7 @@
                                 <div class="FieldData">
                                     <% for (int i = 0; i < ackList.size(); i++) {
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
-                                    <e:forHtmlContent value='<%= report.getProviderName() %>' /> :
+                                    <carlos:encode value='<%= report.getProviderName() %>' context="html"/> :
 
                                     <% String ackStatus = report.getStatus() == null ? "" : report.getStatus();
                                         String ackStatusKey;
@@ -820,9 +822,9 @@
                                     %>
                                     <span style="color: red;"><fmt:message key="${ackStatusKey}"/>
                                     </span>
-                                    <span id="timestamp_<e:forHtmlAttribute value='<%= docId + "_" + report.getOscarProviderNo() %>' />"><%= report.getTimestamp() == null ? "&nbsp;" : Encode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
+                                    <span id="timestamp_<carlos:encode value='<%= docId + "_" + report.getOscarProviderNo() %>' context="htmlAttribute"/>"><%= report.getTimestamp() == null ? "&nbsp;" : SafeEncode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
                                     <fmt:message key="inboxmanager.document.Comment"/> <span
-                                        id="comment_<e:forHtmlAttribute value='<%= docId + "_" + report.getOscarProviderNo() %>' />"><% if (report.getComment() == null || report.getComment().isEmpty()) { %><fmt:message key="showDocument.noComment"/><% } else { %><e:forHtmlContent value='<%= report.getComment() %>' /><% } %></span>
+                                        id="comment_<carlos:encode value='<%= docId + "_" + report.getOscarProviderNo() %>' context="htmlAttribute"/>"><% if (report.getComment() == null || report.getComment().isEmpty()) { %><fmt:message key="showDocument.noComment"/><% } else { %><carlos:encode value='<%= report.getComment() %>' context="html"/><% } %></span>
 
                                     <br>
                                     <% }
@@ -872,11 +874,11 @@
                                 }
                         %>
                         <tr style="background-color: <%=HighlightUserAppt == false ? "#FFFFFF" : "#CCFFCC"%>;">
-                            <td><e:forHtmlContent value='<%= ConversionUtils.toDateString(a.getAppointmentDate()) %>' />
+                            <td><carlos:encode value='<%= ConversionUtils.toDateString(a.getAppointmentDate()) %>' context="html"/>
                             </td>
-                            <td><e:forHtmlContent value='<%= ConversionUtils.toTimeString(a.getStartTime()) %>' />
+                            <td><carlos:encode value='<%= ConversionUtils.toTimeString(a.getStartTime()) %>' context="html"/>
                             </td>
-                            <td><% if (prov == null) { %><fmt:message key="showDocument.msgNA"/><% } else { %><e:forHtmlContent value='<%= prov.getFormattedName() %>' /><% } %>
+                            <td><% if (prov == null) { %><fmt:message key="showDocument.msgNA"/><% } else { %><carlos:encode value='<%= prov.getFormattedName() %>' context="html"/><% } %>
                             </td>
                             <td><% if (a.getStatus() == null) {%>
                                 "" <% } else if (a.getStatus().startsWith("N")) {%><fmt:message key="oscar.appt.ApptStatusData.msgNoShow"/><% } else if (a.getStatus().startsWith("C")) {%><fmt:message key="oscar.appt.ApptStatusData.msgCanceled"/> <%}%>
@@ -889,11 +891,11 @@
                         }
                     %>
                     <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>" method="post">
-                        <input type="hidden" name="flaggedLabs" value="<e:forHtmlAttribute value='<%= docId %>' />">
+                        <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
                         <input type="hidden" name="selectedProviders" value="">
                         <input type="hidden" name="labType" value="DOC">
-                        <input type="hidden" name="labType<e:forHtmlAttribute value='<%= docId %>' />DOC" value="imNotNull">
-                        <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
+                        <input type="hidden" name="labType<carlos:encode value='<%= docId %>' context="htmlAttribute"/>DOC" value="imNotNull">
+                        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="favorites" value="">
                         <input type="hidden" name="ajax" value="yes">
                     </form>
@@ -1113,12 +1115,12 @@
     }
 
     setupProviderAutoCompletion();
-    setupDocDescriptionTypeahead('<e:forJavaScriptBlock value='<%= docId %>' />');
+    setupDocDescriptionTypeahead('<carlos:encode value='<%= docId %>' context="javaScriptBlock"/>');
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
-        var url = '<e:forJavaScript value='<%= request.getContextPath() %>' />/documentManager/inboxManage';
-        var data = 'method=isDocumentLinkedToDemographic&docId=<e:forJavaScript value='<%= docId %>' />&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
+        var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/documentManager/inboxManage';
+        var data = 'method=isDocumentLinkedToDemographic&docId=<carlos:encode value='<%= docId %>' context="javaScript"/>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
         fetch(url, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -1138,7 +1140,7 @@
     }
 
     function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
-        var url = '<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
         if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
@@ -1164,7 +1166,7 @@
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
-    fetchCsrfToken('<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />');
+    fetchCsrfToken('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>');
 
 </script>
 <jsp:include page="/images/spinner.jsp"/>

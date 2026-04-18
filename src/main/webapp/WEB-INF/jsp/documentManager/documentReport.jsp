@@ -60,12 +60,15 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 
@@ -328,8 +331,8 @@
             }
 
             function setup() {
-                var update = "<e:forJavaScriptBlock value='<%= updateParent %>' />";
-                var parentId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
+                var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
+                var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
                 var Url = window.opener.URLs;
 
                 if (update === "true" && !window.opener.closed) {
@@ -404,7 +407,7 @@
         <div id="docListAlertContainer"></div>
 
         <% if ("demographic".equals(module)) { %>
-        <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= moduleid %>' />"/>
+        <oscar:nameage demographicNo="<%= moduleid %>"/>
         <%} %>
 
         <jsp:include page="addDocument.jsp">
@@ -419,7 +422,7 @@
 
         <form action="${pageContext.request.contextPath}/documentManager/combinePDFs" method="post">
             <input type="hidden" name="curUser" value="<%=curUser%>">
-            <input type="hidden" name="demoId" value="<e:forHtmlAttribute value='<%= moduleid %>' />">
+            <input type="hidden" name="demoId" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>">
             <div class="documentLists"><%-- STUFF TO DISPLAY --%> <%
                 ArrayList categories = new ArrayList();
                 ArrayList categoryKeys = new ArrayList();
@@ -450,14 +453,14 @@
                         <div class="container">
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <div class="mb-3" style="margin-right: 10px;">
-                                    <e:forHtmlContent value='<%= currentkey %>' />
+                                    <carlos:encode value='<%= currentkey %>' context="html"/>
                                 </div>
 
                                 <% if (i == 0) {%>
                                 <div class="mb-3">
                                         <%--      <label for="viewstatus"><fmt:message key="dms.documentReport.msgViewStatus"/></label>--%>
                                     <select class="form-select" id="viewstatus" name="viewstatus"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />&view=<e:forUriComponent value='<%= view %>' />&viewstatus=' + val;">
+                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=<carlos:encode value='<%= view %>' context="uriComponent"/>&viewstatus=' + val;">
                                         <option value="all"
                                                 <%=viewstatus.equalsIgnoreCase("all") ? "selected" : ""%>><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <option value="deleted"
@@ -473,13 +476,13 @@
                                         <%--          <label for="view"><fmt:message key="dms.documentReport.msgView"/></label>--%>
                                     <select id="viewdoctype<%=i%>" name="view" id="view"
                                             class="form-select"
-                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />&view=' + val;">
+                                            onchange="var val = encodeURIComponent(this.options[this.selectedIndex].value); window.location.href='?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&view=' + val;">
                                         <option value=""><fmt:message key="dms.documentReport.msgAll"/></option>
                                         <%
                                             for (int i3 = 0; i3 < doctypes.size(); i3++) {
                                                 String doctype = (String) doctypes.get(i3); %>
-                                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
-                                                <%=(view.equalsIgnoreCase(doctype)) ? "selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                                        <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>"
+                                                <%=(view.equalsIgnoreCase(doctype)) ? "selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                                         </option>
                                         <%}%>
 
@@ -488,7 +491,7 @@
                                 <%if (DocumentBrowserLink) {%>
                                 <div class="mb-3">
                                     <a class="btn btn-link"
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />&categorykey=<e:forUri value='<%= currentkey %>' />">
+                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uri"/>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -571,7 +574,7 @@
                                            style="margin: 0; padding: 0;"/>
                                     <%}%>
                                 </td>
-                                <td><%=curdoc.getType() == null ? "N/A" : Encode.forHtmlContent(curdoc.getType())%>
+                                <td><%=curdoc.getType() == null ? "N/A" : SafeEncode.forHtmlContent(curdoc.getType())%>
                                 </td>
 
                                 <td>
@@ -580,24 +583,24 @@
                                     %>
                                     <a <%=curdoc.getStatus() == 'D' ? "style='text-decoration:line-through'" : ""%>
                                             href="javascript:void(0);"
-                                            title="<e:forHtmlAttribute value='<%= curdoc.getDescription() %>' />"
+                                            title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                             style="word-break: break-word;overflow-wrap: anywhere;overflow: hidden;text-overflow: ellipsis;text-decoration: none;"
                                             onclick="popupFocusPage(500,700,'<%=url%>','demographic_document');">
-                                        <e:forHtmlContent value='<%= curdoc.getDescription() %>' />
+                                        <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>
                                 <td>
                                     <div style="overflow:hidden; text-overflow: ellipsis;"
-                                         title="<e:forHtmlAttribute value='<%= contentType %>' />">
-                                        <e:forHtmlContent value='<%= contentType %>' />
+                                         title="<carlos:encode value='<%= contentType %>' context="htmlAttribute"/>">
+                                        <carlos:encode value='<%= contentType %>' context="html"/>
                                     </div>
                                 </td>
 
-                                <td><e:forHtmlContent value='<%= curdoc.getCreatorName() %>' />
+                                <td><carlos:encode value='<%= curdoc.getCreatorName() %>' context="html"/>
                                 </td>
-                                <td><e:forHtmlContent value='<%= curdoc.getResponsibleName() %>' />
+                                <td><carlos:encode value='<%= curdoc.getResponsibleName() %>' context="html"/>
                                 </td>
-                                <td><e:forHtmlContent value='<%= curdoc.getObservationDate() %>' />
+                                <td><carlos:encode value='<%= curdoc.getObservationDate() %>' context="html"/>
                                 </td>
                                 <td><%=curdoc.getContentDateTime()%>
                                 </td>
@@ -607,7 +610,7 @@
                                         <%
                                                 if (curdoc.getCreatorId().equalsIgnoreCase(user_no)) {
                                                     if (curdoc.getStatus() == 'D') { %>
-                                        <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<e:forJavaScriptAttribute value='<%= String.valueOf(curdoc.getDocId()) %>' />','<e:forJavaScriptAttribute value='<%= module %>' />','<e:forJavaScriptAttribute value='<%= moduleid %>' />','<e:forJavaScriptAttribute value='<%= viewstatus %>' />');"
+                                        <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<carlos:encode value='<%= String.valueOf(curdoc.getDocId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= module %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= moduleid %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= viewstatus %>' context="javaScriptAttribute"/>');"
                                            class="btn btn-link" style="padding:0;"
                                            title="<fmt:message key="dms.documentReport.btnUnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -622,7 +625,7 @@
                                         } else { // curdoc get status
                                         %>
                                         <a style="color:red; padding:0;"
-                                           href="javascript:void(0);" onclick="checkDelete('<e:forJavaScriptAttribute value='<%= String.valueOf(curdoc.getDocId()) %>' />','<e:forJavaScriptAttribute value='<%= module %>' />','<e:forJavaScriptAttribute value='<%= moduleid %>' />','<e:forJavaScriptAttribute value='<%= viewstatus %>' />','<e:forJavaScriptAttribute value='<%= curdoc.getDescription() %>' />');"
+                                           href="javascript:void(0);" onclick="checkDelete('<carlos:encode value='<%= String.valueOf(curdoc.getDocId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= module %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= moduleid %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= viewstatus %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= curdoc.getDescription() %>' context="javaScriptAttribute"/>');"
                                            class="btn btn-link" title="<fmt:message key="dms.documentReport.btnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
@@ -636,7 +639,7 @@
                                         <security:oscarSec roleName="<%=roleName$%>"
                                                            objectName="_admin,_admin.edocdelete" rights="r">
                                             <% if (curdoc.getStatus() == 'D') {%>
-                                            <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<e:forJavaScriptAttribute value='<%= String.valueOf(curdoc.getDocId()) %>' />','<e:forJavaScriptAttribute value='<%= module %>' />','<e:forJavaScriptAttribute value='<%= moduleid %>' />','<e:forJavaScriptAttribute value='<%= viewstatus %>' />');"
+                                            <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<carlos:encode value='<%= String.valueOf(curdoc.getDocId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= module %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= moduleid %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= viewstatus %>' context="javaScriptAttribute"/>');"
                                                title="<fmt:message key="dms.documentReport.btnUnDelete"/>"
                                                class="btn btn-link" style="padding:0;">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -649,7 +652,7 @@
                                             </a>
                                             <% } else { // curdoc get status %>
                                             <a style="color:red;padding:0;"
-                                                href="javascript:void(0);" onclick="checkDelete('<e:forJavaScriptAttribute value='<%= String.valueOf(curdoc.getDocId()) %>' />','<e:forJavaScriptAttribute value='<%= module %>' />','<e:forJavaScriptAttribute value='<%= moduleid %>' />','<e:forJavaScriptAttribute value='<%= viewstatus %>' />','<e:forJavaScriptAttribute value='<%= curdoc.getDescription() %>' />');"
+                                                href="javascript:void(0);" onclick="checkDelete('<carlos:encode value='<%= String.valueOf(curdoc.getDocId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= module %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= moduleid %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= viewstatus %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= curdoc.getDescription() %>' context="javaScriptAttribute"/>');"
                                                 class="btn btn-link" title="<fmt:message key="dms.documentReport.btnDelete"/>">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                      fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
@@ -665,7 +668,7 @@
                                         <% if (curdoc.getStatus() != 'D') {
                                             if (curdoc.getStatus() == 'H') { %>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=<e:forUriComponent value='<%= String.valueOf(curdoc.getDocId()) %>' />&function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />', 'EditDoc')"
+                                           onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=<carlos:encode value='<%= String.valueOf(curdoc.getDocId()) %>' context="uriComponent"/>&function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -678,7 +681,7 @@
                                         </a>
                                         <%} else {%>
                                         <a href="javascript:void(0)"
-                                           onclick="popup1(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=<%=curdoc.getDocId()%>&function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />', 'EditDoc')"
+                                           onclick="popup1(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=<%=curdoc.getDocId()%>&function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>', 'EditDoc')"
                                            title="<fmt:message key="dms.documentReport.btnEdit"/>"
                                            class="btn btn-link" style="padding:0;">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -695,11 +698,11 @@
 
                                         <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
 
-                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + Encode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + Encode.forUriComponent(moduleid);
+                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + SafeEncode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + SafeEncode.forUriComponent(moduleid);
                                         %>
                                         <a href="javascript:void(0);" title="<fmt:message key="dms.documentReport.msgTickler"/>" class="btn btn-link"
                                            style="padding: 0;"
-                                           onclick="popup1(450,600,'<e:forJavaScriptAttribute value='<%= tickler_url %>' />','tickler')">
+                                           onclick="popup1(450,600,'<carlos:encode value='<%= tickler_url %>' context="javaScriptAttribute"/>','tickler')">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-feather" viewBox="0 0 16 16">
                                                 <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"></path>

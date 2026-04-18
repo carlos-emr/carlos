@@ -37,6 +37,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -82,7 +83,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -113,13 +114,13 @@
                     <div class="row mb-3">
                         <div class="col-md-5">
                             <label for="name" class="form-label">Name</label>
-                            <input type="text" name="name" id="name" class="form-control" value="<e:forHtmlAttribute value='${name}'/>"/>
+                            <input type="text" name="name" id="name" class="form-control" value="<carlos:encode value='${name}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="annotation" class="form-label">Annotation</label>
-                            <textarea name="annotation" id="annotation" class="form-control" rows="3"><e:forHtmlContent value='${annotation}'/></textarea>
+                            <textarea name="annotation" id="annotation" class="form-control" rows="3"><carlos:encode value='${annotation}' context="html"/></textarea>
                         </div>
                     </div>
                     <input type="hidden" name="whichType" value="<%=whichType%>"/>

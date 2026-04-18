@@ -32,6 +32,8 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.utility.LocaleUtils,io.github.carlos_emr.carlos.utility.MiscUtils, io.github.carlos_emr.carlos.util.DateUtils" %>
@@ -207,10 +209,10 @@
 
 
 <div class="container-fluid">
-    <span class="float-end"><e:forHtmlContent value='<%= today %>' /></span>
+    <span class="float-end"><carlos:encode value='<%= today %>' context="html"/></span>
 
     <div class="row card card-body bg-body-tertiary">
-        <e:forHtmlContent value='<%= errorMsg %>' />
+        <carlos:encode value='<%= errorMsg %>' context="html"/>
 
         <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment">
 
@@ -230,7 +232,7 @@
                             selected = "selected";
                         }
                     %>
-                    <option <%=selected%> value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />"><e:forHtmlContent value='<%= p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() %>' />
+                    <option <%=selected%> value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getLastName() %>' context="html"/>, <carlos:encode value='<%= p.getFirstName() %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -241,7 +243,7 @@
                 <fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="startDateText" id="startDateText"
-                           value="<e:forHtmlAttribute value='<%= DateUtils.formatDate(startDate,locale) %>' />"
+                           value="<carlos:encode value='<%= DateUtils.formatDate(startDate,locale) %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -251,7 +253,7 @@
                 <fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
                 <div class="input-group">
                     <input type="text" class="form-control" style="width:90px" name="endDateText" id="endDateText"
-                           value="<e:forHtmlAttribute value='<%= DateUtils.formatDate(endDate,locale) %>' />"
+                           value="<carlos:encode value='<%= DateUtils.formatDate(endDate,locale) %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -380,44 +382,44 @@
                         }
                         String curBillingNoStr = String.valueOf(curBillingNo);
             %>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<e:forJavaScript value='<%= curBillingNoStr %>' />');return false;"><e:forHtmlContent value='<%= curBillingNoStr %>' />
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= curBillingNoStr %>' context="javaScript"/>');return false;"><carlos:encode value='<%= curBillingNoStr %>' context="html"/>
                 </a></td>
                 <%} else {%>
                 <td></td>
                 <%}%>
-                <td style="text-align:center"><e:forHtmlContent value='<%= billStatus %>' />
+                <td style="text-align:center"><carlos:encode value='<%= billStatus %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= serviceDate %>' />
+                <td style="text-align:center"><carlos:encode value='<%= serviceDate %>' context="html"/>
                 </td>
                 <% if (!isSameBill) {%>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScript value='<%= String.valueOf(demoNo) %>' />');return false;"><e:forHtmlContent value='<%= demographicName %>' />
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="javaScript"/>');return false;"><carlos:encode value='<%= demographicName %>' context="html"/>
                 </a></td>
                 <%} else {%>
                 <td></td>
                 <%}%>
-                <td style="text-align:center"><e:forHtmlContent value='<%= dxCode %>' />
+                <td style="text-align:center"><carlos:encode value='<%= dxCode %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCode %>' />
+                <td style="text-align:center"><carlos:encode value='<%= serviceCode %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getServiceCount() %>' />
+                <td style="text-align:center"><carlos:encode value='<%= rad.getServiceCount() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= bItemFee %>' />
+                <td style="text-align:right"><carlos:encode value='<%= bItemFee %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= claimAmtStr %>' />
+                <td style="text-align:right"><carlos:encode value='<%= claimAmtStr %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= paidAmt.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= paidAmt.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= adjAmt.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= adjAmt.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getBillType() %>' />
+                <td style="text-align:center"><carlos:encode value='<%= rad.getBillType() %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= rad.getClaimNo() %>' />
+                <td style="text-align:center"><carlos:encode value='<%= rad.getClaimNo() %>' context="html"/>
                 </td>
-                <td style="text-align:center;font-weight:bold"><e:forHtmlContent value='<%= rad.getErrorCode() %>' />
+                <td style="text-align:center;font-weight:bold"><carlos:encode value='<%= rad.getErrorCode() %>' context="html"/>
                 </td>
             </tr>
             <% }
@@ -426,17 +428,17 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="4"><e:forHtmlContent value='<%= String.valueOf(numItems) %>' />
+                <td colspan="4"><carlos:encode value='<%= String.valueOf(numItems) %>' context="html"/>
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= feeTotal.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= feeTotal.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= claimTotal.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= claimTotal.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= paidTotal.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= paidTotal.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= adjTotal.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= adjTotal.toPlainString() %>' context="html"/>
                 </td>
                 <td colspan="5"></td>
             </tr>
@@ -488,12 +490,12 @@
                         Date payDate = bPremium.getPayDate();
                         String payDateStr = DateUtils.formatDate(payDate, request.getLocale());
             %>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
-                <td><e:forHtmlContent value='<%= providerName %>' />
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td><carlos:encode value='<%= providerName %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= payDateStr %>' />
+                <td><carlos:encode value='<%= payDateStr %>' context="html"/>
                 </td>
-                <td colspan="9" style="text-align:right"><e:forHtmlContent value='<%= amountPaid %>' />
+                <td colspan="9" style="text-align:right"><carlos:encode value='<%= amountPaid %>' context="html"/>
                 </td>
             </tr>
             <% totalPremiums = totalPremiums.add(new BigDecimal(amountPaid));
@@ -502,11 +504,11 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><e:forHtmlContent value='<%= String.valueOf(numPremiumItems) %>' />
+                <td colspan="3"><carlos:encode value='<%= String.valueOf(numPremiumItems) %>' context="html"/>
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right;font-weight:bold"><e:forHtmlContent value='<%= totalPremiums.toPlainString() %>' />
+                <td style="text-align:right;font-weight:bold"><carlos:encode value='<%= totalPremiums.toPlainString() %>' context="html"/>
                 </td>
                 <td colspan="4"></td>
             </tr>
@@ -558,7 +560,7 @@
                             else
                                 rowColor = "myWhite";
             %>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <%
                     String billingDateStr = "";
                     String demographicName = "";
@@ -571,16 +573,16 @@
                     String billingNo = String.valueOf(bCh1.getId());
                     if (!isThisProviderOnly) { %>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<e:forJavaScript value='<%= billingNo %>' />');return false;"><e:forHtmlContent value='<%= billingNo %>' />
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= billingNo %>' context="javaScript"/>');return false;"><carlos:encode value='<%= billingNo %>' context="html"/>
                 </a></td>
                 <% } else { %>
-                <td style="text-align:center"><e:forHtmlContent value='<%= billingNo %>' />
+                <td style="text-align:center"><carlos:encode value='<%= billingNo %>' context="html"/>
                 </td>
                 <% } %>
-                <td style="text-align:center"><e:forHtmlContent value='<%= billingDateStr %>' />
+                <td style="text-align:center"><carlos:encode value='<%= billingDateStr %>' context="html"/>
                 </td>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScript value='<%= String.valueOf(demoNo) %>' />');return false;"><e:forHtmlContent value='<%= demographicName %>' />
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="javaScript"/>');return false;"><carlos:encode value='<%= demographicName %>' context="html"/>
                 </a></td>
                 <%
                     String dxCode = "";
@@ -611,29 +613,29 @@
                         if (numBillItems > 1) {
                 %>
             </tr>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <td colspan="3"></td>
                 <% } %>
-                <td style="text-align:center"><e:forHtmlContent value='<%= dxCode %>' />
+                <td style="text-align:center"><carlos:encode value='<%= dxCode %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCode %>' />
+                <td style="text-align:center"><carlos:encode value='<%= serviceCode %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= serviceCount %>' />
+                <td style="text-align:center"><carlos:encode value='<%= serviceCount %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= amtBilled %>' />
+                <td style="text-align:right"><carlos:encode value='<%= amtBilled %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= amtPaid.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= amtPaid.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= amtRefund.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= amtRefund.toPlainString() %>' context="html"/>
                 </td>
                 <td colspan="2"></td>
 
 
                 <% } %>
             </tr>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <td colspan="6"></td>
-                <td style="font-weight:bold;text-align:right"><e:forHtmlContent value='<%= totalBilled.toPlainString() %>' />
+                <td style="font-weight:bold;text-align:right"><carlos:encode value='<%= totalBilled.toPlainString() %>' context="html"/>
                 </td>
 
 
@@ -653,17 +655,17 @@
                                 colSpan = "8";
                 %>
             </tr>
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
                 <%
 
                     }
 
                 %>
-                <td colspan="<e:forHtmlAttribute value='<%= colSpan %>' />" style="text-align:right"><e:forHtmlContent value='<%= payAmt.toPlainString() %>' />
+                <td colspan="<carlos:encode value='<%= colSpan %>' context="htmlAttribute"/>" style="text-align:right"><carlos:encode value='<%= payAmt.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= refundAmt.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= refundAmt.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:center"><e:forHtmlContent value='<%= payDate %>' />
+                <td style="text-align:center"><carlos:encode value='<%= payDate %>' context="html"/>
                 </td>
                 <td style="text-align:center"></td>
             </tr>
@@ -690,8 +692,8 @@
             %>
 
 
-            <tr class="<e:forHtmlAttribute value='<%= rowColor %>' />">
-                <td colspan="11" style="text-align:right;<e:forHtmlAttribute value='<%= fontWeight %>' />"><e:forHtmlContent value='<%= outstandingAmt %>' />
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td colspan="11" style="text-align:right;<carlos:encode value='<%= fontWeight %>' context="htmlAttribute"/>"><carlos:encode value='<%= outstandingAmt %>' context="html"/>
                 </td>
             </tr>
             <% } %>
@@ -704,15 +706,15 @@
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
-                <td colspan="3"><e:forHtmlContent value='<%= String.valueOf(num3rdItems) %>' />
+                <td colspan="3"><carlos:encode value='<%= String.valueOf(num3rdItems) %>' context="html"/>
                 </td>
                 <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdBilled.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= total3rdBilled.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdPaid.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= total3rdPaid.toPlainString() %>' context="html"/>
                 </td>
-                <td style="text-align:right"><e:forHtmlContent value='<%= total3rdRefunded.toPlainString() %>' />
+                <td style="text-align:right"><carlos:encode value='<%= total3rdRefunded.toPlainString() %>' context="html"/>
                 </td>
                 <td colspan="2"></td>
             </tr>
@@ -722,7 +724,7 @@
         <%
             BigDecimal finalAmt = paidTotal.add(total3rdPaid).subtract(total3rdRefunded).add(totalPremiums);
         %>
-        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <e:forHtmlContent value='<%= finalAmt.toPlainString() %>' />
+        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <carlos:encode value='<%= finalAmt.toPlainString() %>' context="html"/>
         </h3>
 
         </form>

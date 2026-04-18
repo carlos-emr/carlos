@@ -63,6 +63,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -182,8 +183,8 @@
                                     <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
                                 </option>
                                 <c:forEach var="favorite" items="${favorites}">
-                                    <option value="${e:forHtmlAttribute(favorite.query)}">
-                                        ${e:forHtml(favorite.query)}
+                                    <option value="${carlos:forHtmlAttribute(favorite.query)}">
+                                        ${carlos:forHtml(favorite.query)}
                                     </option>
                                 </c:forEach>
                             </select>

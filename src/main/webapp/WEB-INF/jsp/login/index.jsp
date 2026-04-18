@@ -37,6 +37,7 @@
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" session="false" %>
 
 <%
@@ -565,7 +566,7 @@ body {
     <div class="content">
         <div class="topbar">
             <span id="buildInfo" style="color:black;">
-            	${e:forHtml(LoginResourceBean.buildTag)}
+            	${carlos:forHtml(LoginResourceBean.buildTag)}
             </span>
         </div>
 
@@ -589,7 +590,7 @@ body {
             <div id="clinic_text">
                 <h2 id="clinic_name">
                     <a target="_blank" href="${ LoginResourceBean.clinicLink }">
-                        ${e:forHtml(LoginResourceBean.clinicName)}
+                        ${carlos:forHtml(LoginResourceBean.clinicName)}
                     </a>
                 </h2>
                 <div id="clinic_address">
@@ -742,7 +743,7 @@ body {
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">
                         <a target="_blank" href="${ LoginResourceBean.supportLink }">
-                            ${e:forHtml(LoginResourceBean.supportName)}
+                            ${carlos:forHtml(LoginResourceBean.supportName)}
                         </a>
                     </div>
                 </c:if>

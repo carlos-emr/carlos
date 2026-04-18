@@ -48,6 +48,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="messenger.config.MessengerAdmin.goBack" var="btnBackTitle"/>
 <fmt:message key="provider.appointmentProviderAdminDay.schedView" var="btnExitTitle"/>
 <jsp:useBean id="LoginResourceBean" beanName="io.github.carlos_emr.carlos.login.LoginResourceBean" type="io.github.carlos_emr.carlos.login.LoginResourceBean"/>
@@ -58,8 +59,8 @@
     <title>
         <fmt:message key="error.description"/>
     </title>
-    <link rel="shortcut icon" href="${e:forUri(pageContext.request.contextPath)}/images/favicon.ico"/>
-    <link rel="stylesheet" href="${e:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
+    <link rel="shortcut icon" href="${carlos:forUri(pageContext.request.contextPath)}/images/favicon.ico"/>
+    <link rel="stylesheet" href="${carlos:forUri(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 
     <style media="all">
 
@@ -150,13 +151,13 @@
 <div id="container">
     <div id="error-code">
         <h2><fmt:message key="error.msgException"/>:</h2>
-        <p>CARLOS Error: ${e:forHtml(pageContext.errorData.statusCode)}</p>
+        <p>CARLOS Error: ${carlos:forHtml(pageContext.errorData.statusCode)}</p>
 
         <div id="navigation">
-            <a class="btn btn-secondary float-start" title="${e:forHtmlAttribute(btnBackTitle)}"
+            <a class="btn btn-secondary float-start" title="${carlos:forHtmlAttribute(btnBackTitle)}"
                href="#" onclick="window.history.back();" role="button"><fmt:message key="global.btnBack"/></a>
-            <a class="btn btn-secondary float-end" title="${e:forHtmlAttribute(btnExitTitle)}"
-               href="${e:forUri(pageContext.request.contextPath)}/provider/providercontrol" role="button"><fmt:message key="global.btnExit"/></a>
+            <a class="btn btn-secondary float-end" title="${carlos:forHtmlAttribute(btnExitTitle)}"
+               href="${carlos:forUri(pageContext.request.contextPath)}/provider/providercontrol" role="button"><fmt:message key="global.btnExit"/></a>
         </div>
     </div>
 
@@ -165,21 +166,21 @@
 							or not empty LoginResourceBean.supportText }">
         <div id="support">
             <div class="support_details">
-                <a target="_blank" href="${e:forHtmlAttribute(LoginResourceBean.supportLink)}" id="supportImageLink">
-                    <img width="150px" src="${e:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png"
-                         alt="${e:forHtmlAttribute(LoginResourceBean.supportName)}"
+                <a target="_blank" href="${carlos:forHtmlAttribute(LoginResourceBean.supportLink)}" id="supportImageLink">
+                    <img width="150px" src="${carlos:forUri(pageContext.request.contextPath)}/loginResource/supportLogo.png"
+                         alt="${carlos:forHtmlAttribute(LoginResourceBean.supportName)}"
                          onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
                 </a>
                 <c:if test="${ not empty LoginResourceBean.supportName }">
                     <div id="support_name">
-                        <a target="_blank" href="${e:forHtmlAttribute(LoginResourceBean.supportLink)}">
-                            ${e:forHtml(LoginResourceBean.supportName)}
+                        <a target="_blank" href="${carlos:forHtmlAttribute(LoginResourceBean.supportLink)}">
+                            ${carlos:forHtml(LoginResourceBean.supportName)}
                         </a>
                     </div>
                 </c:if>
                 <div id="support_text">
                     <%-- supportText is deployment-configured text and must be HTML-encoded before rendering in the page body. --%>
-                    ${e:forHtml(LoginResourceBean.supportText)}
+                    ${carlos:forHtml(LoginResourceBean.supportText)}
                 </div>
             </div>
         </div>

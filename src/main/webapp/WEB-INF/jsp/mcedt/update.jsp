@@ -37,6 +37,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -94,7 +95,7 @@
                 <table class="table table-striped  table-sm">
                     <c:forEach var="d" items="${mcedtUploadDetails.data}" varStatus="i">
                         <tr>
-                            <td>${e:forHtml(d.resourceID)} ${e:forHtml(d.resourceType)} ${e:forHtml(d.description)}
+                            <td>${carlos:forHtml(d.resourceID)} ${carlos:forHtml(d.resourceType)} ${carlos:forHtml(d.description)}
                             </td>
                             <td><c:choose>
                                 <c:when test="${empty d.modifyTimestamp}">

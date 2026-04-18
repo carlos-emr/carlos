@@ -48,6 +48,8 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -255,7 +257,7 @@
                             <label class="form-label" for="lab_req_date">Lab Req Date/Time</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
-                                <img src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                                <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
                             </div>
                         </div>
                     </div>
@@ -314,7 +316,7 @@
                         <label class="form-label" for="dob">Date of Birth</label>
                         <div class="input-group">
                             <input type="text" class="form-control" required name="dob" id="dob"/>
-                            <img src="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                            <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
                         </div>
                     </div>
                     <div class="col-md-4">

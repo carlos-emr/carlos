@@ -77,6 +77,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     Locale requestLocale = request.getLocale();
@@ -132,14 +133,14 @@
                 <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
             </label>
             <input type="text" id="startDateInput" name="startDate"
-                   value="${e:forHtmlAttribute(startDate)}"
+                   value="${carlos:forHtmlAttribute(startDate)}"
                    class="form-control form-control-sm"
                    style="width:8em"/>
             <label for="endDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgTo"/>
             </label>
             <input type="text" id="endDateInput" name="endDate"
-                   value="${e:forHtmlAttribute(endDate)}"
+                   value="${carlos:forHtmlAttribute(endDate)}"
                    class="form-control form-control-sm"
                    style="width:8em"/>
             <button type="submit" class="btn btn-primary btn-sm"><fmt:message key="oscarReport.RptByExample.MsgRefresh"/></button>
@@ -174,14 +175,14 @@
                         <tbody>
                             <c:forEach var="queryInfo" items="${allQueries.queryVector}">
                                 <tr>
-                                    <td>${e:forHtml(queryInfo.date)}</td>
-                                    <td>${e:forHtml(queryInfo.query)}</td>
-                                    <td>${e:forHtml(queryInfo.providerLastName)}, ${e:forHtml(queryInfo.providerFirstName)}</td>
+                                    <td>${carlos:forHtml(queryInfo.date)}</td>
+                                    <td>${carlos:forHtml(queryInfo.query)}</td>
+                                    <td>${carlos:forHtml(queryInfo.providerLastName)}, ${carlos:forHtml(queryInfo.providerFirstName)}</td>
                                     <td>
                                         <input type="button"
                                                class="btn btn-outline-secondary btn-sm"
                                                value="<fmt:message key="oscarReport.RptByExample.MsgAddToFavorite"/>"
-                                               onclick="set('${e:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
+                                               onclick="set('${carlos:forJavaScript(queryInfo.query)}'); document.getElementById('favouriteForm').submit();"/>
                                     </td>
                                 </tr>
                             </c:forEach>

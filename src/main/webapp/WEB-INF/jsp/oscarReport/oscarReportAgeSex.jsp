@@ -46,6 +46,8 @@
 
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -207,7 +209,7 @@
                                 size="1" face="Arial, Helvetica, sans-serif"><a href="#"
                                                                                 onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnBegin"/>:</a></font> <input type="text"
                                                                                                   name="xml_vdate"
-                                                                                                  value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
+                                                                                                  value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
                     </div>
                 </td>
                 <td colspan='2'>
@@ -215,7 +217,7 @@
                                             face="Arial, Helvetica, sans-serif"><a href="#"
                                                                                    onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="oscarReport.oscarReportAgeSex.btnEnd"/>:</a></font> <input type="text"
                                                                                             name="xml_appointment_date"
-                                                                                            value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
+                                                                                            value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
                     </div>
                 </td>
             </tr>
@@ -259,7 +261,7 @@
         BigDecimal LineTotal = new BigDecimal(0).setScale(0, BigDecimal.ROUND_HALF_UP);
         BigDecimal LinePerc = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     %>
-    <pre><font face="Arial, Helvetica, sans-serif" size="2"> <fmt:message key="oscarReport.oscarReportAgeSex.msgDate"/>: <%=curYear%>-<%=curMonth%>-<%=curDay%> <fmt:message key="oscarReport.oscarReportAgeSex.msgUnit"/>: <%=clinic%> <fmt:message key="oscarReport.oscarReportAgeSex.msgPhysician"/>: <e:forHtmlContent value='<%= providerview %>' /></font></pre>
+    <pre><font face="Arial, Helvetica, sans-serif" size="2"> <fmt:message key="oscarReport.oscarReportAgeSex.msgDate"/>: <%=curYear%>-<%=curMonth%>-<%=curDay%> <fmt:message key="oscarReport.oscarReportAgeSex.msgUnit"/>: <%=clinic%> <fmt:message key="oscarReport.oscarReportAgeSex.msgPhysician"/>: <carlos:encode value='<%= providerview %>' context="html"/></font></pre>
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr bgcolor="#CCCCFF">
             <td>

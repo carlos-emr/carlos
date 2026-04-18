@@ -51,6 +51,7 @@
 <%@ page
         import="io.github.carlos_emr.carlos.demographic.data.*, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -68,8 +69,8 @@
     }
 
     // OWASP encode for URL query parameters - MANDATORY for security
-    String sexEncoded = (sex != null) ? Encode.forUriComponent(sex) : "";
-    String ageEncoded = (age != null) ? Encode.forUriComponent(age) : "";
+    String sexEncoded = (sex != null) ? SafeEncode.forUriComponent(sex) : "";
+    String ageEncoded = (age != null) ? SafeEncode.forUriComponent(age) : "";
 
     pageContext.setAttribute("sexEncoded", sexEncoded);
     pageContext.setAttribute("ageEncoded", ageEncoded);

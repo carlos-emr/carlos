@@ -50,6 +50,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
@@ -264,18 +266,18 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' />      ,
-                <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' />      (
-                <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' />      )
+                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="html"/>      ,
+                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="html"/>      (
+                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="html"/>      )
             </div>
         </div>
         <%}%>
 
 
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill" class="d-flex flex-wrap align-items-center gap-2">
-            <input type="hidden" name="filterPatient" value="<e:forHtmlAttribute value='<%= readonly %>' />"/>
-            <input type="hidden" name="lastName" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' />"/>
-            <input type="hidden" name="firstName" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' />"/>
+            <input type="hidden" name="filterPatient" value="<carlos:encode value='<%= readonly %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="lastName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="firstName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="htmlAttribute"/>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">
@@ -331,7 +333,7 @@
                         <label for="xml_vdate">Service Start Date:</label>
                         <div class="input-group">
                             <input type="text" name="xml_vdate" class="form-control" id="xml_vdate"
-                                   value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" placeholder="yyyy-mm-dd"
+                                   value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" placeholder="yyyy-mm-dd"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -346,7 +348,7 @@
     </label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" placeholder="yyyy-mm-dd"
-                                   id="xml_appointment_date" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"
+                                   id="xml_appointment_date" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -359,7 +361,7 @@
                             String readonlyStr = "true".equals(readonly) ? "readonly" : "";
                         %>
                         <input type="text" class="form-control" id="demographicNo" name="demographicNo" size="6"
-                               value="<e:forHtmlAttribute value='<%= xml_demoNo %>' />" <%=readonlyStr%> />
+                               value="<carlos:encode value='<%= xml_demoNo %>' context="htmlAttribute"/>" <%=readonlyStr%> />
                     </div>
                 </div>
 
@@ -484,7 +486,7 @@
     <form name="ReProcessBillingForm" method="post" action="reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<e:forHtmlAttribute value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' />">
+               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>">
 
 
         <table class="table table-striped table-sm sortable" id="resultsTable">

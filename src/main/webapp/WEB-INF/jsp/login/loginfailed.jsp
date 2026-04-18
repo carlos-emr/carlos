@@ -30,6 +30,8 @@
 --%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String errormsg = request.getParameter("errormsg");
 %>
@@ -43,7 +45,7 @@
     <body>
     <!--h2>OSCAR has encountered the following fatal error:</h2>
       <hr-->
-    <p><e:forHtmlContent value='<%= errormsg %>' />
+    <p><carlos:encode value='<%= errormsg %>' context="html"/>
     <p>Please correct and try again.
     </body>
 </html>

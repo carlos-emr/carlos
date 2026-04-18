@@ -39,6 +39,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -163,9 +164,9 @@
                             <c:forEach var="r" items="${mcedtTypeList.data}">
                                 <option value="${r.resourceType}"
                                     ${r.resourceType == pageContext.request.getParameter('resourceType') ? 'selected' : ''}>
-                                    ${e:forHtml(r.resourceType)} -
-                                    ${e:forHtml(r.access)} -
-                                    ${e:forHtml(r.descriptionEn)}
+                                    ${carlos:forHtml(r.resourceType)} -
+                                    ${carlos:forHtml(r.access)} -
+                                    ${carlos:forHtml(r.descriptionEn)}
                                 </option>
                             </c:forEach>
                         </select>
@@ -213,13 +214,13 @@
                         <tr>
                             <td><input type="checkbox" value="${r.resourceID}"
                                        name="resourceId"/></td>
-                            <td>${e:forHtml(r.resourceID)}</td>
+                            <td>${carlos:forHtml(r.resourceID)}</td>
                             <td><fmt:formatDate value="${i:toDate(r.createTimestamp)}"/>
                             </td>
-                            <td>${e:forHtml(r.resourceType)}</td>
-                            <td>${e:forHtml(r.result.code)} - ${e:forHtml(r.result.msg)}</td>
-                            <td>${e:forHtml(r.status)}</td>
-                            <td>${e:forHtml(r.description)}</td>
+                            <td>${carlos:forHtml(r.resourceType)}</td>
+                            <td>${carlos:forHtml(r.result.code)} - ${carlos:forHtml(r.result.msg)}</td>
+                            <td>${carlos:forHtml(r.status)}</td>
+                            <td>${carlos:forHtml(r.description)}</td>
                             <td>
                                 <button class="btn btn-secondary"
                                         onclick="return updateSelected(${r.resourceID}, this)">Update

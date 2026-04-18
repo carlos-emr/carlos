@@ -30,6 +30,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <jsp:include page="/images/spinner.jsp" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
@@ -45,7 +46,7 @@ function newWindow(url) {
 
 function getDrugRefStatus() {
 	const data = "method=verify";
-	const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
+	const url = "${carlos:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
 
 	var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 	var csrfToken = csrfEl ? csrfEl.value : '';
@@ -99,9 +100,9 @@ document.addEventListener("DOMContentLoaded", () => {
               (RxPatientData.Patient) request.getSession().getAttribute("Patient");
           %>
           <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
-          <e:forHtmlContent value='<%= patient2.getFirstName() %>' /> <e:forHtmlContent value='<%= patient2.getSurname() %>' />
-          </span><span class="text-nowrap" title="<e:forHtmlAttribute value='<%= String.valueOf(patient2.getAge()) %>' />y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
-          <e:forHtmlContent value='<%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %>' /></span>
+          <carlos:encode value='<%= patient2.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient2.getSurname() %>' context="html"/>
+          </span><span class="text-nowrap" title="<carlos:encode value='<%= String.valueOf(patient2.getAge()) %>' context="htmlAttribute"/>y"><b><fmt:message key="SearchDrug.DOBtext"/></b>
+          <carlos:encode value='<%= RxUtil.DateToString(patient2.getDOB(), "MMM d, yyyy") %>' context="html"/></span>
          <span><label for="Calcs">
             <a class="text-black fw-bold text-decoration-underline" href="<%= request.getContextPath() %>/rx/managePharmacy"
                onclick="ShowSpin(true); return true;" data-bs-toggle="tooltip" title="<fmt:message key='SearchDrug.pharmacyClickToEdit'/>">
@@ -119,8 +120,8 @@ document.addEventListener("DOMContentLoaded", () => {
                       mapper.writeValue(sw, pi);
                       String json = sw.toString();
             %>
-              <option value="<e:forHtmlAttribute value='<%= json %>' />" title="<e:forHtmlAttribute value='<%= pi.getAddress() %>' />, <e:forHtmlAttribute value='<%= pi.getCity() %>' />, Fax: <e:forHtmlAttribute value='<%= pi.getFax() %>' />">
-                <e:forHtmlContent value='<%= pi.getName() %>' />
+              <option value="<carlos:encode value='<%= json %>' context="htmlAttribute"/>" title="<carlos:encode value='<%= pi.getAddress() %>' context="htmlAttribute"/>, <carlos:encode value='<%= pi.getCity() %>' context="htmlAttribute"/>, Fax: <carlos:encode value='<%= pi.getFax() %>' context="htmlAttribute"/>">
+                <carlos:encode value='<%= pi.getName() %>' context="html"/>
               </option>
             <%
                   }

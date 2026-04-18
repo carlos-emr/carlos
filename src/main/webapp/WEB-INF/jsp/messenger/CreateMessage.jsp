@@ -105,6 +105,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String userrole = (String) session.getAttribute("userrole");
@@ -240,12 +241,12 @@
 
 // Encoded i18n strings for use in JavaScript — single quotes in French translations
 // (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
-var msgEmptyMessage     = '${e:forJavaScript(msg_EmptyMessage)}';
-var msgNoProvider       = '${e:forJavaScript(msg_NoProvider)}';
-var msgArchiveFailed    = '${e:forJavaScript(msg_ArchiveFailed)}';
-var msgArchiveError     = '${e:forJavaScript(msg_ArchiveError)}';
-var msgArchiveTimeout   = '${e:forJavaScript(msg_ArchiveTimeout)}';
-var msgSelectDemographic = '${e:forJavaScript(msg_SelectDemographic)}';
+var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
+var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
+var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
+var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
+var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
+var msgSelectDemographic = '${carlos:forJavaScript(msg_SelectDemographic)}';
 
 // Displays a dismissable Bootstrap alert in the fixed alert container at the top of the page.
 // type: Bootstrap contextual class ('warning', 'danger', 'info', 'success')
@@ -398,7 +399,7 @@ function validateFields() {
 			String createMsgError = (String) request.getAttribute("createMessageError");
 			if (createMsgError == null) { createMsgError = ""; }
 		%>
-		var submissionerror = '<e:forJavaScriptBlock value='<%= createMsgError %>' />';
+		var submissionerror = '<carlos:encode value='<%= createMsgError %>' context="javaScriptBlock"/>';
 		if(submissionerror)
 		{
 			showAlert(submissionerror, 'danger');
@@ -412,9 +413,9 @@ function validateFields() {
 
         // Pre-populate the selected demographic display field if a patient is linked.
         // Done here (after DOM is ready) so the selectedDemo input exists before access.
-        if ('<e:forJavaScriptBlock value='<%= demoName %>' />' && '<e:forJavaScriptBlock value='<%= demoName %>' />' !== 'null') {
-            document.forms[0].selectedDemo.value = "<e:forJavaScriptBlock value='<%= demoName %>' />";
-            document.forms[0].demographic_no.value = "<e:forJavaScriptBlock value='<%= demographic_no %>' />";
+        if ('<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>' && '<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>' !== 'null') {
+            document.forms[0].selectedDemo.value = "<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>";
+            document.forms[0].demographic_no.value = "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>";
         }
 
         // Initialize keyword autocomplete for inline demographic search
@@ -490,8 +491,8 @@ function validateFields() {
 								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
-											<input name="provider" value="<e:forHtmlAttribute value='<%= delegate %>' />" type="checkbox" checked>
-											<strong><a title="default recall delegate: <e:forHtmlAttribute value='<%= delegateName %>' />">default: <e:forHtmlContent value='<%= delegateName %>' /></a></strong>
+											<input name="provider" value="<carlos:encode value='<%= delegate %>' context="htmlAttribute"/>" type="checkbox" checked>
+											<strong><a title="default recall delegate: <carlos:encode value='<%= delegateName %>' context="htmlAttribute"/>">default: <carlos:encode value='<%= delegateName %>' context="html"/></a></strong>
 										</div>
 									<%} %>
 
@@ -505,7 +506,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
 															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" >${e:forHtml(group.key.groupDesc)}</label>
+													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" >${carlos:forHtml(group.key.groupDesc)}</label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -514,7 +515,7 @@ function validateFields() {
 															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-															${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
+															${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 														</label>
 													</div>
 												</c:forEach>
@@ -546,7 +547,7 @@ function validateFields() {
 													<input type="checkbox" name="provider" id="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }"
 														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
 													<label for="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-														${e:forHtml(member.lastName)}, ${e:forHtml(member.firstName)}
+														${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 													</label>
 												</div>
 
@@ -563,9 +564,9 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="${e:forHtmlAttribute(messageSubject)}"> </div>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
-					<textarea name="message" rows="15" style="min-width: 100%">${e:forHtml(messageBody)}</textarea>
+					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>
 							<table>
 								<tr>
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
@@ -600,7 +601,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td style="width: 40%;">
-                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />" >
+                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >

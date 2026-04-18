@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
 
@@ -45,35 +46,35 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
         <td width="20%">Facility Id:</td>
-        <td>${e:forHtml(requestScope.id)}</td>
+        <td>${carlos:forHtml(requestScope.id)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Name:</td>
-        <td>${e:forHtml(facility.name)}</td>
+        <td>${carlos:forHtml(facility.name)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Description:</td>
-        <td>${e:forHtml(facility.description)}</td>
+        <td>${carlos:forHtml(facility.description)}</td>
     </tr>
     <tr class="b">
         <td width="20%">HIC:</td>
-        <td>${e:forHtml(facility.hic)}</td>
+        <td>${carlos:forHtml(facility.hic)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Name:</td>
-        <td>${e:forHtml(facility.contactName)}</td>
+        <td>${carlos:forHtml(facility.contactName)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Email:</td>
-        <td>${e:forHtml(facility.contactEmail)}</td>
+        <td>${carlos:forHtml(facility.contactEmail)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Primary Contact Phone:</td>
-        <td>${e:forHtml(facility.contactPhone)}</td>
+        <td>${carlos:forHtml(facility.contactPhone)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Digital Signatures Enabled:</td>
-        <td>${e:forHtml(facility.enableDigitalSignatures)}</td>
+        <td>${carlos:forHtml(facility.enableDigitalSignatures)}</td>
     </tr>
 </table>
 
@@ -91,9 +92,9 @@
     <display:column sortable="true" sortProperty="name" title="Program Name">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${e:forUriComponent(program.id)}">${e:forHtml(program.name)}</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${carlos:forUriComponent(program.id)}">${carlos:forHtml(program.name)}</a>
             </c:when>
-            <c:otherwise>${e:forHtml(program.name)}</c:otherwise>
+            <c:otherwise>${carlos:forHtml(program.name)}</c:otherwise>
         </c:choose>
     </display:column>
     <display:column property="type" sortable="true" title="Program Type"/>
@@ -122,10 +123,10 @@ while still admitted in this facility.
     </tr>
     <c:forEach var="client" items="${associatedClients}">
         <tr class="b" <c:if test="${client.inOneDay}">style="color:red;"</c:if>>
-            <td>${e:forHtml(client.name)}</td>
-            <td>${e:forHtml(client.dob)}</td>
-            <td>${e:forHtml(client.programName)}</td>
-            <td>${e:forHtml(client.dischargeDate)}</td>
+            <td>${carlos:forHtml(client.name)}</td>
+            <td>${carlos:forHtml(client.dob)}</td>
+            <td>${carlos:forHtml(client.programName)}</td>
+            <td>${carlos:forHtml(client.dischargeDate)}</td>
         </tr>
     </c:forEach>
 </table>
@@ -135,7 +136,7 @@ Automatic discharges in the past 24 hours appear red.
 
     <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${e:forUriComponent(requestScope.id)}">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}">Edit facility</a>
         |
         <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
     </p>

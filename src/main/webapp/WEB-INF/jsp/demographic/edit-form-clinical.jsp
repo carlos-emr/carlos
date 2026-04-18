@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -75,6 +76,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -824,7 +826,7 @@
                                                             for (int k = 0; k < propDemoExt.length; k = k + 2) {
                                                     %>
                                                     <tr valign="top">
-                                                        <td align="right"><b><e:forHtmlContent value='<%= propDemoExt[k] %>' />
+                                                        <td align="right"><b><carlos:encode value='<%= propDemoExt[k] %>' context="html"/>
                                                             : </b></td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
@@ -835,8 +837,8 @@
                                                                 }
                                                             } else { %>
                                                             <input type="text"
-                                                                   name="<e:forHtmlAttribute value='<%= propDemoExt[k].replace(\" \", \"_\") %>' />"
-                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(\" \", \"_\"))) %>' />"/>
+                                                                   name="<carlos:encode value='<%= propDemoExt[k].replace(\" \", \"_\") %>' context="htmlAttribute"/>"
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(\" \", \"_\"))) %>' context="htmlAttribute"/>"/>
                                                             <% } %>
                                                             <input type="hidden"
                                                                    name="<%=propDemoExt[k].replace(' ', '_')%>Orig"
@@ -844,7 +846,7 @@
                                                         </td>
                                                         <% if ((k + 1) < propDemoExt.length) { %>
                                                         <td align="right"><b>
-                                                            <%out.println(Encode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
+                                                            <%out.println(SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
                                                         </td>
                                                         <td align="left">
                                                             <% if (bExtForm) {
@@ -854,11 +856,11 @@
                                                                     out.println(propDemoExtForm[k + 1].replaceAll("value=\"\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\""));
                                                                 }
                                                             } else { %> <input type="text"
-                                                                               name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />"
-                                                                               value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
+                                                                               name="<carlos:encode value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' context="htmlAttribute"/>"
+                                                                               value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' context="htmlAttribute"/>"/>
                                                             <% } %> <input type="hidden"
-                                                                           name="<e:forHtmlAttribute value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' />Orig"
-                                                                           value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' />"/>
+                                                                           name="<carlos:encode value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' context="htmlAttribute"/>Orig"
+                                                                           value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k+1].replace(\" \", \"_\"))) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                         <% } else {%>
                                                         <td>&nbsp;</td>
@@ -958,7 +960,7 @@
                                                                                 <td class="alignRight"
                                                                                     style="width:16%;vertical-align:top;">
                                                                                     <div style="font-weight:bold;white-space:nowrap;">
-                                                                                        ${e:forHtml(consentType.name)}
+                                                                                        ${carlos:forHtml(consentType.name)}
                                                                                     </div>
 
                                                                                     <c:if test="${ not empty patientConsent and not empty patientConsent.optout }">
@@ -966,13 +968,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    Opted Out:${e:forHtml(patientConsent.optoutDate)}
+                                                                                                    Opted Out:${carlos:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${consentType.type}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented:${e:forHtml(patientConsent.consentDate)}
+                                                                                                    Consented:${carlos:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
@@ -981,7 +983,7 @@
 
                                                                                 <td colspan="2"
                                                                                     style="padding-left:10px;vertical-align:top;">
-                                                                                    ${e:forHtml(consentType.description)}
+                                                                                    ${carlos:forHtml(consentType.description)}
                                                                                 </td>
 
                                                                                 <td id="consentStatusDate"
@@ -991,7 +993,7 @@
                                                                                            id="optin_${ consentType.type }"
                                                                                            value="0"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and not patientConsent.optout }">
-                                                                                                ${e:forHtml('checked')}
+                                                                                                ${carlos:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optin_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optIn"/></label>
@@ -1000,7 +1002,7 @@
                                                                                            id="optout_${ consentType.type }"
                                                                                            value="1"
                                                                                             <c:if test="${ not empty patientConsent and not empty patientConsent.optout and patientConsent.optout }">
-                                                                                                ${e:forHtml('checked')}
+                                                                                                ${carlos:forHtml('checked')}
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optout_${ consentType.type }"><fmt:message key="demographic.demographiceditdemographic.optOut"/></label>
@@ -1171,7 +1173,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                               value="<%= demographic_no %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>
@@ -1357,10 +1359,10 @@
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.msgExport"/>"
                                                                    onclick="window.open('<%= request.getContextPath() %>/demographic/DemographicExport?demographicNo=<%=demographic.getDemographicNo()%>');"/>
                                                         </security:oscarSec>
-                                                        <c:set var="__enc_1"><e:forUriComponent value='<%= demographic.getDemographicNo().toString() %>' /></c:set>
+                                                        <c:set var="__enc_1"><carlos:encode value='<%= demographic.getDemographicNo().toString() %>' context="uriComponent"/></c:set>
                                                         <input type="button" class="btn-toolbar-secondary"
                                                                value="<fmt:message key="demographic.demographiceditdemographic.btnAuditInfo"/>"
-                                                               onclick="window.open('<e:forJavaScriptAttribute value='<%= request.getContextPath() %>' />/demographic/ViewDemographicAudit?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />');"/>
+                                                               onclick="window.open('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptAttribute"/>/demographic/ViewDemographicAudit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');"/>
                                                     </div>
                                                     <div class="toolbar-right">
                                                         <span id="swipeButtonBottom" style="display: none;">
@@ -1374,7 +1376,7 @@
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
-                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<e:forUriComponent value='<%= appointment != null ? appointment : "" %>' />');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
+                                                                <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/></a></li>
                                                                 <% if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) { %>

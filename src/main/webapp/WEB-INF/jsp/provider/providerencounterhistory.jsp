@@ -37,6 +37,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -90,12 +92,12 @@
                 if (strForm.toLowerCase().compareTo("form") == 0 && st.hasMoreTokens()) {
                     strTemplateURL = "template" + (new String(st.nextToken())).trim().toLowerCase() + ".jsp";
             %> <a href=#
-                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&dboperation=search_encountersingle&displaymodevariable=<e:forUriComponent value='<%= strTemplateURL %>' />&displaymode=vary&bNewForm=0')"><e:forHtmlContent value='<%= historysubject %>' />
+                  onClick="popupPage(600,800,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymodevariable=<carlos:encode value='<%= strTemplateURL %>' context="uriComponent"/>&displaymode=vary&bNewForm=0')"><carlos:encode value='<%= historysubject %>' context="html"/>
             </a></font><br>
                 <%
                 } else if (strForm.compareTo("") != 0) {
                 %> <a href=#
-                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<e:forUriComponent value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' />&template=<e:forUriComponent value='<%= strForm %>' />&dboperation=search_encountersingle&displaymode=encountersingle')"><e:forHtmlContent value='<%= historysubject %>' />
+                      onClick="popupPage(400,600,'<%= request.getContextPath() %>/provider/providercontrol?encounter_no=<%=enc.getId()%>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&template=<carlos:encode value='<%= strForm %>' context="uriComponent"/>&dboperation=search_encountersingle&displaymode=encountersingle')"><carlos:encode value='<%= historysubject %>' context="html"/>
             </a></font><br>
                 <%
                         }

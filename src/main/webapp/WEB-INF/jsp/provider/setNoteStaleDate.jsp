@@ -32,6 +32,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("user") == null)
@@ -56,7 +57,7 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
+              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <script type="text/javascript">

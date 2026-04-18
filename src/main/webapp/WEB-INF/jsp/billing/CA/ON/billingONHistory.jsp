@@ -91,6 +91,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <!DOCTYPE html>
@@ -106,7 +107,7 @@
 
     <script language="JavaScript">
         function onUnbilled(billingNo, billCode) {
-            if (confirm("${e:forJavaScript(msgOnUnbilledText)}")) {
+            if (confirm("${carlos:forJavaScript(msgOnUnbilledText)}")) {
                 var form = document.createElement('form');
                 form.method = 'post';
                 form.action = '<%= request.getContextPath() %>/billing/CA/ON/BillingDeleteNoAppt';
@@ -133,7 +134,7 @@
         jQuery(document).ready(function () {
             jQuery('#billingHistoryTable').DataTable({
                 language: {
-                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/${e:forUriComponent(dtLanguageCode)}.json'
+                    url: '<%=request.getContextPath()%>/library/DataTables/i18n/${carlos:forUriComponent(dtLanguageCode)}.json'
                 }
             });
         });
@@ -147,8 +148,8 @@
     <div class="container-fluid">
         <span class="navbar-brand"><fmt:message key="billing.billingONHistory.title"/></span>
         <span class="navbar-text text-white-50">
-            <em><e:forHtmlContent value='<%= patientDisplayName %>' /></em>
-            &nbsp;(<e:forHtmlContent value='<%= demographicNoParam != null ? demographicNoParam : "" %>' />)
+            <em><carlos:encode value='<%= patientDisplayName %>' context="html"/></em>
+            &nbsp;(<carlos:encode value='<%= demographicNoParam != null ? demographicNoParam : "" %>' context="html"/>)
         </span>
     </div>
 </nav>
@@ -225,40 +226,40 @@
             <tr>
                 <td class="text-center">
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<e:forUriComponent value='<%= obj.getId() %>' />')"
-                       title="${msgBillingDisplay}"><e:forHtmlContent value='<%= obj.getId() %>' />
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
+                       title="${msgBillingDisplay}"><carlos:encode value='<%= obj.getId() %>' context="html"/>
                     </a>
 
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
                         <a href="javascript:void(0)"
-                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<e:forUriComponent value='<%= obj.getId() %>' />')"
+                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
                            title="${msgBillingCorrection}">${msgEdit}</a>
                     </security:oscarSec>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<e:forUriComponent value='<%= obj.getId() %>' />')">${msgPrint}</a>
+                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')">${msgPrint}</a>
                 </td>
-                <td class="text-center"><e:forHtmlContent value='<%= obj.getLast_name() + ", " + obj.getFirst_name() %>' /></td>
-                <td class="text-center"><e:forHtmlContent value='<%= obj.getBilling_date() %>' /></td>
-                <td class="text-center"><e:forHtmlContent value='<%= strBillType %>' /></td>
-                <td class="text-center"><e:forHtmlContent value='<%= itObj.getService_code() %>' /></td>
-                <td class="text-center"><e:forHtmlContent value='<%= itObj.getDx() %>' /></td>
+                <td class="text-center"><carlos:encode value='<%= obj.getLast_name() + ", " + obj.getFirst_name() %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= obj.getBilling_date() %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= strBillType %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= itObj.getService_code() %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= itObj.getDx() %>' context="html"/></td>
                 <td class="text-center">
                     <%if ("PAT".equals(strBillType) || "PAT Settled".equals(strBillType)) { %>
-                        <e:forHtmlContent value='<%= balance.toString() %>' />
+                        <carlos:encode value='<%= balance.toString() %>' context="html"/>
                     <%} else { %>
                         &nbsp;
                     <%} %>
                 </td>
-                <td class="text-center"><e:forHtmlContent value='<%= obj.getTotal() %>' /></td>
+                <td class="text-center"><carlos:encode value='<%= obj.getTotal() %>' context="html"/></td>
                 <td class="text-center">
                     <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
                         &nbsp;
                     <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
                         <a href="#"
-                           onclick="onUnbilled('<e:forJavaScriptAttribute value='<%= obj.getId() %>' />','<e:forJavaScriptAttribute value='<%= obj.getStatus() %>' />');return false;">${msgUnbill}</a>
+                           onclick="onUnbilled('<carlos:encode value='<%= obj.getId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= obj.getStatus() %>' context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
                     <% } else { %>
-                        <a href="#" onclick="onUnbilled('<e:forJavaScriptAttribute value='<%= obj.getId() %>' />','<e:forJavaScriptAttribute value='<%= obj.getStatus() %>' />');return false;">${msgUnbill}</a>
+                        <a href="#" onclick="onUnbilled('<carlos:encode value='<%= obj.getId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= obj.getStatus() %>' context="javaScriptAttribute"/>');return false;">${msgUnbill}</a>
                     <% } %>
                 </td>
             </tr>

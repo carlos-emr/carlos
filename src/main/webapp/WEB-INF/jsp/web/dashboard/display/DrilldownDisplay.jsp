@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <security:oscarSec roleName='${ sessionScope[userrole] }, ${ sessionScope[user] }' rights="w"
                    objectName="_dashboardDrilldown">
@@ -103,10 +104,10 @@
     <div class="row content">
 
         <h3>
-            ${e:forHtml(drilldown.name)}
-            ${e:forHtml(drilldown.metricLabel)}
+            ${carlos:forHtml(drilldown.name)}
+            ${carlos:forHtml(drilldown.metricLabel)}
             <c:if test="${not empty preferredProvider}">
-                <b>: ${e:forHtml(preferredProvider.fullName)}</b>
+                <b>: ${carlos:forHtml(preferredProvider.fullName)}</b>
             </c:if>
         </h3>
         <hr/>
@@ -236,7 +237,7 @@
                 <c:forEach items="${ row }" var="heading" varStatus="columnCount">
                     <!-- Column count ID is this list plus the first 2 static columns -->
                     <th id="${ columnCount.index + 2 }">
-                        ${e:forHtml(heading)}
+                        ${carlos:forHtml(heading)}
                     </th>
                 </c:forEach>
             </tr>
@@ -262,7 +263,7 @@
                                 <td class="donotprint">
                                     <c:choose>
                                         <c:when test="${ column eq 'error' }">
-                                            ${e:forHtml(column)}
+                                            ${carlos:forHtml(column)}
                                         </c:when>
                                         <c:otherwise>
                                             <input type="checkbox" id="${ column }" class="patientChecked"/>
@@ -279,15 +280,15 @@
                                                target="_blank" title="Open Patient File">
                                                 <span class="fa-solid fa-folder-open"
                                                       style="margin-right:10px;"></span>
-                                                ${e:forHtml(column)}
+                                                ${carlos:forHtml(column)}
                                             </a>
 
                                             <span class="printonly">
-									   			${e:forHtml(column)}
+									   			${carlos:forHtml(column)}
 									   		</span>
                                         </c:when>
                                         <c:otherwise>
-                                            ${e:forHtml(column)}
+                                            ${carlos:forHtml(column)}
                                         </c:otherwise>
                                     </c:choose>
 
@@ -295,7 +296,7 @@
                             </c:when>
                             <c:otherwise>
                                 <td>
-                                    ${e:forHtml(column)}
+                                    ${carlos:forHtml(column)}
                                 </td>
                             </c:otherwise>
                         </c:choose>
@@ -320,7 +321,7 @@
 
                 <div class="modal-header">
                     <h4 class="modal-title" id="indicatorInfoTitle">
-                        ${e:forHtml(drilldown.name)}
+                        ${carlos:forHtml(drilldown.name)}
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -329,37 +330,37 @@
 
                     <h4>Category</h4>
                     <p>
-                        ${e:forHtml(drilldown.category)}
+                        ${carlos:forHtml(drilldown.category)}
                     </p>
                     <h4>Sub Category</h4>
                     <p>
-                        ${e:forHtml(drilldown.subCategory)}
+                        ${carlos:forHtml(drilldown.subCategory)}
                     </p>
                     <h4>Metric Label</h4>
                     <p>
-                        ${e:forHtml(drilldown.metricLabel)}
+                        ${carlos:forHtml(drilldown.metricLabel)}
                     </p>
                     <h4>Definition</h4>
                     <p>
-                        ${e:forHtml(drilldown.definition)}
+                        ${carlos:forHtml(drilldown.definition)}
                     </p>
                     <h4>Indicator Framework</h4>
                     <p>
-                        ${e:forHtml(drilldown.framework)}
+                        ${carlos:forHtml(drilldown.framework)}
                     </p>
                     <h4>Indicator Framework Version</h4>
                     <p>
-                        ${e:forHtml(drilldown.frameworkVersion)}
+                        ${carlos:forHtml(drilldown.frameworkVersion)}
                     </p>
                     <h4>Notes</h4>
                     <p>
-                        ${e:forHtml(drilldown.notes)}
+                        ${carlos:forHtml(drilldown.notes)}
                     </p>
 
                     <c:if test="${ not empty drilldown.queryString }">
                         <h4>Query</h4>
                         <p>
-                            ${e:forHtml(drilldown.queryString)}
+                            ${carlos:forHtml(drilldown.queryString)}
                         </p>
                     </c:if>
                 </div>
@@ -403,7 +404,7 @@
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">
-                        <p>Doctor: ${e:forHtml(preferredProvider.fullName)}</p>
+                        <p>Doctor: ${carlos:forHtml(preferredProvider.fullName)}</p>
                     </c:if>
                     <p>Are you sure you want to bulk add the following to the disease registry of the selected
                         patients?</p>
@@ -433,7 +434,7 @@
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">
-                        <p>Doctor: ${e:forHtml(preferredProvider.fullName)}</p>
+                        <p>Doctor: ${carlos:forHtml(preferredProvider.fullName)}</p>
                     </c:if>
                     <p>Are you sure you want to exclude the selected patients from this indicator?</p>
                     <div class="alert alert-warning">
@@ -464,7 +465,7 @@
                 </div>
                 <div class="modal-body">
                     <c:if test="${not empty preferredProvider}">
-                        <p>Doctor: ${e:forHtml(preferredProvider.fullName)}</p>
+                        <p>Doctor: ${carlos:forHtml(preferredProvider.fullName)}</p>
                     </c:if>
                     <p>Are you sure you want to update the status of the selected patients to inactive?</p>
                 </div>

@@ -57,6 +57,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -191,7 +192,7 @@
         <div class="action-errors">
             <ul>
                 <c:forEach var="error" items="${actionErrors}">
-                    <li>${e:forHtml(error)}</li>
+                    <li>${carlos:forHtml(error)}</li>
                 </c:forEach>
             </ul>
         </div>
