@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -289,8 +290,8 @@
             count++;
         %>
         <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<e:forHtmlAttribute value='<%= "End Time: "+rsdemo.getString("end_time") %>' />"><e:forHtmlContent value='<%= rsdemo.getString("start_time").substring(0, 5) %>' /></td>
-            <td><%=rsdemo.getString("name") == null ? "." : ""%><e:forHtmlContent value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' /></td>
+            <td title="<carlos:encode value='<%= "End Time: "+rsdemo.getString("end_time") %>' context="htmlAttribute"/>"><carlos:encode value='<%= rsdemo.getString("start_time").substring(0, 5) %>' context="html"/></td>
+            <td><%=rsdemo.getString("name") == null ? "." : ""%><carlos:encode value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' context="html"/></td>
             <td><e:forHtmlContent value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' /></td>
             <td><e:forHtmlContent value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' /></td>
             <td><e:forHtmlContent value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' /></td>
@@ -318,11 +319,11 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' />, <%=initial%>]
+                [<carlos:encode value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' context="html"/>, <%=initial%>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<e:forHtmlContent value='<%= rd %>' />]&nbsp; <% } %> <e:forHtmlContent value='<%= daySheetBean.getString(rsdemo, "reason") %>' />&nbsp;
+            %> [<carlos:encode value='<%= rd %>' context="html"/>]&nbsp; <% } %> <carlos:encode value='<%= daySheetBean.getString(rsdemo, "reason") %>' context="html"/>&nbsp;
             </td>
         </tr>
         <%

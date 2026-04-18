@@ -47,6 +47,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -106,9 +107,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><e:forHtmlContent value='<%= reportName %>' /> <fmt:message key="report.reportFormOrder.heading"/></td>
+            <td><carlos:encode value='<%= reportName %>' context="html"/> <fmt:message key="report.reportFormOrder.heading"/></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormOrder.backToConfiguration"/></a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormOrder.backToConfiguration"/></a></td>
         </tr>
     </table>
 
@@ -132,20 +133,20 @@
 
                         <tr class=<%=color%>>
                             <td width="20%" align="right"><input type="checkbox"
-                                                                 name="nameSelected" value="<e:forHtmlAttribute value='<%= fieldId %>' />"
+                                                                 name="nameSelected" value="<carlos:encode value='<%= fieldId %>' context="htmlAttribute"/>"
                                                                  onClick="onCheckbox(this, <%=i%>);"/></td>
                             <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
                             <td align="center"><input type="submit" name="submit"
-                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<e:forJavaScript value='<%= fieldPosition %>' />)"/></td>
+                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<carlos:encode value='<%= fieldPosition %>' context="javaScript"/>)"/></td>
                         </tr>
                         <% } %>
                         <input type="hidden" name="position"/>
-                        <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />"/>
-                        <input type="hidden" name="save" value="<e:forHtmlAttribute value='<%= SAVE_AS %>' />">
-                        <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />"/>
-                        <input type="hidden" name="formTableName" value="<e:forHtmlAttribute value='<%= formTableName %>' />"/>
+                        <input type="hidden" name="id" value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="save" value="<carlos:encode value='<%= SAVE_AS %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="tableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="formTableName" value="<carlos:encode value='<%= formTableName %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="configTableName"
-                               value="<e:forHtmlAttribute value='<%= configTableName %>' />"/>
+                               value="<carlos:encode value='<%= configTableName %>' context="htmlAttribute"/>"/>
                     </form>
                 </table>
             </td>

@@ -60,6 +60,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -85,7 +86,7 @@
             }
 
             function goCaption() {
-                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>";
             }
 
             function goPage(id) {
@@ -101,11 +102,11 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><e:forHtmlContent value='<%= reportName %>' /> <fmt:message key="report.reportFormCaption.heading"/></td>
+            <td><carlos:encode value='<%= reportName %>' context="html"/> <fmt:message key="report.reportFormCaption.heading"/></td>
             <td width="10%" align="right" nowrap>
                 <% if ("demographic".equals(tableName)) {%> <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />&formTableName=<e:forUriComponent value='<%= formTableName %>' />&configTableName=<e:forUriComponent value='<%= configTableName %>' />"><fmt:message key="report.reportFormCaption.backToConfiguration"/></a> <% } else {%> <a
-                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormCaption.backToConfiguration"/></a> <% }%>
+                    href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>&formTableName=<carlos:encode value='<%= formTableName %>' context="uriComponent"/>&configTableName=<carlos:encode value='<%= configTableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormCaption.backToConfiguration"/></a> <% } else {%> <a
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormCaption.backToConfiguration"/></a> <% }%>
             </td>
         </tr>
     </table>
@@ -142,11 +143,11 @@
                             <td align="center"><input type="submit" name="submit"
                                                       value="<%=action%>"/></td>
                             <input type="hidden" name="name" value="<%=fieldName%>">
-                            <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />">
-                            <input type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />">
-                            <input type="hidden" name="formTableName" value="<e:forHtmlAttribute value='<%= formTableName %>' />">
+                            <input type="hidden" name="id" value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>">
+                            <input type="hidden" name="tableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>">
+                            <input type="hidden" name="formTableName" value="<carlos:encode value='<%= formTableName %>' context="htmlAttribute"/>">
                             <input type="hidden" name="configTableName"
-                                   value="<e:forHtmlAttribute value='<%= configTableName %>' />">
+                                   value="<carlos:encode value='<%= configTableName %>' context="htmlAttribute"/>">
                         </tr>
                     </form>
                     <% } %>

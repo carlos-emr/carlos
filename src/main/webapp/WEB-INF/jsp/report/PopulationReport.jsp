@@ -29,6 +29,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -74,13 +75,13 @@
     <thead>
     <tr>
         <td><fmt:message key="report.PopulationReport.heading"/></td>
-        <td>${e:forHtml(date)}</td>
+        <td>${carlos:forHtml(date)}</td>
     </tr>
     </thead>
     <tbody>
     <tr>
         <td><fmt:message key="report.PopulationReport.summary"/></td>
-        <td>${e:forHtml(time)}</td>
+        <td>${carlos:forHtml(time)}</td>
     </tr>
     </tbody>
 </table>
@@ -96,11 +97,11 @@
     <tbody>
     <tr>
         <th><fmt:message key="report.PopulationReport.label.usedPastYear"/></th>
-        <td>${e:forHtml(shelterPopulation.pastYear)}</td>
+        <td>${carlos:forHtml(shelterPopulation.pastYear)}</td>
     </tr>
     <tr class="odd">
         <th><fmt:message key="report.PopulationReport.label.currentIndividuals"/></th>
-        <td>${e:forHtml(shelterPopulation.current)}</td>
+        <td>${carlos:forHtml(shelterPopulation.current)}</td>
     </tr>
     </tbody>
 </table>
@@ -116,15 +117,15 @@
     <tbody>
     <tr>
         <th><fmt:message key="report.PopulationReport.label.lowUse"/></th>
-        <td>${e:forHtml(shelterUsage.low)}</td>
+        <td>${carlos:forHtml(shelterUsage.low)}</td>
     </tr>
     <tr class="odd">
         <th><fmt:message key="report.PopulationReport.label.moderateUse"/></th>
-        <td>${e:forHtml(shelterUsage.medium)}</td>
+        <td>${carlos:forHtml(shelterUsage.medium)}</td>
     </tr>
     <tr>
         <th><fmt:message key="report.PopulationReport.label.highUse"/></th>
-        <td>${e:forHtml(shelterUsage.high)}</td>
+        <td>${carlos:forHtml(shelterUsage.high)}</td>
     </tr>
     </tbody>
 </table>
@@ -141,11 +142,11 @@
         <tbody>
         <tr>
             <th><fmt:message key="report.PopulationReport.label.deathCount"/></th>
-            <td>${e:forHtml(mortalities.count)}</td>
+            <td>${carlos:forHtml(mortalities.count)}</td>
         </tr>
         <tr class="odd">
             <th><fmt:message key="report.PopulationReport.label.deathRate"/></th>
-            <td>${e:forHtml(mortalities.percent)}</td>
+            <td>${carlos:forHtml(mortalities.percent)}</td>
         </tr>
         </tbody>
     </table>
@@ -171,15 +172,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${majorMedicalConditions}">
         <tr>
-            <th>${e:forHtml(condition.key)}</th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    ${e:forHtml(condition.value.count)}
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td>${e:forHtml(condition.value.percent)}</td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -205,15 +206,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${majorMentalIllnesses}">
         <tr>
-            <th>${e:forHtml(condition.key)}</th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    ${e:forHtml(condition.value.count)}
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td>${e:forHtml(condition.value.percent)}</td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -239,15 +240,15 @@
     <c:forEach varStatus="status" var="condition"
                items="${seriousMedicalConditions}">
         <tr>
-            <th>${e:forHtml(condition.key)}</th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    ${e:forHtml(condition.value.count)}
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td>${e:forHtml(condition.value.percent)}</td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -281,7 +282,7 @@
     <table
             class="table table-bordered table-striped table-sm table-hover">
         <caption>
-            ${e:forHtml(categoryCodeDescription.key)}
+            ${carlos:forHtml(categoryCodeDescription.key)}
         </caption>
         <colgroup>
             <col style="width:16.667%">
@@ -297,8 +298,8 @@
         <c:forEach var="codeDescription"
                    items="${categoryCodeDescription.value}">
             <tr>
-                <th>${e:forHtml(codeDescription.key)}</th>
-                <td>${e:forHtml(codeDescription.value)}</td>
+                <th>${carlos:forHtml(codeDescription.key)}</th>
+                <td>${carlos:forHtml(codeDescription.value)}</td>
             </tr>
         </c:forEach>
         </tbody>

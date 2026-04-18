@@ -50,6 +50,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -124,15 +125,15 @@
                     Hashtable h = (Hashtable) list.get(i);
                 %>
                 <tr>
-                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("ID")) %>' /></td>
-                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("provider_no")) %>' /></td>
-                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("report_name")) %>' /></td>
-                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"><e:forHtmlContent value='<%= String.valueOf(h.get("file_name")) %>' /></a></td>
-                    <td><e:forHtmlContent value='<%= String.valueOf(h.get("date_time")) %>' /></td>
+                    <td><carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="html"/></td>
+                    <td><carlos:encode value='<%= String.valueOf(h.get("provider_no")) %>' context="html"/></td>
+                    <td><carlos:encode value='<%= String.valueOf(h.get("report_name")) %>' context="html"/></td>
+                    <td><a href="<%= request.getContextPath() %>/report/DownloadLetter?reportID=<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h.get("file_name")) %>' context="html"/></a></td>
+                    <td><carlos:encode value='<%= String.valueOf(h.get("date_time")) %>' context="html"/></td>
                     <td>
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-                            <input type="hidden" name="reportID" value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"/>
+                            <input type="hidden" name="reportID" value="<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"/>
                         <button type="submit" class="btn btn-sm btn-danger"><fmt:message key="report.ManageLetters.btnDelete"/></button>
                         </form>
                     </td>
