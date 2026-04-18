@@ -47,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -63,7 +64,7 @@
         <link rel="stylesheet" type="text/css" href="palliativeCareStyles.css"/>
         <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
-        <base href="<e:forHtmlAttribute value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' />"> <%-- NOSONAR --%>
+        <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>"> <%-- NOSONAR --%>
     </head>
 
     <%
@@ -261,17 +262,17 @@
 
 
         <input type="hidden" name="demographic_no"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ID"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("ID", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("ID", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provider_no"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
-        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provNo"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
@@ -299,11 +300,11 @@
             <tr>
                 <td width="50%" align="center">Patient Name: <input
                         type="hidden" name="pName"
-                        value="<e:forHtmlAttribute value='<%= props.getProperty("pName", "") %>' />"/> <e:forHtmlContent value='<%= props.getProperty("pName", "") %>' />
+                        value="<carlos:encode value='<%= props.getProperty("pName", "") %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= props.getProperty("pName", "") %>' context="html"/>
                 </td>
                 <td width="50%" align="center">Diagnosis: <input type="text"
                                                                  name="diagnosis" size="40"
-                                                                 value="<e:forHtmlAttribute value='<%= props.getProperty("diagnosis", "") %>' />"/><br>
+                                                                 value="<carlos:encode value='<%= props.getProperty("diagnosis", "") %>' context="htmlAttribute"/>"/><br>
                     <br>
                 </td>
             </tr>
@@ -314,230 +315,230 @@
                             <td width="12%"><b>DATE</b></td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date1"
-                                                                              value="<e:forHtmlAttribute value='<%= props.getProperty("date1", "") %>' />"/>
+                                                                              value="<carlos:encode value='<%= props.getProperty("date1", "") %>' context="htmlAttribute"/>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date2"
-                                                                              value="<e:forHtmlAttribute value='<%= props.getProperty("date2", "") %>' />"/>
+                                                                              value="<carlos:encode value='<%= props.getProperty("date2", "") %>' context="htmlAttribute"/>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date3"
-                                                                              value="<e:forHtmlAttribute value='<%= props.getProperty("date3", "") %>' />"/>
+                                                                              value="<carlos:encode value='<%= props.getProperty("date3", "") %>' context="htmlAttribute"/>"/>
                             </td>
                             <td width="22%" align="right">(yyyy/mm/dd) <input type="text"
                                                                               name="date4"
-                                                                              value="<e:forHtmlAttribute value='<%= props.getProperty("date4", "") %>' />"/>
+                                                                              value="<carlos:encode value='<%= props.getProperty("date4", "") %>' context="htmlAttribute"/>"/>
                             </td>
                         </tr>
                         <tr class="pain">
                             <td><b><a
-                                    href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />pain');">PAIN</a></b></td>
-                            <td><textarea name="pain1"><e:forHtmlContent value='<%= props.getProperty("pain1", "") %>' /></textarea></td>
-                            <td><textarea name="pain2"><e:forHtmlContent value='<%= props.getProperty("pain2", "") %>' /></textarea></td>
-                            <td><textarea name="pain3"><e:forHtmlContent value='<%= props.getProperty("pain3", "") %>' /></textarea></td>
-                            <td><textarea name="pain4"><e:forHtmlContent value='<%= props.getProperty("pain4", "") %>' /></textarea></td>
+                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pain');">PAIN</a></b></td>
+                            <td><textarea name="pain1"><carlos:encode value='<%= props.getProperty("pain1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="pain2"><carlos:encode value='<%= props.getProperty("pain2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="pain3"><carlos:encode value='<%= props.getProperty("pain3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="pain4"><carlos:encode value='<%= props.getProperty("pain4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giBowels">
-                            <td><b><a href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />gi');">GI:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>gi');">GI:</a></b><br>
                                 Bowels<br>
                                 -diarrhea -constipation
                             </td>
-                            <td><textarea name="giBowels1"><e:forHtmlContent value='<%= props.getProperty("giBowels1", "") %>' /></textarea></td>
-                            <td><textarea name="giBowels2"><e:forHtmlContent value='<%= props.getProperty("giBowels2", "") %>' /></textarea></td>
-                            <td><textarea name="giBowels3"><e:forHtmlContent value='<%= props.getProperty("giBowels3", "") %>' /></textarea></td>
-                            <td><textarea name="giBowels4"><e:forHtmlContent value='<%= props.getProperty("giBowels4", "") %>' /></textarea></td>
+                            <td><textarea name="giBowels1"><carlos:encode value='<%= props.getProperty("giBowels1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giBowels2"><carlos:encode value='<%= props.getProperty("giBowels2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giBowels3"><carlos:encode value='<%= props.getProperty("giBowels3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giBowels4"><carlos:encode value='<%= props.getProperty("giBowels4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giNausea">
                             <td>Nausea & Vomiting</td>
-                            <td><textarea name="giNausea1"><e:forHtmlContent value='<%= props.getProperty("giNausea1", "") %>' /></textarea></td>
-                            <td><textarea name="giNausea2"><e:forHtmlContent value='<%= props.getProperty("giNausea2", "") %>' /></textarea></td>
-                            <td><textarea name="giNausea3"><e:forHtmlContent value='<%= props.getProperty("giNausea3", "") %>' /></textarea></td>
-                            <td><textarea name="giNausea4"><e:forHtmlContent value='<%= props.getProperty("giNausea4", "") %>' /></textarea></td>
+                            <td><textarea name="giNausea1"><carlos:encode value='<%= props.getProperty("giNausea1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giNausea2"><carlos:encode value='<%= props.getProperty("giNausea2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giNausea3"><carlos:encode value='<%= props.getProperty("giNausea3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giNausea4"><carlos:encode value='<%= props.getProperty("giNausea4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giDysphagia">
                             <td>Dysphagia</td>
-                            <td><textarea name="giDysphagia1"><e:forHtmlContent value='<%= props.getProperty("giDysphagia1", "") %>' /></textarea></td>
-                            <td><textarea name="giDysphagia2"><e:forHtmlContent value='<%= props.getProperty("giDysphagia2", "") %>' /></textarea></td>
-                            <td><textarea name="giDysphagia3"><e:forHtmlContent value='<%= props.getProperty("giDysphagia3", "") %>' /></textarea></td>
-                            <td><textarea name="giDysphagia4"><e:forHtmlContent value='<%= props.getProperty("giDysphagia4", "") %>' /></textarea></td>
+                            <td><textarea name="giDysphagia1"><carlos:encode value='<%= props.getProperty("giDysphagia1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giDysphagia2"><carlos:encode value='<%= props.getProperty("giDysphagia2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giDysphagia3"><carlos:encode value='<%= props.getProperty("giDysphagia3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giDysphagia4"><carlos:encode value='<%= props.getProperty("giDysphagia4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giHiccups">
                             <td>Hiccups</td>
-                            <td><textarea name="giHiccups1"><e:forHtmlContent value='<%= props.getProperty("giHiccups1", "") %>' /></textarea></td>
-                            <td><textarea name="giHiccups2"><e:forHtmlContent value='<%= props.getProperty("giHiccups2", "") %>' /></textarea></td>
-                            <td><textarea name="giHiccups3"><e:forHtmlContent value='<%= props.getProperty("giHiccups3", "") %>' /></textarea></td>
-                            <td><textarea name="giHiccups4"><e:forHtmlContent value='<%= props.getProperty("giHiccups4", "") %>' /></textarea></td>
+                            <td><textarea name="giHiccups1"><carlos:encode value='<%= props.getProperty("giHiccups1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giHiccups2"><carlos:encode value='<%= props.getProperty("giHiccups2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giHiccups3"><carlos:encode value='<%= props.getProperty("giHiccups3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giHiccups4"><carlos:encode value='<%= props.getProperty("giHiccups4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giMouth">
                             <td>Mouth problems</td>
-                            <td><textarea name="giMouth1"><e:forHtmlContent value='<%= props.getProperty("giMouth1", "") %>' /></textarea></td>
-                            <td><textarea name="giMouth2"><e:forHtmlContent value='<%= props.getProperty("giMouth2", "") %>' /></textarea></td>
-                            <td><textarea name="giMouth3"><e:forHtmlContent value='<%= props.getProperty("giMouth3", "") %>' /></textarea></td>
-                            <td><textarea name="giMouth4"><e:forHtmlContent value='<%= props.getProperty("giMouth4", "") %>' /></textarea></td>
+                            <td><textarea name="giMouth1"><carlos:encode value='<%= props.getProperty("giMouth1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giMouth2"><carlos:encode value='<%= props.getProperty("giMouth2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giMouth3"><carlos:encode value='<%= props.getProperty("giMouth3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="giMouth4"><carlos:encode value='<%= props.getProperty("giMouth4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="gu">
-                            <td><b><a href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />gu');">GU:</a></b><br>
+                            <td><b><a href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>gu');">GU:</a></b><br>
                                 Retention<br>
                                 Incontinence
                             </td>
-                            <td><textarea name="gu1"><e:forHtmlContent value='<%= props.getProperty("gu1", "") %>' /></textarea></td>
-                            <td><textarea name="gu2"><e:forHtmlContent value='<%= props.getProperty("gu2", "") %>' /></textarea></td>
-                            <td><textarea name="gu3"><e:forHtmlContent value='<%= props.getProperty("gu3", "") %>' /></textarea></td>
-                            <td><textarea name="gu4"><e:forHtmlContent value='<%= props.getProperty("gu4", "") %>' /></textarea></td>
+                            <td><textarea name="gu1"><carlos:encode value='<%= props.getProperty("gu1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="gu2"><carlos:encode value='<%= props.getProperty("gu2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="gu3"><carlos:encode value='<%= props.getProperty("gu3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="gu4"><carlos:encode value='<%= props.getProperty("gu4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="skinUlcers">
                             <td><b><a
-                                    href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />skin');">SKIN:</a></b><br>
+                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>skin');">SKIN:</a></b><br>
                                 Ulcers
                             </td>
-                            <td><textarea name="skinUlcers1"><e:forHtmlContent value='<%= props.getProperty("skinUlcers1", "") %>' /></textarea></td>
-                            <td><textarea name="skinUlcers2"><e:forHtmlContent value='<%= props.getProperty("skinUlcers2", "") %>' /></textarea></td>
-                            <td><textarea name="skinUlcers3"><e:forHtmlContent value='<%= props.getProperty("skinUlcers3", "") %>' /></textarea></td>
-                            <td><textarea name="skinUlcers4"><e:forHtmlContent value='<%= props.getProperty("skinUlcers4", "") %>' /></textarea></td>
+                            <td><textarea name="skinUlcers1"><carlos:encode value='<%= props.getProperty("skinUlcers1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="skinUlcers2"><carlos:encode value='<%= props.getProperty("skinUlcers2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="skinUlcers3"><carlos:encode value='<%= props.getProperty("skinUlcers3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="skinUlcers4"><carlos:encode value='<%= props.getProperty("skinUlcers4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="skinPruritis">
                             <td>Pruritis</td>
-                            <td><textarea name="skinPruritis1"><e:forHtmlContent value='<%= props.getProperty("skinPruritis1", "") %>' /></textarea>
+                            <td><textarea name="skinPruritis1"><carlos:encode value='<%= props.getProperty("skinPruritis1", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="skinPruritis2"><e:forHtmlContent value='<%= props.getProperty("skinPruritis2", "") %>' /></textarea>
+                            <td><textarea name="skinPruritis2"><carlos:encode value='<%= props.getProperty("skinPruritis2", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="skinPruritis3"><e:forHtmlContent value='<%= props.getProperty("skinPruritis3", "") %>' /></textarea>
+                            <td><textarea name="skinPruritis3"><carlos:encode value='<%= props.getProperty("skinPruritis3", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="skinPruritis4"><e:forHtmlContent value='<%= props.getProperty("skinPruritis4", "") %>' /></textarea>
+                            <td><textarea name="skinPruritis4"><carlos:encode value='<%= props.getProperty("skinPruritis4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="psychAgitation">
                             <td><b><a
-                                    href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />psych');">PSYCH:</a></b><br>
+                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>psych');">PSYCH:</a></b><br>
                                 Agitation<br>
                                 Myoclonus
                             </td>
                             <td><textarea
-                                    name="psychAgitation1"><e:forHtmlContent value='<%= props.getProperty("psychAgitation1", "") %>' /></textarea></td>
+                                    name="psychAgitation1"><carlos:encode value='<%= props.getProperty("psychAgitation1", "") %>' context="html"/></textarea></td>
                             <td><textarea
-                                    name="psychAgitation2"><e:forHtmlContent value='<%= props.getProperty("psychAgitation2", "") %>' /></textarea></td>
+                                    name="psychAgitation2"><carlos:encode value='<%= props.getProperty("psychAgitation2", "") %>' context="html"/></textarea></td>
                             <td><textarea
-                                    name="psychAgitation3"><e:forHtmlContent value='<%= props.getProperty("psychAgitation3", "") %>' /></textarea></td>
+                                    name="psychAgitation3"><carlos:encode value='<%= props.getProperty("psychAgitation3", "") %>' context="html"/></textarea></td>
                             <td><textarea
-                                    name="psychAgitation4"><e:forHtmlContent value='<%= props.getProperty("psychAgitation4", "") %>' /></textarea></td>
+                                    name="psychAgitation4"><carlos:encode value='<%= props.getProperty("psychAgitation4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="psychAnorexia">
                             <td>Anorexia</td>
-                            <td><textarea name="psychAnorexia1"><e:forHtmlContent value='<%= props.getProperty("psychAnorexia1", "") %>' /></textarea>
+                            <td><textarea name="psychAnorexia1"><carlos:encode value='<%= props.getProperty("psychAnorexia1", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia2"><e:forHtmlContent value='<%= props.getProperty("psychAnorexia2", "") %>' /></textarea>
+                            <td><textarea name="psychAnorexia2"><carlos:encode value='<%= props.getProperty("psychAnorexia2", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia3"><e:forHtmlContent value='<%= props.getProperty("psychAnorexia3", "") %>' /></textarea>
+                            <td><textarea name="psychAnorexia3"><carlos:encode value='<%= props.getProperty("psychAnorexia3", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnorexia4"><e:forHtmlContent value='<%= props.getProperty("psychAnorexia4", "") %>' /></textarea>
+                            <td><textarea name="psychAnorexia4"><carlos:encode value='<%= props.getProperty("psychAnorexia4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="psychAnxiety">
                             <td>Anxiety</td>
-                            <td><textarea name="psychAnxiety1"><e:forHtmlContent value='<%= props.getProperty("psychAnxiety1", "") %>' /></textarea>
+                            <td><textarea name="psychAnxiety1"><carlos:encode value='<%= props.getProperty("psychAnxiety1", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety2"><e:forHtmlContent value='<%= props.getProperty("psychAnxiety2", "") %>' /></textarea>
+                            <td><textarea name="psychAnxiety2"><carlos:encode value='<%= props.getProperty("psychAnxiety2", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety3"><e:forHtmlContent value='<%= props.getProperty("psychAnxiety3", "") %>' /></textarea>
+                            <td><textarea name="psychAnxiety3"><carlos:encode value='<%= props.getProperty("psychAnxiety3", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychAnxiety4"><e:forHtmlContent value='<%= props.getProperty("psychAnxiety4", "") %>' /></textarea>
+                            <td><textarea name="psychAnxiety4"><carlos:encode value='<%= props.getProperty("psychAnxiety4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="psychDepression">
                             <td>Depression</td>
                             <td><textarea
-                                    name="psychDepression1"><e:forHtmlContent value='<%= props.getProperty("psychDepression1", "") %>' /></textarea>
+                                    name="psychDepression1"><carlos:encode value='<%= props.getProperty("psychDepression1", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression2"><e:forHtmlContent value='<%= props.getProperty("psychDepression2", "") %>' /></textarea>
+                                    name="psychDepression2"><carlos:encode value='<%= props.getProperty("psychDepression2", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression3"><e:forHtmlContent value='<%= props.getProperty("psychDepression3", "") %>' /></textarea>
+                                    name="psychDepression3"><carlos:encode value='<%= props.getProperty("psychDepression3", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychDepression4"><e:forHtmlContent value='<%= props.getProperty("psychDepression4", "") %>' /></textarea>
+                                    name="psychDepression4"><carlos:encode value='<%= props.getProperty("psychDepression4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="psychFatigue">
                             <td>Fatigue</td>
-                            <td><textarea name="psychFatigue1"><e:forHtmlContent value='<%= props.getProperty("psychFatigue1", "") %>' /></textarea>
+                            <td><textarea name="psychFatigue1"><carlos:encode value='<%= props.getProperty("psychFatigue1", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychFatigue2"><e:forHtmlContent value='<%= props.getProperty("psychFatigue2", "") %>' /></textarea>
+                            <td><textarea name="psychFatigue2"><carlos:encode value='<%= props.getProperty("psychFatigue2", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychFatigue3"><e:forHtmlContent value='<%= props.getProperty("psychFatigue3", "") %>' /></textarea>
+                            <td><textarea name="psychFatigue3"><carlos:encode value='<%= props.getProperty("psychFatigue3", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="psychFatigue4"><e:forHtmlContent value='<%= props.getProperty("psychFatigue4", "") %>' /></textarea>
+                            <td><textarea name="psychFatigue4"><carlos:encode value='<%= props.getProperty("psychFatigue4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="psychSomnolence">
                             <td>Somnolence</td>
                             <td><textarea
-                                    name="psychSomnolence1"><e:forHtmlContent value='<%= props.getProperty("psychSomnolence1", "") %>' /></textarea>
+                                    name="psychSomnolence1"><carlos:encode value='<%= props.getProperty("psychSomnolence1", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence2"><e:forHtmlContent value='<%= props.getProperty("psychSomnolence2", "") %>' /></textarea>
+                                    name="psychSomnolence2"><carlos:encode value='<%= props.getProperty("psychSomnolence2", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence3"><e:forHtmlContent value='<%= props.getProperty("psychSomnolence3", "") %>' /></textarea>
+                                    name="psychSomnolence3"><carlos:encode value='<%= props.getProperty("psychSomnolence3", "") %>' context="html"/></textarea>
                             </td>
                             <td><textarea
-                                    name="psychSomnolence4"><e:forHtmlContent value='<%= props.getProperty("psychSomnolence4", "") %>' /></textarea>
+                                    name="psychSomnolence4"><carlos:encode value='<%= props.getProperty("psychSomnolence4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="respCough">
                             <td><b><a
-                                    href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />resp');">RESP:</a></b><br>
+                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>resp');">RESP:</a></b><br>
                                 Cough
                             </td>
-                            <td><textarea name="respCough1"><e:forHtmlContent value='<%= props.getProperty("respCough1", "") %>' /></textarea></td>
-                            <td><textarea name="respCough2"><e:forHtmlContent value='<%= props.getProperty("respCough2", "") %>' /></textarea></td>
-                            <td><textarea name="respCough3"><e:forHtmlContent value='<%= props.getProperty("respCough3", "") %>' /></textarea></td>
-                            <td><textarea name="respCough4"><e:forHtmlContent value='<%= props.getProperty("respCough4", "") %>' /></textarea></td>
+                            <td><textarea name="respCough1"><carlos:encode value='<%= props.getProperty("respCough1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respCough2"><carlos:encode value='<%= props.getProperty("respCough2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respCough3"><carlos:encode value='<%= props.getProperty("respCough3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respCough4"><carlos:encode value='<%= props.getProperty("respCough4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="respDyspnea">
                             <td>Dyspnea</td>
-                            <td><textarea name="respDyspnea1"><e:forHtmlContent value='<%= props.getProperty("respDyspnea1", "") %>' /></textarea></td>
-                            <td><textarea name="respDyspnea2"><e:forHtmlContent value='<%= props.getProperty("respDyspnea2", "") %>' /></textarea></td>
-                            <td><textarea name="respDyspnea3"><e:forHtmlContent value='<%= props.getProperty("respDyspnea3", "") %>' /></textarea></td>
-                            <td><textarea name="respDyspnea4"><e:forHtmlContent value='<%= props.getProperty("respDyspnea4", "") %>' /></textarea></td>
+                            <td><textarea name="respDyspnea1"><carlos:encode value='<%= props.getProperty("respDyspnea1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respDyspnea2"><carlos:encode value='<%= props.getProperty("respDyspnea2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respDyspnea3"><carlos:encode value='<%= props.getProperty("respDyspnea3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respDyspnea4"><carlos:encode value='<%= props.getProperty("respDyspnea4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="respFever">
                             <td>Fever</td>
-                            <td><textarea name="respFever1"><e:forHtmlContent value='<%= props.getProperty("respFever1", "") %>' /></textarea></td>
-                            <td><textarea name="respFever2"><e:forHtmlContent value='<%= props.getProperty("respFever2", "") %>' /></textarea></td>
-                            <td><textarea name="respFever3"><e:forHtmlContent value='<%= props.getProperty("respFever3", "") %>' /></textarea></td>
-                            <td><textarea name="respFever4"><e:forHtmlContent value='<%= props.getProperty("respFever4", "") %>' /></textarea></td>
+                            <td><textarea name="respFever1"><carlos:encode value='<%= props.getProperty("respFever1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respFever2"><carlos:encode value='<%= props.getProperty("respFever2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respFever3"><carlos:encode value='<%= props.getProperty("respFever3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="respFever4"><carlos:encode value='<%= props.getProperty("respFever4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="respCaregiver">
                             <td>Caregiver coping</td>
-                            <td><textarea name="respCaregiver1"><e:forHtmlContent value='<%= props.getProperty("respCaregiver1", "") %>' /></textarea>
+                            <td><textarea name="respCaregiver1"><carlos:encode value='<%= props.getProperty("respCaregiver1", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="respCaregiver2"><e:forHtmlContent value='<%= props.getProperty("respCaregiver2", "") %>' /></textarea>
+                            <td><textarea name="respCaregiver2"><carlos:encode value='<%= props.getProperty("respCaregiver2", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="respCaregiver3"><e:forHtmlContent value='<%= props.getProperty("respCaregiver3", "") %>' /></textarea>
+                            <td><textarea name="respCaregiver3"><carlos:encode value='<%= props.getProperty("respCaregiver3", "") %>' context="html"/></textarea>
                             </td>
-                            <td><textarea name="respCaregiver4"><e:forHtmlContent value='<%= props.getProperty("respCaregiver4", "") %>' /></textarea>
+                            <td><textarea name="respCaregiver4"><carlos:encode value='<%= props.getProperty("respCaregiver4", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr class="other">
                             <td><b><a
-                                    href="javascript: popupPage('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />other');">Other
+                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>other');">Other
                                 Issues / FU Plan</a></b></td>
-                            <td><textarea name="other1"><e:forHtmlContent value='<%= props.getProperty("other1", "") %>' /></textarea></td>
-                            <td><textarea name="other2"><e:forHtmlContent value='<%= props.getProperty("other2", "") %>' /></textarea></td>
-                            <td><textarea name="other3"><e:forHtmlContent value='<%= props.getProperty("other3", "") %>' /></textarea></td>
-                            <td><textarea name="other4"><e:forHtmlContent value='<%= props.getProperty("other4", "") %>' /></textarea></td>
+                            <td><textarea name="other1"><carlos:encode value='<%= props.getProperty("other1", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="other2"><carlos:encode value='<%= props.getProperty("other2", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="other3"><carlos:encode value='<%= props.getProperty("other3", "") %>' context="html"/></textarea></td>
+                            <td><textarea name="other4"><carlos:encode value='<%= props.getProperty("other4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="signature">
                             <td>Signature</td>
                             <td><input type="text" name="signature1"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("signature1", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("signature1", "") %>' context="htmlAttribute"/>"/></td>
                             <td><input type="text" name="signature2"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("signature2", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("signature2", "") %>' context="htmlAttribute"/>"/></td>
                             <td><input type="text" name="signature3"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("signature3", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("signature3", "") %>' context="htmlAttribute"/>"/></td>
                             <td><input type="text" name="signature4"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("signature4", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("signature4", "") %>' context="htmlAttribute"/>"/></td>
                         </tr>
                     </table>
                 </td>

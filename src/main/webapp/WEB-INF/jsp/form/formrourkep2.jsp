@@ -47,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
@@ -262,18 +263,18 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ID"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("ID", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("ID", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provider_no"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
-        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
-        <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= String.valueOf(formId) %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="formId" value="<carlos:encode value='<%= String.valueOf(formId) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="c_lastVisited"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("c_lastVisited", "p2") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("c_lastVisited", "p2") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table cellspacing="0" cellpadding="0" class="Header" class="hidePrint">
@@ -289,14 +290,14 @@
                                                                           value="<fmt:message key='encounter.formRourke2.btnPrint'/>"
                                                                           onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%"><a name="length"
-                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                                                   href="javascript:popup('form/graphLengthWeight?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                     <fmt:message key='encounter.formRourke2.btnGraphLenght'/></a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                         <fmt:message key='encounter.formRourke2.btnGraphHead'/></a></td>
                 <td nowrap="true"><a
-                        href="form/formrourkep1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key='encounter.formRourke2.btnpage1'/></a>&nbsp;|&nbsp; <a><fmt:message key='encounter.formRourke2.msgPage2'/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key='encounter.formRourke2.btnPage3'/></a></td>
+                        href="form/formrourkep1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key='encounter.formRourke2.btnpage1'/></a>&nbsp;|&nbsp; <a><fmt:message key='encounter.formRourke2.msgPage2'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key='encounter.formRourke2.btnPage3'/></a></td>
             </tr>
         </table>
 
@@ -309,19 +310,19 @@
             <tr valign="top">
                 <td nowrap align="center"><fmt:message key='encounter.formRourke2.formBirthRemarks'/><br>
                     <textarea name="c_birthRemarks" cols="17"
-                              rows="2"><e:forHtmlContent value='<%= props.getProperty("c_birthRemarks", "") %>' /></textarea>
+                              rows="2"><carlos:encode value='<%= props.getProperty("c_birthRemarks", "") %>' context="html"/></textarea>
                 </td>
                 <td nowrap align="center"><fmt:message key='encounter.formRourke2.formRiskFactors'/><br>
                     <textarea name="c_riskFactors" rows="2"
-                              cols="17"><e:forHtmlContent value='<%= props.getProperty("c_riskFactors", "") %>' /></textarea>
+                              cols="17"><carlos:encode value='<%= props.getProperty("c_riskFactors", "") %>' context="html"/></textarea>
                 </td>
                 <td width="65%" nowrap align="center">
                     <p><fmt:message key='encounter.formRourke2.msgName'/>: <input
                             type="text" name="c_pName" maxlength="60" size="30"
-                            value="<e:forHtmlAttribute value='<%= props.getProperty("c_pName", "") %>' />" readonly="true"/>
+                            value="<carlos:encode value='<%= props.getProperty("c_pName", "") %>' context="htmlAttribute"/>" readonly="true"/>
                         &nbsp;&nbsp; <fmt:message key='encounter.formRourke2.msgBirthDate'/> (yyyy/mm/dd): <input
                                 type="text" name="c_birthDate" size="10" maxlength="10"
-                                value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthDate", "") %>' />" readonly="true">
+                                value="<carlos:encode value='<%= props.getProperty("c_birthDate", "") %>' context="htmlAttribute"/>" readonly="true">
                         &nbsp;&nbsp; <% if (!((FrmRourkeRecord) rec).isFemale(demoNo)) {
                         %><fmt:message key='encounter.formRourke3.msgMale'/>
                         <%
@@ -333,17 +334,17 @@
                     </p>
                     <p><fmt:message key='encounter.formRourke2.formLenght'/>:
                         <input type="text" name="c_length" size="6" maxlength="6"
-                               value="<e:forHtmlAttribute value='<%= props.getProperty("c_length", "") %>' />"/> cm &nbsp;&nbsp;
+                               value="<carlos:encode value='<%= props.getProperty("c_length", "") %>' context="htmlAttribute"/>"/> cm &nbsp;&nbsp;
                         <fmt:message key='encounter.formRourke2.formHeadCirc'/>: <input
                                 type="text" name="c_headCirc" size="6" maxlength="6"
-                                value="<e:forHtmlAttribute value='<%= props.getProperty("c_headCirc", "") %>' />"/> cm
+                                value="<carlos:encode value='<%= props.getProperty("c_headCirc", "") %>' context="htmlAttribute"/>"/> cm
                         &nbsp;&nbsp; <fmt:message key='encounter.formRourke2.formBirthWt'/> <input type="text"
                                                                                       name="c_birthWeight" size="6"
                                                                                       maxlength="7"
-                                                                                      value="<e:forHtmlAttribute value='<%= props.getProperty("c_birthWeight", "") %>' />"/>
+                                                                                      value="<carlos:encode value='<%= props.getProperty("c_birthWeight", "") %>' context="htmlAttribute"/>"/>
                         <fmt:message key='encounter.formRourke2.msgBirthWtUnit'/> &nbsp;&nbsp; <fmt:message key='encounter.formRourke2.formDischargeWt'/>: <input
                                 type="text" name="c_dischargeWeight" size="6" maxlength="7"
-                                value="<e:forHtmlAttribute value='<%= props.getProperty("c_dischargeWeight", "") %>' />"> <fmt:message key='encounter.formRourke2.msgDischargeWtUnit'/></p>
+                                value="<carlos:encode value='<%= props.getProperty("c_dischargeWeight", "") %>' context="htmlAttribute"/>"> <fmt:message key='encounter.formRourke2.msgDischargeWtUnit'/></p>
                 </td>
             </tr>
         </table>
@@ -359,14 +360,14 @@
             <tr align="center">
                 <td class="column"><a><fmt:message key='encounter.formRourke2.msgDate'/></a></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p2_date4m"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date4m", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p2_date4m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p2_date6m"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date6m", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p2_date6m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text" name="p2_date9m"
-                                                    size="10" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date9m", "") %>' />"/></td>
+                                                    size="10" value="<carlos:encode value='<%= props.getProperty("p2_date9m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3">(yyyy/mm/dd) <input type="text"
                                                     name="p2_date12m" size="10"
-                                                    value="<e:forHtmlAttribute value='<%= props.getProperty("p2_date12m", "") %>' />"/></td>
+                                                    value="<carlos:encode value='<%= props.getProperty("p2_date12m", "") %>' context="htmlAttribute"/>"/></td>
             </tr>
             <tr align="center">
                 <td class="column" rowspan="2"><a>GROWTH</a></td>
@@ -385,47 +386,47 @@
             </tr>
             <tr align="center">
                 <td><input type="text" class="wide" name="p2_ht4m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_ht4m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_ht4m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_wt4m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_wt4m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_wt4m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_hc4m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_hc4m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_hc4m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_ht6m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_ht6m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_ht6m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_wt6m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_wt6m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_wt6m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_hc6m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_hc6m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_hc6m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_ht9m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_ht9m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_ht9m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_wt9m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_wt9m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_wt9m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_hc9m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_hc9m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_hc9m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_ht12m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_ht12m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_ht12m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_wt12m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_wt12m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_wt12m", "") %>' context="htmlAttribute"/>"></td>
                 <td><input type="text" class="wide" name="p2_hc12m" size="4"
-                           maxlength="5" value="<e:forHtmlAttribute value='<%= props.getProperty("p2_hc12m", "") %>' />"></td>
+                           maxlength="5" value="<carlos:encode value='<%= props.getProperty("p2_hc12m", "") %>' context="htmlAttribute"/>"></td>
             </tr>
             <tr align="center">
                 <td class="column"><a><fmt:message key='encounter.formRourke2.msgParentalConcerns'/></a></td>
                 <td colspan="3"><textarea name="p2_pConcern4m" cols="25"
                                           rows="2" class="wide"
-                                          style="width: 100%"><e:forHtmlContent value='<%= props.getProperty("p2_pConcern4m", "") %>' /></textarea>
+                                          style="width: 100%"><carlos:encode value='<%= props.getProperty("p2_pConcern4m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p2_pConcern6m" cols="25"
                                           rows="2" class="wide"
-                                          style="width: 100%"><e:forHtmlContent value='<%= props.getProperty("p2_pConcern6m", "") %>' /></textarea>
+                                          style="width: 100%"><carlos:encode value='<%= props.getProperty("p2_pConcern6m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p2_pConcern9m" cols="25"
                                           rows="2" class="wide"
-                                          style="width: 100%"><e:forHtmlContent value='<%= props.getProperty("p2_pConcern9m", "") %>' /></textarea>
+                                          style="width: 100%"><carlos:encode value='<%= props.getProperty("p2_pConcern9m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3"><textarea name="p2_pConcern12m" cols="25"
                                           rows="2" class="wide"
-                                          style="width: 100%"><e:forHtmlContent value='<%= props.getProperty("p2_pConcern12m", "") %>' /></textarea>
+                                          style="width: 100%"><carlos:encode value='<%= props.getProperty("p2_pConcern12m", "") %>' context="html"/></textarea>
                 </td>
             </tr>
             <tr>
@@ -434,25 +435,25 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_nutrition4m" cols="25"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_nutrition4m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_nutrition4m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_breastFeeding4m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_breastFeeding4m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_breastFeeding4m", "") %>' context="htmlAttribute"/> /></td>
                             <td><b><a href="#"
                                       onclick="popup('<e:forJavaScriptAttribute value='<%= (resource == null ? "" : resource) + "n_breastFeeding" %>' />');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_formulaFeeding4m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding4m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_formulaFeeding4m", "") %>' context="htmlAttribute"/> /></td>
                             <td><fmt:message key='encounter.formRourke2.formFormulaFeeding'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_cereal4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_cereal4m", "") %>' /> />
+                                                    name="p2_cereal4m" <carlos:encode value='<%= props.getProperty("p2_cereal4m", "") %>' context="htmlAttribute"/> />
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formIronFortified'/></td>
                         </tr>
@@ -462,44 +463,44 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_nutrition6m" cols="25"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_nutrition6m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_nutrition6m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_breastFeeding6m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_breastFeeding6m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_breastFeeding6m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />n_breastFeeding');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>n_breastFeeding');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_formulaFeeding6m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding6m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_formulaFeeding6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formFormulaFeedingIronFortified'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_bottle6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle6m", "") %>' />></td>
+                                                    name="p2_bottle6m" <carlos:encode value='<%= props.getProperty("p2_bottle6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formNoBottles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_vegFruit6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_vegFruit6m", "") %>' />>
+                                                    name="p2_vegFruit6m" <carlos:encode value='<%= props.getProperty("p2_vegFruit6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formVeg'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_egg6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_egg6m", "") %>' />></td>
+                                                    name="p2_egg6m" <carlos:encode value='<%= props.getProperty("p2_egg6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formNoEgg'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_choking6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_choking6m", "") %>' />>
+                                                    name="p2_choking6m" <carlos:encode value='<%= props.getProperty("p2_choking6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><a href="#"
-                                   onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_choking');return false;"><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
+                                   onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_choking');return false;"><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
                             </td>
                         </tr>
                     </table>
@@ -508,49 +509,49 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_nutrition9m" cols="25"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_nutrition9m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_nutrition9m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_breastFeeding9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_breastFeeding9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_breastFeeding9m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />n_breastFeeding');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>n_breastFeeding');return false;"><fmt:message key="encounter.formRourke2.btnBreastFeeding"/></a><fmt:message key="encounter.formRourke2.msgBreastFeedingUnit"/></b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_formulaFeeding9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_formulaFeeding9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_formulaFeeding9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formFormulaFeeding'/><br>
                                 <fmt:message key='encounter.formRourke2.formIronFortified'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_bottle9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle9m", "") %>' />></td>
+                                                    name="p2_bottle9m" <carlos:encode value='<%= props.getProperty("p2_bottle9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formNoBottles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_meat9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_meat9m", "") %>' />></td>
+                                                    name="p2_meat9m" <carlos:encode value='<%= props.getProperty("p2_meat9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formMeat'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_milk9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_milk9m", "") %>' />></td>
+                                                    name="p2_milk9m" <carlos:encode value='<%= props.getProperty("p2_milk9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formMilk'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_egg9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_egg9m", "") %>' />></td>
+                                                    name="p2_egg9m" <carlos:encode value='<%= props.getProperty("p2_egg9m", "") %>' context="htmlAttribute"/>></td>
                             <td>No egg white, nuts or honey</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_choking9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_choking9m", "") %>' />>
+                                                    name="p2_choking9m" <carlos:encode value='<%= props.getProperty("p2_choking9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><a href="#"
-                                   onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_choking');return false;"><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
+                                   onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_choking');return false;"><fmt:message key="encounter.formRourke2.formChokingSafeFood"/></a>*
                             </td>
                         </tr>
                     </table>
@@ -559,24 +560,24 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_nutrition12m" cols="25"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_nutrition12m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_nutrition12m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_milk12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_milk12m", "") %>' />></td>
+                                                    name="p2_milk12m" <carlos:encode value='<%= props.getProperty("p2_milk12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHomogenizedMilk'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_bottle12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_bottle12m", "") %>' />>
+                                                    name="p2_bottle12m" <carlos:encode value='<%= props.getProperty("p2_bottle12m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formEncourageCup'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_appetite12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_appetite12m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_appetite12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formAppetiteReduced'/></td>
                         </tr>
                     </table>
@@ -627,33 +628,33 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_educationAdvice4m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_educationAdvice4m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_educationAdvice4m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_carSeat4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_carSeat4m", "") %>' />>
+                                                    name="p2_carSeat4m" <carlos:encode value='<%= props.getProperty("p2_carSeat4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_motorVehicleAccidents');return false;"><fmt:message key="encounter.formRourke2.formCarSeat"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_motorVehicleAccidents');return false;"><fmt:message key="encounter.formRourke2.formCarSeat"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_stairs4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_stairs4m", "") %>' />></td>
+                                                    name="p2_stairs4m" <carlos:encode value='<%= props.getProperty("p2_stairs4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formWalker'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_bath4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_bath4m", "") %>' />></td>
+                                                    name="p2_bath4m" <carlos:encode value='<%= props.getProperty("p2_bath4m", "") %>' context="htmlAttribute"/>></td>
                             <td><i><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_drowning');return false;"><fmt:message key="encounter.formRourke2.formBathSafety"/></a>*</i></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_drowning');return false;"><fmt:message key="encounter.formRourke2.formBathSafety"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_sleeping4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_sleeping4m", "") %>' />>
+                                                    name="p2_sleeping4m" <carlos:encode value='<%= props.getProperty("p2_sleeping4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />b_nightWaking');return false;">Night
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>b_nightWaking');return false;">Night
                                 waking/crying</a>*</b></td>
                         </tr>
                         <tr>
@@ -661,13 +662,13 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_parent4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_parent4m", "") %>' />></td>
+                                                    name="p2_parent4m" <carlos:encode value='<%= props.getProperty("p2_parent4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formParentChildInteraction'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_childCare4m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_childCare4m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_childCare4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formChildCare'/></td>
                         </tr>
                         <tr>
@@ -675,12 +676,12 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_family4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_family4m", "") %>' />></td>
+                                                    name="p2_family4m" <carlos:encode value='<%= props.getProperty("p2_family4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formFamilyConflict'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_teething4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_teething4m", "") %>' />>
+                                                    name="p2_teething4m" <carlos:encode value='<%= props.getProperty("p2_teething4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formSiblings'/></td>
                         </tr>
@@ -690,18 +691,18 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_educationAdvice6m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_educationAdvice6m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_educationAdvice6m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_poison6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_poison6m", "") %>' />></td>
+                                                    name="p2_poison6m" <carlos:encode value='<%= props.getProperty("p2_poison6m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_poisons');return false;"><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_poisons');return false;"><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_electric6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_electric6m", "") %>' />>
+                                                    name="p2_electric6m" <carlos:encode value='<%= props.getProperty("p2_electric6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formElectricPlugs'/></td>
                         </tr>
@@ -710,23 +711,23 @@
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_sleeping6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_sleeping6m", "") %>' />>
+                                                    name="p2_sleeping6m" <carlos:encode value='<%= props.getProperty("p2_sleeping6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_parent6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_parent6m", "") %>' />></td>
+                                                    name="p2_parent6m" <carlos:encode value='<%= props.getProperty("p2_parent6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formParentChildInteraction'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_childCare6m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_childCare6m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_childCare6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formChildCare'/></td>
                         </tr>
                     </table>
@@ -735,13 +736,13 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_educationAdvice9m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_educationAdvice9m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_educationAdvice9m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_childProof9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_childProof9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_childProof9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formChildProofing'/></td>
                         </tr>
                         <tr>
@@ -750,41 +751,41 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_separation9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_separation9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_separation9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formSeparation'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_sleeping9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_sleeping9m", "") %>' />>
+                                                    name="p2_sleeping9m" <carlos:encode value='<%= props.getProperty("p2_sleeping9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_dayCare9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_dayCare9m", "") %>' />>
+                                                    name="p2_dayCare9m" <carlos:encode value='<%= props.getProperty("p2_dayCare9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />hri_dayCare');return false;"><fmt:message key="encounter.formRourke2.formAssessDay"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>hri_dayCare');return false;"><fmt:message key="encounter.formRourke2.formAssessDay"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_homeVisit9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_homeVisit9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_homeVisit9m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />hri_homeVisits');return false;"><fmt:message key="encounter.formRourke2.formAssessHomeVisit"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>hri_homeVisits');return false;"><fmt:message key="encounter.formRourke2.formAssessHomeVisit"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_smoke9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_smoke9m", "") %>' />></td>
+                                                    name="p2_smoke9m" <carlos:encode value='<%= props.getProperty("p2_smoke9m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />o_secondHandSmoke');return false;"><fmt:message key="encounter.formRourke2.formSecondHandSmoke"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>o_secondHandSmoke');return false;"><fmt:message key="encounter.formRourke2.formSecondHandSmoke"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -792,49 +793,49 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_educationAdvice12m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_educationAdvice12m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_educationAdvice12m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_poison12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_poison12m", "") %>' /> />
+                                                    name="p2_poison12m" <carlos:encode value='<%= props.getProperty("p2_poison12m", "") %>' context="htmlAttribute"/> />
                             </td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_poisons');return false;"><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_poisons');return false;"><fmt:message key="encounter.formRourke2.btnPoisons"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_electric12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_electric12m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_electric12m", "") %>' context="htmlAttribute"/> /></td>
                             <td><fmt:message key='encounter.formRourke2.formElectricPlugs'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_carbon12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_carbon12m", "") %>' /> />
+                                                    name="p2_carbon12m" <carlos:encode value='<%= props.getProperty("p2_carbon12m", "") %>' context="htmlAttribute"/> />
                             </td>
                             <td>Carbon monoxide/<br>
                                 &nbsp;&nbsp;<i><a href="#"
-                                                  onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />s_burns');return false;"><fmt:message key="encounter.formRourke2.formSmokeDetectors"/></a>*</i></td>
+                                                  onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>s_burns');return false;"><fmt:message key="encounter.formRourke2.formSmokeDetectors"/></a>*</i></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_hotWater12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_hotWater12m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_hotWater12m", "") %>' context="htmlAttribute"/> /></td>
                             <td><fmt:message key='encounter.formRourke2.formHotWater'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_sleeping12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_sleeping12m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_sleeping12m", "") %>' context="htmlAttribute"/> /></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>b_nightWaking');return false;"><fmt:message key="encounter.formRourke2.formNightWaking"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td>&nbsp;</td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_parent12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_parent12m", "") %>' /> />
+                                                    name="p2_parent12m" <carlos:encode value='<%= props.getProperty("p2_parent12m", "") %>' context="htmlAttribute"/> />
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formParentChildInteraction'/></td>
                         </tr>
@@ -844,9 +845,9 @@
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_teething12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_teething12m", "") %>' /> /></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_teething12m", "") %>' context="htmlAttribute"/> /></td>
                             <td><fmt:message key='encounter.formRourke2.formTeething'/><b><a href="#"
-                                                                                         onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />o_dentalCare');return false;"><fmt:message key="encounter.formRourke2.btnDentalCare"/></a>*</b></td>
+                                                                                         onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>o_dentalCare');return false;"><fmt:message key="encounter.formRourke2.btnDentalCare"/></a>*</b></td>
                         </tr>
                     </table>
                 </td>
@@ -859,34 +860,34 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_development4m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_development4m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_development4m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_turnHead4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_turnHead4m", "") %>' />>
+                                                    name="p2_turnHead4m" <carlos:encode value='<%= props.getProperty("p2_turnHead4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formTurnsHead'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_laugh4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_laugh4m", "") %>' />></td>
+                                                    name="p2_laugh4m" <carlos:encode value='<%= props.getProperty("p2_laugh4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formLaughs'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_headSteady4m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_headSteady4m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_headSteady4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHeadSteady'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_grasp4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_grasp4m", "") %>' />></td>
+                                                    name="p2_grasp4m" <carlos:encode value='<%= props.getProperty("p2_grasp4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formGrasps'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_concern4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_concern4m", "") %>' />>
+                                                    name="p2_concern4m" <carlos:encode value='<%= props.getProperty("p2_concern4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formNoParentConcern'/></td>
                         </tr>
@@ -896,44 +897,44 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_development6m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_development6m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_development6m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_follow6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_follow6m", "") %>' />></td>
+                                                    name="p2_follow6m" <carlos:encode value='<%= props.getProperty("p2_follow6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formFollowsMovingObjects'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_respond6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_respond6m", "") %>' />>
+                                                    name="p2_respond6m" <carlos:encode value='<%= props.getProperty("p2_respond6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formRespondsName'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_babbles6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_babbles6m", "") %>' />>
+                                                    name="p2_babbles6m" <carlos:encode value='<%= props.getProperty("p2_babbles6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formBabbles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_rolls6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_rolls6m", "") %>' />></td>
+                                                    name="p2_rolls6m" <carlos:encode value='<%= props.getProperty("p2_rolls6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formRollsFromBack'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_sits6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_sits6m", "") %>' />></td>
+                                                    name="p2_sits6m" <carlos:encode value='<%= props.getProperty("p2_sits6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formSitsWithSupport'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_mouth6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_mouth6m", "") %>' />></td>
+                                                    name="p2_mouth6m" <carlos:encode value='<%= props.getProperty("p2_mouth6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formBringHandsToMouth'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_concern6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_concern6m", "") %>' />>
+                                                    name="p2_concern6m" <carlos:encode value='<%= props.getProperty("p2_concern6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formNoParentConcern'/></td>
                         </tr>
@@ -943,46 +944,46 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_development9m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_development9m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_development9m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_looks9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_looks9m", "") %>' />></td>
+                                                    name="p2_looks9m" <carlos:encode value='<%= props.getProperty("p2_looks9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formLooksForHiddenToy'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_babbles9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_babbles9m", "") %>' />>
+                                                    name="p2_babbles9m" <carlos:encode value='<%= props.getProperty("p2_babbles9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formDifferentSounds'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_sits9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_sits9m", "") %>' />></td>
+                                                    name="p2_sits9m" <carlos:encode value='<%= props.getProperty("p2_sits9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formSitsWithoutSupport'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_stands9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_stands9m", "") %>' />></td>
+                                                    name="p2_stands9m" <carlos:encode value='<%= props.getProperty("p2_stands9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formStandsWithSupport'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_opposes9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_opposes9m", "") %>' />>
+                                                    name="p2_opposes9m" <carlos:encode value='<%= props.getProperty("p2_opposes9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formOpposesThumbAndIndex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_reaches9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_reaches9m", "") %>' />>
+                                                    name="p2_reaches9m" <carlos:encode value='<%= props.getProperty("p2_reaches9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formReachestobePicked'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_noParentsConcerns9m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_noParentsConcerns9m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_noParentsConcerns9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formNoParentConcern'/></td>
                         </tr>
                     </table>
@@ -991,42 +992,42 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_development12m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_development12m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_development12m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_understands12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_understands12m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_understands12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formUnderstandsSimpleRequests'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_chatters12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_chatters12m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_chatters12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formChatters'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_crawls12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_crawls12m", "") %>' />>
+                                                    name="p2_crawls12m" <carlos:encode value='<%= props.getProperty("p2_crawls12m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formCrawls'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_pulls12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_pulls12m", "") %>' />></td>
+                                                    name="p2_pulls12m" <carlos:encode value='<%= props.getProperty("p2_pulls12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formPullsToStand'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_emotions12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_emotions12m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_emotions12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formShowsManyEmotions'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_noParentConcerns12m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_noParentConcerns12m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_noParentConcerns12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formNoParentConcern'/></td>
                         </tr>
                     </table>
@@ -1039,35 +1040,35 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_physical4m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_physical4m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_physical4m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_eyes4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes4m", "") %>' />></td>
+                                                    name="p2_eyes4m" <carlos:encode value='<%= props.getProperty("p2_eyes4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_cover4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_cover4m", "") %>' />></td>
+                                                    name="p2_cover4m" <carlos:encode value='<%= props.getProperty("p2_cover4m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hearing4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing4m", "") %>' />>
+                                                    name="p2_hearing4m" <carlos:encode value='<%= props.getProperty("p2_hearing4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formHearing'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_babbling4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_babbling4m", "") %>' />>
+                                                    name="p2_babbling4m" <carlos:encode value='<%= props.getProperty("p2_babbling4m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formBabbling'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hips4m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hips4m", "") %>' />></td>
+                                                    name="p2_hips4m" <carlos:encode value='<%= props.getProperty("p2_hips4m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHips'/></td>
                         </tr>
                     </table>
@@ -1076,35 +1077,35 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_physical6m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_physical6m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_physical6m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
                                                     name="p2_fontanelles6m"
-                                    <e:forHtmlAttribute value='<%= props.getProperty("p2_fontanelles6m", "") %>' />></td>
+                                    <carlos:encode value='<%= props.getProperty("p2_fontanelles6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formFontanelles'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_eyes6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes6m", "") %>' />></td>
+                                                    name="p2_eyes6m" <carlos:encode value='<%= props.getProperty("p2_eyes6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_cover6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_cover6m", "") %>' />></td>
+                                                    name="p2_cover6m" <carlos:encode value='<%= props.getProperty("p2_cover6m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hearing6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing6m", "") %>' />>
+                                                    name="p2_hearing6m" <carlos:encode value='<%= props.getProperty("p2_hearing6m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formHearing'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hips6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hips6m", "") %>' />></td>
+                                                    name="p2_hips6m" <carlos:encode value='<%= props.getProperty("p2_hips6m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHips'/></td>
                         </tr>
                     </table>
@@ -1113,23 +1114,23 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_physical9m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_physical9m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_physical9m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_eyes9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes9m", "") %>' />></td>
+                                                    name="p2_eyes9m" <carlos:encode value='<%= props.getProperty("p2_eyes9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_cover9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_cover9m", "") %>' />></td>
+                                                    name="p2_cover9m" <carlos:encode value='<%= props.getProperty("p2_cover9m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hearing9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing9m", "") %>' />>
+                                                    name="p2_hearing9m" <carlos:encode value='<%= props.getProperty("p2_hearing9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formHearing'/></td>
                         </tr>
@@ -1139,29 +1140,29 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_physical12m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_physical12m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_physical12m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_eyes12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_eyes12m", "") %>' />></td>
+                                                    name="p2_eyes12m" <carlos:encode value='<%= props.getProperty("p2_eyes12m", "") %>' context="htmlAttribute"/>></td>
                             <td width="100%"><fmt:message key='encounter.formRourke2.formRedReflex'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_cover12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_cover12m", "") %>' />></td>
+                                                    name="p2_cover12m" <carlos:encode value='<%= props.getProperty("p2_cover12m", "") %>' context="htmlAttribute"/>></td>
                             <td><b><a href="#"
-                                      onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
+                                      onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pe_cover');return false;"><fmt:message key="encounter.formRourke2.formCover"/></a>*</b></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hearing12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hearing12m", "") %>' />>
+                                                    name="p2_hearing12m" <carlos:encode value='<%= props.getProperty("p2_hearing12m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td><fmt:message key='encounter.formRourke2.formHearing'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hips12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hips12m", "") %>' />></td>
+                                                    name="p2_hips12m" <carlos:encode value='<%= props.getProperty("p2_hips12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHips'/></td>
                         </tr>
                     </table>
@@ -1173,7 +1174,7 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_problems6m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_problems6m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_problems6m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                     </table>
@@ -1182,12 +1183,12 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_problems4m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_problems4m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_problems4m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_tb6m" <e:forHtmlAttribute value='<%= props.getProperty("p2_tb6m", "") %>' />></td>
+                                                    name="p2_tb6m" <carlos:encode value='<%= props.getProperty("p2_tb6m", "") %>' context="htmlAttribute"/>></td>
                             <td width="100%"><fmt:message key='encounter.formRourke2.formTBexposure'/></td>
                         </tr>
                     </table>
@@ -1196,19 +1197,19 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_problems9m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_problems9m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_problems9m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_antiHbs9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_antiHbs9m", "") %>' />>
+                                                    name="p2_antiHbs9m" <carlos:encode value='<%= props.getProperty("p2_antiHbs9m", "") %>' context="htmlAttribute"/>>
                             </td>
                             <td width="100%"><b><a href="#"
-                                                   onclick="popup('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(resource) %>' />i_hepB');return false;"><fmt:message key="encounter.formRourke2.btnAntiHB"/></a><fmt:message key="encounter.formRourke2.formAntiHB"/></td>
+                                                   onclick="popup('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>i_hepB');return false;"><fmt:message key="encounter.formRourke2.btnAntiHB"/></a><fmt:message key="encounter.formRourke2.formAntiHB"/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hgb9m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hgb9m", "") %>' />></td>
+                                                    name="p2_hgb9m" <carlos:encode value='<%= props.getProperty("p2_hgb9m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formHgb'/></td>
                         </tr>
                     </table>
@@ -1217,17 +1218,17 @@
                     <table cellspacing="0" cellpadding="0" width="100%">
                         <tr align="center">
                             <td colspan="2"><textarea name="p2_problems12m"
-                                                      class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_problems12m", "") %>' /></textarea>
+                                                      class="wide"><carlos:encode value='<%= props.getProperty("p2_problems12m", "") %>' context="html"/></textarea>
                             </td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_hgb12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_hgb12m", "") %>' />></td>
+                                                    name="p2_hgb12m" <carlos:encode value='<%= props.getProperty("p2_hgb12m", "") %>' context="htmlAttribute"/>></td>
                             <td width="100%"><fmt:message key='encounter.formRourke2.formHgb'/></td>
                         </tr>
                         <tr>
                             <td valign="top"><input type="checkbox" class="chk"
-                                                    name="p2_serum12m" <e:forHtmlAttribute value='<%= props.getProperty("p2_serum12m", "") %>' />></td>
+                                                    name="p2_serum12m" <carlos:encode value='<%= props.getProperty("p2_serum12m", "") %>' context="htmlAttribute"/>></td>
                             <td><fmt:message key='encounter.formRourke2.formSerumLead'/></td>
                         </tr>
                     </table>
@@ -1238,32 +1239,32 @@
                     <fmt:message key='encounter.formRourke2.msgImmunizarionDesc'/>
                 </td>
                 <td colspan="3" valign="top"><textarea name="p2_immunization4m"
-                                                       class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_immunization4m", "") %>' /></textarea>
+                                                       class="wide"><carlos:encode value='<%= props.getProperty("p2_immunization4m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3" valign="top"><textarea name="p2_immunization6m"
-                                                       class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_immunization6m", "") %>' /></textarea>
+                                                       class="wide"><carlos:encode value='<%= props.getProperty("p2_immunization6m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3" valign="top"><textarea name="p2_immunization9m"
-                                                       class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_immunization9m", "") %>' /></textarea>
+                                                       class="wide"><carlos:encode value='<%= props.getProperty("p2_immunization9m", "") %>' context="html"/></textarea>
                 </td>
                 <td colspan="3" valign="top"><textarea name="p2_immunization12m"
-                                                       class="wide"><e:forHtmlContent value='<%= props.getProperty("p2_immunization12m", "") %>' /></textarea>
+                                                       class="wide"><carlos:encode value='<%= props.getProperty("p2_immunization12m", "") %>' context="html"/></textarea>
                 </td>
             </tr>
             <tr>
                 <td class="column"><a><fmt:message key='encounter.formRourke2.formSignature'/></a></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p2_signature4m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p2_signature4m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p2_signature4m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p2_signature6m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p2_signature6m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p2_signature6m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p2_signature9m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p2_signature9m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p2_signature9m", "") %>' context="htmlAttribute"/>"/></td>
                 <td colspan="3"><input type="text" class="wide"
                                        style="width: 100%" name="p2_signature12m"
-                                       value="<e:forHtmlAttribute value='<%= props.getProperty("p2_signature12m", "") %>' />"/></td>
+                                       value="<carlos:encode value='<%= props.getProperty("p2_signature12m", "") %>' context="htmlAttribute"/>"/></td>
             </tr>
 
         </table>
@@ -1282,18 +1283,18 @@
                                                                          onclick="javascript:return onPrint();"/></td>
                 <td align="center" width="100%">
                     <% if (formId > 0) { %> <a name="length"
-                                               href="javascript:popup('form/graphLengthWeight?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                                               href="javascript:popup('form/graphLengthWeight?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                     <fmt:message key='encounter.formRourke2.btnGraphLenght'/></a><br>
                     <a name="headCirc"
-                       href="javascript:popup('form/graphHeadCirc?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />');">
+                       href="javascript:popup('form/graphHeadCirc?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>');">
                         <fmt:message key='encounter.formRourke2.btnGraphHead'/></a> <% } else {
                 %>&nbsp;<%
                     }
                 %>
                 </td>
                 <td nowrap="true"><a
-                        href="form/formrourkep1?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key='encounter.formRourke2.btnpage1'/></a>&nbsp;|&nbsp; <a><fmt:message key='encounter.formRourke2.msgPage2'/></a>&nbsp;|&nbsp; <a
-                        href="form/formrourkep3?demographic_no=<e:forUriComponent value='<%= String.valueOf(demoNo) %>' />&formId=<e:forUriComponent value='<%= String.valueOf(formId) %>' />&provNo=<e:forUriComponent value='<%= String.valueOf(provNo) %>' />"><fmt:message key='encounter.formRourke2.btnPage3'/></a></td>
+                        href="form/formrourkep1?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key='encounter.formRourke2.btnpage1'/></a>&nbsp;|&nbsp; <a><fmt:message key='encounter.formRourke2.msgPage2'/></a>&nbsp;|&nbsp; <a
+                        href="form/formrourkep3?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="uriComponent"/>&formId=<carlos:encode value='<%= String.valueOf(formId) %>' context="uriComponent"/>&provNo=<carlos:encode value='<%= String.valueOf(provNo) %>' context="uriComponent"/>"><fmt:message key='encounter.formRourke2.btnPage3'/></a></td>
             </tr>
         </table>
 

@@ -2,6 +2,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -64,21 +65,21 @@
         function go() {
             if (document.all) {
                 <% if(cfgGraphic.length>1) {%>
-                <c:set var="__enc_1"><e:forUriComponent value='<%= cfgGraphic[0] %>' /></c:set>
-                <c:set var="__enc_2"><e:forUriComponent value='<%= cfgGraphic[1] %>' /></c:set>
-                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_1}' />&__cfgGraphicFile=<e:forJavaScript value='${__enc_2}' />";
+                <c:set var="__enc_1"><carlos:encode value='<%= cfgGraphic[0] %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= cfgGraphic[1] %>' context="uriComponent"/></c:set>
+                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_1}' context="javaScript"/>&__cfgGraphicFile=<carlos:encode value='${__enc_2}' context="javaScript"/>";
                 <% }else{%>
                 <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
-                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_3}' />";
+                document.all.growth.action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_3}' context="javaScript"/>";
                 <% }%>
                 document.all.growth.submit();
             } else {
                 <% if(cfgGraphic.length>1) {%>
-                <c:set var="__enc_4"><e:forUriComponent value='<%= cfgGraphic[0] %>' /></c:set>
-                <c:set var="__enc_5"><e:forUriComponent value='<%= cfgGraphic[1] %>' /></c:set>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_4}' />&__cfgGraphicFile=<e:forJavaScript value='${__enc_5}' />";
+                <c:set var="__enc_4"><carlos:encode value='<%= cfgGraphic[0] %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_5"><carlos:encode value='<%= cfgGraphic[1] %>' context="uriComponent"/></c:set>
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_4}' context="javaScript"/>&__cfgGraphicFile=<carlos:encode value='${__enc_5}' context="javaScript"/>";
                 <% }else{%>
-                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<e:forJavaScript value='${__enc_6}' />";
+                document.getElementById('growth').action = "<%= request.getContextPath() %>/form/createpdf?__cfgGraphicFile=<carlos:encode value='${__enc_6}' context="javaScript"/>";
                 <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.defaultString(request.getParameter("__cfgGraphicFile")) %>' /></c:set>
                 <%                 
 }%>
@@ -101,8 +102,8 @@
                 continue;
             }
     %>
-    <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
-           value="<e:forHtmlAttribute value='<%= request.getParameter(temp) %>' />"/>
+    <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
+           value="<carlos:encode value='<%= request.getParameter(temp) %>' context="htmlAttribute"/>"/>
     <%
         }
     %>
@@ -127,8 +128,8 @@
         for (Enumeration e = prop.propertyNames(); e.hasMoreElements(); ) {
             String temp = e.nextElement().toString();
     %>
-    <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
-           value="<e:forHtmlAttribute value='<%= prop.getProperty(temp, "") %>' />"/>
+    <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
+           value="<carlos:encode value='<%= prop.getProperty(temp, "") %>' context="htmlAttribute"/>"/>
     <%
         }
     %>

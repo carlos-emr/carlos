@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "BCAR2020";
@@ -281,7 +282,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
+                <input type="hidden" name="provider_no" value=<carlos:encode value='<%= providerNo %>' context="htmlUnquotedAttribute"/>/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -461,7 +462,7 @@
                                     <td valign="top">
                                         <!-- Medications -->
                                         <input type="checkbox"
-                                               name="c_attMedications" <e:forHtmlAttribute value='<%= props.getProperty("c_attMedications", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_attMedications" <carlos:encode value='<%= props.getProperty("c_attMedications", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
 
                                         <span class="title"><fmt:message key="form.BCAR2020Attachments.label.medications"/></span>
                                         <p><fmt:message key="form.BCAR2020Attachments.msg.medications"/></p>
@@ -484,7 +485,7 @@
                                     <td valign="top">
                                         <!-- Allergies -->
                                         <input type="checkbox"
-                                               name="c_attAllergies" <e:forHtmlAttribute value='<%= props.getProperty("c_attAllergies", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_attAllergies" <carlos:encode value='<%= props.getProperty("c_attAllergies", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
 
                                         <span class="title"><fmt:message key="form.BCAR2020Attachments.label.allergies"/></span>
                                         <p><fmt:message key="form.BCAR2020Attachments.msg.allergies"/></p>
@@ -502,7 +503,7 @@
                                     <td valign="top">
                                         <!-- Additional Information -->
                                         <input type="checkbox"
-                                               name="c_attAdditionalInfo" <e:forHtmlAttribute value='<%= props.getProperty("c_attAdditionalInfo", "").equals("X") ? "checked" : "" %>' /> />
+                                               name="c_attAdditionalInfo" <carlos:encode value='<%= props.getProperty("c_attAdditionalInfo", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
 
                                         <span class="title"><fmt:message key="form.BCAR2020Attachments.heading.additionalInformation"/></span>
                                         <p><fmt:message key="form.BCAR2020Attachments.msg.pullFromEChart"/></p>
