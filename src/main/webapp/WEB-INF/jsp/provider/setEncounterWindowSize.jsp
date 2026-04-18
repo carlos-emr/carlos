@@ -33,6 +33,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%@page import="java.util.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -77,11 +78,11 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <br/>
-                    <%=bundle.getString("eform.visual.editor.label.width")%> <input type="text" name="encounterWindowWidth.value" value="${e:forHtmlAttribute(width.value)}" size="5" />
+                    <%=bundle.getString("eform.visual.editor.label.width")%> <input type="text" name="encounterWindowWidth.value" value="${carlos:forHtmlAttribute(width.value)}" size="5" />
                     <br/>
-                    <%=bundle.getString("eform.visual.editor.label.height")%> <input type="text" name="encounterWindowHeight.value" value="${e:forHtmlAttribute(height.value)}" size="5" />
+                    <%=bundle.getString("eform.visual.editor.label.height")%> <input type="text" name="encounterWindowHeight.value" value="${carlos:forHtmlAttribute(height.value)}" size="5" />
                     <br/>
                     <%=bundle.getString("provider.setEncounterWindowSize.maximize")%> <input type="checkbox" name="encounterWindowMaximize.checked" <c:if test="${encounterWindowMaximize.checked}">checked</c:if> />
                     <br/>

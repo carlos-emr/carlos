@@ -53,6 +53,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -187,7 +188,7 @@
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
             <p><fmt:message key="provider.providerupdatepreference.error"/></p>
             <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
-            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <e:forHtmlContent value='<%= errorDetails %>' /></p>
+            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <carlos:encode value='<%= errorDetails %>' context="html"/></p>
             <% } %>
             <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
         </div>

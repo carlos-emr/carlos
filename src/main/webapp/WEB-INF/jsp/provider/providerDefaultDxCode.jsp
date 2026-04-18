@@ -33,6 +33,7 @@
 <%@page import="java.util.List" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -91,7 +92,7 @@
 </head>
 <body>
 <form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction" method="post">
-    <input type="hidden" name="provider_no" id="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />"/>
+    <input type="hidden" name="provider_no" id="provider_no" value="<carlos:encode value='<%= provider_no %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
            value="<e:forHtmlAttribute value='<%= request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "" %>' />"/>
     <table style="margin-left:auto;margin-right:auto;background-color:#f0f0f0;border-collapse:collapse">
@@ -100,7 +101,7 @@
         <tr>
             <td><fmt:message key="provider.providerDefaultDxCode.labelDxCode"/>&nbsp;&nbsp;
                 <input type="text" name="dxCode" size="5" maxlength="5" ondblClick="dxScriptAttach('dxCode')"
-                       value="<e:forHtmlAttribute value='<%= defaultDxCode %>' />"/>
+                       value="<carlos:encode value='<%= defaultDxCode %>' context="htmlAttribute"/>"/>
                 <a href="#" onclick="dxScriptAttach('dxCode');"><fmt:message key="provider.providerDefaultDxCode.btnSearch"/></a>
             </td>
         </tr>

@@ -11,6 +11,7 @@
 <%@page import="org.owasp.encoder.Encode"%>
 <%@page import="java.net.URLEncoder"%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
 	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -53,7 +54,7 @@
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointmentNo=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= formNameTemp %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
+					|<a href=# onClick='popupPage2("<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>")' title='<carlos:encode value='<%= formNameTemp %>' context="htmlAttribute"/>'><carlos:encode value='<%= trimmedLinkName %>' context="html"/></a>
 				<%
 			}
 
@@ -71,7 +72,7 @@
 						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
 						+ "&appointment=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= eForm.getFormName() %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
+					|<a href=# onClick='popupPage2("<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>")' title='<carlos:encode value='<%= eForm.getFormName() %>' context="htmlAttribute"/>'><carlos:encode value='<%= trimmedLinkName %>' context="html"/></a>
 				<%
 			}
 		}
@@ -101,11 +102,11 @@
 			if (hinExposed) {
 				String warningTitle = "WARNING-The health number is exposed in " + quickLink.getName();
 				%>
-				|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= warningTitle %>' />' style='background-color:red;color:white;'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
+				|<a href=# onClick='popupPage2("<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>")' title='<carlos:encode value='<%= warningTitle %>' context="htmlAttribute"/>' style='background-color:red;color:white;'><carlos:encode value='<%= trimmedLinkName %>' context="html"/></a>
 				<%
 			} else {
 				%>
-				|<a href=# onClick='popupPage2("<e:forJavaScriptAttribute value='<%= url %>' />")' title='<e:forHtmlAttribute value='<%= quickLink.getName() %>' />'><e:forHtmlContent value='<%= trimmedLinkName %>' /></a>
+				|<a href=# onClick='popupPage2("<carlos:encode value='<%= url %>' context="javaScriptAttribute"/>")' title='<carlos:encode value='<%= quickLink.getName() %>' context="htmlAttribute"/>'><carlos:encode value='<%= trimmedLinkName %>' context="html"/></a>
 				<%
 			}
 		}

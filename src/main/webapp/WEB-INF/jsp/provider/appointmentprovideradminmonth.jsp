@@ -89,6 +89,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String curUser_no, curProvider_no, userfirstname, userlastname, mygroupno, n_t_w_w = "";
@@ -494,12 +495,12 @@
     <table id="monthScheduleNavigation">
         <tr BGCOLOR="whitesmoke">
             <td width="33%">
-                <a href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<e:forUriComponent value='<%= providerview %>' />">
+                <a href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=(month-1)%>&day=<%=(day)%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<carlos:encode value='<%= providerview %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<%=arrayMonthOfYear[((month+10)%12)]%>"></span>&nbsp;&nbsp;
                 </a>
                 <b><span CLASS=title><%=strYear%>-<%=strMonth%></span></b>
-                <a href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<e:forUriComponent value='<%= providerview %>' />">
+                <a href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=(month+1)%>&day=<%=day%>&displaymode=month&dboperation=searchappointmentmonth&providerview=<carlos:encode value='<%= providerview %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step" title="<%=arrayMonthOfYear[month%12]%>"></span></a>
                 |
                 <u><a href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1"
@@ -530,9 +531,9 @@
                                                                                                NAME="view"
                                                                                                VALUE="<%=view%>">
                     <INPUT TYPE="hidden" NAME="curProvider"
-                           VALUE="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("curProvider")) %>' />"> <INPUT
+                           VALUE="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("curProvider")) %>' context="htmlAttribute"/>"> <INPUT
                         TYPE="hidden" NAME="curProviderName"
-                        VALUE="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("curProviderName")) %>' />"> <INPUT
+                        VALUE="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("curProviderName")) %>' context="htmlAttribute"/>"> <INPUT
                         TYPE="hidden" NAME="displaymode" VALUE="day"> <INPUT
                         TYPE="hidden" NAME="dboperation" VALUE="searchappointmentday">
                     <input type="hidden" name="Go" value=""> <INPUT TYPE="SUBMIT"
@@ -550,7 +551,7 @@
                         sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                         var siteName = sel.options[sel.selectedIndex].value;
                         var newGroupNo = "<e:forJavaScriptBlock value='<%= mygroupno == null ? "all" : mygroupno %>' />";
-                        var providerview = "<e:forJavaScriptBlock value='<%= providerview %>' />";
+                        var providerview = "<carlos:encode value='<%= providerview %>' context="javaScriptBlock"/>";
                         if (providerview.indexOf("_grp_") != -1) {
 
                             window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1&view=<%=view==0?"0":("1&curProvider="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+Encode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=month&dboperation=searchappointmentmonth" + "&site=" + siteName + "&mygroup_no=" + newGroupNo, "_self");
@@ -566,10 +567,10 @@
                     <%
                         for (int i = 0; i < curUserSites.size(); i++) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= curUserSites.get(i).getName() %>' />"
-                            style="background-color:<e:forCssString value='<%= curUserSites.get(i).getBgColor() %>' />"
+                    <option value="<carlos:encode value='<%= curUserSites.get(i).getName() %>' context="htmlAttribute"/>"
+                            style="background-color:<carlos:encode value='<%= curUserSites.get(i).getBgColor() %>' context="cssString"/>"
                             <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : "" %> >
-                        <e:forHtmlContent value='<%= curUserSites.get(i).getName() %>' />
+                        <carlos:encode value='<%= curUserSites.get(i).getName() %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -1000,10 +1001,10 @@
                         popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
-                        popupOscarRx(550, 687, '<e:forJavaScriptBlock value='<%= resourcebaseurl %>' />');
+                        popupOscarRx(550, 687, '<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptBlock"/>');
                         return false; // code for R'e'sources
                     case <fmt:message key="global.helpShortcut"/> :
-                        popupOscarRx(600, 750, '<e:forJavaScriptBlock value='<%= resourcebaseurl %>' />');
+                        popupOscarRx(600, 750, '<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptBlock"/>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
                         popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '<fmt:message key="global.tickler"/>') //run code for t'I'ckler
@@ -1025,7 +1026,7 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<e:forUriComponent value='<%= curUser_no %>' />&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<e:forUriComponent value='<%= mygroupno %>' />'); //run code for 'P'references
+                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<carlos:encode value='<%= curUser_no %>' context="uriComponent"/>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<carlos:encode value='<%= mygroupno %>' context="uriComponent"/>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :

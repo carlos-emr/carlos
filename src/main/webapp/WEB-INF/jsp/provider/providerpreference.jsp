@@ -50,6 +50,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
@@ -507,7 +508,7 @@
 <body>
 <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderUpdatePreference" onsubmit="return checkTypeInAll()">
 <input type="hidden" name="color_template" value="deepblue">
-<input type="hidden" name="ticklerforproviderno" value="<e:forHtmlAttribute value='<%= props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, "") %>' />">
+<input type="hidden" name="ticklerforproviderno" value="<carlos:encode value='<%= props.getOrDefault(UserProperty.PROVIDER_FOR_TICKLER_WARNING, "") %>' context="htmlAttribute"/>">
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      HEADER BAR - Sticky navy header matching the schedule page top bar
@@ -538,21 +539,21 @@
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.startHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="start_hour" value="<e:forHtmlAttribute value='<%= startHour %>' />"
+                    <input type="text" name="start_hour" value="<carlos:encode value='<%= startHour %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.endHour"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.hours023"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="end_hour" value="<e:forHtmlAttribute value='<%= endHour %>' />"
+                    <input type="text" name="end_hour" value="<carlos:encode value='<%= endHour %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.period"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.minPerSlot"/></span></div>
                 <div class="pref-value">
-                    <input type="text" name="every_min" value="<e:forHtmlAttribute value='<%= everyMin %>' />"
+                    <input type="text" name="every_min" value="<carlos:encode value='<%= everyMin %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" maxlength="2">
                 </div>
             </div>
@@ -584,7 +585,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.linkNameDisplayLength"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentScreenFormsNameDisplayLength"
-                           value="<e:forHtmlAttribute value='<%= String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()) %>' />"
+                           value="<carlos:encode value='<%= String.valueOf(providerPreference.getAppointmentScreenLinkNameDisplayLength()) %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -600,7 +601,7 @@
                         for (EncounterForm ef : encounterForms) {
                             String chk = checkedEncounterFormNames.contains(ef.getFormName()) ? "checked" : "";
                     %><label><input type="checkbox" name="encounterFormName"
-                                    value="<e:forHtmlAttribute value='<%= ef.getFormName() %>' />" <%=chk%>> <e:forHtmlContent value='<%= ef.getFormName() %>' /></label><%
+                                    value="<carlos:encode value='<%= ef.getFormName() %>' context="htmlAttribute"/>" <%=chk%>> <carlos:encode value='<%= ef.getFormName() %>' context="html"/></label><%
                         }
                     %></div>
                 </div>
@@ -626,8 +627,8 @@
                                 }
                             }
                     %><label><input type="checkbox" name="eformId"
-                                    value="<e:forHtmlAttribute value='<%= String.valueOf(eform.getId()) %>' />" <%=chk%>>
-                        <e:forHtmlContent value='<%= eform.getFormName() %>' /></label><%
+                                    value="<carlos:encode value='<%= String.valueOf(eform.getId()) %>' context="htmlAttribute"/>" <%=chk%>>
+                        <carlos:encode value='<%= eform.getFormName() %>' context="html"/></label><%
                         }
                     %></div>
                 </div>
@@ -644,12 +645,12 @@
                         String qlRemoveLabel = (String) pageContext.getAttribute("_qlRemoveLabel");
                         for (ProviderPreference.QuickLink ql : quickLinks) {
                     %><div style="padding:2px 0">
-                        <input type="button" value="<e:forHtmlAttribute value='<%= qlRemoveLabel %>' />"
+                        <input type="button" value="<carlos:encode value='<%= qlRemoveLabel %>' context="htmlAttribute"/>"
                                class="btn btn-sm btn-outline-danger"
                                style="font-size:10px; padding:1px 6px"
-                               onclick="submitQuickLinkAction('remove','<e:forJavaScriptAttribute value='<%= ql.getName() %>' />','')">
-                        <strong><e:forHtmlContent value='<%= ql.getName() %>' /></strong>:
-                        <e:forHtmlContent value='<%= ql.getUrl() %>' />
+                               onclick="submitQuickLinkAction('remove','<carlos:encode value='<%= ql.getName() %>' context="javaScriptAttribute"/>','')">
+                        <strong><carlos:encode value='<%= ql.getName() %>' context="html"/></strong>:
+                        <carlos:encode value='<%= ql.getUrl() %>' context="html"/>
                     </div><%
                         }
                     %></div>
@@ -704,42 +705,42 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.address"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxAddress" class="pref-input"
-                           value="<e:forHtmlAttribute value='<%= rxAddress %>' />">
+                           value="<carlos:encode value='<%= rxAddress %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.city"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxCity" class="pref-input"
-                           value="<e:forHtmlAttribute value='<%= rxCity %>' />">
+                           value="<carlos:encode value='<%= rxCity %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.province"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxProvince" class="pref-input form-select-sm"
-                           value="<e:forHtmlAttribute value='<%= rxProvince %>' />">
+                           value="<carlos:encode value='<%= rxProvince %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.postalCode"/></div>
                 <div class="pref-value">
                     <input type="text" name="rxPostal" class="pref-input form-select-sm"
-                           value="<e:forHtmlAttribute value='<%= rxPostal %>' />">
+                           value="<carlos:encode value='<%= rxPostal %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="rxPhone" class="pref-input input-md"
-                           value="<e:forHtmlAttribute value='<%= rxPhone %>' />">
+                           value="<carlos:encode value='<%= rxPhone %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.phoneFormat"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="faxnumber" class="pref-input input-md"
-                           value="<e:forHtmlAttribute value='<%= faxNum %>' />">
+                           value="<carlos:encode value='<%= faxNum %>' context="htmlAttribute"/>">
                 </div>
             </div>
         </div>
@@ -787,7 +788,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.defaultRxQty"/></div>
                 <div class="pref-value">
                     <input type="text" name="rx_default_quantity"
-                           value="<e:forHtmlAttribute value='<%= rxDefaultQty %>' />"
+                           value="<carlos:encode value='<%= rxDefaultQty %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -887,7 +888,7 @@
                         <option value="A" <%="A".equals(staleNoteDate)?"selected":""%>><fmt:message key="provider.providerpreference.staleDate.all"/></option><%
                         String staleDateMonthsWord = (String) pageContext.getAttribute("_staleDateMonthsWord");
                         for (int i = 0; i <= 36; i++) {
-                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> <e:forHtmlContent value='<%= staleDateMonthsWord %>' /></option><%
+                    %><option value="-<%=i%>" <%=("-"+i).equals(staleNoteDate)?"selected":""%>><%=i%> <carlos:encode value='<%= staleDateMonthsWord %>' context="html"/></option><%
                         }
                     %></select>
                 </div>
@@ -922,7 +923,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultCutoff"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.days"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_time_period_warning"
-                           value="<e:forHtmlAttribute value='<%= consultCutoff %>' />"
+                           value="<carlos:encode value='<%= consultCutoff %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -930,7 +931,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.consultTeamWarning"/></div>
                 <div class="pref-value">
                     <input type="text" name="consultation_team_warning"
-                           value="<e:forHtmlAttribute value='<%= consultTeam %>' />"
+                           value="<carlos:encode value='<%= consultTeam %>' context="htmlAttribute"/>"
                            class="pref-input input-md">
                 </div>
             </div>
@@ -938,7 +939,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.workloadMgmt"/></div>
                 <div class="pref-value">
                     <input type="text" name="workload_management"
-                           value="<e:forHtmlAttribute value='<%= workloadMgmt %>' />"
+                           value="<carlos:encode value='<%= workloadMgmt %>' context="htmlAttribute"/>"
                            class="pref-input input-md">
                 </div>
             </div>
@@ -975,7 +976,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinWidth"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowWidth"
-                           value="<e:forHtmlAttribute value='<%= encWinWidth %>' />"
+                           value="<carlos:encode value='<%= encWinWidth %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -983,7 +984,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.encWinHeight"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="encounterWindowHeight"
-                           value="<e:forHtmlAttribute value='<%= encWinHeight %>' />"
+                           value="<carlos:encode value='<%= encWinHeight %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -1005,7 +1006,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.quickChartSize"/> <span class="hint"><fmt:message key="provider.providerpreference.hint.px"/></span></div>
                 <div class="pref-value">
                     <input type="text" name="quickChartSize"
-                           value="<e:forHtmlAttribute value='<%= quickChartSize %>' />"
+                           value="<carlos:encode value='<%= quickChartSize %>' context="htmlAttribute"/>"
                            class="pref-input input-xs" placeholder="px">
                 </div>
             </div>
@@ -1013,7 +1014,7 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.maxPatientNameLen"/></div>
                 <div class="pref-value">
                     <input type="text" name="patient_name_length"
-                           value="<e:forHtmlAttribute value='<%= patientNameLen %>' />"
+                           value="<carlos:encode value='<%= patientNameLen %>' context="htmlAttribute"/>"
                            class="pref-input input-xs">
                 </div>
             </div>
@@ -1109,7 +1110,7 @@
                         for (HashMap<String, String> grp : eformGroups) {
                             String gName = grp.get("groupName") != null ? grp.get("groupName") : "";
                             String sel = gName.equals(eformGroup) ? "selected" : "";
-                    %><option value="<e:forHtmlAttribute value='<%= gName %>' />" <%=sel%>><e:forHtmlContent value='<%= gName %>' /></option><%
+                    %><option value="<carlos:encode value='<%= gName %>' context="htmlAttribute"/>" <%=sel%>><carlos:encode value='<%= gName %>' context="html"/></option><%
                         }
                     %></select>
                 </div>
@@ -1154,21 +1155,21 @@
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.clinicName"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardName" class="pref-input"
-                           value="<e:forHtmlAttribute value='<%= apptCardName %>' />">
+                           value="<carlos:encode value='<%= apptCardName %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.phoneNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardPhone" class="pref-input input-md"
-                           value="<e:forHtmlAttribute value='<%= apptCardPhone %>' />">
+                           value="<carlos:encode value='<%= apptCardPhone %>' context="htmlAttribute"/>">
                 </div>
             </div>
             <div class="pref-row">
                 <div class="pref-label"><fmt:message key="provider.providerpreference.label.faxNumber"/></div>
                 <div class="pref-value">
                     <input type="text" name="appointmentCardFax" class="pref-input input-md"
-                           value="<e:forHtmlAttribute value='<%= apptCardFax %>' />">
+                           value="<carlos:encode value='<%= apptCardFax %>' context="htmlAttribute"/>">
                 </div>
             </div>
         </div>
@@ -1201,8 +1202,8 @@
                         <option value="no"><fmt:message key="provider.providerpreference.billing.noneOption"/></option><%
                         String def = providerPreference.getDefaultServiceType();
                         for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-                    %><option value="<e:forHtmlAttribute value='<%= (String)result[0] %>' />"
-                              <%=((String)result[0]).equals(def)?"selected":""%>><e:forHtmlContent value='<%= (String)result[1] %>' /></option><%
+                    %><option value="<carlos:encode value='<%= (String)result[0] %>' context="htmlAttribute"/>"
+                              <%=((String)result[0]).equals(def)?"selected":""%>><carlos:encode value='<%= (String)result[1] %>' context="html"/></option><%
                         }
                     %></select>
                 </div>
@@ -1213,7 +1214,7 @@
                 <div class="pref-value pref-links"><%
                     String br = CarlosProperties.getInstance().getProperty("billregion");
                     if ("BC".equals(br)) {
-                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction?providerNo=<e:forUriComponent value='<%= providerNo %>' />"
+                %><a href="<%=request.getContextPath()%>/billing/CA/BC/viewBillingPreferencesAction?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>"
                      class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-external-link-alt"></i> <fmt:message key="provider.providerpreference.link.bcBillingPrefs"/>
                 </a><%
@@ -1251,10 +1252,10 @@
                 <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
                     <% if (hasConsultSignature) { %>
                         <img id="sigPreviewImg" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
-                             alt="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' />" style="max-width:100%; max-height:120px;"/>
+                             alt="<carlos:encode value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' context="htmlAttribute"/>" style="max-width:100%; max-height:120px;"/>
                     <% } else { %>
                         <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
-                        <img id="sigPreviewImg" src="" alt="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' />" style="max-width:100%; max-height:120px; display:none;"/>
+                        <img id="sigPreviewImg" src="" alt="<carlos:encode value='<%= (String)pageContext.getAttribute("altCurrentSig") %>' context="htmlAttribute"/>" style="max-width:100%; max-height:120px; display:none;"/>
                     <% } %>
                 </div>
             </div>
@@ -1382,7 +1383,7 @@
             </div>
             <div class="modal-body" style="padding:0;height:450px">
                 <fmt:message key="provider.providerpreference.modal.dxSearch.iframeTitle" var="_dxSearchIframeTitle"/>
-                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="<e:forHtmlAttribute value='<%= (String)pageContext.getAttribute("_dxSearchIframeTitle") %>' />"></iframe>
+                <iframe id="dxSearchFrame" style="width:100%;height:100%;border:none" title="<carlos:encode value='<%= (String)pageContext.getAttribute("_dxSearchIframeTitle") %>' context="htmlAttribute"/>"></iframe>
             </div>
         </div>
     </div>
@@ -1401,15 +1402,15 @@
 <fmt:message key="provider.providerpreference.js.rxWarnSaveFailed.retry" var="_jsRxWarnRetry"/>
 <script>
 var _i18n = {
-    schedInvalidNumbers: '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsSchedInvalidNumbers") %>' />',
-    endHourRange:        '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsEndHourRange") %>' />',
-    startBeforeEnd:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsStartBeforeEnd") %>' />',
-    periodInvalid:       '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsPeriodInvalid") %>' />',
-    periodMax120:        '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsPeriodMax120") %>' />',
-    quickLinkRequired:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsQuickLinkRequired") %>' />',
-    quickLinkNavigate:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsQuickLinkNavigate") %>' />',
-    rxWarnSession:       '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsRxWarnSession") %>' />',
-    rxWarnRetry:         '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_jsRxWarnRetry") %>' />'
+    schedInvalidNumbers: '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsSchedInvalidNumbers") %>' context="javaScriptBlock"/>',
+    endHourRange:        '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsEndHourRange") %>' context="javaScriptBlock"/>',
+    startBeforeEnd:      '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsStartBeforeEnd") %>' context="javaScriptBlock"/>',
+    periodInvalid:       '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsPeriodInvalid") %>' context="javaScriptBlock"/>',
+    periodMax120:        '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsPeriodMax120") %>' context="javaScriptBlock"/>',
+    quickLinkRequired:   '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsQuickLinkRequired") %>' context="javaScriptBlock"/>',
+    quickLinkNavigate:   '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsQuickLinkNavigate") %>' context="javaScriptBlock"/>',
+    rxWarnSession:       '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsRxWarnSession") %>' context="javaScriptBlock"/>',
+    rxWarnRetry:         '<carlos:encode value='<%= (String)pageContext.getAttribute("_jsRxWarnRetry") %>' context="javaScriptBlock"/>'
 };
 
 /**
@@ -1556,7 +1557,7 @@ function isValidAutoSaveResponse(status, body) {
         var self = this;
         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
         var csrfToken = csrfEl ? csrfEl.value : '';
-        fetch('${e:forJavaScript(ctx)}/provider/rxInteractionWarningLevel', {
+        fetch('${carlos:forJavaScript(ctx)}/provider/rxInteractionWarningLevel', {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -1646,20 +1647,20 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp';
 
     var _msg = {
-        selectFirst:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSelectFirst") %>' />',
-        uploadSuccess:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadSuccess") %>' />',
-        uploadFailed:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadFailed") %>' />',
-        uploadError:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigUploadError") %>' />',
-        drawFirst:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDrawFirst") %>' />',
-        saveSuccess:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveSuccess") %>' />',
-        saveFailed:     '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveFailed") %>' />',
-        saveError:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigSaveError") %>' />',
-        deleteConfirm:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteConfirm") %>' />',
-        deleteSuccess:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteSuccess") %>' />',
-        deleteFailed:   '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteFailed") %>' />',
-        deleteError:    '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigDeleteError") %>' />',
-        noSigUploaded:  '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigNoSigUploaded") %>' />',
-        btnDelete:      '<e:forJavaScriptBlock value='<%= (String)pageContext.getAttribute("_sigBtnDelete") %>' />'
+        selectFirst:    '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigSelectFirst") %>' context="javaScriptBlock"/>',
+        uploadSuccess:  '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigUploadSuccess") %>' context="javaScriptBlock"/>',
+        uploadFailed:   '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigUploadFailed") %>' context="javaScriptBlock"/>',
+        uploadError:    '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigUploadError") %>' context="javaScriptBlock"/>',
+        drawFirst:      '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigDrawFirst") %>' context="javaScriptBlock"/>',
+        saveSuccess:    '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigSaveSuccess") %>' context="javaScriptBlock"/>',
+        saveFailed:     '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigSaveFailed") %>' context="javaScriptBlock"/>',
+        saveError:      '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigSaveError") %>' context="javaScriptBlock"/>',
+        deleteConfirm:  '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigDeleteConfirm") %>' context="javaScriptBlock"/>',
+        deleteSuccess:  '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigDeleteSuccess") %>' context="javaScriptBlock"/>',
+        deleteFailed:   '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigDeleteFailed") %>' context="javaScriptBlock"/>',
+        deleteError:    '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigDeleteError") %>' context="javaScriptBlock"/>',
+        noSigUploaded:  '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigNoSigUploaded") %>' context="javaScriptBlock"/>',
+        btnDelete:      '<carlos:encode value='<%= (String)pageContext.getAttribute("_sigBtnDelete") %>' context="javaScriptBlock"/>'
     };
 
     // ── Canvas drawing ──

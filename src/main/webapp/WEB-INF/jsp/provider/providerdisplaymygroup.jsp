@@ -47,6 +47,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <html>
@@ -96,11 +97,11 @@
             <tr class="<%=bNewNo?"":"table-light"%>">
                 <td style="width:10%" class="text-center">
                     <input type="checkbox" class="form-check-input"
-                           name="<e:forHtmlAttribute value='<%= groupNo+myGroup.getId().getProviderNo() %>' />"
-                           value="<e:forHtmlAttribute value='<%= groupNo %>' />">
+                           name="<carlos:encode value='<%= groupNo+myGroup.getId().getProviderNo() %>' context="htmlAttribute"/>"
+                           value="<carlos:encode value='<%= groupNo %>' context="htmlAttribute"/>">
                 </td>
-                <td class="text-center"><e:forHtmlContent value='<%= groupNo %>' /></td>
-                <td class="text-center"><e:forHtmlContent value='<%= myGroup.getLastName() + ", " + myGroup.getFirstName() %>' /></td>
+                <td class="text-center"><carlos:encode value='<%= groupNo %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= myGroup.getLastName() + ", " + myGroup.getFirstName() %>' context="html"/></td>
             </tr>
             <%
                 }
@@ -114,13 +115,13 @@
             <fmt:message key="provider.providerdisplaymygroup.btnNew" var="btnNewLabel"/>
             <fmt:message key="global.btnBack" var="btnBackLabel"/>
             <input type="submit" class="btn btn-danger btn-sm"
-                   value="${e:forHtmlAttribute(btnDeleteLabel)}"
-                   onclick="if(!confirm('${e:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
+                   value="${carlos:forHtmlAttribute(btnDeleteLabel)}"
+                   onclick="if(!confirm('${carlos:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
             <input type="submit" class="btn btn-primary btn-sm ms-2"
-                   value="${e:forHtmlAttribute(btnNewLabel)}"
+                   value="${carlos:forHtmlAttribute(btnNewLabel)}"
                    onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
             <input type="button" class="btn btn-secondary btn-sm ms-2"
-                   value="${e:forHtmlAttribute(btnBackLabel)}"
+                   value="${carlos:forHtmlAttribute(btnBackLabel)}"
                    onClick="if (window.opener) { window.close(); } else { window.history.back(); }">
         </div>
 

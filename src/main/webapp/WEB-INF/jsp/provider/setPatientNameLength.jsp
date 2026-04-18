@@ -34,6 +34,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -54,9 +55,9 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title><%=bundle.getString(providertitle)%></title>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
-        <script src="${e:forHtmlAttribute(ctx)}/js/global.js"></script>
-        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/global.js"></script>
+        <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
 
     </head>
 
@@ -78,12 +79,12 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
                         <fmt:message key="provider.patientNameLength.msgInvalidInput"/>
                     </p>
                     <fmt:message key="provider.patientNameLength.msgProvider"/>
-                    <input type="text" id="numericFormField" name="patientNameLength.value" value="${e:forHtmlAttribute(length.value)}" />
+                    <input type="text" id="numericFormField" name="patientNameLength.value" value="${carlos:forHtmlAttribute(length.value)}" />
                     <br/>
                     <input type="submit" name="submit" value="<fmt:message key='provider.patientNameLength.btnSubmit'/>" class="btn btn-primary" />
                 </form>
