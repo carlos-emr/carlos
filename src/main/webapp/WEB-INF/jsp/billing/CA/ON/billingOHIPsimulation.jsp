@@ -29,6 +29,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.DateRange" %>
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");

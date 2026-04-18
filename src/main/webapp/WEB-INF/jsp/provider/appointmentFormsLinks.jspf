@@ -10,6 +10,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="org.owasp.encoder.Encode"%>
 <%@page import="java.net.URLEncoder"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%
 	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -43,6 +43,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);

@@ -55,6 +55,7 @@
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>

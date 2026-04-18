@@ -28,6 +28,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <form name="servicetypeform" method="post">
 <table width="75%" border="0" height="285">

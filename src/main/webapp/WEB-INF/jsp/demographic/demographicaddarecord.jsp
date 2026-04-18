@@ -42,6 +42,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>

@@ -74,6 +74,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%
     CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);

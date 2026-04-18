@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");

@@ -38,6 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
 %>

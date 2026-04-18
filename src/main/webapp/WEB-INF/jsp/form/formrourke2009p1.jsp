@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2009Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

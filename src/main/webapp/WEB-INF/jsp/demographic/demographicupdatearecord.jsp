@@ -36,6 +36,7 @@
     @since 2026-04-04
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>

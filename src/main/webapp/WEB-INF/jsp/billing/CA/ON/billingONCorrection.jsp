@@ -63,6 +63,7 @@
 <%@taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <% if (session.getAttribute("user") == null)

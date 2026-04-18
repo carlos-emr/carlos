@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>

@@ -104,6 +104,7 @@
 <body
         onload="<% if ( firstSearch) { %> document.forms[0].submit() <% } %>">
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 

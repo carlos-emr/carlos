@@ -50,6 +50,7 @@
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>

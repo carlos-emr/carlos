@@ -45,6 +45,7 @@
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
@@ -138,7 +139,7 @@
 <html>
 <head>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<e:forHtmlAttribute value='<%= demographicID %>' />"/></title>
+            demographicNo="<%= demographicID %>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
@@ -483,7 +484,7 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
         <%}%>
         <tr>
             <td align="left" valign="top" width="50%">
-                <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= demographicID %>' />"/><br>
+                <oscar:nameage demographicNo="<%= demographicID %>"/><br>
 
                 <input type="hidden" name="viewstatus" value="<e:forHtmlAttribute value='<%= viewstatus %>' />">
                 <input type="hidden" name="sortorder" value="<e:forHtmlAttribute value='<%= sortorder %>' />">

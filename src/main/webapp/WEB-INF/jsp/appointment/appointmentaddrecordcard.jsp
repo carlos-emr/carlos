@@ -52,6 +52,7 @@
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager, io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>

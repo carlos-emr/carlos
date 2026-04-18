@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String labType = request.getParameter("labType");

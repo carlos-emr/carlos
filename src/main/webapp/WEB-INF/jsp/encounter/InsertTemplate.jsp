@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>

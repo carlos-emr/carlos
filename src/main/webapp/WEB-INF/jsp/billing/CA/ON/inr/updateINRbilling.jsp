@@ -30,6 +30,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>

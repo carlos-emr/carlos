@@ -479,7 +479,7 @@
                         </a></td>
                     </caisi:isModuleLoad>
                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                        <td class="name"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + " " + Misc.toUpperLowerCase(demo.getMiddleNames())) %>' />
+                        <td class="name"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + (demo.getMiddleNames() != null && !demo.getMiddleNames().isEmpty() ? " " + Misc.toUpperLowerCase(demo.getMiddleNames()) : "")) %>' />
                         </td>
                     </caisi:isModuleLoad>
                     <td class="chartNo"><e:forHtmlContent value='<%= demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo() %>' />

@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>

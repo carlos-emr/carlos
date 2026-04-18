@@ -136,6 +136,15 @@
         <action name="administration/index" class="io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action">
             <result name="success">/WEB-INF/jsp/administration/index.jsp</result>
         </action>
+        <!-- Compatibility mapping: /administration is the clean section-root URL used
+             by the main menu, left nav, and popup targets. Maps the same auth gate
+             action directly so the browser URL stays clean (no visible /index suffix).
+             Note: callers must use the extensionless form '/administration' without a
+             trailing slash — Tomcat does not strip trailing slashes before Struts
+             matching, and '/administration/' does not route cleanly under this setup. -->
+        <action name="administration" class="io.github.carlos_emr.carlos.administration.gate.ViewAdministrationIndex2Action">
+            <result name="success">/WEB-INF/jsp/administration/index.jsp</result>
+        </action>
         <action name="common/OntarioMDRedirect" class="io.github.carlos_emr.carlos.common.gate.ViewOntarioMDRedirect2Action">
             <result name="success">/WEB-INF/jsp/common/OntarioMDRedirect.jsp</result>
         </action>

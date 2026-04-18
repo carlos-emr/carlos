@@ -44,6 +44,7 @@
     String service_form = "";
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" import="java.util.*,java.math.*,java.net.*,java.sql.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*" %>

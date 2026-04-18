@@ -84,6 +84,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     // Build security role string from session attributes
     String userrole = (String) session.getAttribute("userrole");
@@ -553,7 +554,7 @@
                                     <td>
 
                                     <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
-                                        <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= dm.getDemographic_no() %>' />"></oscar:nameage>
+                                        <oscar:nameage demographicNo="<%= dm.getDemographic_no() %>"></oscar:nameage>
                                     <%} %>
 
                                     </td>

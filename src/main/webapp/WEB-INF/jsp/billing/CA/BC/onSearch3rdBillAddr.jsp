@@ -121,6 +121,7 @@
 
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 

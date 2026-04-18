@@ -85,7 +85,7 @@
 	SecurityManager securityManager = new SecurityManager();
 	if(securityManager.hasWriteAccess("_" + request.getParameter("issue_code"),roleName$)) {
 %>
-<a href="javascript:void(0)" title='Add Item' onclick="return showEdit(event,'<fmt:message key="<e:forHtmlAttribute value='<%= paramTitle %>' />" />','',0,'','','','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("addUrl") %>' />0', '<e:forJavaScriptAttribute value='<%= paramCmd %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("identUrl") %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("cppIssue") %>' />','','<e:forJavaScriptAttribute value='<%= paramDemoNo %>' />');">+</a>
+<a href="javascript:void(0)" title='Add Item' onclick="return showEdit(event,'<fmt:message key="<%= paramTitle %>" />','',0,'','','','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("addUrl") %>' />0', '<e:forJavaScriptAttribute value='<%= paramCmd %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("identUrl") %>' />','<e:forJavaScriptAttribute value='<%= (String) request.getAttribute("cppIssue") %>' />','','<e:forJavaScriptAttribute value='<%= paramDemoNo %>' />');">+</a>
 <% } else { %>
 	&nbsp;
 <% } %>
@@ -94,7 +94,7 @@
 <div class="nav-menu-title">
 <h3>
 	<a href="javascript:void(0)" onclick="return showIssueHistory('<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographicNo")) %>' />','<e:forJavaScriptAttribute value='<%= String.valueOf(request.getAttribute("issueIds")) %>' />');">
-<fmt:message key="<e:forHtmlAttribute value='<%= paramTitle %>' />" /></a>
+<fmt:message key="<%= paramTitle %>" /></a>
 </h3>
 </div>
 </div>
