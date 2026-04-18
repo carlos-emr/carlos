@@ -48,6 +48,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -141,18 +142,18 @@
         %>
 
 						<tr>
-							<td><e:forHtmlContent value='<%= flowSheet.getDisplayName() %>' /></td>
+							<td><carlos:encode value='<%= flowSheet.getDisplayName() %>' context="html"/></td>
 							<td><%=flowSheet.isUniversal() %></td>
-							<td><e:forHtmlContent value='<%= flowSheet.getDxTriggersString() %>' /></td>
-							<td><e:forHtmlContent value='<%= flowSheet.getProgramTriggersString() %>' /></td>
-							<td><e:forHtmlContent value='<%= type %>' /></td>
+							<td><carlos:encode value='<%= flowSheet.getDxTriggersString() %>' context="html"/></td>
+							<td><carlos:encode value='<%= flowSheet.getProgramTriggersString() %>' context="html"/></td>
+							<td><carlos:encode value='<%= type %>' context="html"/></td>
 							<td><%=enabled%></td>
 							<td>
-								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<e:forUriComponent value='<%= flowSheet.getName() %>' />&displayName=<e:forUriComponent value='<%= flowSheet.getDisplayName() %>' />"><fmt:message key="admin.manageFlowsheets.edit"/></a>&nbsp;
+								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowSheet.getName() %>' context="uriComponent"/>&displayName=<carlos:encode value='<%= flowSheet.getDisplayName() %>' context="uriComponent"/>"><fmt:message key="admin.manageFlowsheets.edit"/></a>&nbsp;
 								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');"><fmt:message key="admin.manageFlowsheets.disable"/></a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.disable"/></a>
 								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<e:forJavaScriptAttribute value='<%= flowSheet.getName() %>' />');"><fmt:message key="admin.manageFlowsheets.enable"/></a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<carlos:encode value='<%= flowSheet.getName() %>' context="javaScriptAttribute"/>');"><fmt:message key="admin.manageFlowsheets.enable"/></a>
 								<% } %>
 							</td>
 						</tr>

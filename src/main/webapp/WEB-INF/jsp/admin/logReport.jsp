@@ -40,6 +40,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -74,6 +75,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
 
@@ -136,9 +138,9 @@
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= prov %>' />"
+                    <option value="<carlos:encode value='<%= prov %>' context="htmlAttribute"/>"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
-                            <% } %>><e:forHtmlContent value='<%= ((Properties) vecProvider.get(i)).getProperty("name", "") %>' />
+                            <% } %>><carlos:encode value='<%= ((Properties) vecProvider.get(i)).getProperty("name", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -157,7 +159,7 @@
             <div class="col-md-4">
                 <label><fmt:message key="admin.logReport.startDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<e:forHtmlAttribute value='<%= startDate!=null?startDate:"" %>' />"
+                    <input type="text" name="startDate" id="startDate1" value="<carlos:encode value='<%= startDate!=null?startDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -166,7 +168,7 @@
             <div class="col-md-4">
                 <label><fmt:message key="admin.logReport.endDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<e:forHtmlAttribute value='<%= endDate!=null?endDate:"" %>' />"
+                    <input type="text" name="endDate" id="endDate1" value="<carlos:encode value='<%= endDate!=null?endDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -184,7 +186,7 @@
         String dateError = (String) request.getAttribute("dateError");
         if (dateError != null && !dateError.isEmpty()) {
     %>
-    <div class="alert alert-danger" role="alert"><e:forHtmlContent value='<%= dateError %>' /></div>
+    <div class="alert alert-danger" role="alert"><carlos:encode value='<%= dateError %>' context="html"/></div>
     <%
         }
         out.flush();
@@ -205,7 +207,7 @@
         if (propName.getProperty(providerNo, "").equals("")) {
             out.print(allProviderLabel);
         } else {
-            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
+            out.print(SafeEncode.forHtml(propName.getProperty(providerNo, "")));
         }
     %> - <fmt:message key="admin.logReport.title"/></h4>
 
@@ -214,7 +216,7 @@
     </button>
 
 
-    <p><fmt:message key="admin.logReport.period"/> ( <e:forHtmlContent value='<%= startDate == null ? "" : startDate %>' /> ~ <e:forHtmlContent value='<%= endDate == null ? "" : endDate %>' />)</p>
+    <p><fmt:message key="admin.logReport.period"/> ( <carlos:encode value='<%= startDate == null ? "" : startDate %>' context="html"/> ~ <carlos:encode value='<%= endDate == null ? "" : endDate %>' context="html"/>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
             <TH><fmt:message key="admin.logReport.table.time"/></TH>
@@ -238,16 +240,16 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><e:forHtmlContent value='<%= prop.getProperty("dateTime", "") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("action", "") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("content", "") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("contentId", "") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("ip", "") %>' /></td>
+            <td><carlos:encode value='<%= prop.getProperty("dateTime", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("action", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("content", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("contentId", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("ip", "") %>' context="html"/></td>
             <% if (bAll) { %>
-            <td><e:forHtmlContent value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' /></td>
+            <td><carlos:encode value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' context="html"/></td>
             <% } %>
-            <td><e:forHtmlContent value='<%= prop.getProperty("demographic_no", "") %>' /></td>
-            <td><e:forHtmlContent value='<%= prop.getProperty("data", "") %>' /></td>
+            <td><carlos:encode value='<%= prop.getProperty("demographic_no", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("data", "") %>' context="html"/></td>
         </tr>
 
                 <% } %>

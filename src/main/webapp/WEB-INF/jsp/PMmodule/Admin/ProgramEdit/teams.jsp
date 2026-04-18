@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!-- 
 /*
 * 
@@ -61,20 +62,20 @@ function add_team(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteTeam('${e:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
 	</display:column>
 	<display:column property="name" sortable="true" title="Name" />
 	<display:column sortable="true" title="Staff">
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
-				<li>${e:forHtml(provider.provider.formattedName)} (${e:forHtml(provider.role.name)})</li>
+				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
 	</display:column>
 	<display:column sortable="true" title="Clients">
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
-				<li>${e:forHtml(admission.client.formattedName)}</li>
+				<li>${carlos:forHtml(admission.client.formattedName)}</li>
 			</c:forEach>
 		</ul>
 	</display:column>

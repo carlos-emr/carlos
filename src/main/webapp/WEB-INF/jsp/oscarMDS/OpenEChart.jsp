@@ -31,6 +31,7 @@
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.net.URLEncoder" %>
 <%
     // Check if demographicNo is present and valid
@@ -71,8 +72,8 @@
 
         %>
 
-        <c:set var="__enc_1"><e:forUriComponent value='<%= demographicNo %>' /></c:set>
-        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<e:forJavaScript value='${__enc_1}' />&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
+        <c:set var="__enc_1"><carlos:encode value='<%= demographicNo %>' context="uriComponent"/></c:set>
+        location.href = '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=';
         window.resizeTo(980, 700);
 
     </script>
@@ -81,9 +82,9 @@
 <body>
 
 <a
-        <c:set var="__enc_2"><e:forUriComponent value='<%= demographicNo %>' /></c:set>
+        <c:set var="__enc_2"><carlos:encode value='<%= demographicNo %>' context="uriComponent"/></c:set>
         href="javascript:p        
-opupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<e:forJavaScriptAttribute value='${__enc_2}' />&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
+opupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
     click here to go to the patient's E-Chart.</a>
 
 </body>

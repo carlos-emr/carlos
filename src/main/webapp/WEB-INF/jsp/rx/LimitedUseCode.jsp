@@ -43,6 +43,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String din = StringUtils.noNull(request.getParameter("din"));
@@ -60,11 +61,11 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<e:forJavaScriptAttribute value='<%= randomId %>' />','<e:forJavaScriptAttribute value='<%= limitedUseCode.getUseId() %>' />')"
-                   href="javascript: return void();"><e:forHtmlContent value='<%= limitedUseCode.getUseId() %>' />
+                <a onclick="javascript:addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
+                   href="javascript: return void();"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
                 </a>&nbsp;
             </td>
-            <td><e:forHtmlContent value='<%= limitedUseCode.getTxt() %>' />
+            <td><carlos:encode value='<%= limitedUseCode.getTxt() %>' context="html"/>
             </td>
         </tr>
         <%}%>

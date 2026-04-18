@@ -32,6 +32,7 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
@@ -70,7 +71,7 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <select name="displayDocumentAsProperty.value" id="displayDocumentAsProperty.value">
                         <c:forEach var="dropOpt" items="${dropOpts}">
                             <option value="${dropOpt.value}" 

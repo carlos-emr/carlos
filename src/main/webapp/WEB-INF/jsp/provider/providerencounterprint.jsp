@@ -33,6 +33,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -84,7 +85,7 @@
                     }
                 %>
                 <xml id="xml_list">
-                    <encounter><e:forXml value='<%= content %>' />
+                    <encounter><carlos:encode value='<%= content %>' context="xml"/>
                     </encounter>
                 </xml>
                 <table width="100%" border="1" datasrc='#xml_list'>
@@ -142,8 +143,8 @@
                 <table width="100%" cellspacing="0" cellpadding="2" border="1"
                        datasrc='#xml_list'>
                     <tr>
-                        <td><e:forHtmlContent value='<%= encounter_date %>' /> <e:forHtmlContent value='<%= encounter_time %>' /><br>
-                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><e:forHtmlContent value='<%= subject.substring(2).replaceAll("\\|", " ") %>' /><br>
+                        <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= subject.substring(2).replaceAll("\\|", " ") %>' context="html"/><br>
                             <b><fmt:message key="provider.providerencounterprint.content"/>:</b>
                             <div datafld='xml_content'>
                         </td>

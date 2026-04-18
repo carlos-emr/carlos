@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbNoiCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -60,7 +61,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
     opener.document.focus();
     <%}%>
     }
@@ -93,12 +94,12 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(c.getCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(c.getCode()) %>' /></a>
+    onClick="posttoText('<carlos:encode value='<%= StringUtils.noNull(c.getCode()) %>' context="javaScriptAttribute"/>');"><carlos:encode value='<%= StringUtils.noNull(c.getCode()) %>' context="html"/></a>
     </td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel1()) %>' /></td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel2()) %>' /></td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(c.getLevel3()) %>' /></td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= c.getUsagenote() != null ? new String(c.getUsagenote()) : "" %>' /></td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel1()) %>' context="html"/></td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel2()) %>' context="html"/></td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(c.getLevel3()) %>' context="html"/></td>
+    <td class="SmallerText"><carlos:encode value='<%= c.getUsagenote() != null ? new String(c.getUsagenote()) : "" %>' context="html"/></td>
     </tr>
     <%
             color = !(color);

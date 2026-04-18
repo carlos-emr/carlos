@@ -42,6 +42,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%--
@@ -54,6 +55,7 @@
     --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -438,8 +440,8 @@
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">Manage Provider List</a>-->
         <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus"
               onsubmit="ShowSpin(true);">
-            <input type="hidden" id="sortName" name="sortName" value="<e:forHtmlAttribute value='<%= sortName %>' />">
-            <input type="hidden" id="sortOrder" name="sortOrder" value="<e:forHtmlAttribute value='<%= sortOrder %>' />">
+            <input type="hidden" id="sortName" name="sortName" value="<carlos:encode value='<%= sortName %>' context="htmlAttribute"/>">
+            <input type="hidden" id="sortOrder" name="sortOrder" value="<carlos:encode value='<%= sortOrder %>' context="htmlAttribute"/>">
             <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
@@ -492,19 +494,19 @@
                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                            _providers["<%= SafeEncode.forJavaScript(sites.get(i).getName()) %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>'><%= Encode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= Encode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
+                                    %><option value='<%= SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo())) %>'><%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName())) %>, <%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName())) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {
                                 sel.form.providerview.innerHTML = sel.value == "none" ? "" : "<option value='none'>---select providers---</option>" + _providers[sel.value];
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                if (sel.value == '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("site")) %>' />') {
+                                if (sel.value == '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("site")) %>' context="javaScriptBlock"/>') {
                                     if (document.serviceform.provider_ohipNo.value != '')
-                                        sel.form.providerview.value = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("providerview")) %>' />';
+                                        sel.form.providerview.value = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("providerview")) %>' context="javaScriptBlock"/>';
                                 }
                                 changeProvider(false);
                             }
@@ -516,9 +518,9 @@
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= sites.get(i).getName() %>' />"
+                                <option value="<carlos:encode value='<%= sites.get(i).getName() %>' context="htmlAttribute"/>"
                                         style="background-color:<%= sites.get(i).getBgColor() %>"
-                                        <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
+                                        <%=sites.get(i).getName().toString().equals(curSite) ? "selected" : "" %>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -562,12 +564,12 @@
                         <% } %>
                         <label>
                             OHIP No.:
-                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<e:forHtmlAttribute value='<%= StringUtils.noNull(ohipNo) %>' />"></label>
+                            <input type="text" class="form-control form-control-sm d-inline-block w-auto" name="provider_ohipNo" readonly value="<carlos:encode value='<%= StringUtils.noNull(ohipNo) %>' context="htmlAttribute"/>"></label>
                     </div>
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<e:forHtmlAttribute value='<%= startDate %>' />"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -583,7 +585,7 @@
                             </small></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
-                                   value="<e:forHtmlAttribute value='<%= endDate %>' />" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -593,18 +595,18 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<e:forHtmlAttribute value='<%= dx %>' />"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<carlos:encode value='<%= dx %>' context="htmlAttribute"/>"></label>
                         <label>Serv. Code:
                             <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
-                                   value="<e:forHtmlAttribute value='<%= serviceCode %>' />"></label>
+                                   value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>"></label>
                         <label>Demographic:
                             <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
-                                   value="<e:forHtmlAttribute value='<%= demoNo %>' />"></label>
+                                   value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"></label>
                         <label>RA Code:
                             <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
-                                   value="<e:forHtmlAttribute value='<%= raCode %>' />"></label>
+                                   value="<carlos:encode value='<%= raCode %>' context="htmlAttribute"/>"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<e:forHtmlAttribute value='<%= claimNo %>' />"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<carlos:encode value='<%= claimNo %>' context="htmlAttribute"/>"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -657,21 +659,21 @@
                                     String locationSelected = visitLocation.equals(billLocationNo) ? " selected=\"selected\" " : "";
                             %>
                             <option value="<%=billLocationNo%>" <%=locationSelected %>>
-                                <e:forHtmlContent value='<%= billLocation %>' />
+                                <carlos:encode value='<%= billLocation %>' context="html"/>
                             </option>
                             <% } %>
                         </select>
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
-                                   value="<e:forHtmlAttribute value='<%= paymentStartDate %>' />" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<carlos:encode value='<%= paymentStartDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
-                                   value="<e:forHtmlAttribute value='<%= paymentEndDate %>' />" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="<carlos:encode value='<%= paymentEndDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -1003,17 +1005,17 @@
 
                     %>
                     <tr <%=color %>>
-                        <td style="text-align:center"><e:forHtmlContent value='<%= ch1Obj.getBilling_date() %>' />  <%--=ch1Obj.getBilling_time()--%></td>
+                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getBilling_date() %>' context="html"/>  <%--=ch1Obj.getBilling_time()--%></td>
                         <!--SERVICE DATE-->
-                        <td style="text-align:center"><e:forHtmlContent value='<%= ch1Obj.getDemographic_no() %>' />
+                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getDemographic_no() %>' context="html"/>
                         </td>
                         <!--PATIENT-->
                         <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
-                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='<%= ch1Obj.getDemographic_no() %>' />');return false;"><e:forHtmlContent value='<%= ch1Obj.getDemographic_name() %>' />
+                                                                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= ch1Obj.getDemographic_no() %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= ch1Obj.getDemographic_name() %>' context="html"/>
                         </a></td>
-                        <td style="text-align:center"><e:forHtmlContent value='<%= ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>' />
+                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>' context="html"/>
                         </td>
-                        <td style="text-align:center"><e:forHtmlContent value='<%= ch1Obj.getStatus() %>' />
+                        <td style="text-align:center"><carlos:encode value='<%= ch1Obj.getStatus() %>' context="html"/>
                         </td>
                         <!--STAT-->
                         <td style="text-align:center"><%=settleDate%>
@@ -1055,7 +1057,7 @@
                         </td>
                         <% if (bMultisites) {%>
                         <td <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : "style='background-color:" + siteBgColor.get(ch1Obj.getClinic()) + ";'")%>>
-                            <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : Encode.forHtml(siteShortName.get(ch1Obj.getClinic())))%>
+                            <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : SafeEncode.forHtml(siteShortName.get(ch1Obj.getClinic())))%>
                         </td>
                         <!--SITE-->
                         <% }%>

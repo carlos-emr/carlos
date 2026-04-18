@@ -33,6 +33,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -77,13 +78,13 @@
                 <%=bundle.getString(providermsgEdit)%>
 
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <br/>
-                    <fmt:message key="provider.appointmentCardPrefs.labelName"/> <input type="text" name="appointmentCardName.value" value="${e:forHtmlAttribute(name.value)}" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelName"/> <input type="text" name="appointmentCardName.value" value="${carlos:forHtmlAttribute(name.value)}" size="50" />
                     <br/>
-                    <fmt:message key="provider.appointmentCardPrefs.labelPhone"/> <input type="text" name="appointmentCardPhone.value" value="${e:forHtmlAttribute(phone.value)}" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelPhone"/> <input type="text" name="appointmentCardPhone.value" value="${carlos:forHtmlAttribute(phone.value)}" size="50" />
                     <br/>
-                    <fmt:message key="provider.appointmentCardPrefs.labelFax"/> <input type="text" name="appointmentCardFax.value" value="${e:forHtmlAttribute(fax.value)}" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelFax"/> <input type="text" name="appointmentCardFax.value" value="${carlos:forHtmlAttribute(fax.value)}" size="50" />
                     <br/>
                     <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form>

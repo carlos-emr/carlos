@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -79,9 +80,9 @@
             }
         }
 
-        var isListView = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("isListView")) %>' />';
-        var docId = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("docId")) %>' />';
-        var labDisplay = '<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("labDisplay")) %>' />';
+        var isListView = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("isListView")) %>' context="javaScriptBlock"/>';
+        var docId = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("docId")) %>' context="javaScriptBlock"/>';
+        var labDisplay = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labDisplay")) %>' context="javaScriptBlock"/>';
         var frm = "reassignForm";
 
         if (docId != "" && labDisplay == "") {
@@ -120,7 +121,7 @@
 </style>
 </head>
 <body>
-<input type="hidden" id="forwardList" value="${e:forHtmlAttribute(param.forwardList)}"/>
+<input type="hidden" id="forwardList" value="${carlos:forHtmlAttribute(param.forwardList)}"/>
 <form name="providerSelectForm" class="mx-1">
     <p style="font-weight:bold;">
         <fmt:message key="oscarMDS.forward.msgInstruction1"/>
@@ -154,7 +155,7 @@
                     for (ProviderLabRoutingFavorite fav : currentFavorites) {
                         Provider prov = providerDao.getProvider(fav.getRoute_to_provider_no());
                 %>
-                <option id="<e:forHtmlAttribute value='<%= prov.getProviderNo() %>' />" value="<e:forHtmlAttribute value='<%= prov.getProviderNo() %>' />"><e:forHtmlContent value='<%= prov.getFormattedName() %>' />
+                <option id="<carlos:encode value='<%= prov.getProviderNo() %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= prov.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= prov.getFormattedName() %>' context="html"/>
                 </option>
                 <%
                     }

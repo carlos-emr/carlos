@@ -35,6 +35,7 @@
 <!-- add by caisi end<style>* {border:1px solid black;}</style> -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -98,7 +99,7 @@
                 %>
                 <label for="signature"><fmt:message key="provider.editSignature.msgEdit"/></label>
                 <br>
-                <input type="text" name="signature" id="signature" size="40" value="<e:forHtmlAttribute value='<%= sig.getSignature(curUser_no) %>' />" />
+                <input type="text" name="signature" id="signature" size="40" value="<carlos:encode value='<%= sig.getSignature(curUser_no) %>' context="htmlAttribute"/>" />
                 <br>
 
                 <!-- add by caisi -->

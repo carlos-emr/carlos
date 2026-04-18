@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingType" %>
@@ -55,9 +56,9 @@
 
 <table width=95%>
     <tr>
-        <td class="black" width="15%"><e:forHtmlContent value='<%= type_id %>' />
+        <td class="black" width="15%"><carlos:encode value='<%= type_id %>' context="html"/>
         </td>
-        <td class="black" height="30"><e:forHtmlContent value='<%= type_name %>' />
+        <td class="black" height="30"><carlos:encode value='<%= type_name %>' context="html"/>
         </td>
     </tr>
     <tr>
@@ -66,8 +67,8 @@
             <p>&nbsp;<br>
                 <fmt:message key="billing.manageBillingform_add.formDefaultBillType"/>
                 :<br>
-                <input type="hidden" name="bill_servicetype" value="<e:forHtmlAttribute value='<%= type_id %>' />">
-                <input type="hidden" name="billtype_old" value="<e:forHtmlAttribute value='<%= billtype %>' />">
+                <input type="hidden" name="bill_servicetype" value="<carlos:encode value='<%= type_id %>' context="htmlAttribute"/>">
+                <input type="hidden" name="billtype_old" value="<carlos:encode value='<%= billtype %>' context="htmlAttribute"/>">
                 <select name="billtype_new">
                     <option value="no" <%=billtype.equals("no") ? "selected" : ""%>>--
                         no --
@@ -91,7 +92,7 @@
                                  onclick="manageBillType(bill_servicetype.value, billtype_old.value, billtype_new.value);"><br>
             </p>
             <p><input type="button" value="Delete Billing Form"
-                      onclick="onUnbilled('<e:forJavaScriptAttribute value='<%= type_id %>' />');">
+                      onclick="onUnbilled('<carlos:encode value='<%= type_id %>' context="javaScriptAttribute"/>');">
             <p><input type="button" value="Cancel"
                       onclick="showManageType(false);"></p>
         </td>

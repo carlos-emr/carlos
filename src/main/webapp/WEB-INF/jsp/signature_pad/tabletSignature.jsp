@@ -22,8 +22,10 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -53,20 +55,20 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
     }
-    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
+    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + SafeEncode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
 %>
 <script type="text/javascript">
     var _in_window = <%= "true".equals(request.getParameter("inWindow"))%>;
 
-    var requestIdKey = "<e:forJavaScriptBlock value='<%= requestIdKey %>' />";
+    var requestIdKey = "<carlos:encode value='<%= requestIdKey %>' context="javaScriptBlock"/>";
 
-    var previewImageUrl = "<e:forJavaScriptBlock value='<%= imageUrl %>' />";
+    var previewImageUrl = "<carlos:encode value='<%= imageUrl %>' context="javaScriptBlock"/>";
 
-    var storedImageUrl = "<e:forJavaScriptBlock value='<%= storedImageUrl %>' />";
+    var storedImageUrl = "<carlos:encode value='<%= storedImageUrl %>' context="javaScriptBlock"/>";
 
-    var contextPath = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
+    var contextPath = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
 
 </script>
 
@@ -86,10 +88,10 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
       id="signatureForm" method="POST">
     <input type="hidden" id="signatureImage" name="signatureImage" value=""/>
     <input type="hidden" name="source" value="IPAD"/>
-    <input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>" value="<e:forHtmlAttribute value='<%= requestIdKey %>' />"/>
-    <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' />"/>
+    <input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>" value="<carlos:encode value='<%= requestIdKey %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="htmlAttribute"/>"/>
 	<input type="hidden" name="<%= ModuleType.class.getSimpleName()%>"
-			value="<e:forHtmlAttribute value='<%= request.getParameter(ModuleType.class.getSimpleName()) != null ? request.getParameter(ModuleType.class.getSimpleName()) : "" %>' />" />
+			value="<carlos:encode value='<%= request.getParameter(ModuleType.class.getSimpleName()) != null ? request.getParameter(ModuleType.class.getSimpleName()) : "" %>' context="htmlAttribute"/>" />
     <input type="hidden" name="saveToDB" value="<%=saveToDB%>"/>
 </form>
 

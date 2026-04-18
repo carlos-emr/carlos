@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -295,27 +296,27 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
         <input type="hidden" name="demographic_no"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="patientLastName"
-               value="<e:forHtmlAttribute value='<%= patientNames[0].trim() %>' />"/>
+               value="<carlos:encode value='<%= patientNames[0].trim() %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="patientFirstName"
-               value="<e:forHtmlAttribute value='<%= patientNames[1].trim() %>' />"/>
+               value="<carlos:encode value='<%= patientNames[1].trim() %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="patientBirthYear"
-               value="<e:forHtmlAttribute value='<%= patientDOB[0].trim() %>' />"/>
+               value="<carlos:encode value='<%= patientDOB[0].trim() %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="patientBirthMth"
-               value="<e:forHtmlAttribute value='<%= patientDOB[1].trim() %>' />"/>
+               value="<carlos:encode value='<%= patientDOB[1].trim() %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="patientBirthDay"
-               value="<e:forHtmlAttribute value='<%= patientDOB[2].trim() %>' />"/>
+               value="<carlos:encode value='<%= patientDOB[2].trim() %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ID"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("ID", "0") %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("ID", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provider_no"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated", "") %>' />"/>
-        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provNo"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
@@ -355,68 +356,68 @@
             <tr>
                 <td height="47"><p>I, (print full name of person)
                     <label>
-                        <input type="text" name="name" id="name" value="<e:forHtmlAttribute value='<%= props.getProperty("name","") %>' />"/>
+                        <input type="text" name="name" id="name" value="<carlos:encode value='<%= props.getProperty("name","") %>' context="htmlAttribute"/>"/>
                     </label>
                 </p></td>
             </tr>
             <tr>
                 <td height="69">of (address) <label>
                     <input name="address" type="text" id="address" size="100" maxlength="100"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("address","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("address","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>hereby consent to the disclosure or transmittal to or the examination by (print name) <label>
                     <input name="physicianName" type="text" id="physicianName" size="60" maxlength="60"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("physicianName","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("physicianName","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>of the clinical record compiled in (name of psychiatric facility) <label>
                     <input name="nameOfFacility" type="text" id="nameOfFacility" size="60" maxlength="100"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("nameOfFacility","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("nameOfFacility","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>in respect of (name of patient) <label>
                     <input name="clientName" type="hidden" id="clientName" size="60" maxlength="60"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("clientName","") %>' />"/><e:forHtmlContent value='<%= props.getProperty("clientName", "") %>' />
+                           value="<carlos:encode value='<%= props.getProperty("clientName","") %>' context="htmlAttribute"/>"/><carlos:encode value='<%= props.getProperty("clientName", "") %>' context="html"/>
                 </label>
 
                     (date of birth, where available) <label>
                         <input name="clientDOB" type="hidden" id="clientDOB" size="20" maxlength="10"
-                               value="<e:forHtmlAttribute value='<%= props.getProperty("clientDOB","") %>' />"/><e:forHtmlContent value='<%= props.getProperty("clientDOB", "") %>' />
+                               value="<carlos:encode value='<%= props.getProperty("clientDOB","") %>' context="htmlAttribute"/>"/><carlos:encode value='<%= props.getProperty("clientDOB", "") %>' context="html"/>
                     </label>
                 </td>
             </tr>
             <tr>
                 <td>(witness) <label>
                     <input name="witness" type="text" id="witness" size="60" maxlength="60"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("witness","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("witness","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>(signature) <label>
                     <input name="signature" type="text" id="signature" size="60" maxlength="60"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("signature","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("signature","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>(if other than the patient, state relationship to the patient) <label>
                     <input name="relationship" type="text" id="relationship" size="60" maxlength="20"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("relationship","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("relationship","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>
             <tr>
                 <td>Date (day / month / year) <label>
                     <input name="signatureDate" type="text" id="signatureDate" size="60" maxlength="20"
-                           value="<e:forHtmlAttribute value='<%= props.getProperty("signatureDate","") %>' />"/>
+                           value="<carlos:encode value='<%= props.getProperty("signatureDate","") %>' context="htmlAttribute"/>"/>
                 </label>
                 </td>
             </tr>

@@ -61,9 +61,11 @@
 <%@ page import="io.github.carlos_emr.carlos.login.DBHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -114,8 +116,8 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("appointment_date"));
             prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
-            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("name")));
-            prop.setProperty("DESCRIPTION", Encode.forHtml(rs.getString("reason")));
+            prop.setProperty("PATIENT", SafeEncode.forHtml(rs.getString("name")));
+            prop.setProperty("DESCRIPTION", SafeEncode.forHtml(rs.getString("reason")));
             String tempStr = "<a href=# onClick='popupPage(700,1000, \"/billing?billForm="
                     + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
                     + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"), StandardCharsets.UTF_8)
@@ -149,7 +151,7 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("billing_date"));
             prop.setProperty("TIME", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("demographic_name")));
+            prop.setProperty("PATIENT", SafeEncode.forHtml(rs.getString("demographic_name")));
 
             String apptDoctorNo = rs.getString("apptProvider_no");
             String userno = rs.getString("provider_no");
@@ -170,7 +172,7 @@
             else if (reason.compareTo("H") == 0) reason = "Capitated Bill ";
             else if (reason.compareTo("P") == 0) reason = "Bill Patient";
 
-            prop.setProperty("DESCRIPTION", Encode.forHtml(reason + "(" + note + ")"));
+            prop.setProperty("DESCRIPTION", SafeEncode.forHtml(reason + "(" + note + ")"));
             String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/ViewBillingCorrection?billing_no="
                     + rs.getString("id") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("id") + "</a>";
@@ -236,7 +238,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
+                prop.setProperty("HIN", SafeEncode.forHtml(rs.getString("hin")));
                 prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", getFormatDateStr(rs.getString("service_date")));
@@ -260,7 +262,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
+                prop.setProperty("HIN", SafeEncode.forHtml(rs.getString("hin")));
                 // repeated records
                 //prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Claim", propTotal.getProperty(tempStr));
@@ -439,12 +441,12 @@
                     Set<Provider> siteProviders = sites.get(i).getProviders();
                     List<Provider> siteProvidersList = new ArrayList<Provider>(siteProviders);
                     Collections.sort(siteProvidersList,(new Provider()).ComparatorName()); %>
-                _providers["<e:forJavaScriptBlock value='<%= sites.get(i).getName() %>' />"] = [
+                _providers["<carlos:encode value='<%= sites.get(i).getName() %>' context="javaScriptBlock"/>"] = [
                     <% Iterator<Provider> iter = siteProvidersList.iterator();
                     while (iter.hasNext()) {
                         Provider p = iter.next();
                         if (reporters.contains(p.getProviderNo())) { %>
-                    {value: '<e:forJavaScriptBlock value='<%= p.getProviderNo() %>' />', text: '<e:forJavaScriptBlock value='<%= p.getLastName() + ", " + p.getFirstName() %>' />'},
+                    {value: '<carlos:encode value='<%= p.getProviderNo() %>' context="javaScriptBlock"/>', text: '<carlos:encode value='<%= p.getLastName() + ", " + p.getFirstName() %>' context="javaScriptBlock"/>'},
                     <% }} %>
                 ];
                 <% } %>
@@ -469,9 +471,9 @@
                 <%
                     for (int i = 0; i < sites.size(); i++) {
                 %>
-                <option value="<e:forHtmlAttribute value='<%= sites.get(i).getName() %>' />"
-                        style="background-color:<e:forCssString value='<%= sites.get(i).getBgColor() %>' />"
-                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
+                <option value="<carlos:encode value='<%= sites.get(i).getName() %>' context="htmlAttribute"/>"
+                        style="background-color:<carlos:encode value='<%= sites.get(i).getBgColor() %>' context="cssString"/>"
+                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
                 </option>
                 <% } %>
             </select>
@@ -479,7 +481,7 @@
             <% if (request.getParameter("providerview") != null) { %>
             <script>
                 changeSite(document.getElementById("site"));
-                document.getElementById("providerview").value = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")) %>' />';
+                document.getElementById("providerview").value = '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("providerview")) %>' context="javaScriptBlock"/>';
             </script>
             <% } // multisite end ==========================================
             } else {
@@ -500,7 +502,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast + ", " + proFirst %>' /></option>
+                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast + ", " + proFirst %>' context="html"/></option>
                 <%
                     }
                 %>
@@ -508,10 +510,10 @@
             <% } %>
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-select form-select-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

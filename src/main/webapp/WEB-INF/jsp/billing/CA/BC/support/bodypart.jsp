@@ -33,6 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("user") == null) {
@@ -65,7 +66,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
     opener.document.focus();
     <%}%>
     }

@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -181,20 +182,20 @@
    %>
 
      <tr>
-        <td ><e:forHtmlContent value='<%= StringUtils.noNull(paymentdate) %>' />  </td>
-        <td align="right"><e:forHtmlContent value='<%= StringUtils.noNull(payable) %>' /> </td>
-        <td align="right"><e:forHtmlContent value='<%= moneyFormat(amtbilled) %>' /></td>
-        <td align="right"><e:forHtmlContent value='<%= moneyFormat(amtpaid) %>' /></td>
-        <td align="right"><e:forHtmlContent value='<%= moneyFormat(balancefwd) %>' /></td>
-        <td align="right"><e:forHtmlContent value='<%= moneyFormat(chequeamt) %>' /></td>
-        <td align="right"><e:forHtmlContent value='<%= moneyFormat(newbalance) %>' /></td>
+        <td ><carlos:encode value='<%= StringUtils.noNull(paymentdate) %>' context="html"/>  </td>
+        <td align="right"><carlos:encode value='<%= StringUtils.noNull(payable) %>' context="html"/> </td>
+        <td align="right"><carlos:encode value='<%= moneyFormat(amtbilled) %>' context="html"/></td>
+        <td align="right"><carlos:encode value='<%= moneyFormat(amtpaid) %>' context="html"/></td>
+        <td align="right"><carlos:encode value='<%= moneyFormat(balancefwd) %>' context="html"/></td>
+        <td align="right"><carlos:encode value='<%= moneyFormat(chequeamt) %>' context="html"/></td>
+        <td align="right"><carlos:encode value='<%= moneyFormat(newbalance) %>' context="html"/></td>
         <td >&nbsp;&nbsp;
-           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&selPayee=<e:forUriComponent value='<%= StringUtils.noNull(payeeNo) %>' />" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&selPayee=<e:forUriComponent value='<%= StringUtils.noNull(payeeNo) %>' />" target="_blank">CSV</a>) |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">Detail</a> |
-           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">Summary</a>
-           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<e:forUriComponent value='<%= StringUtils.noNull(raNo) %>' />&proNo=" target="_blank">CSV</a>)
+           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">CSV</a>) |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">Detail</a> |
+           <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">Summary</a>
+           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">CSV</a>)
         </td>
-        <td ><e:forHtmlContent value='<%= String.valueOf(result.getStatus()) %>' /></td>
+        <td ><carlos:encode value='<%= String.valueOf(result.getStatus()) %>' context="html"/></td>
      </tr>
      <tr>
         <td colspan="10" bgcolor="#EBF4F5">&nbsp;</td>

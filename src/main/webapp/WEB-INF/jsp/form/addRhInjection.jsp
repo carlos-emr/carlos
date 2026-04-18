@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -223,9 +224,9 @@
 
     <form action="${pageContext.request.contextPath}/prevention/AddPrevention" method="post" onsubmit="return process(this);" id="injectForm">
         <input type="hidden" name="prevention" value="RH"/>
-        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
-        <input type="hidden" name="workflowId" value="<e:forHtmlAttribute value='<%= workflowId %>' />"/>
-        <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= formIdStr %>' />"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="workflowId" value="<carlos:encode value='<%= workflowId %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="formId" value="<carlos:encode value='<%= formIdStr %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="reason" value=""/>
 
 
@@ -239,21 +240,21 @@
             <div style="float: left; margin-left: 30px;"><label
                     for="prevDate" class="fields"><fmt:message key="form.addRhInjection.date"/></label> <input type="text"
                                                                        name="prevDate" id="prevDate"
-                                                                       value="<e:forHtmlAttribute value='<%= prevDate %>' />" size="9">
+                                                                       value="<carlos:encode value='<%= prevDate %>' context="htmlAttribute"/>" size="9">
                 <a id="date"><img title="<fmt:message key="form.addRhInjection.calendar"/>" src="<%= request.getContextPath() %>/images/cal.gif"
                                   alt="<fmt:message key="form.addRhInjection.calendar"/>" border="0"/></a> <br>
                 <label for="provider" class="fields"><fmt:message key="form.addRhInjection.provider"/></label> <input
                         type="text" name="providerName" id="providerName"
-                        value="<e:forHtmlAttribute value='<%= providerName %>' />"/> <select
+                        value="<carlos:encode value='<%= providerName %>' context="htmlAttribute"/>"/> <select
                         onchange="javascript:hideExtraName(this);" id="providerDrop"
                         name="provider">
                     <%
                         for (int i = 0; i < providers.size(); i++) {
                             Map h = (Map) providers.get(i);
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("providerNo")) %>' />"
-                            <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><e:forHtmlContent value='<%= String.valueOf(h.get("lastName")) %>' />
-                        <e:forHtmlContent value='<%= String.valueOf(h.get("firstName")) %>' />
+                    <option value="<carlos:encode value='<%= String.valueOf(h.get("providerNo")) %>' context="htmlAttribute"/>"
+                            <%= (h.get("providerNo").equals(provider) ? " selected" : "") %>><carlos:encode value='<%= String.valueOf(h.get("lastName")) %>' context="html"/>
+                        <carlos:encode value='<%= String.valueOf(h.get("firstName")) %>' context="html"/>
                     </option>
                     <%}%>
                     <option value="-1" <%= ("-1".equals(provider) ? " selected" : "") %>><fmt:message key="form.addRhInjection.reason.other"/></option>

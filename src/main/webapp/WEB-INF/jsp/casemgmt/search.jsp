@@ -46,6 +46,7 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <script>
     function popupNotePage(varpage) {
@@ -159,21 +160,21 @@
                                 <c:url
                                         value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="notesURL"/>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/edit_white.png"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/edit_white.png"
                                      title="Edit/Sign Note" style="cursor: pointer"
-                                     onclick="popupNotePage('${e:forJavaScript(notesURL)}')"/>
+                                     onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')"/>
                             </c:when>
                             <c:when
                                     test="${note.signed and param.providerNo eq note.providerNo}">
                                 <c:url
                                         value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="notesURL"/>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/edit_white.png"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/edit_white.png"
                                      title="Edit Note" style="cursor: pointer"
-                                     onclick="popupNotePage('${e:forJavaScript(notesURL)}')"/>
+                                     onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')"/>
                             </c:when>
                             <c:otherwise>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
                                      title=""/>
                             </c:otherwise>
                         </c:choose> <c:choose>
@@ -181,12 +182,12 @@
                                 <c:url
                                         value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="historyURL"/>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/history.gif"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/history.gif"
                                      title="Note History" style="cursor: pointer"
-                                     onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                     onclick="popupHistoryPage('${carlos:forJavaScript(historyURL)}')">
                             </c:when>
                             <c:otherwise>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
                                      title=""/>
                             </c:otherwise>
                         </c:choose> <c:choose>
@@ -194,21 +195,21 @@
                                 <c:url
                                         value="/CaseManagementView?method=unlock&noteId=${note.id}"
                                         var="lockedURL"/>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/ulock.gif"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/ulock.gif"
                                      title="Unlock" style="cursor: pointer"
-                                     onclick="popupPage('${e:forJavaScript(lockedURL)}')"/>
+                                     onclick="popupPage('${carlos:forJavaScript(lockedURL)}')"/>
                             </c:when>
                             <c:otherwise>
-                                <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
+                                <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
                                      title=""/>
                             </c:otherwise>
                         </c:choose></td>
                         <td><fmt:formatDate pattern="yyyy-MM-dd hh:mm a"
                                             value="${note.update_date}"/></td>
-                        <td>${e:forHtml(note.providerName)}</td>
-                        <td>${e:forHtml(note.status)}</td>
-                        <td>${e:forHtml(note.programName)}</td>
-                        <td>${e:forHtml(note.roleName)}</td>
+                        <td>${carlos:forHtml(note.providerName)}</td>
+                        <td>${carlos:forHtml(note.status)}</td>
+                        <td>${carlos:forHtml(note.programName)}</td>
+                        <td>${carlos:forHtml(note.roleName)}</td>
                     </tr>
                 </c:forEach>
             </table>
@@ -237,7 +238,7 @@
                             <table width="100%" border="0" style="margin-bottom: 5px">
                                 <tr bgcolor="<%=bgcolor1 %>">
                                     <td width="7%">Provider</td>
-                                    <td width="93%">${e:forHtml(note.provider.formattedName)}</td>
+                                    <td width="93%">${carlos:forHtml(note.provider.formattedName)}</td>
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">
                                     <td width="7%">Date</td>
@@ -246,7 +247,7 @@
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">
                                     <td width="7%">Status</td>
-                                    <td width="93%">${e:forHtml(note.status)}</td>
+                                    <td width="93%">${carlos:forHtml(note.status)}</td>
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">
                                     <td width="7%">Action</td>
@@ -256,26 +257,26 @@
                                                 value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit and Sign"
-                                               onclick="popupNotePage('${e:forJavaScript(notesURL)}')">
+                                               onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')">
                                     </c:if> <c:if
                                             test="${note.signed and param.providerNo eq note.providerNo}">
                                         <c:url
                                                 value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
                                         <input type="button" value="Edit This Note"
-                                               onclick="popupNotePage('${e:forJavaScript(notesURL)}')">
+                                               onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')">
                                     </c:if> <c:if test="${note.hasHistory == true}">
                                         <c:url
                                                 value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
                                         <input type="button" value="Note History"
-                                               onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                               onclick="popupHistoryPage('${carlos:forJavaScript(historyURL)}')">
                                     </c:if> <c:if test="${note.locked}">
                                         <c:url
                                                 value="/CaseManagementView?method=unlock&noteId=${note.id}"
                                                 var="lockedURL"/>
                                         <input type="button" value="Unlock"
-                                               onclick="popupPage('${e:forJavaScript(lockedURL)}')">
+                                               onclick="popupPage('${carlos:forJavaScript(lockedURL)}')">
                                     </c:if></td>
                                 </tr>
                                 <tr bgcolor="<%=bgcolor1 %>">
@@ -286,7 +287,7 @@
                                             <span style="color: red"><i>Contents Hidden</i></span>
                                         </c:when>
                                         <c:otherwise>
-                                            <pre>${e:forHtml(note.note)}</pre>
+                                            <pre>${carlos:forHtml(note.note)}</pre>
                                         </c:otherwise>
                                     </c:choose></td>
                                 </tr>

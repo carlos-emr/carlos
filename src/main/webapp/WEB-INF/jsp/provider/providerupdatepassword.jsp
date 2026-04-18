@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
@@ -128,7 +129,7 @@
             if (pinUpdateRequired) {
                 errorMsg = "PIN Update Sucsessfull However, " + errorMsg;
             }
-            response.sendRedirect(request.getContextPath() + "/provider/ViewProviderChangePassword?errormsg=" + Encode.forUriComponent(errorMsg));
+            response.sendRedirect(request.getContextPath() + "/provider/ViewProviderChangePassword?errormsg=" + SafeEncode.forUriComponent(errorMsg));
         }
 
         out.println("<script language='javascript'>self.close();</script>");

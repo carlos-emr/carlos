@@ -1,5 +1,6 @@
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -38,4 +39,4 @@
     if (error.length() != 0) {
         error = "Error in teleplan connection : " + error;
     }
-%><e:forHtmlContent value='<%= result %>' />-<e:forHtmlContent value='<%= msgs %>' /><e:forHtmlContent value='<%= error %>' />
+%><carlos:encode value='<%= result %>' context="html"/>-<carlos:encode value='<%= msgs %>' context="html"/><carlos:encode value='<%= error %>' context="html"/>

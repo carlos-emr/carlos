@@ -15,13 +15,14 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <c:if test="${page eq 1}">
 <div class="inbox-toolbar">
-        <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${e:forJavaScript(currentUser)}')">
-        <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${e:forJavaScript(currentUser)}')"/>
+        <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${carlos:forJavaScript(currentUser)}')">
+        <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${carlos:forJavaScript(currentUser)}')"/>
         <%-- Acknowledged toggle: switches between showing New vs Acknowledged items --%>
         <label class="inbox-toolbar-link" for="ackToggle">
             <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)"><fmt:message key="inboxhub.toolbar.acknowledged"/>
@@ -84,22 +85,22 @@
                         <c:set var="labRead" value="*"/>
                         <c:if test="${labResult.hasRead(currentUser)}"><c:set var="labRead" value=""/></c:if>
                         <a href="javascript:void(0);"
-                        onclick="reportWindow('${e:forJavaScript(labLinks[loopStatus.index])}', window.innerHeight, window.innerWidth); return false;">
-                            <e:forHtmlContent value='${labRead}${labResult.patientName}' />
+                        onclick="reportWindow('${carlos:forJavaScript(labLinks[loopStatus.index])}', window.innerHeight, window.innerWidth); return false;">
+                            <carlos:encode value='${labRead}${labResult.patientName}' context="html"/>
                         </a>
                     </td>
-                    <td>${e:forHtml(labResult.sex)}</td>
+                    <td>${carlos:forHtml(labResult.sex)}</td>
                     <td><c:if test="${labResult.resultStatus == 'A'}"><fmt:message key="inboxhub.list.abnormal"/></c:if></td>
-                    <td>${e:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
-                    <td>${e:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${e:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
-                    <td>${e:forHtml(labResult.requestingClient)}</td>
-                    <td>${e:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
-                    <td>${e:forHtml(labResult.reportStatus)}</td>
+                    <td>${carlos:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
+                    <td>${carlos:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${carlos:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
+                    <td>${carlos:forHtml(labResult.requestingClient)}</td>
+                    <td>${carlos:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${carlos:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />
-                        ${e:forHtml(labResult.ackCount)}&nbsp;
+                        ${carlos:forHtml(labResult.ackCount)}&nbsp;
                         <c:if test="${multiLabCount >= 0}">
-                            (${e:forHtml(labResult.multipleAckCount)})
+                            (${carlos:forHtml(labResult.multipleAckCount)})
                         </c:if>
                     </td>
                 </tr>
@@ -111,7 +112,7 @@
         </div>
 
 <script>
-    ctx = "<e:forJavaScript value='${pageContext.request.contextPath}' />";
+    ctx = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
 
     jQuery('#inbox_table').DataTable({
         autoWidth: false,
@@ -128,7 +129,7 @@
         ],
         order: [[5, 'desc']],
         language: {
-            url: '${e:forJavaScript(pageContext.request.contextPath)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
+            url: '${carlos:forJavaScript(pageContext.request.contextPath)}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
         }
     });
 

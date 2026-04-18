@@ -37,6 +37,7 @@
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     //to prepare calendar display
     String type = request.getParameter("type");
@@ -93,11 +94,11 @@
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr>
             <td BGCOLOR="#FFD7C4" width="50%" align="center"><a
-                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<e:forUriComponent value='<%= type %>' />&openerForm=<e:forUriComponent value='<%= openerForm %>' />&openerElement=<e:forUriComponent value='<%= openerElement %>' />">
+                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=-1&type=<carlos:encode value='<%= type %>' context="uriComponent"/>&openerForm=<carlos:encode value='<%= openerForm %>' context="uriComponent"/>&openerElement=<carlos:encode value='<%= openerElement %>' context="uriComponent"/>">
                 &nbsp;&nbsp;<img src="<%= request.getContextPath() %>/images/previous.gif" WIDTH="10" HEIGHT="9"
                                  BORDER="0" ALT="View Last Month" vspace="2"> <fmt:message key="billing.billingCalendarPopup.btnLast"/>&nbsp;&nbsp; </a> <b><span
                     CLASS=title><%=year%>-<%=month%></span></b> <a
-                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<e:forUriComponent value='<%= type %>' />&openerForm=<e:forUriComponent value='<%= openerForm %>' />&openerElement=<e:forUriComponent value='<%= openerElement %>' />">
+                    href="oscarCalendarPopup.jsp?year=<%=year%>&month=<%=month%>&delta=1&type=<carlos:encode value='<%= type %>' context="uriComponent"/>&openerForm=<carlos:encode value='<%= openerForm %>' context="uriComponent"/>&openerElement=<carlos:encode value='<%= openerElement %>' context="uriComponent"/>">
                 &nbsp;&nbsp;<fmt:message key="billing.billingCalendarPopup.btnNext"/>
                 <img src="<%= request.getContextPath() %>/images/next.gif" WIDTH="10" HEIGHT="9" BORDER="0"
                      ALT="View Next Month" vspace="2">&nbsp;&nbsp;</a></td>
@@ -135,7 +136,7 @@
         <% } else if (type.equals("caisi")) {
         %>
         <td align="center" bgcolor='#FBECF3'><a href="#"
-                                                onClick="typeCaisiDate('<e:forJavaScriptAttribute value='<%= openerForm %>' />','<e:forJavaScriptAttribute value='<%= openerElement %>' />',<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
+                                                onClick="typeCaisiDate('<carlos:encode value='<%= openerForm %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= openerElement %>' context="javaScriptAttribute"/>',<%=year%>,<%=month%>,<%= dateGrid[i][j] %>)">
             <%= dateGrid[i][j] %>
         </a></td>
         <%

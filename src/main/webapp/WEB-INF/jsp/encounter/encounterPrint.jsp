@@ -35,6 +35,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -210,7 +211,7 @@
                                 <tr>
                                     <td class="TableWithBorder" valign="top" style="text-align: left">
                                         <pre name='enTextarea'
-                                             style="font-size: 8pt;"><e:forHtmlContent value='<%= bean.encounter %>' /></pre>
+                                             style="font-size: 8pt;"><carlos:encode value='<%= bean.encounter %>' context="html"/></pre>
                                     </td>
                                 </tr>
                             </table>

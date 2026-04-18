@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -213,7 +214,7 @@ function getLocation(id, multiplier) {
     multiplier = parseInt(multiplier, 10);
     if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
         <fmt:message var="multiplierErrorMsg" key="provider.appointmentProviderAdminDay.multiplierError"/>
-        alert('${e:forJavaScript(multiplierErrorMsg)}');
+        alert('${carlos:forJavaScript(multiplierErrorMsg)}');
         return;
     }
 
@@ -395,7 +396,7 @@ popupPage2(queryString, 'appointment', height, width);
 else if( doConfirm == "Onc" ) {
 if( allowDay == "No" ) {
 <fmt:message var="confirmOnCallMsg" key="provider.appointmentProviderAdminDay.confirmOnCall"/>
-if( confirm('${e:forJavaScript(confirmOnCallMsg)}') ) {
+if( confirm('${carlos:forJavaScript(confirmOnCallMsg)}') ) {
 popupPage(height, width, queryString);
 }
 }
@@ -570,7 +571,7 @@ alert(cbi);
 if ("<%=newticklerwarningwindow%>"=="enabled") {
 if (IsPopupBlocker()) {
 <fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
-alert('${e:forJavaScript(popupBlockerMsg)}');
+alert('${carlos:forJavaScript(popupBlockerMsg)}');
 } else{
 var pu=window.open("<%=request.getContextPath()%>/UnreadTickler",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
 if(window.focus)

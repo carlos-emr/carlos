@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>
@@ -149,9 +150,9 @@
                                                   color="#000000" size="1">Demographic Name </font></td>
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
-                                    type="hidden" name="demono" value="<e:forHtmlAttribute value='<%= demono %>' />" size="20">
-                                <input type="hidden" name="billinginr_no" value="<e:forHtmlAttribute value='<%= billinginr_no %>' />">
-                                <input type="text" name="demo_name" value="<e:forHtmlAttribute value='<%= demo_name %>' />"
+                                    type="hidden" name="demono" value="<carlos:encode value='<%= demono %>' context="htmlAttribute"/>" size="20">
+                                <input type="hidden" name="billinginr_no" value="<carlos:encode value='<%= billinginr_no %>' context="htmlAttribute"/>">
+                                <input type="text" name="demo_name" value="<carlos:encode value='<%= demo_name %>' context="htmlAttribute"/>"
                                        size="20" readonly> </font></td>
                             <td rowspan="9" width="21%" valign="middle">
                                 <p><br>
@@ -162,13 +163,13 @@
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic HIN</font></td>
                             <td width="50%"><input type="text" name="demo_hin"
-                                                   value="<e:forHtmlAttribute value='<%= demo_hin %>' /> " size="20" readonly></td>
+                                                   value="<carlos:encode value='<%= demo_hin %>' context="htmlAttribute"/> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Demographic DOB</font></td>
                             <td width="50%"><input type="text" name="demo_dob"
-                                                   value="<e:forHtmlAttribute value='<%= demo_dob %>' /> " size="20" readonly></td>
+                                                   value="<carlos:encode value='<%= demo_dob %>' context="htmlAttribute"/> " size="20" readonly></td>
                         </tr>
                         <tr>
                             <td width="29%"><font face="Arial, Helvetica, sans-serif"
@@ -176,14 +177,14 @@
                             <td width="50%"><font
                                     face="Verdana, Arial, Helvetica, sans-serif" size="1"> <input
                                     type="text" name="service_code" size="10"
-                                    value="<e:forHtmlAttribute value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' />"> <input
+                                    value="<carlos:encode value='<%= request.getParameter("servicecode") != null ? request.getParameter("servicecode") : "" %>' context="htmlAttribute"/>"> <input
                                     type="hidden" name="service_unit" value="1"> </font></td>
                         </tr>
                         <tr>
                             <td width="29%"><font size="1"
                                                   face="Arial, Helvetica, sans-serif">Diagnostic Code</font></td>
                             <td width="50%"><input type="text" name="diag_code" size="20"
-                                                   value="<e:forHtmlAttribute value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' />"></td>
+                                                   value="<carlos:encode value='<%= request.getParameter("dxcode") != null ? request.getParameter("dxcode") : "" %>' context="htmlAttribute"/>"></td>
                         </tr>
                         <tr>
                             <td width="29%"><font

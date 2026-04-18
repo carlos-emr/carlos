@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     GregorianCalendar cal = new GregorianCalendar();
@@ -280,7 +281,7 @@
                                                 <li>
                                                     <a href="javascript:void(0)"
                                                        onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
-                                                        ${e:forHtml(dashboard.name)}
+                                                        ${carlos:forHtml(dashboard.name)}
                                                     </a>
                                                 </li>
                                             </c:forEach>
@@ -343,14 +344,14 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<e:forUriComponent value='<%= curUser_no %>' />')"
+                       onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<carlos:encode value='<%= curUser_no %>' context="uriComponent"/>')"
                        title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
                         <span class="fa-solid fa-user"></span>
 
                         <span>
-                                <e:forHtmlContent value='<%= userfirstname + " " + userlastname %>' />
+                                <carlos:encode value='<%= userfirstname + " " + userlastname %>' context="html"/>
                             </span>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     </a>

@@ -59,6 +59,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline" %>
 
@@ -76,7 +77,7 @@
 <body>
 <div style="font-size: 16px; font-weight: bold;"><fmt:message key="encounter.guidelinelist.youcurrently"/></div>
 <c:if test="${not empty demographic_no}">
-    <div style="font-size: 10px;"><fmt:message key="encounter.guidelinelist.demographicno"/> ${e:forHtml(demographic_no)}</div>
+    <div style="font-size: 10px;"><fmt:message key="encounter.guidelinelist.demographicno"/> ${carlos:forHtml(demographic_no)}</div>
 </c:if>
 <br>
 <table class="dsTable">

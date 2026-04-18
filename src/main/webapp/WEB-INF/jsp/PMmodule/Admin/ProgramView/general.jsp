@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
 
@@ -38,86 +39,86 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
         <td width="20%">Name:</td>
-        <td>${e:forHtml(program.name)}</td>
+        <td>${carlos:forHtml(program.name)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Facility:</td>
-        <td>${e:forHtml(facilityName)}</td>
+        <td>${carlos:forHtml(facilityName)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Description:</td>
-        <td>${e:forHtml(program.description)}</td>
+        <td>${carlos:forHtml(program.description)}</td>
     </tr>
     <tr class="b">
         <td width="20%">HIC:</td>
-        <td>${e:forHtml(program.hic)}</td>
+        <td>${carlos:forHtml(program.hic)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Type:</td>
-        <td>${e:forHtml(program.type)}</td>
+        <td>${carlos:forHtml(program.type)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Location:</td>
-        <td>${e:forHtml(program.location)}</td>
+        <td>${carlos:forHtml(program.location)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Client Participation:</td>
-        <td>${e:forHtml(program.numOfMembers)}/${e:forHtml(program.maxAllowed)} (${e:forHtml(program.queueSize)} waiting)</td>
+        <td>${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)} (${carlos:forHtml(program.queueSize)} waiting)</td>
     </tr>
     <tr class="b">
         <td width="20%">Holding Tank:</td>
-        <td>${e:forHtml(program.holdingTank)}</td>
+        <td>${carlos:forHtml(program.holdingTank)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Allow Batch Admissions:</td>
-        <td>${e:forHtml(program.allowBatchAdmission)}</td>
+        <td>${carlos:forHtml(program.allowBatchAdmission)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Allow Batch Discharges:</td>
-        <td>${e:forHtml(program.allowBatchDischarge)}</td>
+        <td>${carlos:forHtml(program.allowBatchDischarge)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Man Or Woman:</td>
-        <td>${e:forHtml(program.manOrWoman)}</td>
+        <td>${carlos:forHtml(program.manOrWoman)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Transgender:</td>
-        <td>${e:forHtml(program.transgender)}</td>
+        <td>${carlos:forHtml(program.transgender)}</td>
     </tr>
     <tr class="b">
         <td width="20%">First Nation:</td>
-        <td>${e:forHtml(program.firstNation)}</td>
+        <td>${carlos:forHtml(program.firstNation)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Alcohol:</td>
-        <td>${e:forHtml(program.alcohol)}</td>
+        <td>${carlos:forHtml(program.alcohol)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Abstinence Support?</td>
-        <td>${e:forHtml(program.abstinenceSupport)}</td>
+        <td>${carlos:forHtml(program.abstinenceSupport)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Physical Health:</td>
-        <td>${e:forHtml(program.physicalHealth)}</td>
+        <td>${carlos:forHtml(program.physicalHealth)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Mental Health:</td>
-        <td>${e:forHtml(program.mentalHealth)}</td>
+        <td>${carlos:forHtml(program.mentalHealth)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Housing:</td>
-        <td>${e:forHtml(program.housing)}</td>
+        <td>${carlos:forHtml(program.housing)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Exclusive View:</td>
-        <td>${e:forHtml(program.exclusiveView)}</td>
+        <td>${carlos:forHtml(program.exclusiveView)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Minimum Age:</td>
-        <td>${e:forHtml(program.ageMin)}</td>
+        <td>${carlos:forHtml(program.ageMin)}</td>
     </tr>
     <tr class="b">
         <td width="20%">Maximum Age:</td>
-        <td>${e:forHtml(program.ageMax)}</td>
+        <td>${carlos:forHtml(program.ageMax)}</td>
     </tr>
 </table>

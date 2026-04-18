@@ -55,8 +55,10 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -70,7 +72,7 @@
     // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
     String navbarName = (String) request.getAttribute("navbarName");
     if (navbarName == null) navbarName = "";
-    String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
+    String htmlNavbarName = SafeEncode.forHtmlAttribute(navbarName);
 
     // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
     java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
@@ -78,15 +80,15 @@
 %>
 <script type="text/javascript">
 <% for (NavBarDisplayDAO.AutoCompleteItem acItem : acItems) { %>
-itemColours['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = '<e:forJavaScriptBlock value='<%= acItem.bgColour() %>' />';
-autoCompList.push('<e:forJavaScriptBlock value='<%= acItem.key() %>' />');
-autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJavaScriptBlock value='<%= acItem.jsExpression() %>' />";
+itemColours['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= acItem.bgColour() %>' context="javaScriptBlock"/>';
+autoCompList.push('<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>');
+autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlock"/>'] = "<carlos:encode value='<%= acItem.jsExpression() %>' context="javaScriptBlock"/>";
 <% } %>
 </script>
 <%
     }
 %>
-<input type=hidden name="reloadUrl" value="<e:forHtmlAttribute value='<%= dao.getReloadUrl() %>' />"/>
+<input type=hidden name="reloadUrl" value="<carlos:encode value='<%= dao.getReloadUrl() %>' context="htmlAttribute"/>"/>
 <%
     //Do we have a '+' command to display on the right of the module header?
     String rh = dao.getRightHeadingID();
@@ -100,9 +102,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
 <%      NavBarDisplayDAO.PopupConfig rightCfg = dao.getRightPopup();
         String rightEvent = dao.numPopUpMenuItems() > 0 ? "onmouseover" : "onclick";
         if (rightCfg != null) { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<e:forJavaScriptAttribute value='<%= rightCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= rightCfg.url() %>' />'); return false;">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="popupPage(<%=rightCfg.width()%>,<%=rightCfg.height()%>,'<carlos:encode value='<%= rightCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rightCfg.url() %>' context="javaScriptAttribute"/>'); return false;">&#43;</a></h3>
 <%      } else { %>
-        <h3><a href="javascript:void(0);" <%=rightEvent%>="<e:forHtmlAttribute value='<%= dao.getRightURL() %>' />">&#43;</a></h3>
+        <h3><a href="javascript:void(0);" <%=rightEvent%>="<carlos:encode value='<%= dao.getRightURL() %>' context="htmlAttribute"/>">&#43;</a></h3>
 <%      } %>
     </div>
     <%
@@ -119,7 +121,7 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
     %>
     <div id='menu<%=rh%>' class='menu' style='width: <%=menuWidth%>px;'
          onclick='event.cancelBubble = true;'>
-        <h3 style='text-align: center'><e:forHtmlContent value='<%= dao.getMenuHeader() %>' />
+        <h3 style='text-align: center'><carlos:encode value='<%= dao.getMenuHeader() %>' context="html"/>
         </h3>
         <%
             String menuCallback = dao.getMenuCallback();
@@ -135,17 +137,17 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
            if (popCfg != null) {
                String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
-                   + ",'" + Encode.forJavaScriptAttribute(popCfg.windowName())
-                   + "','" + Encode.forJavaScriptAttribute(popCfg.url()) + "');";
+                   + ",'" + SafeEncode.forJavaScriptAttribute(popCfg.windowName())
+                   + "','" + SafeEncode.forJavaScriptAttribute(popCfg.url()) + "');";
                if (menuCallback != null) {
-                   popupOnclick += Encode.forJavaScriptAttribute(menuCallback)
-                       + "('" + Encode.forJavaScriptAttribute(popCfg.windowName()) + "');";
+                   popupOnclick += SafeEncode.forJavaScriptAttribute(menuCallback)
+                       + "('" + SafeEncode.forJavaScriptAttribute(popCfg.windowName()) + "');";
                }
                popupOnclick += " return false;";
 %>
-           onclick="<%=popupOnclick%>"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
+           onclick="<%=popupOnclick%>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } else { %>
-           onclick="<e:forHtmlContent value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' />"><e:forHtmlContent value='<%= dao.getPopUpText(idx) %>' />
+           onclick="<carlos:encode value='<%= dao.getPopUpUrl(idx) + "; return false;" %>' context="html"/>"><carlos:encode value='<%= dao.getPopUpText(idx) %>' context="html"/>
 <%         } %>
         </a>
         <%
@@ -178,10 +180,10 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
     <div class="nav-menu-title">
 <%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
         if (leftCfg != null) { %>
-        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<e:forJavaScriptAttribute value='<%= leftCfg.windowName() %>' />','<e:forJavaScriptAttribute value='<%= leftCfg.url() %>' />'); return false;"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
+        <h3 onclick="popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } else { %>
-        <h3 onclick="<e:forJavaScriptAttribute value='<%= dao.getLeftURL() + "; return false;" %>' />"><a href="javascript:void(0)"><e:forHtmlContent value='<%= dao.getLeftHeading() %>' />
+        <h3 onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><a href="javascript:void(0)"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } %>
     </div>
@@ -276,9 +278,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
         // Encode for defense-in-depth when used in JS string literals and HTML attributes.
         String navbarName = (String) request.getAttribute("navbarName");
         if (navbarName == null) navbarName = "";
-        String jsNavbarName = Encode.forJavaScript(navbarName);
+        String jsNavbarName = SafeEncode.forJavaScript(navbarName);
         String safeReloadUrl = reloadUrl == null ? "" : reloadUrl;
-        String jsReloadUrl = Encode.forJavaScript(safeReloadUrl);
+        String jsReloadUrl = SafeEncode.forJavaScript(safeReloadUrl);
 
         String divReloadInfo;
         numToDisplay -= numDisplayed;
@@ -301,21 +303,21 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
 
             if (curNum == 0 && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else {
-                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + Encode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + SafeEncode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
             }
             ++curNum;
 
@@ -325,9 +327,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
             //url = StringUtils.replaceEach(url, new String[] {"'","\\\""}, new String[] {"\'","\\\""});
             if (item.isURLJavaScript()) {
                 divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
             } else {
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
             }
             out.println(item.getTitle());
             out.println("</a>");
@@ -338,9 +340,9 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
 
                 if (item.isURLJavaScript()) {
                     divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
+                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
                 } else {
-                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
+                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
                 }
 
                 if (item.getValue() != null && !item.getValue().trim().equals("")) {
@@ -363,7 +365,7 @@ autoCompleted['<e:forJavaScriptBlock value='<%= acItem.key() %>' />'] = "<e:forJ
             if (matcher.find()) {
                 windowName = matcher.group(1);
                 reloadUrl += "&numToDisplay=6&cmd=" + cmd;
-                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + Encode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + Encode.forJavaScript(cmd) + "';";
+                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + SafeEncode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + SafeEncode.forJavaScript(cmd) + "';";
             }
 
         }

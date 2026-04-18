@@ -50,11 +50,13 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -127,7 +129,7 @@ Ontario, Canada
 			}
 
 			function updateAjax() {
-				var parentAjaxId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
+				var parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 				if (parentAjaxId != "null") {
 					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
 					window.opener.updateNeeded = true;
@@ -193,24 +195,24 @@ Ontario, Canada
                 <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"></path>
             </svg>
             Add eForm
-        </h2> <span><e:forHtmlContent value='<%= demographic.getDisplayName() %>' /></span>
+        </h2> <span><carlos:encode value='<%= demographic.getDisplayName() %>' context="html"/></span>
         </div>
         <div class="menu-columns">
 
             <div class="left-column">
 
-                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />">
+                <a href="${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>">
                     <fmt:message key="demographic.demographiceditdemographic.btnMasterFile"/></a>
-                <a href="efmformslistadd?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />"
+                <a href="efmformslistadd?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>"
                    class="current"> <fmt:message key="eform.showmyform.btnAddEForm"/></a>
                 <jsp:include page="efmviewgroups.jsp">
                     <jsp:param name="url" value="${pageContext.request.contextPath}/eform/efmformslistadd"/>
                     <jsp:param name="groupView" value="<%= groupView %>"/>
                 </jsp:include>
 
-                <a href="efmpatientformlist?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
+                <a href="efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>">
                     <fmt:message key="eform.calldeletedformdata.btnGoToForm"/></a>
-                <a href="efmpatientformlistdeleted?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&appointment=<e:forUriComponent value='<%= appointment %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />">
+                <a href="efmpatientformlistdeleted?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>">
                     <fmt:message key="eform.showmyform.btnDeleted"/></a>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w"
@@ -242,18 +244,18 @@ Ontario, Canada
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                     %>
-                    <c:set var="__enc_1"><e:forUriComponent value='<%= demographic_no %>' /></c:set>
-                    <c:set var="__enc_2"><e:forUriComponent value='<%= appointment %>' /></c:set>
+                    <c:set var="__enc_1"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
+                    <c:set var="__enc_2"><carlos:encode value='<%= appointment %>' context="uriComponent"/></c:set>
                     <tr>
                         <td>
                             <a HREF="#"
-                               ONCLICK="popupPage('efmformadd_data?fid=<e:forUriComponent value='<%= (String) curForm.get("fid") %>' />&demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />&appointment=<e:forJavaScriptAttribute value='${__enc_2}' />','<%=Encode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
+                               ONCLICK="popupPage('efmformadd_data?fid=<carlos:encode value='<%= (String) curForm.get("fid") %>' context="uriComponent"/>&demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&appointment=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<%=SafeEncode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + SafeEncode.forJavaScriptAttribute(demographic_no) %>'); return true;"
                                TITLE='Add This eForm' OnMouseOver="window.status='Add This eForm' ; return true">
-                                <e:forHtmlContent value='<%= (String) curForm.get("formName") %>' />
+                                <carlos:encode value='<%= (String) curForm.get("formName") %>' context="html"/>
                             </a></td>
-                        <td><e:forHtmlContent value='<%= (String) curForm.get("formSubject") %>' />
+                        <td><carlos:encode value='<%= (String) curForm.get("formSubject") %>' context="html"/>
                         </td>
-                        <td><e:forHtmlContent value='<%= (String) curForm.get("formDate") %>' />
+                        <td><carlos:encode value='<%= (String) curForm.get("formDate") %>' context="html"/>
                         </td>
                     </tr>
                     <%

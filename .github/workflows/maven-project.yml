@@ -287,6 +287,22 @@ jobs:
             make install --run-tests
           "
 
+  encode-lint:
+    # Encoder null-safety lint — catches two silent-failure classes:
+    #   A) <e:forXxx> tags used without the owasp.encoder.jakarta taglib
+    #      directive declared (Jasper silently drops the tag output).
+    #   B) Direct <e:forXxx>, ${e:forXxx()}, or Encode.forXxx() usage where
+    #      the null-safe CARLOS wrappers are available.
+    # Does not need the docker image or Maven cache — runs in ~10 seconds.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Run encoder null-safety lint
+        run: bash scripts/lint/check-encoder-null-safety.sh
+
   jspc:
     needs: build
     runs-on: ubuntu-latest

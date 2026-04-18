@@ -31,6 +31,7 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -91,7 +92,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your image was uploaded.
             <c:if test="${ not empty sanitizedFileName }">
-                <br/>Saved as: <strong>${Encode.formHtmlContent(sanitizedFileName)}</strong>
+                <br/>Saved as: <strong>${SafeEncode.formHtmlContent(sanitizedFileName)}</strong>
             </c:if>
         </div>
         <script>

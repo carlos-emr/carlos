@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.db.DBHandler" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);
 %>
@@ -130,7 +131,7 @@
 %>
 <table bgcolor='silver' width='100%' cellspacing=0 cellpadding=0>
     <tr>
-        <td><font color='blue'><e:forHtmlContent value='<%= patientName %>' /> | EDB: <e:forHtmlContent value='<%= finalEDB %>' />
+        <td><font color='blue'><carlos:encode value='<%= patientName %>' context="html"/> | EDB: <carlos:encode value='<%= finalEDB %>' context="html"/>
         </font></td>
         <td align="right"><input type="button" name="submit"
                                  value="Print" onclick="window.print();"/> <input type="button"

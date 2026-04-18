@@ -39,6 +39,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page
@@ -63,7 +64,7 @@
     boolean bTodayDate = false;
 %>
 <!DOCTYPE html>
-<html lang="<e:forHtmlAttribute value='<%= request.getLocale().getLanguage() %>' />">
+<html lang="<carlos:encode value='<%= request.getLocale().getLanguage() %>' context="htmlAttribute"/>">
 <head>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -96,11 +97,11 @@
             <%
                 if (param.startsWith("&formdatebox=")) {
             %>
-            opener.<e:forJavaScript value='<%= param.substring("&formdatebox=".length()) %>' /> = year1 + "-" + month1 + "-" + day1;
+            opener.<carlos:encode value='<%= param.substring("&formdatebox=".length()) %>' context="javaScript"/> = year1 + "-" + month1 + "-" + day1;
             <%
                 } else {
             %>
-            opener.location.href = "<e:forJavaScriptBlock value='<%= urlfrom %>' />" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<e:forJavaScriptBlock value='<%= param %>' />";
+            opener.location.href = "<carlos:encode value='<%= urlfrom %>' context="javaScriptBlock"/>" + "?year=" + year1 + "&month=" + month1 + "&day=" + day1 + "<carlos:encode value='<%= param %>' context="javaScriptBlock"/>";
             <%  }  %>
             self.close();
         }
@@ -137,16 +138,16 @@
             <h2>&nbsp;<%=arrayMonth[month-1]%>&nbsp;<%=year%>&nbsp;</h2>
         </td>
         <td style="text-align:right"><h2>
-            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<e:forHtmlAttribute value='<%= urlfrom %>' />&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
+            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<carlos:encode value='<%= urlfrom %>' context="htmlAttribute"/>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
                 <i class="fa-solid fa-angles-left" title="<fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
             </a>
-            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<e:forHtmlAttribute value='<%= urlfrom %>' />&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
+            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<carlos:encode value='<%= urlfrom %>' context="htmlAttribute"/>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
                 <i class="fa-solid fa-angle-left" title="<fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
             </a>
-            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<e:forHtmlAttribute value='<%= urlfrom %>' />&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
+            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<carlos:encode value='<%= urlfrom %>' context="htmlAttribute"/>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
                 <i class="fa-solid fa-angle-right" title="<fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
             </a>
-            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<e:forHtmlAttribute value='<%= urlfrom %>' />&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
+            <a href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<carlos:encode value='<%= urlfrom %>' context="htmlAttribute"/>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
                 <i class="fa-solid fa-angles-right" title="<fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
             </a>&nbsp;</h2>
         </td>
@@ -159,7 +160,7 @@
             <%
                 for (int i = 0; i < 12; i++) {
             %> <a
-                href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<e:forHtmlAttribute value='<%= urlfrom %>' />&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"
+                href="<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<carlos:encode value='<%= urlfrom %>' context="htmlAttribute"/>&year=<%=year%>&month=<%=i+1%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>"
                 <%=(i+1)==month?"style=\"color:red\"":""%>><span style="font-size:smaller"><%=arrayMonth[i]%></span>
         </a>
             <% } %>

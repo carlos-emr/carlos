@@ -32,6 +32,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -70,6 +71,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
@@ -176,20 +178,20 @@
             <td align="center"><%=nItems%>
             </td>
             <td align="center"
-                nowrap><e:forHtmlContent value='<%= ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/') %>' />
+                nowrap><carlos:encode value="<%= ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/') %>" context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= rt.getDemoName() %>' />
+            <td><carlos:encode value='<%= rt.getDemoName() %>' context="html"/>
             </td>
             <!--td align="center" ><%=rt.getId().getDemographicNo()%> </td-->
-            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "age") %>' />
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "age") %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "gravida") %>' />
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "gravida") %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "term") %>' />
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "term") %>' context="html"/>
             </td>
-            <td nowrap><e:forHtmlContent value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "phone") %>' />
+            <td nowrap><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "phone") %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= providerNameBean.getShortDef(rt.getProviderNo(), "", 11) %>' />
+            <td><carlos:encode value='<%= providerNameBean.getShortDef(rt.getProviderNo(), "", 11) %>' context="html"/>
             </td>
         </tr>
         <%
@@ -205,8 +207,8 @@
     int intLimit2=Integer.parseInt(strLimit2);
     nNextPage=intLimit2+Integer.parseInt(strLimit1);
     nLastPage=Integer.parseInt(strLimit1)-intLimit2;
-    String encodedStartDate = Encode.forUriComponent(startDate != null ? startDate : "");
-    String encodedEndDate = Encode.forUriComponent(endDate != null ? endDate : "");
+    String encodedStartDate = SafeEncode.forUriComponent(startDate != null ? startDate : "");
+    String encodedEndDate = SafeEncode.forUriComponent(endDate != null ? endDate : "");
     if(nLastPage>=0) {
 %> <a
                 href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><%= bundle.getString("report.reportedblist.lastPage") %></a> | <%

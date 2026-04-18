@@ -32,6 +32,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -39,6 +40,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -120,11 +122,11 @@
     <form method="post" name="titlesearch" action="<%=request.getContextPath()%>/oscarMDS/SearchPatient"
           onSubmit="return checkTypeIn();">
         <input type="hidden"
-               name="from" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("from")) %>' />"/>
+               name="from" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="htmlAttribute"/>"/>
         <input type="hidden"
-               name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />"/> <input
+               name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>"/> <input
             type="hidden" name="labType"
-            value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/> <%--@ include file="zdemographictitlesearch.htm"--%>
+            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/> <%--@ include file="zdemographictitlesearch.htm"--%>
         <tr valign="top">
             <td rowspan="2" ALIGN="right" valign="middle"><font
                     face="Verdana" color="#0000FF"><b><i>Search</i></b></font></td>
@@ -137,7 +139,7 @@
                 <input type="radio" name="search_mode" value="search_dob"> <fmt:message key="oscarMDS.segmentDisplay.patientSearch.formDOB"/> </font></td>
             <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                 NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' />"> <INPUT
+                                                                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="htmlAttribute"/>"> <INPUT
                     TYPE="hidden" NAME="orderby" VALUE="last_name"> <INPUT
                     TYPE="hidden" NAME="dboperation" VALUE="search_titlename"> <INPUT
                     TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT TYPE="hidden"
@@ -163,7 +165,7 @@
 
 <table width="95%" border="0">
     <tr>
-        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' />
+        <td align="left"><font size="-1"> <i><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgResults"/></i> : <carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="html"/>
         </font></td>
     </tr>
 </table>
@@ -175,7 +177,7 @@
 
     function addName(lastname, firstname, chartno) {
         fullname = lastname + "," + firstname;
-        document.addform.action = "<e:forJavaScript value='<%= StringUtils.noNull(request.getParameter("originalpage")) %>' />?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
+        document.addform.action = "<carlos:encode value='<%= StringUtils.noNull(request.getParameter("originalpage")) %>' context="javaScript"/>?name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false";  //+"\"" ;
         document.addform.submit(); //
         //return;
     }
@@ -191,9 +193,9 @@
     <table width="100%" border="1" cellpadding="0" cellspacing="1"
            bgcolor="#ffffff">
         <form method="post" name="addform" action="PatientMatch"><input
-                type="hidden" name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />">
+                type="hidden" name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="labType"
-                   value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/>
+                   value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/>
             <tr bgcolor="#339999">
                 <TH align="center" width="10%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgPatientId"/></b></TH>
                 <TH align="center" width="20%"><b><fmt:message key="oscarMDS.segmentDisplay.patientSearch.msgLastName"/></b></TH>
@@ -367,24 +369,24 @@
 
             <tr bgcolor="<%=bodd?"ivory":"white"%>" align="center">
                 <td><input type="submit" name="demographicNo"
-                           value="<e:forHtmlAttribute value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' />"
-                           onclick="updateOpener('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />','<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' />');">
+                           value="<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="htmlAttribute"/>"
+                           onclick="updateOpener('<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="javaScriptAttribute"/>');">
                 </td>
-                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
+                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
+                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
                 </td>
                 <td><%= age %>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
                 </td>
-                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : Encode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
+                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : SafeEncode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
                 </td>
 
             </tr>
@@ -404,30 +406,30 @@
         nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
         nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
     %>
-    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-    <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-    <c:set var="__enc_3"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
-    <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
-    <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-    <c:set var="__enc_6"><e:forUriComponent value='<%= strLimit2 %>' /></c:set>
-    <c:set var="__enc_7"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("from")) %>' /></c:set>
+    <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_3"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_6"><carlos:encode value='<%= strLimit2 %>' context="uriComponent"/></c:set>
+    <c:set var="__enc_7"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="uriComponent"/></c:set>
     <script language="JavaScript">
         <!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<e:forJavaScript value='${__enc_1}' />&search_mode=<e:forJavaScript value='${__enc_2}' />&displaymode=<e:forJavaScript value='${__enc_3}' />&dboperation=<e:forJavaScript value='${__enc_4}' />&orderby=<e:forJavaScript value='${__enc_5}' />&limit1=<%=nLastPage%>&limit2=<e:forJavaScript value='${__enc_6}' />&from=<e:forJavaScript value='${__enc_7}' />";
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<carlos:encode value='${__enc_1}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_2}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_3}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_4}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_5}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='${__enc_6}' context="javaScript"/>&from=<carlos:encode value='${__enc_7}' context="javaScript"/>";
             //document.nextform.submit();
         }
 
         function next() {
-            <c:set var="__enc_8"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-            <c:set var="__enc_9"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-            <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
-            <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
-            <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-            <c:set var="__enc_13"><e:forUriComponent value='<%= strLimit2 %>' /></c:set>
-            <c:set var="__enc_14"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("from")) %>' /></c:set>
-            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<e:forJavaScript value='${__enc_8}' />&search_mode=<e:forJavaScript value='${__enc_9}' />&displaymode=<e:forJavaScript value='${__enc_10}' />&dboperation=<e:forJavaScript value='${__enc_11}' />&orderby=<e:forJavaScript value='${__enc_12}' />&limit1=            
-<%=nNextPage%>&limit2=<e:forJavaScript value='${__enc_13}' />&from=<e:forJavaScript value='${__enc_14}' />";
+            <c:set var="__enc_8"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_9"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_13"><carlos:encode value='<%= strLimit2 %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_14"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("from")) %>' context="uriComponent"/></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/oscarMDS/SearchPatient?keyword=<carlos:encode value='${__enc_8}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_9}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_10}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=            
+<%=nNextPage%>&limit2=<carlos:encode value='${__enc_13}' context="javaScript"/>&from=<carlos:encode value='${__enc_14}' context="javaScript"/>";
             //document.nextform.submit();
         }
 
@@ -436,9 +438,9 @@
 
     <form method="post" name="nextform"
           action="<%= request.getContextPath() %>/demographic/DemographicSearch"><input
-            type="hidden" name="labNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' />">
+            type="hidden" name="labNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="htmlAttribute"/>">
         <input type="hidden" name="labType"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("labType")) %>' />"/> <%
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labType")) %>' context="htmlAttribute"/>"/> <%
             if (nLastPage >= 0) {
         %> <input type="submit" name="submit"
                   value="<fmt:message key="oscarMDS.segmentDisplay.patientSearch.btnLastPage"/>"

@@ -23,6 +23,7 @@
 --%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%--
     Purpose:
@@ -42,7 +43,7 @@
 <head>
     <title><fmt:message key='oscarwaitinglist.removeFromWaitingListResult.title'/></title>
     <link rel="stylesheet" type="text/css"
-          href="${e:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
+          href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/styles.css">
 </head>
 <body>
 <table>

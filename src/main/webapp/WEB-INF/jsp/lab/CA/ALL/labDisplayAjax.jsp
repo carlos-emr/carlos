@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -71,6 +72,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -124,9 +126,9 @@
 
     String ackLabFunc;
     if (skipComment) {
-        ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScriptAttribute(segmentID) + "','" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
+        ackLabFunc = "handleLab('acknowledgeForm_" + SafeEncode.forJavaScriptAttribute(segmentID) + "','" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
     } else {
-        ackLabFunc = "getComment('" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
+        ackLabFunc = "getComment('" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
     }
 
     Long reqIDL = LabRequestReportLink.getIdByReport("hl7TextMessage", Long.valueOf(segmentID.trim()));
@@ -245,7 +247,7 @@
     }
 
     linkreq = function (rptId, reqId) {
-        var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
+        var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + SafeEncode.forJavaScript(demographicID) : ""%>";
         window.open(link, "linkwin", "width=500, height=200");
     }
 
@@ -278,7 +280,7 @@
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0)
                                 window.popup(700, 980, contextPath + '/messenger/SendDemoMessage?demographic_no=' + demoid + "&recall", 'msgRecall');
-                            window.popup(450, 600, contextPath + '/tickler/ForwardDemographicTickler?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<e:forJavaScript value='<%= ticklerAssignee %>' />&priority=<e:forJavaScript value='<%= recallTicklerPriority %>' />&recall', 'ticklerRecall');
+                            window.popup(450, 600, contextPath + '/tickler/ForwardDemographicTickler?docType=HL7&docId=' + labid + '&demographic_no=' + demoid + '<carlos:encode value='<%= ticklerAssignee %>' context="javaScript"/>&priority=<carlos:encode value='<%= recallTicklerPriority %>' context="javaScript"/>&recall', 'ticklerRecall');
                         } else if (action == 'ticklerLab') {
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0)
@@ -391,22 +393,22 @@
         }
     };
 </script>
-<div id="labdoc_<e:forHtmlAttribute value='<%= segmentID %>' />">
+<div id="labdoc_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
     <!-- form forwarding of the lab -->
-    <form name="reassignForm_<e:forHtmlAttribute value='<%= segmentID %>' />" method="post">
-        <input type="hidden" name="flaggedLabs" value="<e:forHtmlAttribute value='<%= segmentID %>' />"/>
+    <form name="reassignForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post">
+        <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="selectedProviders" value=""/>
         <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<e:forHtmlAttribute value='<%= segmentID %>' />HL7" value="imNotNull"/> <%-- segmentID is validated as numeric at the top of this JSP --%>
-        <input type="hidden" name="providerNo" id="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
+        <input type="hidden" name="labType<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>HL7" value="imNotNull"/> <%-- segmentID is validated as numeric at the top of this JSP --%>
+        <input type="hidden" name="providerNo" id="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="ajax" value="yes"/>
     </form>
-    <form name="labLabelForm" id="labLabelForm<e:forHtmlAttribute value='<%= segmentID %>' />" method='POST'
-          onsubmit="createLabLabel('labLabelForm<e:forJavaScriptAttribute value='<%= segmentID %>' />');" action="javascript:void(0);">
-        <input type="hidden" id="labNum" name="lab_no" value="<e:forHtmlAttribute value='<%= String.valueOf(lab_no) %>' />">
-        <input type="hidden" id="label" name="label" value="<e:forHtmlAttribute value='<%= label %>' />">
+    <form name="labLabelForm" id="labLabelForm<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method='POST'
+          onsubmit="createLabLabel('labLabelForm<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>');" action="javascript:void(0);">
+        <input type="hidden" id="labNum" name="lab_no" value="<carlos:encode value='<%= String.valueOf(lab_no) %>' context="htmlAttribute"/>">
+        <input type="hidden" id="label" name="label" value="<carlos:encode value='<%= label %>' context="htmlAttribute"/>">
     </form>
-    <form name="acknowledgeForm" id="acknowledgeForm_<e:forHtmlAttribute value='<%= segmentID %>' />" onsubmit="javascript:void(0);" method="post"
+    <form name="acknowledgeForm" id="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" onsubmit="javascript:void(0);" method="post"
           action="javascript:void(0);">
 
         <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -415,62 +417,62 @@
                     <table width="100%" border="0" cellspacing="0" cellpadding="3">
                         <tr>
                             <td align="left" class="MainTableTopRowRightColumn" width="100%">
-                                <input type="hidden" name="segmentID" value="<e:forHtmlAttribute value='<%= segmentID %>' />"/>
-                                <input type="hidden" name="multiID" value="<e:forHtmlAttribute value='<%= multiLabId %>' />"/>
-                                <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />"/>
-                                <input type="hidden" name="status" value="<e:forHtmlAttribute value='<%= labStatus %>' />" id="status_<e:forHtmlAttribute value='<%= segmentID %>' />"/>
-                                <input type="hidden" name="comment" value="" id="comment_<e:forHtmlAttribute value='<%= segmentID %>' />"/>
+                                <input type="hidden" name="segmentID" value="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="multiID" value="<carlos:encode value='<%= multiLabId %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="status" value="<carlos:encode value='<%= labStatus %>' context="htmlAttribute"/>" id="status_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="comment" value="" id="comment_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="labType" value="HL7"/>
                                 <input type="hidden" name="ajaxcall" value="yes"/>
-                                <input type="hidden" id="demoName<e:forHtmlAttribute value='<%= segmentID %>' />"
+                                <input type="hidden" id="demoName<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
                                        value="<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>"/>
                                 <% if (!ackFlag) { %>
                                 <input type="button"
                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<e:forHtmlContent value='<%= ackLabFunc %>' />">
+                                       onclick="<carlos:encode value='<%= ackLabFunc %>' context="html"/>">
                                 <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                                       onclick="return getComment('<e:forJavaScriptAttribute value='<%= segmentID %>' />','addComment');">
+                                       onclick="return getComment('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','addComment');">
                                 <% } %>
-                                                    <c:set var="__enc_1"><e:forUriComponent value='<%= segmentID %>' /></c:set>
-                                       <c:set var="__enc_2"><e:forUriComponent value='<%= providerNo %>' /></c:set>
-                                       <c:set var="__enc_3"><e:forUriComponent value='<%= searchProviderNo %>' /></c:set>
+                                                    <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
+                                       <c:set var="__enc_2"><carlos:encode value='<%= providerNo %>' context="uriComponent"/></c:set>
+                                       <c:set var="__enc_3"><carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/></c:set>
                    <input type="button" class="smallButton"
                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProviderAltView?doc_no=<e:forJavaScriptAttribute value='${__enc_1}' />&providerNo=<e:forJavaScriptAttribute value='${__enc_2}' />&searchProviderNo=<e:forJavaScriptAttribute value='${__enc_3}' />', 'providerselect')">
+                                       onClick="popupStart(300, 400, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProviderAltView?doc_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>', 'providerselect')">
                                 <input type="button" value=" <fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<e:forJavaScriptAttribute value='<%= segmentID %>' />')">
+                                       onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
 
-                                <input type="button" value="Msg" onclick="handleLab('','<e:forJavaScriptAttribute value='<%= segmentID %>' />','msgLab');"/>
+                                <input type="button" value="Msg" onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');"/>
                                 <input type="button" value="Tickler"
-                                       onclick="handleLab('','<e:forJavaScriptAttribute value='<%= segmentID %>' />','ticklerLab');"/>
+                                       onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','ticklerLab');"/>
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
-                                                     <c:set var="__enc_4"><e:forUriComponent value='<%= segmentID %>' /></c:set>
+                                                     <c:set var="__enc_4"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                   <input type="button" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                                       onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<e:forJavaScriptAttribute value='${__enc_4}' />&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                       onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                 <% } %>
-                                <input type="button" value="Req# <e:forHtmlAttribute value='<%= reqTableID %>' />" title="Link to Requisition"
-                                       onclick="linkreq('<e:forJavaScriptAttribute value='<%= segmentID %>' />','<e:forJavaScriptAttribute value='<%= reqID %>' />');"/>
+                                <input type="button" value="Req# <carlos:encode value='<%= reqTableID %>' context="htmlAttribute"/>" title="Link to Requisition"
+                                       onclick="linkreq('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= reqID %>' context="javaScriptAttribute"/>');"/>
 
                                 <% if (recall) {%>
                                 <input type="button" value="Recall"
-                                       onclick="handleLab('','<e:forJavaScriptAttribute value='<%= segmentID %>' />','msgLabRecall');">
+                                       onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLabRecall');">
                                 <%}%>
 
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" id="createLabel" value="Label"
-                                        onClick="createLabLabel('labLabelForm<e:forJavaScriptAttribute value='<%= segmentID %>' />','acknowledgeForm_<e:forJavaScriptAttribute value='<%= segmentID %>' />','labelspan_<e:forJavaScriptAttribute value='<%= segmentID %>' />','label_<e:forJavaScriptAttribute value='<%= segmentID %>' />')">
+                                        onClick="createLabLabel('labLabelForm<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','labelspan_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','label_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
                                     Label
                                 </button>
                                 <%} else { %>
                                 <button type="button" id="createLabel" style="background-color:#6699FF" value="Label"
-                                        onClick="createLabLabel('labLabelForm<e:forJavaScriptAttribute value='<%= segmentID %>' />','acknowledgeForm_<e:forJavaScriptAttribute value='<%= segmentID %>' />','labelspan_<e:forJavaScriptAttribute value='<%= segmentID %>' />','label_<e:forJavaScriptAttribute value='<%= segmentID %>' />')">
+                                        onClick="createLabLabel('labLabelForm<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','labelspan_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','label_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
                                     Label
                                 </button>
                                 <%} %>
 
 
-                                <input type="text" id="label_<e:forHtmlAttribute value='<%= segmentID %>' />" name="label" value=""/>
+                                <input type="text" id="label_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" name="label" value=""/>
                                 <% String labelval = "";
                                     if (label != "" && label != null) {
                                         labelval = label;
@@ -478,7 +480,7 @@
                                         labelval = "(not set)";
 
                                     } %>
-                                <span id="labelspan_<e:forHtmlAttribute value='<%= segmentID %>' />" class="Field2"><i>Label: <e:forHtmlContent value='<%= labelval %>' /> </i></span>
+                                <span id="labelspan_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" class="Field2"><i>Label: <carlos:encode value='<%= labelval %>' context="html"/> </i></span>
                                 <span class="Field2"><i>Next Appointment: <oscar:nextAppt
                                         demographicNo="<%=demographicID%>"/></i></span>
                             </td>
@@ -502,11 +504,11 @@
                            } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
@@ -514,10 +516,10 @@
                                     if (multiID.length > 1) {
                                         if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= Encode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                         }
                                     }
                                 %>
@@ -550,7 +552,7 @@
                                                     <td valign="top" align="left">
                                                         <table width="100%" border="0" cellpadding="2" cellspacing="0"
                                                                valign="top"  <% if (demographicID.equals("") || demographicID.equals("0")) { %>
-                                                               bgcolor="orange" <% } %> id="DemoTable<e:forHtmlAttribute value='<%= segmentID %>' />">
+                                                               bgcolor="orange" <% } %> id="DemoTable<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
                                                             <tr>
                                                                 <td nowrap>
                                                                     <div class="FieldData">
@@ -563,10 +565,10 @@
                                                                         %>
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
-                                                                        <c:set var="__enc_19"><e:forUriComponent value='<%= segmentID %>' /></c:set>
-                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<e:forJavaScriptAttribute value='${__enc_19}' />&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                                                                        <c:set var="__enc_19"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
+                                                                        <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                             <% } %>
-                                                                            <e:forHtmlContent value='<%= handler.getPatientName() %>' />
+                                                                            <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                         </a>
                                                                     </div>
                                                                 </td>
@@ -580,7 +582,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData" nowrap="nowrap">
-                                                                        <e:forHtmlContent value='<%= handler.getDOB() %>' />
+                                                                        <carlos:encode value='<%= handler.getDOB() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -593,7 +595,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData">
-                                                                        <e:forHtmlContent value='<%= handler.getAge() %>' />
+                                                                        <carlos:encode value='<%= handler.getAge() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                                 <td nowrap>
@@ -603,7 +605,7 @@
                                                                 </td>
                                                                 <td align="left" nowrap>
                                                                     <div class="FieldData">
-                                                                        <e:forHtmlContent value='<%= handler.getSex() %>' />
+                                                                        <carlos:encode value='<%= handler.getSex() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -617,7 +619,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div class="FieldData" nowrap="nowrap">
-                                                                        <e:forHtmlContent value='<%= handler.getHealthNum() %>' />
+                                                                        <carlos:encode value='<%= handler.getHealthNum() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
@@ -635,7 +637,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <e:forHtmlContent value='<%= handler.getHomePhone() %>' />
+                                                                        <carlos:encode value='<%= handler.getHomePhone() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -647,7 +649,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <e:forHtmlContent value='<%= handler.getWorkPhone() %>' />
+                                                                        <carlos:encode value='<%= handler.getWorkPhone() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -669,7 +671,7 @@
                                                                 </td>
                                                                 <td nowrap>
                                                                     <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <e:forHtmlContent value='<%= handler.getPatientLocation() %>' />
+                                                                        <carlos:encode value='<%= handler.getPatientLocation() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -691,7 +693,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <e:forHtmlContent value='<%= handler.getServiceDate() %>' />
+                                                <carlos:encode value='<%= handler.getServiceDate() %>' context="html"/>
                                             </div>
                                         </td>
                                     </tr>
@@ -704,7 +706,7 @@
                                                 </td>
                                                 <td>
                                                     <div class="FieldData" nowrap="nowrap">
-                                                        <e:forHtmlContent value='<%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>' />
+                                                        <carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>' context="html"/>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -717,7 +719,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : Encode.forHtml(handler.getOrderStatus())) %>
+                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : SafeEncode.forHtml(handler.getOrderStatus())) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -732,7 +734,7 @@
                                         </td>
                                         <td nowrap>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <e:forHtmlContent value='<%= handler.getClientRef() %>' />
+                                                <carlos:encode value='<%= handler.getClientRef() %>' context="html"/>
                                             </div>
                                         </td>
                                     </tr>
@@ -744,7 +746,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <e:forHtmlContent value='<%= handler.getAccessionNum() %>' />
+                                                <carlos:encode value='<%= handler.getAccessionNum() %>' context="html"/>
                                             </div>
                                         </td>
                                     </tr>
@@ -758,14 +760,14 @@
                                         <td bgcolor="white">
                                             <div class="FieldData">
                                                 <strong><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
-                                                <e:forHtmlContent value='<%= handler.getDocName() %>' />
+                                                <carlos:encode value='<%= handler.getDocName() %>' context="html"/>
                                             </div>
                                         </td>
 
                                         <td bgcolor="white" align="right">
                                             <div class="FieldData">
                                                 <strong><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
-                                                <e:forHtmlContent value='<%= handler.getCCDocs() %>' />
+                                                <carlos:encode value='<%= handler.getCCDocs() %>' context="html"/>
 
                                             </div>
                                         </td>
@@ -813,19 +815,19 @@
                                              class="<%=ticklerClass%>">
                                             <table width="100%">
                                                 <tr>
-                                                    <td><b>Priority:</b> <%=flag%> <e:forHtmlContent value='<%= tickler.getPriority().toString() %>' />
+                                                    <td><b>Priority:</b> <%=flag%> <carlos:encode value='<%= tickler.getPriority().toString() %>' context="html"/>
                                                     </td>
-                                                    <td><b>Service Date:</b> <e:forHtmlContent value='<%= String.valueOf(tickler.getServiceDate()) %>' />
+                                                    <td><b>Service Date:</b> <carlos:encode value='<%= String.valueOf(tickler.getServiceDate()) %>' context="html"/>
                                                     </td>
                                                     <td><b>Assigned
-                                                        To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
+                                                        To:</b> <%=tickler.getAssignee() != null ? SafeEncode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
                                                     <td width="90px">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td colspan="4"><e:forHtmlContent value='<%= tickler.getMessage() %>' />
+                                                    <td colspan="4"><carlos:encode value='<%= tickler.getMessage() %>' context="html"/>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -870,7 +872,7 @@
                                                 <!--center-->
                                                 <% for (int i = 0; i < ackList.size(); i++) {
                                                     report = (ReportStatus) ackList.get(i); %>
-                                                <e:forHtmlContent value='<%= report.getProviderName() %>' /> :
+                                                <carlos:encode value='<%= report.getProviderName() %>' context="html"/> :
 
                                                 <% String ackStatus = report.getStatus();
                                                     if (ackStatus.equals("A")) {
@@ -884,7 +886,7 @@
                                                 <font color="red"><%= ackStatus %>
                                                 </font>
 
-                                                <e:forHtmlContent value='<%= String.valueOf(report.getTimestamp()) %>' />,
+                                                <carlos:encode value='<%= String.valueOf(report.getTimestamp()) %>' context="html"/>,
                                                 <% String commentTitle = null;
                                                     if (report.getComment() == null || report.getComment().equals("")) {
                                                         commentTitle = "no comment";
@@ -892,8 +894,8 @@
                                                         commentTitle = "comment: ";
                                                     }
                                                 %>
-                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%="V" + j + "commentLabel" + SafeEncode.forHtmlAttribute(segmentID) + SafeEncode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
+                                                    id="<%="V" + j + "commentText" + SafeEncode.forHtmlAttribute(segmentID) + SafeEncode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : SafeEncode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }
@@ -951,7 +953,7 @@
             <tr>
                 <td bgcolor="#FFCC00" width="300" valign="bottom">
                     <div class="Title2">
-                        <e:forHtmlContent value='<%= headers.get(i) %>' />
+                        <carlos:encode value='<%= headers.get(i) %>' context="html"/>
                     </div>
                 </td>
                 <%--<td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>--%>
@@ -999,8 +1001,8 @@
                                         obrFlag = true;
                                     %>
                                     <tr style="<%=(linenum % 2 == 1 ? "background-color:"+highlight : "")%>" >
-                                        <td style="text-align:left; vertical-align:top"><span style="font-size:16px;font-weight: bold;"><e:forHtmlContent value='<%= handler.getOBRName(j) %>' /></span></td>
-                                        <td colspan="1"><e:forHtmlContent value='<%= orderRequestStatus %>' /></td>
+                                        <td style="text-align:left; vertical-align:top"><span style="font-size:16px;font-weight: bold;"><carlos:encode value='<%= handler.getOBRName(j) %>' context="html"/></span></td>
+                                        <td colspan="1"><carlos:encode value='<%= orderRequestStatus %>' context="html"/></td>
                                     </tr>
                                     <%
                                     }
@@ -1052,27 +1054,27 @@
 
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><e:forHtmlContent value='<%= obxName %>' />
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' />
+                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
                     </td>
 
                     <td align="center">
-                        <e:forHtmlContent value='<%= handler.getOBXAbnormalFlag(j, k) %>' />
+                        <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXReferenceRange(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXUnits(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getTimeStamp(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getTimeStamp(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getOBXResultStatus(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                     </td>
                 </tr>
                 <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <% }
@@ -1080,28 +1082,28 @@
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><e:forHtmlContent value='<%= obxName %>' />
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
-                    <td align="right"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' />
+                    <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
                     </td>
 
                     <td align="center">
-                        <e:forHtmlContent value='<%= handler.getOBXAbnormalFlag(j, k) %>' />
+                        <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXReferenceRange(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXUnits(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getTimeStamp(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getTimeStamp(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getOBXResultStatus(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                     </td>
                 </tr>
 
                 <%} else { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1110,14 +1112,14 @@
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getNteForOBX(j, k) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getNteForOBX(j, k) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <% }
                     for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBXComment(j, k, l) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1130,11 +1132,11 @@
                     if (isUnstructuredDoc) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
 	                                   				}
 	                                   			else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><e:forHtmlContent value='<%= obxName %>' />
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a><%}%>
                             <%if(isVIHARtf){
 												    //create bytes from the rtf string
@@ -1147,13 +1149,13 @@
 											    	rtfParser.read(rtfStream, doc, 0);
 											    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
 											    	// Reversing this order would encode the <br> tags themselves.
-											    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
+											    	String rtfText = SafeEncode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 											    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                     <td align="left"><%= rtfText + disclaimer %>
                     </td>
                     <%} %><%
                         else{%>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
                     </td>
                     <%} %>
                     <%
@@ -1161,7 +1163,7 @@
                     %>
                     <td align="center"></td>
                     <%} else {%>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getTimeStamp(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getTimeStamp(j, k) %>' context="html"/>
                     </td>
                     <%
                         }
@@ -1172,17 +1174,17 @@
                         if (handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount > 1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))) {
                     %>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"></a><%
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<e:forJavaScript value='<%= demographicID %>' />&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><e:forHtmlContent value='<%= obxName %>' />
+                            href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScript"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>')"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <%}%>
                     <%
                         //for pathl7, if it is an SG/CDC result greater than 100 characters, left justify it
                         if ((handler.getOBXResult(j, k) != null && handler.getOBXResult(j, k).length() > 100) && isSGorCDC) {%>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXResult(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="html"/>
                     </td>
                     <%
                     } else {%>
@@ -1195,29 +1197,29 @@
 
                     %>
                     <td align="right"><a
-                            href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab?labNo=<e:forUriComponent value='<%= segmentID %>' />&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                            href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab?labNo=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                         Report</a></td>
                     <%
                     } else {
                     %>
 	                                            <td align="right">
                                                    <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
-                                                    <em><e:forHtmlContent value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' /></em>
+                                                    <em><carlos:encode value='<%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %>' context="html"/></em>
                                                     <% } else { %>
-                                                    <e:forHtmlContent value='<%= handler.getOBXResult( j, k) %>' />
+                                                    <carlos:encode value='<%= handler.getOBXResult( j, k) %>' context="html"/>
                                                     <% } %>
                                                 </td><%}%>
                     <% } %>
                     <td align="center">
-                        <e:forHtmlContent value='<%= handler.getOBXAbnormalFlag(j, k) %>' />
+                        <carlos:encode value='<%= handler.getOBXAbnormalFlag(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXReferenceRange(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXReferenceRange(j, k) %>' context="html"/>
                     </td>
-                    <td align="left"><e:forHtmlContent value='<%= handler.getOBXUnits(j, k) %>' />
+                    <td align="left"><carlos:encode value='<%= handler.getOBXUnits(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getTimeStamp(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getTimeStamp(j, k) %>' context="html"/>
                     </td>
-                    <td align="center"><e:forHtmlContent value='<%= handler.getOBXResultStatus(j, k) %>' />
+                    <td align="center"><carlos:encode value='<%= handler.getOBXResultStatus(j, k) %>' context="html"/>
                     </td>
                     <%
                         }//end of PATHL7 else %>
@@ -1226,7 +1228,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBXComment(j, k, l) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1236,7 +1238,7 @@
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBXComment(j, k, l) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBXComment(j, k, l) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <%
@@ -1257,7 +1259,7 @@
                         if (!obrFlag && handler.getOBXName(j, 0).equals("")) {
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                    <td valign="top" align="left"><e:forHtmlContent value='<%= handler.getOBRName(j) %>' />
+                    <td valign="top" align="left"><carlos:encode value='<%= handler.getOBRName(j) %>' context="html"/>
                     </td>
                     <td colspan="6">&nbsp;</td>
                 </tr>
@@ -1267,14 +1269,14 @@
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
                     <td valign="top" align="left" colspan="8">
-                        <pre style="margin:0px 0px 0px 100px;"><e:forHtmlContent value='<%= handler.getOBRComment(j, k) %>' /></pre>
+                        <pre style="margin:0px 0px 0px 100px;"><carlos:encode value='<%= handler.getOBRComment(j, k) %>' context="html"/></pre>
                     </td>
                 </tr>
                 <% if (!handler.getMsgType().equals("HHSEMR")) {
                     if (handler.getOBXName(j, k).equals("")) {
                         String result = handler.getOBXResult(j, k);%>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                    <td colspan="7" valign="top" align="left"><e:forHtmlContent value='<%= result %>' />
+                    <td colspan="7" valign="top" align="left"><carlos:encode value='<%= result %>' context="html"/>
                     </td>
                 </tr>
                 <%
@@ -1292,26 +1294,26 @@
             %>
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3" class="MainTableBottomRowRightColumn"
-                                                  <c:set var="__enc_20"><e:forUriComponent value='<%= segmentID %>' /></c:set>
-                               <c:set var="__enc_21"><e:forUriComponent value='<%= providerNo %>' /></c:set>
-                               <c:set var="__enc_22"><e:forUriComponent value='<%= searchProviderNo %>' /></c:set>
+                                                  <c:set var="__enc_20"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
+                               <c:set var="__enc_21"><carlos:encode value='<%= providerNo %>' context="uriComponent"/></c:set>
+                               <c:set var="__enc_22"><carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/></c:set>
 bgcolor="#003399">
                 <tr>
                     <td align="left" width="50%">
                         <% if (!ackFlag) { %>
                         <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                               onclick="<e:forHtmlContent value='<%= ackLabFunc %>' />">
+                               onclick="<carlos:encode value='<%= ackLabFunc %>' context="html"/>">
                         <input type="button" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
-                               onclick="getComment('<e:forJavaScriptAttribute value='<%= segmentID %>' />','addComment')">
+                               onclick="getComment('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','addComment')">
                         <% } %>
                         <input type="button" class="smallButton" value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/ViewSelectProviderAltView?doc_no=<e:forJavaScriptAttribute value='${__enc_20}' />&providerNo=<e:forJavaScriptAttribute value='${__enc_21}' />&searchProviderNo=<e:forJavaScriptAttribute value='${__enc_22}' />', 'providerselect')">
+                               onClick="popupStart(300, 400, '${pageContext.request.contextPath}/oscarMDS/ViewSelectProviderAltView?doc_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='${__enc_21}' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='${__enc_22}' context="javaScriptAttribute"/>', 'providerselect')">
 
                         <input type="button" value=" <fmt:message key="global.btnPrint"/> "
-                               onClick="printPDF('<e:forJavaScriptAttribute value='<%= segmentID %>' />')">
+                               onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
                         <% if (searchProviderNo != null) { // we were called from e-chart %>
                         <input type="button" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-                               onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<e:forJavaScriptAttribute value='<%= segmentID %>' />&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
+                               onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
 
                         <% } %>
                     </td>
@@ -1324,8 +1326,8 @@ bgcolor="#003399">
             </tr>
             <tr>
                 <td colspan="1"><a style="color:white;" href="javascript:void(0);"
-                                   onclick="showHideItem('rawhl7_<e:forJavaScriptAttribute value='<%= segmentID %>' />');">show/hide</a>
-                    <pre id="rawhl7_<e:forHtmlAttribute value='<%= segmentID %>' />" style="display:none;"><e:forHtmlContent value='<%= hl7 %>' /></pre>
+                                   onclick="showHideItem('rawhl7_<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>');">show/hide</a>
+                    <pre id="rawhl7_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" style="display:none;"><carlos:encode value='<%= hl7 %>' context="html"/></pre>
                 </td>
             </tr>
             <tr>

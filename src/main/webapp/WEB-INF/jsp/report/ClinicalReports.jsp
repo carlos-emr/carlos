@@ -64,6 +64,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String provider = (String) session.getAttribute("user");
@@ -693,7 +694,7 @@
                          <%for(String heading:headings){
                              csvp.print(commonRow(heading,demoHash, demoObj));
                         %>
-                           <td><e:forHtmlContent value='<%= commonRow(heading,demoHash, demoObj) %>' /></td>
+                           <td><carlos:encode value='<%= commonRow(heading,demoHash, demoObj) %>' context="html"/></td>
                         <%}%>
 
                         <%

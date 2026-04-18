@@ -60,6 +60,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -93,7 +94,7 @@
             <div class="mb-3">
                 <label class="form-label">Provider Confidentiality Statement</label>
                 <div>
-                    <textarea name="statement"><e:forHtmlContent value='<%= statement != null ? statement : "" %>' /></textarea>
+                    <textarea name="statement"><carlos:encode value='<%= statement != null ? statement : "" %>' context="html"/></textarea>
                 </div>
             </div>
             <div>

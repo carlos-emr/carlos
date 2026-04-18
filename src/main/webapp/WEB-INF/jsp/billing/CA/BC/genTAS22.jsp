@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -111,7 +112,7 @@
     <tr bgcolor="#333333">
         <th align='CENTRE'>
             <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22"><input type="hidden" name="rano"
-                                               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(raNo) %>' />"> <select name="proNo">
+                                               value="<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="htmlAttribute"/>"> <select name="proNo">
                 <option value="all" <%=proNo.equals("all") ? "selected" : ""%>>All
                     Providers
                 </option>
@@ -124,7 +125,7 @@
                         plast = (String) result[1];
                         pfirst = (String) result[2];
                 %>
-                <option value="<e:forHtmlAttribute value='<%= StringUtils.noNull(pohipno) %>' />" <%=proNo.equals(pohipno) ? "selected" : ""%>><e:forHtmlContent value='<%= StringUtils.noNull(plast) %>' />,<e:forHtmlContent value='<%= StringUtils.noNull(pfirst) %>' />
+                <option value="<carlos:encode value='<%= StringUtils.noNull(pohipno) %>' context="htmlAttribute"/>" <%=proNo.equals(pohipno) ? "selected" : ""%>><carlos:encode value='<%= StringUtils.noNull(plast) %>' context="html"/>,<carlos:encode value='<%= StringUtils.noNull(pfirst) %>' context="html"/>
                 </option>
                 <% } %>
             </select> <input type=submit name=submit value=Generate></form>
@@ -158,15 +159,15 @@
     <tr>
 
 
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPayment()) %>' context="html"/>
         </td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' />
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' context="html"/>
         </td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerName()) %>' />
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPractitionerName()) %>' context="html"/>
         </td>
-        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAmountBilled()) %>' />
+        <td width="10%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getAmountBilled()) %>' context="html"/>
         </td>
-        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAmountPaid()) %>' />
+        <td width="10%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getAmountPaid()) %>' context="html"/>
         </td>
         <td width="50%"
             height="16"><%=String.valueOf(result.getLineCode()).compareTo("Y") == 0 ? "Practitioner Totals within Payee" : ""%>
@@ -208,20 +209,20 @@
     %>
     <tr>
 
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />&nbsp;</td>
-        <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayeeNo()) %>' />&nbsp;</td>
-        <td width="5%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjc()) %>' />&nbsp;</td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAji()) %>' />&nbsp;</td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getAjm()) %>' />&nbsp;</td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getCalcMethod()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getrPercent()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getoPercent()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getgAmount()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getrAmount()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getoAmount()) %>' />&nbsp;</td>
-        <td width="5%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getBalanceForward()) %>' />&nbsp;</td>
-        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAdjMade()) %>' />&nbsp;</td>
-        <td width="10%" height="16" align="right"><e:forHtmlContent value='<%= moneyFormat(result.getAdjOutstanding()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPayment()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPayeeNo()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjc()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAji()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getAjm()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getCalcMethod()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getrPercent()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getoPercent()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getgAmount()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getrAmount()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getoAmount()) %>' context="html"/>&nbsp;</td>
+        <td width="5%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getBalanceForward()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getAdjMade()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16" align="right"><carlos:encode value='<%= moneyFormat(result.getAdjOutstanding()) %>' context="html"/>&nbsp;</td>
     </tr>
 
 
@@ -249,10 +250,10 @@
     %>
     <tr>
 
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayment()) %>' />&nbsp;</td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPayeeNo()) %>' />&nbsp;</td>
-        <td width="10%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' />&nbsp;</td>
-        <td width="70%" height="16"><e:forHtmlContent value='<%= StringUtils.noNull(result.getMessage()) %>' />&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPayment()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPayeeNo()) %>' context="html"/>&nbsp;</td>
+        <td width="10%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' context="html"/>&nbsp;</td>
+        <td width="70%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getMessage()) %>' context="html"/>&nbsp;</td>
     </tr>
 
 

@@ -46,6 +46,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,7 +79,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -114,7 +115,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>"></td>
-                                <td><a href="<%= url %>"><e:forHtmlContent value='<%= i.getName() %>' /></a></td>
+                                <td><a href="<%= url %>"><carlos:encode value='<%= i.getName() %>' context="html"/></a></td>
                             </tr>
                             <% } %>
                         </tbody>

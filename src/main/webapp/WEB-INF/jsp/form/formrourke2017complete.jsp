@@ -54,6 +54,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="demographicMeasurementModal.jsp" %>
 
 <%
@@ -70,7 +71,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title><%= "Rourke2017 Record for " + Encode.forHtmlAttribute(props.getProperty("c_pName", "")) + " DOB: " + props.getProperty("c_birthDate", "")%>
+    <title><%= "Rourke2017 Record for " + SafeEncode.forHtmlAttribute(props.getProperty("c_pName", "")) + " DOB: " + props.getProperty("c_birthDate", "")%>
     </title>
     <link rel="stylesheet" type="text/css"
           href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>

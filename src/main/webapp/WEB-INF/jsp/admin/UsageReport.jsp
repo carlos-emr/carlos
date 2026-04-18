@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -111,7 +112,7 @@
                                 selected = " selected=\"selected\" ";
                             }
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= provider.getProviderNo() == null ? "" : provider.getProviderNo() %>' />" <%=selected%>><e:forHtmlContent value='<%= provider.getFormattedName() == null ? "" : provider.getFormattedName() %>' />
+                    <option value="<carlos:encode value='<%= provider.getProviderNo() == null ? "" : provider.getProviderNo() %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= provider.getFormattedName() == null ? "" : provider.getFormattedName() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -123,16 +124,16 @@
             <label class="form-label"><fmt:message key="admin.UsageReport.startDate"/></label>
             <div>
                 <input type="text" id="startDate" name="startDate"
-                       value="<e:forHtmlAttribute value='<%= request.getParameter("startDate") != null ? request
-					.getParameter("startDate") : "" %>' />"/>
+                       value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
+					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/>
             </div>
         </div>
         <div class="mb-3">
             <label class="form-label"><fmt:message key="admin.UsageReport.endDate"/></label>
             <div>
                 <input type="text" id="endDate" name="endDate"
-                       value="<e:forHtmlAttribute value='<%= request.getParameter("endDate") != null ? request
-					.getParameter("endDate") : "" %>' />"/>
+                       value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
+					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/>
             </div>
         </div>
         <div class="mb-3">

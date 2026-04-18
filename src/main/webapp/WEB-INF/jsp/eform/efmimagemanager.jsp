@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -102,7 +103,7 @@
             </td>
 
             <td>
-                <a href="javascript:void(0);" onclick="deleteImg('<e:forJavaScriptAttribute value='<%= curimage %>' />');"
+                <a href="javascript:void(0);" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
                    class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>

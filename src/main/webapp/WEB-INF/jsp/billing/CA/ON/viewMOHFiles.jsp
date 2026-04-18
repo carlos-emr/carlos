@@ -20,6 +20,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.util.zip" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -170,12 +171,12 @@
                     bodd = bodd ? false : true;
                     if (contents[i].isDirectory() || contents[i].getName().startsWith(".")) continue;
                     if (contents[i].getName().endsWith(".sh")) continue;
-                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + Encode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "' title='select to archive'/></td>";
+                    String archiveElement = "<td ><input type='checkbox' name='mohFile' value='" + SafeEncode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "' title='select to archive'/></td>";
                     if (folder == EDTFolder.INBOX || folder == EDTFolder.ARCHIVE) {
-                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a href='#' onclick='viewMOHFile(this)' data-filename='" + Encode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "'>" + Encode.forHtml(contents[i].getName()) + unzipMSG + "</a></td>");
-                        out.println("<td><a href=\"" + Encode.forHtmlAttribute(request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "\">Download</a></td>");
+                        out.println("<tr>" + (folder == EDTFolder.INBOX ? archiveElement : "") + "<td><a href='#' onclick='viewMOHFile(this)' data-filename='" + SafeEncode.forHtmlAttribute(URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "'>" + SafeEncode.forHtml(contents[i].getName()) + unzipMSG + "</a></td>");
+                        out.println("<td><a href=\"" + SafeEncode.forHtmlAttribute(request.getContextPath() + "/servlet/BackupDownload?filename=" + URLEncoder.encode(contents[i].getName(), StandardCharsets.UTF_8)) + "\">Download</a></td>");
                     } else {
-                        out.println("<tr><td>" + Encode.forHtml(contents[i].getName()) + "</td>");
+                        out.println("<tr><td>" + SafeEncode.forHtml(contents[i].getName()) + "</td>");
                     }
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                     Date d = new Date(contents[i].lastModified());

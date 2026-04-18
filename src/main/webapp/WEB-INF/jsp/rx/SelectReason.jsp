@@ -45,6 +45,7 @@
 %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -178,8 +179,8 @@
                         <tr>
                             <td>
                                 <a href="javascript:void(0);"
-                                   onclick="assignPatientDxLink('<e:forJavaScriptAttribute value='<%= dx.getDxresearchCode() %>' />', '<e:forJavaScriptAttribute value='<%= idc9Desc %>' />')"
-                                   title="<e:forHtmlAttribute value='<%= dx.getDxresearchCode() %>' /> - <e:forHtmlAttribute value='<%= idc9Desc %>' />">
+                                   onclick="assignPatientDxLink('<carlos:encode value='<%= dx.getDxresearchCode() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= idc9Desc %>' context="javaScriptAttribute"/>')"
+                                   title="<carlos:encode value='<%= dx.getDxresearchCode() %>' context="htmlAttribute"/> - <carlos:encode value='<%= idc9Desc %>' context="htmlAttribute"/>">
                                     <%=dx.getDxresearchCode()%>
                                     - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
                                 </a>
@@ -220,8 +221,8 @@
 
                     <fieldset>
                         <input type="hidden" name="method" value="addDrugReason"/>
-                        <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= demoStr %>' />"/>
-                        <input type="hidden" name="drugId" value="<e:forHtmlAttribute value='<%= drugIdStr %>' />"/>
+                        <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demoStr %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="drugId" value="<carlos:encode value='<%= drugIdStr %>' context="htmlAttribute"/>"/>
 
                         <legend>Assign Indication</legend>
 
@@ -289,7 +290,7 @@
                                                 String descr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
                                                 descr = org.apache.commons.lang3.StringUtils.trimToEmpty(descr);
                                             %>
-                                            <e:forHtmlContent value='<%= descr %>' />
+                                            <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
                                         <td><%=drugReason.getComments() %>
                                         </td>

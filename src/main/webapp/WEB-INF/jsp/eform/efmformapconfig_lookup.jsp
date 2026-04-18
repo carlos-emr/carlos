@@ -22,7 +22,9 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Security: require _eform read privilege (consistent with all other eForm endpoints)
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -38,7 +40,7 @@
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid fid");
         return;
     }
-%><input type="hidden" name="oscarAPCacheLookupType" value="<e:forHtmlAttribute value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' />"/><%
+%><input type="hidden" name="oscarAPCacheLookupType" value="<carlos:encode value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' context="htmlAttribute"/>"/><%
     String[] keys = request.getParameterValues("key");
     if (keys == null) {
         keys = new String[0];
@@ -80,17 +82,17 @@
                         output = "";
                     } else {
                         for (int i = 0; i < names.size(); i++) {
-                            output = DatabaseAP.parserReplace(names.get(i), Encode.forHtml(values.get(i)), output);
+                            output = DatabaseAP.parserReplace(names.get(i), SafeEncode.forHtml(values.get(i)), output);
                         }
                     }
                 }
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value="<e:forHtmlAttribute value='<%= output %>' />"/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
 } catch (Exception e) {
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
     }
 } else {
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
         }
     }
 %>

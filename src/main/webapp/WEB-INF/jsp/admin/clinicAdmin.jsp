@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     Clinic clinic = (Clinic) request.getAttribute("clinicForm");
@@ -82,62 +83,62 @@
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicName"><fmt:message key="admin.provider.clinicName"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicName" id="clinic.clinicName" value="<e:forHtmlAttribute value='<%= clinic.getClinicName() != null ? clinic.getClinicName() : "" %>' />" />
+                    <input type="text" name="clinic.clinicName" id="clinic.clinicName" value="<carlos:encode value='<%= clinic.getClinicName() != null ? clinic.getClinicName() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicAddress"><fmt:message key="admin.provider.formAddress"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicAddress" id="clinic.clinicAddress" value="<e:forHtmlAttribute value='<%= clinic.getClinicAddress() != null ? clinic.getClinicAddress() : "" %>' />" />
+                    <input type="text" name="clinic.clinicAddress" id="clinic.clinicAddress" value="<carlos:encode value='<%= clinic.getClinicAddress() != null ? clinic.getClinicAddress() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicCity"><fmt:message key="oscarReport.oscarReportCatchment.msgCity"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicCity" id="clinic.clinicCity" value="<e:forHtmlAttribute value='<%= clinic.getClinicCity() != null ? clinic.getClinicCity() : "" %>' />" />
+                    <input type="text" name="clinic.clinicCity" id="clinic.clinicCity" value="<carlos:encode value='<%= clinic.getClinicCity() != null ? clinic.getClinicCity() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicPostal"><fmt:message key="oscarReport.oscarReportCatchment.msgPostal"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicPostal" id="clinic.clinicPostal" value="<e:forHtmlAttribute value='<%= clinic.getClinicPostal() != null ? clinic.getClinicPostal() : "" %>' />" />
+                    <input type="text" name="clinic.clinicPostal" id="clinic.clinicPostal" value="<carlos:encode value='<%= clinic.getClinicPostal() != null ? clinic.getClinicPostal() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicPhone"><fmt:message key="appointment.addappointment.msgPhone"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicPhone" id="clinic.clinicPhone" value="<e:forHtmlAttribute value='<%= clinic.getClinicPhone() != null ? clinic.getClinicPhone() : "" %>' />" />
+                    <input type="text" name="clinic.clinicPhone" id="clinic.clinicPhone" value="<carlos:encode value='<%= clinic.getClinicPhone() != null ? clinic.getClinicPhone() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicFax"><fmt:message key="admin.provider.formFax"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicFax" id="clinic.clinicFax" value="<e:forHtmlAttribute value='<%= clinic.getClinicFax() != null ? clinic.getClinicFax() : "" %>' />" />
+                    <input type="text" name="clinic.clinicFax" id="clinic.clinicFax" value="<carlos:encode value='<%= clinic.getClinicFax() != null ? clinic.getClinicFax() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicLocationCode"><fmt:message key="location"/>&nbsp;
                     <fmt:message key="billing.billingDigSearch.formCode"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicLocationCode" id="clinic.clinicLocationCode" value="<e:forHtmlAttribute value='<%= clinic.getClinicLocationCode() != null ? clinic.getClinicLocationCode() : "" %>' />" />
+                    <input type="text" name="clinic.clinicLocationCode" id="clinic.clinicLocationCode" value="<carlos:encode value='<%= clinic.getClinicLocationCode() != null ? clinic.getClinicLocationCode() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">
                 <label class="form-label" for="clinic.clinicProvince"><fmt:message key="demographic.demographicaddrecordhtm.formprovince"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicProvince" id="clinic.clinicProvince" value="<e:forHtmlAttribute value='<%= clinic.getClinicProvince() != null ? clinic.getClinicProvince() : "" %>' />" />
+                    <input type="text" name="clinic.clinicProvince" id="clinic.clinicProvince" value="<carlos:encode value='<%= clinic.getClinicProvince() != null ? clinic.getClinicProvince() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3" title="<fmt:message key="admin.clinicAdmin.multiPhoneTitle"/>">
                 <label class="form-label" for="clinic.clinicDelimPhone"><fmt:message key="appointment.addappointment.msgPhone"/>|<fmt:message key="appointment.addappointment.msgPhone"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicDelimPhone" id="clinic.clinicDelimPhone" value="<e:forHtmlAttribute value='<%= clinic.getClinicDelimPhone() != null ? clinic.getClinicDelimPhone() : "" %>' />" />
+                    <input type="text" name="clinic.clinicDelimPhone" id="clinic.clinicDelimPhone" value="<carlos:encode value='<%= clinic.getClinicDelimPhone() != null ? clinic.getClinicDelimPhone() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3" title="<fmt:message key="admin.clinicAdmin.multiFaxTitle"/>">
                 <label class="form-label" for="clinic.clinicDelimFax"><fmt:message key="admin.provider.formFax"/>|<fmt:message key="admin.provider.formFax"/></label>
                 <div>
-                    <input type="text" name="clinic.clinicDelimFax" id="clinic.clinicDelimFax" value="<e:forHtmlAttribute value='<%= clinic.getClinicDelimFax() != null ? clinic.getClinicDelimFax() : "" %>' />" />
+                    <input type="text" name="clinic.clinicDelimFax" id="clinic.clinicDelimFax" value="<carlos:encode value='<%= clinic.getClinicDelimFax() != null ? clinic.getClinicDelimFax() : "" %>' context="htmlAttribute"/>" />
                 </div>
             </div>
             <div class="mb-3">

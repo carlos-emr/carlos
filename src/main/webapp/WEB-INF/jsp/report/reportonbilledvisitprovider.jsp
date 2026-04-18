@@ -28,6 +28,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     SecuserroleDao secuserroleDao = (SecuserroleDao) SpringUtils.getBean(SecuserroleDao.class);
@@ -77,6 +78,7 @@
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -202,11 +204,11 @@
                 }
         %>
         <tr bgcolor="<%=i%2==0?"white":color%>">
-            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("provider_no", "") %>' />
+            <td><carlos:encode value='<%= ((Properties) vec.get(i)).getProperty("provider_no", "") %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("first_name", "") %>' />
+            <td><carlos:encode value='<%= ((Properties) vec.get(i)).getProperty("first_name", "") %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= ((Properties) vec.get(i)).getProperty("last_name", "") %>' />
+            <td><carlos:encode value='<%= ((Properties) vec.get(i)).getProperty("last_name", "") %>' context="html"/>
             </td>
             <!--td>
               <%= ((Properties)vec.get(i)).getProperty("provider_type", "") %>
@@ -219,23 +221,23 @@
             </td-->
             <td align="center" <%=bDoc ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.doctor'/>">
                 <input type="radio"
-                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
+                       name="type<carlos:encode value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' context="htmlAttribute"/>"
                        value="<%=ROLE[0]%>" <%=bDoc?"checked":""%>></td>
             <td align="center" <%=bRes ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.resident'/>">
                 <input type="radio"
-                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
+                       name="type<carlos:encode value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' context="htmlAttribute"/>"
                        value="<%=ROLE[1]%>" <%=bRes?"checked":""%>></td>
             <td align="center" <%=bNp ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.nurse'/>">
                 <input type="radio"
-                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
+                       name="type<carlos:encode value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' context="htmlAttribute"/>"
                        value="<%=ROLE[2]%>" <%=bNp?"checked":""%>></td>
             <td align="center" <%=bSw ? "bgcolor=\"silver\"" : ""%>
                 title="<fmt:message key='report.reportonbilledvisitprovider.role.socialWorker'/>"><input type="radio"
-                                             name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
+                                             name="type<carlos:encode value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' context="htmlAttribute"/>"
                                              value="<%=ROLE[3]%>" <%=bSw?"checked":""%>></td>
             <td align="center" <%=bOt ? "bgcolor=\"silver\"" : ""%> title="<fmt:message key='report.reportonbilledvisitprovider.role.other'/>">
                 <input type="radio"
-                       name="type<e:forHtmlAttribute value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' />"
+                       name="type<carlos:encode value='<%= ((Properties)vec.get(i)).getProperty("provider_no", "") %>' context="htmlAttribute"/>"
                        value="<%=ROLE[4]%>" <%=bOt?"checked":""%>></td>
         </tr>
         <%
@@ -273,14 +275,14 @@
     <tr bgcolor="<%=k%2==0?"white":color%>">
         <form name="mySecform<%=i%>" action="<%= request.getContextPath() %>/report/ViewReportonbilledvisitprovider"
               method="POST">
-            <td><e:forHtmlContent value='<%= oldRoleList.get(i + 3).toString() %>' />
+            <td><carlos:encode value='<%= oldRoleList.get(i + 3).toString() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= oldRoleList.get(i).toString() %>' />
+            <td><carlos:encode value='<%= oldRoleList.get(i).toString() %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= oldRoleList.get(i + 1).toString() %>' />
+            <td><carlos:encode value='<%= oldRoleList.get(i + 1).toString() %>' context="html"/>
             </td>
             <td align="center"><select
-                    name="<%="name" + Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
+                    name="<%="name" + SafeEncode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
                 <%
                     for (int j = 0; j < ROLE.length; j++) {
                         String roleOptionLabel = ROLE[j];
@@ -305,7 +307,7 @@
                 %>
             </select></td>
             <td align="center"><input type="hidden" name="providerId"
-                                      value="<e:forHtmlAttribute value='<%= oldRoleList.get(i + 3).toString() %>' />"> <input type="submit"
+                                      value="<carlos:encode value='<%= oldRoleList.get(i + 3).toString() %>' context="htmlAttribute"/>"> <input type="submit"
                                                                                     name="buttonUpdate" value="<%=submitUpdateRole%>">
             </td>
         </form>

@@ -48,6 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <!DOCTYPE html>
 <html>
@@ -84,8 +85,8 @@
                 </label>
                 <select class="form-select" name="quickListName">
                     <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                        <option value="${e:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed == 'true' ? 'selected' : ''}>
-                            ${e:forHtml(quickLists.quickListName)}
+                        <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed == 'true' ? 'selected' : ''}>
+                            ${carlos:forHtml(quickLists.quickListName)}
                         </option>
                     </c:forEach>
                 </select>

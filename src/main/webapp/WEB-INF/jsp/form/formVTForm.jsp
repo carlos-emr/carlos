@@ -50,6 +50,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 
     <head>
@@ -950,7 +951,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable">${e:forHtml(ExerDesc)}
+                                                    <td class="dataEntryTable">${carlos:forHtml(ExerDesc)}
                                                         <font class="eightyPercent"><%=request.getAttribute("ExerMeasuringInstrc")%>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
@@ -976,7 +977,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable">${e:forHtml(DietDesc)}
+                                                    <td class="dataEntryTable">${carlos:forHtml(DietDesc)}
                                                         <font class="eightyPercent"><%=request.getAttribute("DietMeasuringInstrc")%>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
@@ -1825,7 +1826,7 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable">${e:forHtml(iRefDesc)}</td>
+                                                    <td class="dataEntryTable">${carlos:forHtml(iRefDesc)}</td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>

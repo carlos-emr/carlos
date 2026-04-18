@@ -30,12 +30,13 @@
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <div class="indicatorPanelContainer">
 
     <div class="row indicatorHeading">
         <div class="col-md-12">
-            ${e:forHtml(indicatorPanel.name)}
+            ${carlos:forHtml(indicatorPanel.name)}
         </div>
     </div>
 
@@ -43,11 +44,11 @@
     <div class="row indicatorData">
         <div class="col-md-12">
 
-            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${e:forHtmlAttribute(indicatorPanel.stringArrayPlots)}"/>
+            <input type="hidden" id="graphPlots_${indicatorPanel.id}" value="${carlos:forHtmlAttribute(indicatorPanel.stringArrayPlots)}"/>
             <input type="hidden" id="graphLabels_${indicatorPanel.id}"
-                   value="${e:forHtmlAttribute(indicatorPanel.stringArrayTooltips)}"/>
+                   value="${carlos:forHtmlAttribute(indicatorPanel.stringArrayTooltips)}"/>
             <div class="indicatorGraph" id="graphContainer_${indicatorPanel.id}">
-                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="${e:forHtmlAttribute(indicatorPanel.name)} chart"></canvas>
+                <canvas id="graphCanvas_${indicatorPanel.id}" role="img" aria-label="${carlos:forHtmlAttribute(indicatorPanel.name)} chart"></canvas>
             </div>
         </div>
     </div>
@@ -86,7 +87,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h4 class="modal-title" id="indicatorTitle_${indicatorPanel.id}">
-                        ${e:forHtml(indicatorPanel.name)}
+                        ${carlos:forHtml(indicatorPanel.name)}
                     </h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -94,19 +95,19 @@
                 <div class="modal-body">
 
                     <h4>Category</h4>
-                    <p>${e:forHtml(indicatorPanel.category)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.category)}</p>
                     <h4>Sub Category</h4>
-                    <p>${e:forHtml(indicatorPanel.subCategory)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.subCategory)}</p>
                     <h4>Definition</h4>
-                    <p>${e:forHtml(indicatorPanel.definition)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.definition)}</p>
                     <h4>Indicator Framework</h4>
-                    <p>${e:forHtml(indicatorPanel.framework)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.framework)}</p>
                     <h4>Indicator Framework Version</h4>
-                    <p>${e:forHtml(indicatorPanel.frameworkVersion)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.frameworkVersion)}</p>
                     <h4>Notes</h4>
-                    <p>${e:forHtml(indicatorPanel.notes)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.notes)}</p>
                     <h4>Query</h4>
-                    <p>${e:forHtml(indicatorPanel.queryString)}</p>
+                    <p>${carlos:forHtml(indicatorPanel.queryString)}</p>
 
                 </div>
 

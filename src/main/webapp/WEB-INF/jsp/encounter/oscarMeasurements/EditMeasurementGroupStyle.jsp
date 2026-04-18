@@ -38,6 +38,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -89,8 +90,8 @@
                                         <td>
                                     <tr>
                                         <td align="left"><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgCurrentStyleSheet"/>
-                                            ${e:forHtml(groupName)}: <c:if test="${not empty css}">
-                                                ${e:forHtml(css)}
+                                            ${carlos:forHtml(groupName)}: <c:if test="${not empty css}">
+                                                ${carlos:forHtml(css)}
                                             </c:if></td>
                                     <tr>
                                         <td><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgChangeTo"/>:
@@ -115,7 +116,7 @@
                                                    value="<fmt:message key="global.btnCancel"/>"
                                                    onClick="window.close()"></td>
                                         <input type="hidden" name="groupName"
-                                               value="${e:forHtmlAttribute(groupName)}"/>
+                                               value="${carlos:forHtmlAttribute(groupName)}"/>
                                     </tr>
                                 </table>
                             </td>

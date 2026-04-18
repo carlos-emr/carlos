@@ -34,9 +34,11 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -61,7 +63,7 @@
         String asciiSafeName = safeName.replaceAll("[^\\p{ASCII}]", "_");
         if (asciiSafeName.isEmpty()) asciiSafeName = "report";
         String rawFilename = asciiSafeName + ".doc";
-        String encodedFilename = Encode.forUriComponent(safeName + ".doc");
+        String encodedFilename = SafeEncode.forUriComponent(safeName + ".doc");
         response.setContentType("application/msword");
         response.setHeader("Content-Disposition",
                 "attachment; filename=\"" + rawFilename + "\"; filename*=UTF-8''" + encodedFilename);
@@ -129,8 +131,8 @@
     <table width="100%">
         <tr>
             <td>
-                Resident : <e:forHtmlContent value='<%= residentName %>' /><br/>
-                Report dates : <e:forHtmlContent value='<%= dateStart %>' /> ~ <e:forHtmlContent value='<%= dateEnd %>' /><br/>
+                Resident : <carlos:encode value='<%= residentName %>' context="html"/><br/>
+                Report dates : <carlos:encode value='<%= dateStart %>' context="html"/> ~ <carlos:encode value='<%= dateEnd %>' context="html"/><br/>
                 Total field notes : <%= FieldNoteManager.getTotalNumberOfFieldNotes(residentId) %><br/>
                 <br/>
                 <% for (String purpose : purposes.keySet()) {
@@ -187,40 +189,40 @@
     <table width="100%" style="background-color: #F2F2F2;">
         <tr>
             <td width="15%">Topic(s):</td>
-            <td><e:forHtmlContent value='<%= topic %>' />
+            <td><carlos:encode value='<%= topic %>' context="html"/>
         </tr>
         <% if (StringUtils.filled(residentRoleSkill)) {
         %>
         <tr>
             <td>Role/Skill(s):</td>
-            <td><e:forHtmlContent value='<%= residentRoleSkill %>' />
+            <td><carlos:encode value='<%= residentRoleSkill %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(doneWell)) {
         %>
         <tr>
             <td>Done well:</td>
-            <td><e:forHtmlContent value='<%= doneWell %>' />
+            <td><carlos:encode value='<%= doneWell %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(workOn)) {
         %>
         <tr>
             <td>Work on:</td>
-            <td><e:forHtmlContent value='<%= workOn %>' />
+            <td><carlos:encode value='<%= workOn %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(followUp)) {
         %>
         <tr>
             <td>Follow-up:</td>
-            <td><e:forHtmlContent value='<%= followUp %>' />
+            <td><carlos:encode value='<%= followUp %>' context="html"/>
         </tr>
         <% }
         %>
         <tr>
             <td>Date:</td>
-            <td><e:forHtmlContent value='<%= apptDate %>' />
+            <td><carlos:encode value='<%= apptDate %>' context="html"/>
         </tr>
     </table>
     <br/>
@@ -241,13 +243,13 @@
                     <tr>
                         <td>Resident</td>
                         <td>:</td>
-                        <td><e:forHtmlContent value='<%= residentName %>' />
+                        <td><carlos:encode value='<%= residentName %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
                         <td>Report dates</td>
                         <td>:</td>
-                        <td><e:forHtmlContent value='<%= dateStart %>' /> ~ <e:forHtmlContent value='<%= dateEnd %>' />
+                        <td><carlos:encode value='<%= dateStart %>' context="html"/> ~ <carlos:encode value='<%= dateEnd %>' context="html"/>
                     </tr>
                     <tr>
                         <td>Total field notes</td>
@@ -352,40 +354,40 @@
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Topic(s):</td>
-            <td><e:forHtmlContent value='<%= topic %>' />
+            <td><carlos:encode value='<%= topic %>' context="html"/>
         </tr>
         <% if (StringUtils.filled(residentRoleSkill)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Role/Skill(s):</td>
-            <td><e:forHtmlContent value='<%= residentRoleSkill %>' />
+            <td><carlos:encode value='<%= residentRoleSkill %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(doneWell)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Done well:</td>
-            <td><e:forHtmlContent value='<%= doneWell %>' />
+            <td><carlos:encode value='<%= doneWell %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(workOn)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Work on:</td>
-            <td><e:forHtmlContent value='<%= workOn %>' />
+            <td><carlos:encode value='<%= workOn %>' context="html"/>
         </tr>
         <% }
             if (StringUtils.filled(followUp)) {
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Follow-up:</td>
-            <td><e:forHtmlContent value='<%= followUp %>' />
+            <td><carlos:encode value='<%= followUp %>' context="html"/>
         </tr>
         <% }
         %>
         <tr style="background-color: #F2F2F2;">
             <td>Date:</td>
-            <td><e:forHtmlContent value='<%= apptDate %>' />
+            <td><carlos:encode value='<%= apptDate %>' context="html"/>
         </tr>
         <tr>
             <td>&nbsp;</td>

@@ -37,6 +37,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -105,7 +106,7 @@
                         List<Hashtable> queues=queueDao.getQueues();
                         for(Hashtable qht:queues){
                         %>                            
-                                <li><e:forHtmlContent value='<%= (String) qht.get("queue") %>' /></li>
+                                <li><carlos:encode value='<%= (String) qht.get("queue") %>' context="html"/></li>
                         <%}%>
                         </ol>
  

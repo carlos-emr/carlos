@@ -1,4 +1,5 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
@@ -25,10 +26,10 @@
         <%-- Server-side configuration for encounter.js --%>
         <script type="text/javascript">
             var encounterConfig = {
-                ctx: "${e:forJavaScript(ctx)}",
-                patientSex: "<e:forJavaScript value='${bean.patientSex}'/>",
-                pAge: "<e:forJavaScript value='${pAge}'/>",
-                popUrl: <c:choose><c:when test="${not empty popUrl}">"<e:forJavaScript value='${popUrl}'/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,
+                ctx: "${carlos:forJavaScript(ctx)}",
+                patientSex: "<carlos:encode value='${bean.patientSex}' context="javaScript"/>",
+                pAge: "<carlos:encode value='${pAge}' context="javaScript"/>",
+                popUrl: <c:choose><c:when test="${not empty popUrl}">"<carlos:encode value='${popUrl}' context="javaScript"/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,
                 i18n: {
                     title: "<fmt:setBundle basename='oscarResources'/><fmt:message key='encounter.Index.title'/>",
                     closeEncounterConfirm: "<fmt:message key='encounter.Index.closeEncounterWindowConfirm'/>",
@@ -38,43 +39,43 @@
                     popupSearchPageWindow: "<fmt:message key='encounter.Index.popupSearchPageWindow'/>"
                 },
                 images: {
-                    expand: "${e:forJavaScript(ctx)}/encounter/graphics/expand.gif",
-                    collapse: "${e:forJavaScript(ctx)}/messenger/img/collapse.gif",
-                    transparent: "${e:forJavaScript(ctx)}/images/clear.gif"
+                    expand: "${carlos:forJavaScript(ctx)}/encounter/graphics/expand.gif",
+                    collapse: "${carlos:forJavaScript(ctx)}/messenger/img/collapse.gif",
+                    transparent: "${carlos:forJavaScript(ctx)}/images/clear.gif"
                 },
                 urls: {
                     navSections: {
-                        preventions: "${e:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
-                        tickler: "${e:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
-                        Dx: "${e:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
-                        forms: "${e:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
-                        eforms: "${e:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
-                        docs: "${e:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
-                        labs: "${e:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
-                        HRM: "${e:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
-                        msgs: "${e:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
-                        measurements: "${e:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
-                        consultation: "${e:forJavaScript(ctx)}/encounter/displayConsultation"
+                        preventions: "${carlos:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
+                        tickler: "${carlos:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
+                        Dx: "${carlos:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
+                        forms: "${carlos:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
+                        eforms: "${carlos:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
+                        docs: "${carlos:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
+                        labs: "${carlos:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
+                        HRM: "${carlos:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
+                        msgs: "${carlos:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
+                        measurements: "${carlos:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
+                        consultation: "${carlos:forJavaScript(ctx)}/encounter/displayConsultation"
                     },
                     leftNavbar: {
-                        preventions: "${e:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
-                        tickler: "${e:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
-                        Dx: "${e:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
-                        forms: "${e:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
-                        eforms: "${e:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
-                        docs: "${e:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
-                        labs: "${e:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
-                        HRM: "${e:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
-                        msgs: "${e:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
-                        measurements: "${e:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
-                        consultation: "${e:forJavaScript(ctx)}/encounter/displayConsultation?hC=",
-                        eConsult: "${e:forJavaScript(ctx)}/encounter/displayEconsultation"
+                        preventions: "${carlos:forJavaScript(ctx)}/encounter/displayPrevention?hC=009999",
+                        tickler: "${carlos:forJavaScript(ctx)}/encounter/displayTickler?hC=FF6600",
+                        Dx: "${carlos:forJavaScript(ctx)}/encounter/displayDisease?hC=5A5A5A",
+                        forms: "${carlos:forJavaScript(ctx)}/encounter/displayForms?hC=917611",
+                        eforms: "${carlos:forJavaScript(ctx)}/encounter/displayEForms?hC=11CC00",
+                        docs: "${carlos:forJavaScript(ctx)}/encounter/displayDocuments?hC=476BB3",
+                        labs: "${carlos:forJavaScript(ctx)}/encounter/displayLabs?hC=A0509C",
+                        HRM: "${carlos:forJavaScript(ctx)}/encounter/displayHRM?hC=28A0A8",
+                        msgs: "${carlos:forJavaScript(ctx)}/encounter/displayMessages?hC=DDDD00",
+                        measurements: "${carlos:forJavaScript(ctx)}/encounter/displayMeasurements?hC=344887",
+                        consultation: "${carlos:forJavaScript(ctx)}/encounter/displayConsultation?hC=",
+                        eConsult: "${carlos:forJavaScript(ctx)}/encounter/displayEconsultation"
                     }
                 },
                 calculators: [
                     { name: "<fmt:message key='encounter.Index.bodyMass'/>", action: "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')" },
-                    { name: "<fmt:message key='encounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','${ctx}/encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
-                    { name: "<fmt:message key='encounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','${ctx}/encounter/calculators/ViewOsteoporoticFracture?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='encounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','${ctx}/encounter/calculators/ViewCoronaryArteryDiseaseRiskPrediction?sex=<carlos:encode value='${bean.patientSex}' context="javaScript"/>&age=<carlos:encode value='${pAge}' context="javaScript"/>')" },
+                    { name: "<fmt:message key='encounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','${ctx}/encounter/calculators/ViewOsteoporoticFracture?sex=<carlos:encode value='${bean.patientSex}' context="javaScript"/>&age=<carlos:encode value='${pAge}' context="javaScript"/>')" },
                     { name: "<fmt:message key='encounter.Index.pregnancy'/>", action: "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')" },
                     { name: "<fmt:message key='encounter.Index.simpleCalculator'/>", action: "popupPage(400,500,'SimpleCalc','${ctx}/encounter/calculators/ViewSimpleCalculator')" },
                     { name: "<fmt:message key='encounter.Index.generalConversions'/>", action: "popupPage(650,775,'GeneralConversions','${ctx}/encounter/calculators/ViewGeneralCalculators')" }

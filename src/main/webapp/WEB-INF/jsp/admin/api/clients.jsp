@@ -48,6 +48,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -237,15 +238,15 @@
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr>
             <td><fmt:message key="admin.api.clients.tempCredentialRequest"/></td>
-            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/initiate</td>
+            <td><carlos:encode value='<%= here %>' context="html"/>/ws/oauth/initiate</td>
         </tr>
         <tr>
             <td><fmt:message key="admin.api.clients.resourceOwnerAuthorizationUri"/></td>
-            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/authorize</td>
+            <td><carlos:encode value='<%= here %>' context="html"/>/ws/oauth/authorize</td>
         </tr>
         <tr>
             <td><fmt:message key="admin.api.clients.tokenRequestUri"/></td>
-            <td><e:forHtmlContent value='<%= here %>' />/ws/oauth/token</td>
+            <td><carlos:encode value='<%= here %>' context="html"/>/ws/oauth/token</td>
         </tr>
     </table>
 

@@ -30,6 +30,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -155,8 +156,8 @@
           %>
         <tr>
             <td width="5%" height="16"><a
-                    <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' /></c:set>
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<e:forJavaScriptAttribute value='${__enc_1}' />')"><e:forHtmlContent value='<%= StringUtils.noNull(result.getOfficeNo()) %>' />
+                    <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;

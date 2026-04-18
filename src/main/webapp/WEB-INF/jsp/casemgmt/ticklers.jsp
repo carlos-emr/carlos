@@ -54,6 +54,7 @@
                 org.springframework.web.context.support.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
@@ -124,7 +125,7 @@
         </td>
         <td style="<%=style%>"><fmt:formatDate
                 pattern="MM/dd/yy : hh:mm a" value="${tickler.serviceDate}"/></td>
-        <td style="<%=style%>">${e:forHtml(tickler.priority)}</td>
+        <td style="<%=style%>">${carlos:forHtml(tickler.priority)}</td>
         <td style="<%=style%>"><%=assignee_name %>
         </td>
         <td style="<%=style%>"><%=status %>

@@ -3,6 +3,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <table width="100%" border="2" valign="top">
 	<% 
 String dateBegin = request.getParameter("xml_vdate");
@@ -46,17 +47,17 @@ if(bs==null) {
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>" align="center">
 		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><e:forHtmlContent value='<%= apptDate %>' /></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= apptDate %>' context="html"/></font></b></TD>
 		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><e:forHtmlContent value='<%= apptTime %>' /></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= apptTime %>' context="html"/></font></b></TD>
 		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><e:forHtmlContent value='<%= demoName %>' /></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><e:forHtmlContent value='<%= reason %>' /></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/></font></b></TD>
 		<TD width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "/billing?billForm=<e:forJavaScriptAttribute value='<%= URLEncoder.encode(oscarVariables.getProperty("default_view"), "UTF-8") %>' />&hotclick=&appointment_no=<e:forJavaScriptAttribute value='<%= apptNo %>' />&demographic_name=<e:forJavaScriptAttribute value='<%= URLEncoder.encode(demoName, "UTF-8") %>' />&demographic_no=<e:forJavaScriptAttribute value='<%= demoNo %>' />&user_no=<e:forJavaScriptAttribute value='<%= userno %>' />&apptProvider_no=<e:forJavaScriptAttribute value='<%= providerview %>' />&appointment_date=<e:forJavaScriptAttribute value='<%= apptDate %>' />&start_time=<e:forJavaScriptAttribute value='<%= apptTime %>' />&bNewForm=1")'
-			title="<e:forHtmlAttribute value='<%= reason %>' />">Bill |$|</a></font></b></TD>
+			onClick='popupPage(700,1000, "/billing?billForm=<carlos:encode value='<%= URLEncoder.encode(oscarVariables.getProperty("default_view"), "UTF-8") %>' context="javaScriptAttribute"/>&hotclick=&appointment_no=<carlos:encode value='<%= apptNo %>' context="javaScriptAttribute"/>&demographic_name=<carlos:encode value='<%= URLEncoder.encode(demoName, "UTF-8") %>' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='<%= demoNo %>' context="javaScriptAttribute"/>&user_no=<carlos:encode value='<%= userno %>' context="javaScriptAttribute"/>&apptProvider_no=<carlos:encode value='<%= providerview %>' context="javaScriptAttribute"/>&appointment_date=<carlos:encode value='<%= apptDate %>' context="javaScriptAttribute"/>&start_time=<carlos:encode value='<%= apptTime %>' context="javaScriptAttribute"/>&bNewForm=1")'
+			title="<carlos:encode value='<%= reason %>' context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%
 		rowCount = rowCount + 1;

@@ -34,6 +34,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -56,7 +57,7 @@
 <body>
 <h1>DHIR FHIR Test Case</h1>
 
-${e:forHtml(fhirBundleBuilder.messageJson)}
+${carlos:forHtml(fhirBundleBuilder.messageJson)}
 
 </body>
 </html>

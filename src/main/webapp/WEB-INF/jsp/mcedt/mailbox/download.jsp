@@ -39,6 +39,7 @@
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page
         import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
@@ -119,7 +120,7 @@
             <select name="serviceId" id="serviceId" class="serviceId">
                 <c:forEach var="r" items="${serviceIds}">
                     <option value="${r}" <c:if test="${r == serviceId}">selected</c:if>>
-                        ${e:forHtml(r)}
+                        ${carlos:forHtml(r)}
                     </option>
                 </c:forEach>
             </select>
@@ -128,7 +129,7 @@
             <select name="pageNo" id="pageNo">
                 <c:forEach var="i" begin="1" end="${resultSize}">
                     <option value="${i}" <c:if test="${i == pageNo}">selected</c:if>>
-                        ${e:forHtml(i)}
+                        ${carlos:forHtml(i)}
                     </option>
                 </c:forEach>
             </select>
@@ -159,13 +160,13 @@
                     <c:forEach var="r" items="${resourceListDL}" varStatus="loopStatus">
                         <tr bgcolor="${loopStatus.index % 2 == 0 ? '#FFF' : '#EEE'}">
                             <td><input type="checkbox" value="${r.resourceID}" name="resourceId"/></td>
-                            <td>${e:forHtml(r.resourceID)}</td>
+                            <td>${carlos:forHtml(r.resourceID)}</td>
                             <td>
                                 <fmt:formatDate value="${i:toDate(r.createTimestamp)}" pattern="MM/dd/yyyy hh:mm"/>
                             </td>
-                            <td>${e:forHtml(r.resourceType)}</td>
-                            <td>${e:forHtml(r.description)}</td>
-                            <td>${e:forHtml(r.status)}</td>
+                            <td>${carlos:forHtml(r.resourceType)}</td>
+                            <td>${carlos:forHtml(r.description)}</td>
+                            <td>${carlos:forHtml(r.status)}</td>
                         </tr>
                     </c:forEach>
                     </tbody>

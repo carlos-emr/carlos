@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
@@ -52,7 +53,7 @@
         <title><fmt:message key="provider.cppPrefs"/></title>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
+        <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
         <script type="text/javascript">
 
@@ -101,7 +102,7 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <!-- form starts here -->
-                <form action="${e:forHtmlAttribute(ctx)}/provider/CppPreferences?method=save" method="post"
+                <form action="${carlos:forHtmlAttribute(ctx)}/provider/CppPreferences?method=save" method="post"
                       onSubmit="return validate();">
                     <table width="100%" border="1">
                         <tr>
