@@ -23,6 +23,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Security: require _eform read privilege (consistent with all other eForm endpoints)
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -84,13 +85,13 @@
                         }
                     }
                 }
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value="<e:forHtmlAttribute value='<%= output %>' />"/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
 } catch (Exception e) {
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + key + " fid=" + fid, e);
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
     }
 } else {
-%><input type="hidden" name="<e:forHtmlAttribute value='<%= key %>' />" value=""/><%
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value=""/><%
         }
     }
 %>

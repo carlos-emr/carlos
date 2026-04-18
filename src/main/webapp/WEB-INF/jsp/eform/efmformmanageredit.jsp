@@ -34,6 +34,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -94,7 +95,7 @@
 
         <script type="text/javascript" language="JavaScript">
             function openLastSaved() {
-                window.open('<%=request.getContextPath()%>/eform/efmshowform_data?fid=<e:forUriComponent value='<%= (String) curform.get("fid") %>' />', 'PreviewForm', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=yes, resizable=yes, width=700, height=600, left=300, top=100');
+                window.open('<%=request.getContextPath()%>/eform/efmshowform_data?fid=<carlos:encode value='<%= (String) curform.get("fid") %>' context="uriComponent"/>', 'PreviewForm', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=yes, resizable=yes, width=700, height=600, left=300, top=100');
             }
 
             //using this to check if page is being viewing in admin panel or in popup
@@ -155,7 +156,7 @@
             </div>
             <%}%>
 
-            <input type="hidden" name="fid" id="fid" value="<e:forHtmlAttribute value='<%= (String) curform.get("fid") %>' />">
+            <input type="hidden" name="fid" id="fid" value="<carlos:encode value='<%= (String) curform.get("fid") %>' context="htmlAttribute"/>">
 
             <% if ((request.getAttribute("success") == null) || (errors.size() != 0)) {%>
             <!--error? -->
@@ -163,7 +164,7 @@
 
             <!--LAST SAVED-->
             <div style="position:absolute;top:2px;right:4px;">
-                <em><fmt:message key="eform.edithtml.msgLastModified"/>:    <e:forHtmlContent value='<%= (String) curform.get("formDate") %>' />&nbsp;<e:forHtmlContent value='<%= (String) curform.get("formTime") %>' />
+                <em><fmt:message key="eform.edithtml.msgLastModified"/>:    <carlos:encode value='<%= (String) curform.get("formDate") %>' context="html"/>&nbsp;<carlos:encode value='<%= (String) curform.get("formTime") %>' context="html"/>
                 </em>
             </div>
 
@@ -172,7 +173,7 @@
 
                 <fmt:message key="eform.uploadhtml.formName"/>:
                 <br/>
-                <input type="text" name="formName" value="<e:forHtmlAttribute value='<%= (String) curform.get("formName") %>' />"
+                <input type="text" name="formName" value="<carlos:encode value='<%= (String) curform.get("formName") %>' context="htmlAttribute"/>"
                        class="<% if (errors.containsKey("formNameMissing") || (errors.containsKey("formNameExists"))) { %> input-error <% } %>"
                        size="30"/>
                 <br/>
@@ -182,7 +183,7 @@
             <!--FORM ADDITIONAL INFO-->
             <div style="display:inline-block">
                 <fmt:message key="eform.uploadhtml.formSubject"/>:<br/>
-                <input type="text" name="formSubject" value="<e:forHtmlAttribute value='<%= (String) curform.get("formSubject") %>' />" size="30"/><br/>
+                <input type="text" name="formSubject" value="<carlos:encode value='<%= (String) curform.get("formSubject") %>' context="htmlAttribute"/>" size="30"/><br/>
             </div>
 
             <!--ROLE TYPE-->
@@ -198,7 +199,7 @@
                                 selected = "selected";
                             }
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= (String) roleList.get(i) %>' />" <%= selected%>><e:forHtmlContent value='<%= (String) roleList.get(i) %>' />
+                    <option value="<carlos:encode value='<%= (String) roleList.get(i) %>' context="htmlAttribute"/>" <%= selected%>><carlos:encode value='<%= (String) roleList.get(i) %>' context="html"/>
                     </option>
 
                     <%} %>
@@ -229,7 +230,7 @@
                 <input type="button" class="btn btn-secondary"
                        value="<fmt:message key="eform.edithtml.msgPreviewLast"/>" <% if (curform.get("fid") == null) {%>
                        disabled    <%}%> name="previewlast" onclick="openLastSaved()">
-                <a href="<%=request.getContextPath()%>/eform/efmformmanageredit?fid=<e:forUriComponent value='<%= (String) curform.get("fid") %>' />"
+                <a href="<%=request.getContextPath()%>/eform/efmformmanageredit?fid=<carlos:encode value='<%= (String) curform.get("fid") %>' context="uriComponent"/>"
                    class="btn contentLink"> <fmt:message key="eform.edithtml.cancelChanges"/></a>
             </div>
 

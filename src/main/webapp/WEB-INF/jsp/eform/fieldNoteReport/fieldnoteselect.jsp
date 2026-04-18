@@ -35,6 +35,7 @@
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -106,12 +107,12 @@
             <tr>
                 <td width="25%" style="padding-left: 4px;">
                     <a href="<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=fieldNoteEform.getId()%>"
-                       target="_blank"><e:forHtmlContent value='<%= fieldNoteEform.getFormName() %>' />
+                       target="_blank"><carlos:encode value='<%= fieldNoteEform.getFormName() %>' context="html"/>
                     </a>
                 </td>
-                <td width="30%" style="padding-left: 4px"><e:forHtmlContent value='<%= fieldNoteEform.getSubject() %>' />
+                <td width="30%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getSubject() %>' context="html"/>
                 </td>
-                <td width="25%" style="padding-left: 4px"><e:forHtmlContent value='<%= fieldNoteEform.getFileName() %>' />
+                <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
                 <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
                 </td>
@@ -139,12 +140,12 @@
             <tr style="background-color: #F2F2F2;">
                 <td width="25%" style="padding-left: 4px;">
                     <a href="<%= request.getContextPath() %>/eform/efmshowform_data?fid=<%=fieldNoteEform.getId()%>"
-                       target="_blank"><e:forHtmlContent value='<%= fieldNoteEform.getFormName() %>' />
+                       target="_blank"><carlos:encode value='<%= fieldNoteEform.getFormName() %>' context="html"/>
                     </a>
                 </td>
-                <td width="30%" style="padding-left: 4px"><e:forHtmlContent value='<%= fieldNoteEform.getSubject() %>' />
+                <td width="30%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getSubject() %>' context="html"/>
                 </td>
-                <td width="25%" style="padding-left: 4px"><e:forHtmlContent value='<%= fieldNoteEform.getFileName() %>' />
+                <td width="25%" style="padding-left: 4px"><carlos:encode value='<%= fieldNoteEform.getFileName() %>' context="html"/>
                 </td>
                 <td nowrap align='center' width="10%"><%=fieldNoteEform.getFormDate()%>
                 </td>

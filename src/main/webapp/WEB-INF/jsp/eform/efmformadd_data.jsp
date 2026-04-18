@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.EForm" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 	Addition of a floating global toolbar specifically for activation of the
 	Fax and eDocument functions.
@@ -66,7 +67,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>

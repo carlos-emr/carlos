@@ -54,6 +54,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -126,7 +127,7 @@
             }
 
             function updateAjax() {
-                var parentAjaxId = "<e:forJavaScriptBlock value='<%= parentAjaxId %>' />";
+                var parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
                 if (parentAjaxId != "null") {
                     window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
                     window.opener.updateNeeded = true;
@@ -162,9 +163,9 @@
                         <tr bgcolor=<%=deepColor%>>
                             <th><fmt:message key="eform.showmyform.btnFormName"/></th>
                             <th><a
-                                    href="efmpatientformlistsingle?fdid=<e:forUriComponent value='<%= fdid %>' />&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&orderby=form_subject&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />"><fmt:message key="eform.showmyform.btnSubject"/></a></th>
+                                    href="efmpatientformlistsingle?fdid=<carlos:encode value='<%= fdid %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&orderby=form_subject&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>"><fmt:message key="eform.showmyform.btnSubject"/></a></th>
                             <th><a
-                                    href="efmpatientformlistsingle?fdid=<e:forUriComponent value='<%= fdid %>' />&demographic_no=<e:forUriComponent value='<%= demographic_no %>' />&parentAjaxId=<e:forUriComponent value='<%= parentAjaxId %>' />"><fmt:message key="eform.showmyform.formDate"/></a></th>
+                                    href="efmpatientformlistsingle?fdid=<carlos:encode value='<%= fdid %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&parentAjaxId=<carlos:encode value='<%= parentAjaxId %>' context="uriComponent"/>"><fmt:message key="eform.showmyform.formDate"/></a></th>
                             <th><fmt:message key="eform.showmyform.msgAction"/></th>
                         </tr>
                         <%
@@ -177,7 +178,7 @@
                         <tr bgcolor="<%=((i % 2) == 1)?"#F2F2F2":"white"%>">
                             <td>
                                 <a href="#"
-                                   ONCLICK="popupPage('efmshowform_data?fdid=<%=curform.get("fdid")%>&appointment=<e:forUriComponent value='<%= appointment %>' />', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data?fdid=<%=curform.get("fdid")%>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
                                    onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
                                 </a>
@@ -189,9 +190,9 @@
                             <td align='center'>
                                 <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm" style="display:inline;">
                                     <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
-                                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                     <input type="hidden" name="callpage" value="single"/>
-                                    <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />"/>
+                                    <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>
                                     <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:message key="eform.uploadimages.btnDelete"/></a>
                                 </form>
                             </td>
