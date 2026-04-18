@@ -75,6 +75,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -244,14 +245,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= demographic.getLastName() %>' />"
+                                                                                value="<carlos:encode value='<%= demographic.getLastName() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= demographic.getFirstName() %>' />"
+                                                                                value="<carlos:encode value='<%= demographic.getFirstName() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
@@ -260,7 +261,7 @@
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= demographic.getMiddleNames() %>' />"
+                                                                                value="<carlos:encode value='<%= demographic.getMiddleNames() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
@@ -338,14 +339,14 @@
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= demographic.getAlias() %>' />"
+                                                                                value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientPronouns" name="pronouns"
-                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' />"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                     <tr>
@@ -386,13 +387,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getAddress()) %>' />">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getAddress()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getCity()) %>' />">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getCity()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                     </tr>
 
@@ -661,13 +662,13 @@
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getResidentialAddress()) %>' />">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialAddress()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                         <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getResidentialCity()) %>' />">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialCity()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                     </tr>
 
@@ -978,9 +979,9 @@
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' />"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' context="htmlAttribute"/>"/>
                                                             <textarea rows="2" cols="30"
-                                                                      name="phoneComment"><e:forHtmlContent value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' /></textarea>
+                                                                      name="phoneComment"><carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' context="html"/></textarea>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
@@ -1039,7 +1040,7 @@
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientGender" name="gender"
-                                                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' />"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                         <%--							<tr valign="top">--%>
@@ -1085,7 +1086,7 @@
 
                                                             <label for="age"><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"
-                                                                   value="<e:forHtmlAttribute value='<%= demographic.getAgeAsOf(new Date()) %>' />"
+                                                                   value="<carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="htmlAttribute"/>"
                                                                    readonly>
 
                                                         </td>
@@ -1103,7 +1104,7 @@
                                                                     default:   gnI18nKey = "global.gender.undisclosed"; break;
                                                                 }
                                                             %>
-                                                            <option value="<e:forHtmlAttribute value='<%= gn.name() %>' />" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><e:forHtmlContent value='<%= oscarResources.getString(gnI18nKey) %>' />
+                                                            <option value="<carlos:encode value='<%= gn.name() %>' context="htmlAttribute"/>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><carlos:encode value='<%= oscarResources.getString(gnI18nKey) %>' context="html"/>
                                                             </option>
                                                             <% } %>
                                                         </select>

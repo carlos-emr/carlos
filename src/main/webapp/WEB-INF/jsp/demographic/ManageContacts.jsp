@@ -34,6 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -73,8 +74,8 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
 
-        <script src="${e:forHtmlAttribute('../library/jquery/jquery-3.7.1.min.js')}"></script>
-        <script src="${e:forHtmlAttribute('../library/jquery/jquery-compat.js')}"></script>
+        <script src="${carlos:forHtmlAttribute('../library/jquery/jquery-3.7.1.min.js')}"></script>
+        <script src="${carlos:forHtmlAttribute('../library/jquery/jquery-compat.js')}"></script>
         <script>
             jQuery.noConflict();
         </script>
@@ -297,12 +298,12 @@
                             %>
                 addContactExisting();
                 var num = jQuery("#contact_num").val();
-                setInput(num, 'contact', 'id', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getId()) %>' />');
+                setInput(num, 'contact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'contact', 'role', '<e:forJavaScriptBlock value='<%= dc.getRole() != null ? dc.getRole() : "" %>' />');
-                setSelectExisting(num, 'contact', 'type', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getType()) %>' />');
+                setSelectExisting(num, 'contact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'contact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'contact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setInput(num, 'contact', 'contactId', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getContactId()) %>' />');
+                setInput(num, 'contact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'contact', 'contactName', '<e:forJavaScriptBlock value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' />');
                 setTextarea(num, 'contact', 'note', '<e:forJavaScriptBlock value='<%= dc.getNote()!=null?dc.getNote():"" %>' />');
 
@@ -321,12 +322,12 @@
                 %>
                 addProContactExisting();
                 var num = jQuery("#procontact_num").val();
-                setInput(num, 'procontact', 'id', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getId()) %>' />');
+                setInput(num, 'procontact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'procontact', 'role', '<e:forJavaScriptBlock value='<%= dc.getRole() != null ? dc.getRole() : "" %>' />');
                 setSelect(num, 'procontact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
                 setSelect(num, 'procontact', 'active', '<%=dc.isActive()?"1":"0"%>');
-                setSelectExisting(num, 'procontact', 'type', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getType()) %>' />');
-                setInput(num, 'procontact', 'contactId', '<e:forJavaScriptBlock value='<%= String.valueOf(dc.getContactId()) %>' />');
+                setSelectExisting(num, 'procontact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
+                setInput(num, 'procontact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'procontact', 'contactName', '<e:forJavaScriptBlock value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' />');
                 <%
             }
@@ -363,7 +364,7 @@
 
                 <form method="post" name="contactForm" id="contactForm" action="<%= request.getContextPath() %>/demographic/Contact">
                     <input type="hidden" name="method" value="saveManage"/>
-                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
 
                     <b><fmt:message key="demographic.manageContacts.personalContacts"/></b>
                     <br/>

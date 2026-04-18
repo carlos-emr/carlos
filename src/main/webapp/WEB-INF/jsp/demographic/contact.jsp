@@ -35,6 +35,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String id = request.getParameter("id");
     StringUtils.trimToEmpty(id);
@@ -42,12 +43,12 @@
     request.setAttribute("providers", providerDao.getActiveProviders());
 %>
 
-<div id="contact_<e:forHtmlAttribute value='<%= id %>' />">
-    <input type="hidden" name="contact_<e:forHtmlAttribute value='<%= id %>' />.id" id="contact_<e:forHtmlAttribute value='<%= id %>' />.id" value=""/>
+<div id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
+    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value=""/>
 
-    <a href="#" onclick="deleteContact(<e:forJavaScriptAttribute value='<%= id %>' />);">[Delete]</a>
+    <a href="#" onclick="deleteContact(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>);">[Delete]</a>
 
-    <select name="contact_<e:forHtmlAttribute value='<%= id %>' />.role" id="contact_<e:forHtmlAttribute value='<%= id %>' />.role">
+    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role">
         <option value="Mother">Mother</option>
         <option value="Father">Father</option>
         <option value="Parent">Parent</option>
@@ -77,14 +78,14 @@
 
     &nbsp;
 
-    <select name="contact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.consentToContact" title="Consent to Contact">
+    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact" title="Consent to Contact">
         <option value="1">Consent</option>
         <option value="0">No Consent</option>
     </select>
 
     &nbsp;
 
-    <select name="contact_<e:forHtmlAttribute value='<%= id %>' />.active" id="procontact_<e:forHtmlAttribute value='<%= id %>' />.active" title="Active">
+    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" title="Active">
         <option value="1">Active</option>
         <option value="0">Inactive</option>
     </select>
@@ -92,18 +93,18 @@
     &nbsp;
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
-    <select name="contact_<e:forHtmlAttribute value='<%= id %>' />.type" id="contact_<e:forHtmlAttribute value='<%= id %>' />.type">
+    <select name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type">
         <option value="<%=DemographicContact.TYPE_DEMOGRAPHIC%>">Internal</option>
         <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
     </select>
 
-    <input type="hidden" name="contact_<e:forHtmlAttribute value='<%= id %>' />.contactId" value="0"/>
-    <input type="text" name="contact_<e:forHtmlAttribute value='<%= id %>' />.contactName" id="contact_<e:forHtmlAttribute value='<%= id %>' />.contactName" size="20"
+    <input type="hidden" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactId" value="0"/>
+    <input type="text" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" id="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doPersonalSearch('<e:forJavaScriptAttribute value='<%= id %>' />');return false;"><e:forHtmlContent value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' /></a>
+    <a href="#" onclick="doPersonalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><e:forHtmlContent value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' /></a>
 
     &nbsp;
-    SDM:<input type="checkbox" name="contact_<e:forHtmlAttribute value='<%= id %>' />.sdm"/>
-    EC:<input type="checkbox" name="contact_<e:forHtmlAttribute value='<%= id %>' />.ec"/>
-    <textarea name="contact_<e:forHtmlAttribute value='<%= id %>' />.note" rows="3" cols="25" title="Contact Note"></textarea>
+    SDM:<input type="checkbox" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.sdm"/>
+    EC:<input type="checkbox" name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.ec"/>
+    <textarea name="contact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.note" rows="3" cols="25" title="Contact Note"></textarea>
 </div>

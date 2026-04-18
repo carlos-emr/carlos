@@ -51,6 +51,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
@@ -300,7 +301,7 @@
                     if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("ptstatus") || temp.equals("submit"))
                         continue;
             %>
-            <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+            <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
                    value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
             <% }
             %>
@@ -342,7 +343,7 @@
             function addName(demographic_no, lastname, firstname, chartno, messageID, doctorNo) {
                 fullname = lastname + "," + firstname;
 
-                document.addform.action = "<e:forJavaScript value='<%= originalpage %>' /><%= originalPageSeparator %>" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
+                document.addform.action = "<carlos:encode value='<%= originalpage %>' context="javaScript"/><%= originalPageSeparator %>" + "demographic_no=" + demographic_no + "&name=" + fullname + "&chart_no=" + chartno + "&bFirstDisp=false" + "&messageID=" + messageID + "&doctor_no=" + doctorNo;
 
                 document.addform.submit();
                 return true;
@@ -352,19 +353,19 @@
 
             function addNameCaisi(demographic_no, lastname, firstname, chartno, messageID) {
                 fullname = lastname + "," + firstname;
-                if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'] != null) {
-                    if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
-                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' />'] != null
+                if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'] != null) {
+                    if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' context="javaScriptBlock"/>'] != null
                 )
                     opener.document
-                ['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
-                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' />'].value = fullname;
-                    if (opener.document['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
-                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' />'] != null
+                ['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementName")) %>' context="javaScriptBlock"/>'].value = fullname;
+                    if (opener.document['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' context="javaScriptBlock"/>'] != null
                 )
                     opener.document
-                ['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("formName")) %>' />'].
-                    elements['<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' />'].value = demographic_no;
+                ['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("formName")) %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= StringUtils.noNull(request.getParameter("elementId")) %>' context="javaScriptBlock"/>'].value = demographic_no;
                 }
                 self.close();
             }
@@ -500,33 +501,33 @@
                             bgColor = rowCounter % 2 == 0 ? "#EEEEFF" : "white";
 
                 %>
-                <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(demo.getLastName()) %>' /></c:set>
-                <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(demo.getFirstName()) %>' /></c:set>
+                <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(demo.getLastName()) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_3"><e:forUriComponent value='<%= demo.getChartNo() == null ? "" : demo.getChartNo() %>' /></c:set>
                 <tr style="background-color: <%=bgColor%>"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
                     onMouseout="this.style.backgroundColor='<%=bgColor%>';"
-                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<e:forJavaScriptAttribute value='${__enc_1}' />','<e:forJavaScriptAttribute value='${__enc_2}' />','<e:forJavaScriptAttribute value='${__enc_3}' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(demo.getProviderNo()) %>' />')">
+                    onClick="document.forms[0].demographic_no.value=<%=demo.getDemographicNo()%>;<% if(caisi) { out.print("addNameCaisi");} else { out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
 
-                    <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(demo.getLastName()) %>' /></c:set>
-                    <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(demo.getFirstName()) %>' /></c:set>
+                    <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getLastName()) %>' context="uriComponent"/></c:set>
+                    <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(demo.getFirstName()) %>' context="uriComponent"/></c:set>
                     <c:set var="__enc_6"><e:forUriComponent value='<%= demo.getChartNo() == null ? "" : demo.getChartNo() %>' /></c:set>
                     <td class="demoId">
                         <input type="submit" class="mbttn btn btn-secondary btn-sm" name="demographic_no"
                                value="<%=demo.getDemographicNo()%>"
-                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<e:forJavaScriptAttribute value='${__enc_4}' />','<e:forJavaScriptAttribute value='${__enc_5}' />','<e:forJavaScriptAttribute value='${__enc_6}' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' />','<e:forJavaScriptAttribute value='<%= StringUtils.noNull(demo.getProviderNo()) %>' />')">
+                               onClick="<% if(caisi) {out.print("addNameCaisi");} else {out.print("addName");} %>('<%=demo.getDemographicNo()%>','<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>','<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(request.getParameter("messageId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="javaScriptAttribute"/>')">
                     </td>
-                    <td class="lastName"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' />
+                    <td class="lastName"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
                     </td>
                     <td class="firstName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName())) + " " + Encode.forHtml(Misc.toUpperLowerCase(demo.getMiddleNames()))%>
                     </td>
                     <td class="age"><e:forHtmlContent value='<%= demo.getAge() == null ? "" : String.valueOf(demo.getAge()) %>' />
                     </td>
-                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><e:forHtmlContent value='<%= demo.getRosterStatus() %>' /><% } %>
+                    <td class="rosterStatus"><% if (demo.getRosterStatus() == null || demo.getRosterStatus().equals("")) { %>&nbsp;<% } else { %><carlos:encode value='<%= demo.getRosterStatus() %>' context="html"/><% } %>
                     </td>
                     <td class="sex"><e:forHtmlContent value='<%= demo.getSex() == null ? "" : demo.getSex() %>' />
                     </td>
-                    <td class="dob"><e:forHtmlContent value='<%= demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() %>' />
+                    <td class="dob"><carlos:encode value='<%= demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth() %>' context="html"/>
                     </td>
                     <td class="doctor"><e:forHtmlContent value='<%= providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()) == null ? "" : providerBean.getProperty(demo.getProviderNo()) %>' />
                     </td>
@@ -540,7 +541,7 @@
                         temp = e.nextElement().toString();
                         if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
-                <input type="hidden" name="<e:forHtmlAttribute value='<%= temp %>' />"
+                <input type="hidden" name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
                        value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
                 <% }
 
@@ -611,22 +612,22 @@
         <script language="JavaScript">
 
             function last() {
-                <c:set var="__enc_7"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-                <c:set var="__enc_8"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-                <c:set var="__enc_9"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
-                <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
-                <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<e:forJavaScript value='${__enc_7}' />&search_mode=<e:forJavaScript value='${__enc_8}' />&displaymode=<e:forJavaScript value='${__enc_9}' />&dboperation=<e:forJavaScript value='${__enc_10}' />&orderby=<e:forJavaScript value='${__enc_11}' />&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
+                <c:set var="__enc_7"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_8"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_9"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<carlos:encode value='${__enc_7}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_8}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_9}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_10}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_11}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
             function next() {
-                <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-                <c:set var="__enc_13"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-                <c:set var="__enc_14"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' /></c:set>
-                <c:set var="__enc_15"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' /></c:set>
-                <c:set var="__enc_16"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<e:forJavaScript value='${__enc_12}' />&search_mode=<e:forJavaScript value='${__enc_13}' />&displaymode=<e:forJavaScript value='${__enc_14}' />&dboperation=<e:forJavaScript value='${__enc_15}' />&orderby=<e:forJavaScript value='${__enc_16}' />&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
+                <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_13"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_14"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("displaymode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_15"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_16"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/DemographicSearch?keyword=<carlos:encode value='${__enc_12}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_13}' context="javaScript"/>&displaymode=<carlos:encode value='${__enc_14}' context="javaScript"/>&dboperation=<carlos:encode value='${__enc_15}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_16}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>";
                 //document.nextform.submit();
             }
 
@@ -656,7 +657,7 @@
                         temp = e.nextElement().toString();
                         if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                             continue; %>
-                <input type='hidden' name="<e:forHtmlAttribute value='<%= temp %>' />"
+                <input type='hidden' name="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"
                        value="<e:forHtmlAttribute value='<%= request.getParameter(temp) != null ? request.getParameter(temp) : "" %>' />">
                 <% }
                 %>

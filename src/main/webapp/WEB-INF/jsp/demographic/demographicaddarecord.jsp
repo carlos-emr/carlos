@@ -43,6 +43,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
@@ -105,8 +106,8 @@
     <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-    <a href="DemographicEdit?demographic_no=<e:forUriComponent value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' />">
-        <e:forHtmlContent value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' /></a><br><br>
+    <a href="DemographicEdit?demographic_no=<carlos:encode value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' context="uriComponent"/>">
+        <carlos:encode value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' context="html"/></a><br><br>
     <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else { %>

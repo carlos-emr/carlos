@@ -37,6 +37,7 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
@@ -73,19 +74,19 @@
     <span style="color:red;">
         <fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-    <a href="DemographicEdit?demographic_no=<e:forUriComponent value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' />">
-        <e:forHtmlContent value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' /></a><br><br>
+    <a href="DemographicEdit?demographic_no=<carlos:encode value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' context="uriComponent"/>">
+        <carlos:encode value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' context="html"/></a><br><br>
     <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else if (Boolean.TRUE.equals(addToWl)) { %>
 
     <%-- Waiting list form: rendered when the action determined an add-to-WL is needed --%>
     <form name="add2WLFrm" action="<%= request.getContextPath() %>/waitinglist/Add2WaitingList" method="post">
-        <input type="hidden" name="listId" value="<e:forHtmlAttribute value='<%= wlListId %>' />"/>
-        <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= wlDemoNo %>' />"/>
-        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= wlDemoNo %>' />"/>
-        <input type="hidden" name="waitingListNote" value="<e:forHtmlAttribute value='<%= wlNote %>' />"/>
-        <input type="hidden" name="onListSince" value="<e:forHtmlAttribute value='<%= wlReferralDate %>' />"/>
+        <input type="hidden" name="listId" value="<carlos:encode value='<%= wlListId %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= wlDemoNo %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= wlDemoNo %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="waitingListNote" value="<carlos:encode value='<%= wlNote %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="onListSince" value="<carlos:encode value='<%= wlReferralDate %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="displaymode" value="edit"/>
         <input type="hidden" name="dboperation" value="search_detail"/>
 
@@ -93,11 +94,11 @@
         <script language="JavaScript">
             var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
             if (add2List) {
-                <c:set var="__enc_1"><e:forUriComponent value='<%= wlDemoNo %>' /></c:set>
+                <c:set var="__enc_1"><carlos:encode value='<%= wlDemoNo %>' context="uriComponent"/></c:set>
                 document.add2WLFrm.action = "<%= request.getContextPath() %>/wa                
 itinglist/Add2WaitingList";
             } else {
-                document.add2WLFrm.action = "DemographicEdit?demographic_no=<e:forJavaScript value='${__enc_1}' />";
+                document.add2WLFrm.action = "DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScript"/>";
             }
             document.add2WLFrm.submit();
         </script>

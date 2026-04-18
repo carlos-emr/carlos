@@ -71,6 +71,7 @@
         <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
         <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
         <!DOCTYPE html>
         <html>
@@ -129,9 +130,9 @@
                     <tr>
                         <td>&nbsp;</td>
                         <td>
-                            ${e:forHtml(demographic.lastName)},&nbsp;
-                            ${e:forHtml(demographic.firstName)}&nbsp;
-                            ${e:forHtml(demographic.age)}&nbsp;years
+                            ${carlos:forHtml(demographic.lastName)},&nbsp;
+                            ${carlos:forHtml(demographic.firstName)}&nbsp;
+                            ${carlos:forHtml(demographic.age)}&nbsp;years
                         </td>
                         <td style="text-align: right">
 
@@ -171,48 +172,48 @@
                 <li id="${ dContact.id }" class="hovereffect ${ rowclass }">
 			
 				<span class="label"> 
-					${e:forHtml(dContact.role)}
+					${carlos:forHtml(dContact.role)}
 				</span>
 
                     <c:if test="${ workPhone eq internal }">
 					<span class="label">
-						&#40;${e:forHtml(internal)}&#41;
+						&#40;${carlos:forHtml(internal)}&#41;
 					</span>
                     </c:if>
 
                     <span class="info">
-					:&nbsp;${e:forHtml(dContact.contactName)}
+					:&nbsp;${carlos:forHtml(dContact.contactName)}
 				</span>
                 </li>
 
                 <table class="healthCareTeamMemberDetailTable" id="healthCareTeamMemberDetail_${ dContact.id }"
                        style="display:none;">
                     <tr>
-                        <th class="alignLeft contactName" colspan="2">${e:forHtml(dContact.contactName)}</th>
+                        <th class="alignLeft contactName" colspan="2">${carlos:forHtml(dContact.contactName)}</th>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText role">Role:</td>
-                        <td class="alignLeft alignTop smallText role">${e:forHtml(dContact.role)}</td>
+                        <td class="alignLeft alignTop smallText role">${carlos:forHtml(dContact.role)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Address:</td>
-                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.address)}</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.address)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">City:</td>
-                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.city)}</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.city)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Province:</td>
-                        <td class="alignLeft alignTop smallText">${e:forHtml(dContact.details.province)}</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(dContact.details.province)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Phone:</td>
-                        <td class="alignLeft alignTop smallText">${e:forHtml(not empty workPhone ? workPhone : unknown)}</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(not empty workPhone ? workPhone : unknown)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">Fax:</td>
-                        <td class="alignLeft alignTop smallText">${e:forHtml(not empty dContact.details.fax ? dContact.details.fax : unknown)}</td>
+                        <td class="alignLeft alignTop smallText">${carlos:forHtml(not empty dContact.details.fax ? dContact.details.fax : unknown)}</td>
                     </tr>
                     <tr>
                         <td class="alignRight alignTop smallText">CPSO:</td>

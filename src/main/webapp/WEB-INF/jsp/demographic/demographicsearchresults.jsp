@@ -57,6 +57,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -148,7 +149,7 @@
 <html>
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
         <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"
@@ -286,7 +287,7 @@
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
 
-            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : ${e:forHtml(param.keyword)}
+            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : ${carlos:forHtml(param.keyword)}
 
             <div class="table-responsive">
             <table id="patientResults" class="table table-sm table-striped">
@@ -435,36 +436,36 @@
                                 String messengerPatientName = Misc.toUpperLowerCase(demo.getLastName() + ", " + demo.getFirstName());
                         %>
                         <a href="javascript:void(0)"
-                           onclick="selectForMessenger('<e:forJavaScriptAttribute value='<%= messengerPatientName %>' />','<e:forJavaScriptAttribute value='<%= dem_no %>' />')"><e:forHtmlContent value='<%= demo.getDemographicNo().toString() %>' />
+                           onclick="selectForMessenger('<carlos:encode value='<%= messengerPatientName %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= dem_no %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= demo.getDemographicNo().toString() %>' context="html"/>
                         </a></td>
                     <%
                     } else {
                     %>
                     <c:set var="__enc_1"><e:forUriComponent value='<%= head != null ? head : dem_no %>' /></c:set>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />')"><e:forHtmlContent value='<%= dem_no %>' />
+                       onclick="popup(700,1027,'DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= dem_no %>' context="html"/>
                     </a></td>
 
                     <!-- Rights -->
                     <td class="links"><security:oscarSec roleName="<%=roleName$%>"
                                                          objectName="_eChart" rights="r">
-                        <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(curProvider_no) %>' /></c:set>
-                        <c:set var="__enc_3"><e:forUriComponent value='<%= dem_no %>' /></c:set>
+                        <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(curProvider_no) %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_3"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
                         <a class="encounterBtn" title="Encounter" href="javascript:void(0)"
-                           onclick="popupEChart(710,1024,'${e:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<e:forJavaScriptAttribute value='${__enc_2}' />&appointmentNo=&demographicNo=<e:forJavaScriptAttribute value='${__enc_3}' />&curProviderNo=&reason=<e:forJavaScriptAttribute value='<%= URLEncoder.encode(noteReason, StandardCharsets.UTF_8) %>' />&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
+                           onclick="popupEChart(710,1024,'${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&appointmentNo=&demographicNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&curProviderNo=&reason=<carlos:encode value='<%= URLEncoder.encode(noteReason, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
                     </security:oscarSec> <!-- Rights --> <security:oscarSec roleName="<%=roleName$%>"
                                                                             objectName="_rx" rights="r">
-			<c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(demo.getProviderNo()) %>' /></c:set>
-			<c:set var="__enc_5"><e:forUriComponent value='<%= dem_no %>' /></c:set>
-			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/rx/choosePatient?providerNo=<e:forJavaScriptAttribute value='${__enc_4}' />&demographicNo=<e:forJavaScriptAttribute value='${__enc_5}' />')">Rx</a>
+			<c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="uriComponent"/></c:set>
+			<c:set var="__enc_5"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/rx/choosePatient?providerNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>')">Rx</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-			<c:set var="__enc_6"><e:forUriComponent value='<%= dem_no %>' /></c:set>
-			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<e:forJavaScriptAttribute value='${__enc_6}' />')">T</a>
+			<c:set var="__enc_6"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>')">T</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
-			<c:set var="__enc_7"><e:forUriComponent value='<%= dem_no %>' /></c:set>
-			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'${e:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<e:forJavaScriptAttribute value='${__enc_7}' />')">C</a>
+			<c:set var="__enc_7"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>')">C</a>
 			</security:oscarSec>
 		</td>
 
@@ -472,17 +473,17 @@
                         }
                     %>
                     <caisi:isModuleLoad moduleName="caisi">
-                        <c:set var="__enc_8"><e:forUriComponent value='<%= dem_no %>' /></c:set>
+                        <c:set var="__enc_8"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
                         <td class="name"><a href="javascript:void(0)"
-                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager?id=<e:forJavaScriptAttribute value='${__enc_8}' />'"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' />
-                            , <e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getFirstName()) %>' />
+                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager?id=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>'"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
+                            , <carlos:encode value='<%= Misc.toUpperLowerCase(demo.getFirstName()) %>' context="html"/>
                         </a></td>
                     </caisi:isModuleLoad>
                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                        <td class="name"><e:forHtmlContent value='<%= Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + (demo.getMiddleNames() != null && !demo.getMiddleNames().isEmpty() ? " " + Misc.toUpperLowerCase(demo.getMiddleNames()) : "")) %>' />
+                        <td class="name"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + (demo.getMiddleNames() != null && !demo.getMiddleNames().isEmpty() ? " " + Misc.toUpperLowerCase(demo.getMiddleNames()) : "")) %>' context="html"/>
                         </td>
                     </caisi:isModuleLoad>
-                    <td class="chartNo"><e:forHtmlContent value='<%= demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo() %>' />
+                    <td class="chartNo"><carlos:encode value='<%= demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo() %>' context="html"/>
                     </td>
                     <td class="sex"><e:forHtmlContent value='<%= demo.getSex() == null ? "" : demo.getSex() %>' />
                     </td>
@@ -492,11 +493,11 @@
                         String providerShortName = Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12);
                         %><e:forHtmlContent value='<%= providerShortName == null ? "" : providerShortName %>' />
                     </td>
-                    <td class="rosterStatus"><e:forHtmlContent value='<%= demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus() %>' />
+                    <td class="rosterStatus"><carlos:encode value='<%= demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus() %>' context="html"/>
                     </td>
-                    <td class="patientStatus"><e:forHtmlContent value='<%= demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus() %>' />
+                    <td class="patientStatus"><carlos:encode value='<%= demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus() %>' context="html"/>
                     </td>
-                    <td class="phone"><e:forHtmlContent value='<%= demo.getPhone() == null || demo.getPhone().equals("") ? " " : (demo.getPhone().length() == 10 ? (demo.getPhone().substring(0, 3) + "-" + demo.getPhone().substring(3)) : demo.getPhone()) %>' />
+                    <td class="phone"><carlos:encode value='<%= demo.getPhone() == null || demo.getPhone().equals("") ? " " : (demo.getPhone().length() == 10 ? (demo.getPhone().substring(0, 3) + "-" + demo.getPhone().substring(3)) : demo.getPhone()) %>' context="html"/>
                     </td>
                 </tr>
                 <%
@@ -525,20 +526,20 @@
 
                 if (nLastPage >= 0) {
             %>
-            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<e:forUriComponent value='<%= ptStatus %>' />">
+            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
                 <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<e:forUriComponent value='<%= ptStatus %>' />">
+            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
                 <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
             <%
                 }
             %>
             <br>
             <div class="createNew">
-                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<e:forUriComponent value='<%= StringUtils.noNull(searchMode) %>' />&keyword=<e:forUriComponent value='<%= StringUtils.noNull(keyWord) %>' />"
+                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<carlos:encode value='<%= StringUtils.noNull(searchMode) %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= StringUtils.noNull(keyWord) %>' context="uriComponent"/>"
                    title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
                     <fmt:message key="demographic.search.btnCreateNew"/>
                 </a>
