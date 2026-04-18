@@ -79,7 +79,7 @@ public abstract class DSValue {
     private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'[^']+'");
     private static final Pattern STRING_SEPARATOR_PATTERN = Pattern.compile("'[\\s]*,");
     private static final Pattern OPERATOR_PATTERN = Pattern.compile("[<>=-]+");
-    private static final Pattern UNIT_PATTERN = Pattern.compile("([^\\s]+$)");
+    private static final Pattern UNIT_PATTERN = Pattern.compile("([^\\s]++$)");
     private static final Pattern ALL_CHARACTERS_PATTERN = Pattern.compile(".");
 
     private String valueType;
