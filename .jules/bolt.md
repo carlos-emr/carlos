@@ -1,0 +1,3 @@
+## 2024-04-18 - Optimized regex pattern compilation in DSValue
+**Learning:** In this Java codebase, dynamic `Pattern.compile()` calls inside methods that are frequently invoked (like `DSValue` parsing for decision support) can cause unnecessary overhead due to repeated regular expression compilation. Refactoring these to pre-compiled `private static final Pattern` class fields is an effective, proven performance optimization pattern for the project.
+**Action:** When working with regular expressions that do not change at runtime, always declare them as static final constants and pre-compile them at class load time to improve parsing and string manipulation performance.
