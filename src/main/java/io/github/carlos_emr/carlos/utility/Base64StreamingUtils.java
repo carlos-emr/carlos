@@ -52,8 +52,9 @@ public final class Base64StreamingUtils {
      * @throws IOException if the file cannot be read
      */
     public static String encode(Path path) throws IOException {
+        long fileSize = Files.size(path);
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return encode(inputStream);
+            return encode(inputStream, estimateEncodedSize(fileSize));
         }
     }
 
@@ -65,10 +66,37 @@ public final class Base64StreamingUtils {
      * @throws IOException if the input stream cannot be read
      */
     public static String encode(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream encodedOutput = new ByteArrayOutputStream();
+        return encode(inputStream, 32);
+    }
+
+    private static String encode(InputStream inputStream, int initialCapacity) throws IOException {
+        ByteArrayOutputStream encodedOutput = new ByteArrayOutputStream(initialCapacity);
         try (OutputStream base64OutputStream = Base64.getEncoder().wrap(encodedOutput)) {
             inputStream.transferTo(base64OutputStream);
         }
         return encodedOutput.toString(StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * Estimates the Base64-encoded output size for a given raw input size.
+     *
+     * <p>Base64 produces 4 output bytes for every 3 input bytes (rounded up). A small
+     * floor/cap is applied to avoid a zero-capacity buffer and to bound the initial
+     * allocation for extremely large inputs where the caller would run out of heap
+     * before the allocation could succeed anyway.</p>
+     *
+     * @param rawSize long the raw input size in bytes
+     * @return int a safe initial capacity for the encoded output buffer
+     */
+    private static int estimateEncodedSize(long rawSize) {
+        if (rawSize <= 0) {
+            return 32;
+        }
+        // Cap to a safe int value to avoid overflow for pathologically large inputs
+        long encoded = ((rawSize + 2) / 3) * 4;
+        if (encoded > Integer.MAX_VALUE - 8) {
+            return Integer.MAX_VALUE - 8;
+        }
+        return (int) encoded;
     }
 }

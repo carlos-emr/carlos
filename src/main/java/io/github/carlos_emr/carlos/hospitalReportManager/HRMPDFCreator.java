@@ -220,7 +220,13 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 byte[] htmlHrmReportData = hrmReport.getBinaryContent();
                 eFormData.setFormData(new String(htmlHrmReportData, StandardCharsets.UTF_8));
                 Path path = ConvertToEdoc.saveAsTempPDF(eFormData);
-                Files.copy(path, outputStream);
+                try {
+                    Files.copy(path, outputStream);
+                } finally {
+                    if (path != null) {
+                        Files.deleteIfExists(path);
+                    }
+                }
             } else {
                 logger.info("HRM Report is binary, only printing the attachment");
                 outputStream.write(hrmReport.getBinaryContent()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF bytes to OutputStream

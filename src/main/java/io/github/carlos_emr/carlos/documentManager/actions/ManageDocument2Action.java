@@ -911,7 +911,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        Path file = Paths.get(DOCUMENT_DIR, filename);
+        Path file = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR)).toPath();
 
         if (!Files.exists(file)) {
             // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
