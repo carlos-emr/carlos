@@ -34,8 +34,8 @@ services:
       context: ./drugref
       dockerfile: Dockerfile
       args:
-        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/open-osp/Open-Drugref.git}
-        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-main}
+        DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/carlos-emr/drugref2026.git}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-v1.0.0-rc2}
     ports:
       - "8180:8080"
     volumes:
@@ -48,7 +48,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/drugref2/DrugrefService?wsdl"]
+      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://localhost:8080/drugref2/"]
       timeout: 10s
       retries: 5
       interval: 30s
