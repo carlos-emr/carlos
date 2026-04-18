@@ -32,7 +32,6 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -57,7 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
@@ -320,7 +318,7 @@
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<carlos:encode value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' context="html"/>, <%=initial%>]
+                [<carlos:encode value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' context="html"/>, <carlos:encode value='<%= String.valueOf(initial) %>' context="html"/>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
