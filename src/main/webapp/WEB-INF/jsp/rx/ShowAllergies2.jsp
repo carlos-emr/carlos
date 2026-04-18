@@ -40,6 +40,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -612,22 +613,22 @@
                                                 </td>
                                                 <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
-                                                <td <%=title%> ><e:forHtmlContent value='<%= allergy.getDescription() %>' />
+                                                <td <%=title%> ><carlos:encode value='<%= allergy.getDescription() %>' context="html"/>
                                                 </td>
-                                                <td><e:forHtmlContent value='<%= allergy.getTypeDesc() %>' />
+                                                <td><carlos:encode value='<%= allergy.getTypeDesc() %>' context="html"/>
                                                 </td>
 
                                                 <td><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() == null ? "<i>&lt;Not Set&gt;</i>" : ""%><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() != null && allergy.isNonDrug() ? "*" : "" %>
                                                 </td>
-                                                <td bgcolor="<%=sevColour%>"><e:forHtmlContent value='<%= allergy.getSeverityOfReactionDesc() %>' />
+                                                <td bgcolor="<%=sevColour%>"><carlos:encode value='<%= allergy.getSeverityOfReactionDesc() %>' context="html"/>
                                                 </td>
-                                                <td><e:forHtmlContent value='<%= allergy.getOnSetOfReactionDesc() %>' />
+                                                <td><carlos:encode value='<%= allergy.getOnSetOfReactionDesc() %>' context="html"/>
                                                 </td>
                                                 <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
                                                 <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
                                                 </td>
-                                                <td><e:forHtmlContent value='<%= allergy.getLifeStageDesc() %>' />
+                                                <td><carlos:encode value='<%= allergy.getLifeStageDesc() %>' context="html"/>
                                                 </td>
                                                 <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
@@ -637,12 +638,12 @@
                                                             if (intArchived == 0) {
                                                     %>
                                                     <a href="#" class="deleteAllergyLink"
-                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<e:forHtmlAttribute value='<%= demoNo %>' />&action=<%=actionPath %>">
+                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>&action=<%=actionPath %>">
                                                         <%=labelAction%>
                                                     </a> |
                                                     <% } %>
                                                     <a href="#" class="modifyAllergyLink"
-                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<e:forHtmlAttribute value='<%= allergy.getDescription() %>' />&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
+                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<carlos:encode value='<%= allergy.getDescription() %>' context="htmlAttribute"/>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
                                                         <%=intArchived == 0 ? "Modify" : labelAction%>
                                                     </a>
                                                     <% } %>

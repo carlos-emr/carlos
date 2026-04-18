@@ -34,6 +34,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -635,21 +636,21 @@
                                             if (ph.getName() != null && !ph.getName().isEmpty()) {
                                         %>
                                         <tr class="pharmacyItem" pharmId="<%=ph.getId()%>">
-                                            <td class="pharmacyName"><e:forHtmlContent value='<%= ph.getName() %>' />
+                                            <td class="pharmacyName"><carlos:encode value='<%= ph.getName() %>' context="html"/>
                                             </td>
-                                            <td class="address"><e:forHtmlContent value='<%= ph.getAddress() %>' />
-                                            </td>
-                                            <td style="white-space: nowrap;"
-                                                class="city"><e:forHtmlContent value='<%= ph.getCity() %>' />
+                                            <td class="address"><carlos:encode value='<%= ph.getAddress() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="postalCode"><e:forHtmlContent value='<%= ph.getPostalCode() %>' />
+                                                class="city"><carlos:encode value='<%= ph.getCity() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="phone"><e:forHtmlContent value='<%= ph.getPhone1() %>' />
+                                                class="postalCode"><carlos:encode value='<%= ph.getPostalCode() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="fax"><e:forHtmlContent value='<%= ph.getFax() %>' />
+                                                class="phone"><carlos:encode value='<%= ph.getPhone1() %>' context="html"/>
+                                            </td>
+                                            <td style="white-space: nowrap;"
+                                                class="fax"><carlos:encode value='<%= ph.getFax() %>' context="html"/>
                                             </td>
                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_rx.editPharmacy"
                                                                rights="w" reverse="false">

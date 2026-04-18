@@ -50,6 +50,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
@@ -68,7 +69,7 @@
         <p class="PropSheetLevel1CurrentItem<%=alle%>">
             <fmt:message key="oscarRx.sideLinks.msgAllergies"/>
             <a href="javascript:void(0);" name="cmdAllergies"
-               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' />';"
+               onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="javaScriptAttribute"/>';"
                style="width: 200px">+</a>
         </p>
         <p class="PropSheetMenuItemLevel1">
@@ -107,7 +108,7 @@
 
                 if (codeDescr != null) {
         %>
-        <p class="PropSheetMenuItemLevel1"><e:forHtmlContent value='<%= codeDescr %>' />
+        <p class="PropSheetMenuItemLevel1"><carlos:encode value='<%= codeDescr %>' context="html"/>
         </p>
         <%
                 }
@@ -130,7 +131,7 @@
                 if (!note.isLocked() && !note.isArchived()) {
 
         %>
-        <p class="PropSheetMenuItemLevel1"><e:forHtmlContent value='<%= note.getNote() %>' />
+        <p class="PropSheetMenuItemLevel1"><carlos:encode value='<%= note.getNote() %>' context="html"/>
         </p>
         <%
                 }
