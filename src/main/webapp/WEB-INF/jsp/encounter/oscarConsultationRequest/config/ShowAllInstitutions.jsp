@@ -51,6 +51,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
 %>
@@ -96,7 +97,7 @@
                         String contextPath = request.getContextPath();
                         for (Institution i : institutionDao.findAll()) {
                             String url = contextPath + "/encounter/ShowAllInstitutions?id=" + i.getId()
-                                + "&name=" + Encode.forUriComponent(i.getName());
+                                + "&name=" + SafeEncode.forUriComponent(i.getName());
                     %>
                     <a href="<%= url %>" class="list-group-item list-group-item-action"><carlos:encode value='<%= i.getName() %>' context="html"/></a>
                     <% } %>

@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
@@ -409,7 +410,7 @@
                             String genText(String id, String value) {
                                 String s = "\n<span style='width:100%'>"
                                         + "<input type=text style='width:100%;' name='"
-                                        + Encode.forHtmlAttribute(id) + "_text' value='" + Encode.forHtmlAttribute(value) + "'></input>"
+                                        + SafeEncode.forHtmlAttribute(id) + "_text' value='" + SafeEncode.forHtmlAttribute(value) + "'></input>"
                                         + "</span>\n";
 
                                 return s;
@@ -424,25 +425,25 @@
                                 String provider = cell.getAttribute("providers");
                                 String comments = cell.getAttribute("comments");
 
-                                s += "<input type=hidden name='" + id + "_givenDate' value='" + Encode.forHtmlAttribute(givenDate) + "' />"
-                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + Encode.forHtmlAttribute(refusedDate) + "' />"
-                                        + "<input type=hidden name='" + id + "_lot' value='" + Encode.forHtmlAttribute(lot) + "' />"
-                                        + "<input type=hidden name='" + id + "_provider' value='" + Encode.forHtmlAttribute(provider) + "' />"
-                                        + "<input type=hidden name='" + id + "_comments' value='" + Encode.forHtmlAttribute(comments) + "' />";
+                                s += "<input type=hidden name='" + id + "_givenDate' value='" + SafeEncode.forHtmlAttribute(givenDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + SafeEncode.forHtmlAttribute(refusedDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_lot' value='" + SafeEncode.forHtmlAttribute(lot) + "' />"
+                                        + "<input type=hidden name='" + id + "_provider' value='" + SafeEncode.forHtmlAttribute(provider) + "' />"
+                                        + "<input type=hidden name='" + id + "_comments' value='" + SafeEncode.forHtmlAttribute(comments) + "' />";
 
                                 s += "<span id='" + id + "_label' style='font-size:8pt;width:75px'>";
                                 if (givenDate.length() > 0) {
-                                    s += Encode.forHtml(givenDate);
+                                    s += SafeEncode.forHtml(givenDate);
                                 } else {
                                     if (refusedDate.length() > 0) {
-                                        s += "Refused " + Encode.forHtml(refusedDate);
+                                        s += "Refused " + SafeEncode.forHtml(refusedDate);
                                     } else {
                                         s += "&nbsp;";
                                     }
                                 }
                                 s += "</span>";
 
-                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + Encode.forJavaScript(id) + "', '" + Encode.forJavaScript(colName) + "');\"><img border=0 src='img/edit.gif' /></a></span>";
+                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + SafeEncode.forJavaScript(id) + "', '" + SafeEncode.forJavaScript(colName) + "');\"><img border=0 src='img/edit.gif' /></a></span>";
                                 s += "</span>\n";
 
                                 return s;

@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -199,7 +200,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "ongoingConcerns":
@@ -211,7 +212,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "FamilyHistory":
@@ -223,7 +224,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "SocialHistory":
@@ -235,7 +236,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "OtherMeds":
@@ -247,7 +248,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                     case "Reminders":
@@ -259,7 +260,7 @@
                             value = StringUtils.lineBreaks(value);
                         }
 
-                        out.println("info = '" + Encode.forJavaScript(value) + "'");
+                        out.println("info = '" + SafeEncode.forJavaScript(value) + "'");
                     %>
                         break;
                 }

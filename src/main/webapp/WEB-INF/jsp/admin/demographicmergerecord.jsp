@@ -107,6 +107,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     List<Demographic> demoList = null;  //demographicDao.getDemographicByProvider( "55");
@@ -219,7 +220,7 @@
                value="search_address" <%=searchMode.equals("search_address")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.address"/>
         <input type="radio" name="search_mode" value="search_hin" <%=searchMode.equals("search_hin")?"checked":""%>> <fmt:message key="admin.demographicmergerecord.hin"/>
 
-        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?Encode.forHtmlAttribute(keyword):""%>">
+        <input type="text" NAME="keyword" class="form-control" MAXLENGTH="100" value="<%=(keyword != null)?SafeEncode.forHtmlAttribute(keyword):""%>">
         <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name">
         <INPUT TYPE="hidden" NAME="limit1" VALUE="0">
         <INPUT TYPE="hidden" NAME="limit2" VALUE="10">

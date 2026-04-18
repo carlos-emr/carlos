@@ -20,6 +20,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -125,8 +126,8 @@
             String fieldCaption = "";
             String action = submitAdd;
             if (strTemp.length > 1) {
-                fieldName = Encode.forHtml(strTemp[1]);
-                fieldCaption = Encode.forHtmlAttribute(strTemp[0].trim());
+                fieldName = SafeEncode.forHtml(strTemp[1]);
+                fieldCaption = SafeEncode.forHtmlAttribute(strTemp[0].trim());
             }
             if (fieldCaption.length() > 1) {
                 color = "gold";

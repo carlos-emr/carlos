@@ -55,6 +55,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -71,7 +72,7 @@
     // navbarName is a server-set attribute (e.g. "measurements", "allergies") — not user input.
     String navbarName = (String) request.getAttribute("navbarName");
     if (navbarName == null) navbarName = "";
-    String htmlNavbarName = Encode.forHtmlAttribute(navbarName);
+    String htmlNavbarName = SafeEncode.forHtmlAttribute(navbarName);
 
     // Render auto-complete items with OWASP encoding (defense-in-depth, issue #1386)
     java.util.List<NavBarDisplayDAO.AutoCompleteItem> acItems = dao.getAutoCompleteItems();
@@ -136,11 +137,11 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
            if (popCfg != null) {
                String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
-                   + ",'" + Encode.forJavaScriptAttribute(popCfg.windowName())
-                   + "','" + Encode.forJavaScriptAttribute(popCfg.url()) + "');";
+                   + ",'" + SafeEncode.forJavaScriptAttribute(popCfg.windowName())
+                   + "','" + SafeEncode.forJavaScriptAttribute(popCfg.url()) + "');";
                if (menuCallback != null) {
-                   popupOnclick += Encode.forJavaScriptAttribute(menuCallback)
-                       + "('" + Encode.forJavaScriptAttribute(popCfg.windowName()) + "');";
+                   popupOnclick += SafeEncode.forJavaScriptAttribute(menuCallback)
+                       + "('" + SafeEncode.forJavaScriptAttribute(popCfg.windowName()) + "');";
                }
                popupOnclick += " return false;";
 %>
@@ -277,9 +278,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         // Encode for defense-in-depth when used in JS string literals and HTML attributes.
         String navbarName = (String) request.getAttribute("navbarName");
         if (navbarName == null) navbarName = "";
-        String jsNavbarName = Encode.forJavaScript(navbarName);
+        String jsNavbarName = SafeEncode.forJavaScript(navbarName);
         String safeReloadUrl = reloadUrl == null ? "" : reloadUrl;
-        String jsReloadUrl = Encode.forJavaScript(safeReloadUrl);
+        String jsReloadUrl = SafeEncode.forJavaScript(safeReloadUrl);
 
         String divReloadInfo;
         numToDisplay -= numDisplayed;
@@ -302,21 +303,21 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 
             if (curNum == 0 && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + Encode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
-                js.append("imgfunc['" + Encode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
-                js.append("Element.observe($('" + Encode.forJavaScript(imgName) + "'), 'click', imgfunc['" + Encode.forJavaScript(imgName) + "']);");
+                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
+                js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
+                js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else {
-                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + Encode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + SafeEncode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
             }
             ++curNum;
 
@@ -326,9 +327,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             //url = StringUtils.replaceEach(url, new String[] {"'","\\\""}, new String[] {"\'","\\\""});
             if (item.isURLJavaScript()) {
                 divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
             } else {
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
+                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
             }
             out.println(item.getTitle());
             out.println("</a>");
@@ -339,9 +340,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 
                 if (item.isURLJavaScript()) {
                     divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "'>");
+                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
                 } else {
-                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + Encode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
+                    out.println("...<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
                 }
 
                 if (item.getValue() != null && !item.getValue().trim().equals("")) {
@@ -364,7 +365,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             if (matcher.find()) {
                 windowName = matcher.group(1);
                 reloadUrl += "&numToDisplay=6&cmd=" + cmd;
-                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + Encode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + Encode.forJavaScript(cmd) + "';";
+                divReloadInfo = "reloadWindows['" + windowName + "'] = '" + SafeEncode.forJavaScript(reloadUrl) + "';reloadWindows['" + windowName + "div'] = '" + SafeEncode.forJavaScript(cmd) + "';";
             }
 
         }

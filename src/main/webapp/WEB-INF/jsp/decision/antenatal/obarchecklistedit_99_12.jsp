@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
@@ -142,7 +143,7 @@
             aline = raf.readLine();
             if (aline != null) {
                 // Encode for HTML context to prevent textarea-breakout XSS
-                out.println(Encode.forHtml(aline));
+                out.println(SafeEncode.forHtml(aline));
             } else {
                 break;
             }

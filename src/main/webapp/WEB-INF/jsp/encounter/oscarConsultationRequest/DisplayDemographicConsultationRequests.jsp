@@ -74,6 +74,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -219,8 +220,8 @@
             <%
                 String newConsultUrl = request.getContextPath()
                     + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest"
-                    + "?de=" + Encode.forUriComponent(demo)
-                    + "&teamVar=" + Encode.forUriComponent(team);
+                    + "?de=" + SafeEncode.forUriComponent(demo)
+                    + "&teamVar=" + SafeEncode.forUriComponent(team);
             %>
             <a class="btn btn-primary btn-sm"
                href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= newConsultUrl %>' context="javaScriptAttribute"/>')">
@@ -282,8 +283,8 @@
                     // Prebuild view URL for JS embedding (JS-attribute-encoded to prevent XSS)
                     String viewRequestUrl = request.getContextPath()
                         + "/encounter/ViewRequest"
-                        + "?de=" + Encode.forUriComponent(demo)
-                        + "&requestId=" + Encode.forUriComponent(id);
+                        + "?de=" + SafeEncode.forUriComponent(demo)
+                        + "&requestId=" + SafeEncode.forUriComponent(id);
             %>
             <tr>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
@@ -302,7 +303,7 @@
                     </a>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
-                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getFormattedName()) : "" %></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
                         <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>

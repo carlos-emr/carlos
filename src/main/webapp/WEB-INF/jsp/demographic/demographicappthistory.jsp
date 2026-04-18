@@ -74,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -360,7 +361,7 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
                         </td>
                         <td><carlos:encode value='<%= appointment.getType() %>' context="html"/>
                         </td>
-                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? Encode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + Encode.forHtml(appointment.getReason()) : ""%>
+                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? SafeEncode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + SafeEncode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
                         <td><carlos:encode value='<%= (provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()) %>' context="html"/>

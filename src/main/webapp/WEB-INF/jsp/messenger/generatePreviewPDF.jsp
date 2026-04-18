@@ -117,6 +117,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%
@@ -137,7 +138,7 @@
     // Use the validated integer value as the canonical demographic number string
     String demographic_no = String.valueOf(demographicNoInt);
     // Pre-encode for reuse in URI construction below
-    String encDemoNo = Encode.forUriComponent(demographic_no);
+    String encDemoNo = SafeEncode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -397,7 +398,7 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
+                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid=" + SafeEncode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
                                         <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>

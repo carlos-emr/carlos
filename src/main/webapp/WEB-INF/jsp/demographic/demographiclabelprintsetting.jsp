@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -162,7 +163,7 @@
         String phone2Raw = (phone2 == null ? "" : phone2);
         String phone2Display = phone2Raw.isEmpty()
             ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-            : (Encode.forHtml(phone2Raw) + "&nbsp;");
+            : (SafeEncode.forHtml(phone2Raw) + "&nbsp;");
     %>
 
     <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic">

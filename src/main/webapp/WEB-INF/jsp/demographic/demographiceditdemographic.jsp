@@ -111,6 +111,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicRelationship" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
@@ -131,6 +132,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -1098,16 +1100,7 @@
                                 %>
                                 <span class="patient-header-name"><carlos:encode value='<%= demographic.getLastName() %>' context="html"/>, <carlos:encode value='<%= demographic.getFirstName() %>' context="html"/></span>
                                 <%
-                                    String sexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
-                                    String genderI18nKey;
-                                    switch (sexCode) {
-                                        case "M":  genderI18nKey = "global.gender.male";        break;
-                                        case "F":  genderI18nKey = "global.gender.female";      break;
-                                        case "X":  genderI18nKey = "global.gender.intersex";    break;
-                                        case "O":  genderI18nKey = "global.gender.other";       break;
-                                        default:   genderI18nKey = "global.gender.undisclosed"; break;
-                                    }
-                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                    String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex());
                                 %>
                                 <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
@@ -1560,17 +1553,7 @@
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
-                                                                        <span class="info"><%
-                                                                            String viewSexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
-                                                                            String viewGenderKey;
-                                                                            switch (viewSexCode) {
-                                                                                case "M":  viewGenderKey = "global.gender.male";        break;
-                                                                                case "F":  viewGenderKey = "global.gender.female";      break;
-                                                                                case "X":  viewGenderKey = "global.gender.intersex";    break;
-                                                                                case "O":  viewGenderKey = "global.gender.other";       break;
-                                                                                default:   viewGenderKey = "global.gender.undisclosed"; break;
-                                                                            }
-                                                                        %><carlos:encode value='<%= oscarResources.getString(viewGenderKey) %>' context="html"/></span>
+                                                                        <span class="info"><carlos:encode value='<%= DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex()) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="html"/></span>
@@ -3399,7 +3382,7 @@
                                                         </td>
                                                         <td align="left"><input type="text" name="email"
                                                                                 size="30" <%=getDisabled("email")%>
-                                                                                value="<%=demographic.getEmail() !=null ? Encode.forHtmlContent(demographic.getEmail()) : ""%>">
+                                                                                value="<%=demographic.getEmail() !=null ? SafeEncode.forHtmlContent(demographic.getEmail()) : ""%>">
                                                         </td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
@@ -3461,16 +3444,9 @@
                                                         <td><select name="sex" id="sex">
                                                             <option value=""></option>
                                                             <% for (Gender gn : Gender.values()) {
-                                                                String gnI18nKey;
-                                                                switch (gn.name()) {
-                                                                    case "M":  gnI18nKey = "global.gender.male";        break;
-                                                                    case "F":  gnI18nKey = "global.gender.female";      break;
-                                                                    case "X":  gnI18nKey = "global.gender.intersex";    break;
-                                                                    case "O":  gnI18nKey = "global.gender.other";       break;
-                                                                    default:   gnI18nKey = "global.gender.undisclosed"; break;
-                                                                }
+                                                                String gnDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), gn.name());
                                                             %>
-                                                            <option value="<carlos:encode value='<%= gn.name() %>' context="htmlAttribute"/>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><carlos:encode value='<%= oscarResources.getString(gnI18nKey) %>' context="html"/>
+                                                            <option value="<carlos:encode value='<%= gn.name() %>' context="htmlAttribute"/>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><carlos:encode value='<%= gnDisplayText %>' context="html"/>
                                                             </option>
                                                             <% } %>
                                                         </select>
@@ -4457,7 +4433,7 @@
                                                         </td>
                                                         <% if ((k + 1) < propDemoExt.length) { %>
                                                         <td align="right"><b>
-                                                            <%out.println(Encode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
+                                                            <%out.println(SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
                                                         </td>
                                                         <td align="left">
                                                             <% if (bExtForm) {

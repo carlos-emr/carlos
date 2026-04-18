@@ -76,14 +76,14 @@
     if (request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
         for (String d : drugs) {
-            sb.append("&drug=" + Encode.forUriComponent(d));
+            sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
         }
     } else {
         for (int idx = 0; idx < arr.length; ++idx) {
             RxPrescriptionData.Prescription drug = arr[idx];
             if (!drug.isCustom()) {
-                sb.append("&drug=" + Encode.forUriComponent(drug.getRegionalIdentifier()));
+                sb.append("&drug=" + SafeEncode.forUriComponent(drug.getRegionalIdentifier()));
                 h.put(drug.getRegionalIdentifier(), "drug");
             }
         }
@@ -99,6 +99,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>

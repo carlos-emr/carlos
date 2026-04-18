@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -212,7 +213,7 @@
                                     String identCodeEsc = "";
                                     if (identCode != null)
                                         identCodeEsc = identCode.replaceAll("&", "_amp_");
-                                    String prevNameEsc = Encode.forJavaScript(prevName);
+                                    String prevNameEsc = SafeEncode.forJavaScript(prevName);
 
                                     if (prevName == null) {
                                         prevName = "";

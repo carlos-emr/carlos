@@ -73,6 +73,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -179,7 +180,7 @@
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
-                                <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "")%>
+                                <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "")%>
                                         <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
                                 </b></option>
                                 <% } %>

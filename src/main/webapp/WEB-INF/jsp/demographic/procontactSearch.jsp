@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -242,7 +243,7 @@
                 jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"

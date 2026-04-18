@@ -75,6 +75,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
  
 	
@@ -401,13 +402,13 @@
 		                    String prevLabel;
 		                    String nextLabel;
 		                    try {
-		                        prevLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
+		                        prevLabel = SafeEncode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
 		                    } catch (java.util.MissingResourceException e) {
 		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnPrevious");
 		                        prevLabel = "&laquo; Previous";
 		                    }
 		                    try {
-		                        nextLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
+		                        nextLabel = SafeEncode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
 		                    } catch (java.util.MissingResourceException e) {
 		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnNext");
 		                        nextLabel = "Next &raquo;";
@@ -525,14 +526,14 @@
 %>
 <span class="recipientList">
 <%
-                                                out.print(Encode.forHtml(dm.getSentto()));
+                                                out.print(SafeEncode.forHtml(dm.getSentto()));
 %>
 </span>
 <%
                                             }
                                             else
                                             {
-                                                out.print(Encode.forHtml(dm.getSentby()));
+                                                out.print(SafeEncode.forHtml(dm.getSentby()));
                                             }
                                         %>
 

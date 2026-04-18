@@ -124,6 +124,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <jsp:useBean id="displayServiceUtil" scope="request"
@@ -1750,7 +1751,7 @@
         <% if (consultUtil.letterheadAddress != null) { %>
         addr = '<carlos:encode value='<%= consultUtil.letterheadAddress.replaceAll("\\n", " ") %>' context="javaScriptBlock"/>';
         <%} else {%>
-        addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+        addr = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
@@ -1794,9 +1795,9 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 			String progNo = "prog_" + program.getId();
 %>
         providerData['<%=progNo %>'] = {};
-        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
-        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
-        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
+        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getAddress()) : (SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal())) %>';
+        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getPhone()) : SafeEncode.forJavaScript(clinic.getClinicPhone()) %>';
+        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getFax()) : SafeEncode.forJavaScript(clinic.getClinicFax()) %>';
         <%
 		}
 	}
@@ -1805,8 +1806,8 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
         function switchProvider(value) {
             if (value === -1) {
                 document.getElementById("letterheadName").value = value;
-                document.getElementById("letterheadAddress").value = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadPhone").value = "<carlos:encode value='<%= clinic.getClinicPhone() %>' context="javaScriptBlock"/>";
                 document.getElementById("letterheadPhoneSpan").textContent = "<carlos:encode value='<%= clinic.getClinicPhone() %>' context="javaScriptBlock"/>";
                 document.getElementById("letterheadFax").value = "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>";
@@ -2738,7 +2739,7 @@ if (userAgent != null) {
                                         </td>
                                         <td class="consult-form-value">
                                             <input type="date" class="form-control form-control-sm" id="followUpDate" name="followUpDate"
-                                                       value="<%=thisForm.getFollowUpDate() != null ? Encode.forHtmlAttribute(thisForm.getFollowUpDate().replace("/", "-")) : ""%>"/>
+                                                       value="<%=thisForm.getFollowUpDate() != null ? SafeEncode.forHtmlAttribute(thisForm.getFollowUpDate().replace("/", "-")) : ""%>"/>
                                         </td>
 
                                     </tr>
@@ -2827,7 +2828,7 @@ if (userAgent != null) {
 									</span>
                                             <% } else { %>
                                             <input type="hidden" name="letterheadAddress" id="letterheadAddress"
-                                                   value='<%=Encode.forHtmlAttribute(clinic.getClinicAddress()) + " " + Encode.forHtmlAttribute(clinic.getClinicCity()) + " " + Encode.forHtmlAttribute(clinic.getClinicProvince()) + " " + Encode.forHtmlAttribute(clinic.getClinicPostal()) %>'/>
+                                                   value='<%=SafeEncode.forHtmlAttribute(clinic.getClinicAddress()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicCity()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicProvince()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicPostal()) %>'/>
                                             <span id="letterheadAddressSpan">
 										<carlos:encode value='<%= clinic.getClinicAddress() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicCity() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicProvince() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicPostal() %>' context="html"/>
 									</span>
@@ -3042,7 +3043,7 @@ if (userAgent != null) {
                         <div>
                                 <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
-                                       value="<%=(consultUtil.signatureImg != null ? Encode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
+                                       value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
                                        value="<%=signatureRequestId %>"/>
 
@@ -3087,9 +3088,9 @@ if (userAgent != null) {
                                         initSpecialistAutocomplete();
                                         initializeConsultation(
                                             '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
-                                            '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
+                                            '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
                                             '<carlos:encode value='<%= String.valueOf(consultUtil.specialist) %>' context="javaScriptBlock"/>',
-                                            '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
+                                            '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specAddr %>' context="javaScriptBlock"/>'

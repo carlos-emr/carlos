@@ -32,6 +32,7 @@
         import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*, io.github.carlos_emr.carlos.util.*, org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -66,7 +67,7 @@
     if (curform.get("showLatestFormOnly") == null) curform.put("showLatestFormOnly", false);
     if (curform.get("patientIndependent") == null) curform.put("patientIndependent", false);
 
-    String formHtml = Encode.forHtml((String) curform.get("formHtml"));
+    String formHtml = SafeEncode.forHtml((String) curform.get("formHtml"));
     if (formHtml == null) {
         formHtml = "";
     }

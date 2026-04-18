@@ -53,6 +53,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -187,10 +188,10 @@
         %>
         <tr>
             <td width="50%" colspan="3" align="right" class="SmallerText">
-                &nbsp;<%=(start > 0 ? "<a href=\"" + Encode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
+                &nbsp;<%=(start > 0 ? "<a href=\"" + SafeEncode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
             </td>
             <td width="50%" colspan="4" align="left" class="SmallerText">
-                | <%=(count == 10 ? "<a href=\"" + Encode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
+                | <%=(count == 10 ? "<a href=\"" + SafeEncode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
             </td>
         </tr>
     </table>

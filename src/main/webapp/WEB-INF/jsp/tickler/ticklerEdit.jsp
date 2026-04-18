@@ -76,6 +76,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -487,7 +488,7 @@
                     </div>
                     <div class="col-sm-4">
                         <div class="demo-label"><fmt:message key="tickler.ticklerEdit.chartNo"/></div>
-                        <div class="demo-value"><%=d.getChartNo() != null ? Encode.forHtmlContent(d.getChartNo()) : ""%></div>
+                        <div class="demo-value"><%=d.getChartNo() != null ? SafeEncode.forHtmlContent(d.getChartNo()) : ""%></div>
                         <div class="demo-label mt-1"><fmt:message key="tickler.ticklerEdit.email"/></div>
                         <div class="demo-value"><carlos:encode value='<%= d.getEmail() %>' context="html"/></div>
                     </div>

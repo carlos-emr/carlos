@@ -10,6 +10,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="org.owasp.encoder.Encode"%>
 <%@page import="java.net.URLEncoder"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -92,9 +93,9 @@
 
 			// Replace tokens using String.replace() (literal substitution, no regex needed)
 			url = url.replace("${contextPath}", request.getContextPath());
-			url = url.replace("${demographicId}", demographic_no != null ? Encode.forUriComponent(demographic_no) : "");
-			url = url.replace("${appointmentId}", appointment_no != null ? Encode.forUriComponent(appointment_no) : "");
-			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? Encode.forUriComponent(providerPreference.getProviderNo()) : "");
+			url = url.replace("${demographicId}", demographic_no != null ? SafeEncode.forUriComponent(demographic_no) : "");
+			url = url.replace("${appointmentId}", appointment_no != null ? SafeEncode.forUriComponent(appointment_no) : "");
+			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? SafeEncode.forUriComponent(providerPreference.getProviderNo()) : "");
 			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? URLEncoder.encode(provider.getOhipNo().trim(), "UTF-8") : "");
 			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? URLEncoder.encode(demographic.getHin().trim(), "UTF-8") : "");
 			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? URLEncoder.encode(demographic.getVer().trim(), "UTF-8") : "");

@@ -71,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -396,7 +397,7 @@
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
+                                       value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
                                        value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>

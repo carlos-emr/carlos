@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 
@@ -816,7 +817,7 @@
                 <input type="hidden" value="<%=gstFlag%>" id="isGst"/>
                 <input type="button" value="<fmt:message key='billing.billingCorrection.btnRecalculate'/>" onclick="calculateFee()"/>
                 <small style="float: right; display: <%=gstFlag? "" : "none"%>"
-                       id="currentGST"><%=("+ " + Encode.forHtml(gstPercent) + "% GST")%>
+                       id="currentGST"><%=("+ " + SafeEncode.forHtml(gstPercent) + "% GST")%>
                 </small>
                 <input type="hidden" name="gstTotal" id="gstTotal" value="<carlos:encode value='<%= allFields.getProperty("gst", "0.00") %>' context="htmlAttribute"/>"/>
             </td>

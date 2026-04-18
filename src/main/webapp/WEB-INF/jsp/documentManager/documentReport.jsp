@@ -68,6 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 
@@ -573,7 +574,7 @@
                                            style="margin: 0; padding: 0;"/>
                                     <%}%>
                                 </td>
-                                <td><%=curdoc.getType() == null ? "N/A" : Encode.forHtmlContent(curdoc.getType())%>
+                                <td><%=curdoc.getType() == null ? "N/A" : SafeEncode.forHtmlContent(curdoc.getType())%>
                                 </td>
 
                                 <td>
@@ -697,7 +698,7 @@
 
                                         <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
 
-                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + Encode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + Encode.forUriComponent(moduleid);
+                                            String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + SafeEncode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + SafeEncode.forUriComponent(moduleid);
                                         %>
                                         <a href="javascript:void(0);" title="<fmt:message key="dms.documentReport.msgTickler"/>" class="btn btn-link"
                                            style="padding: 0;"

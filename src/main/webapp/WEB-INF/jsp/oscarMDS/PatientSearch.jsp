@@ -32,6 +32,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -371,21 +372,21 @@
                            value="<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="htmlAttribute"/>"
                            onclick="updateOpener('<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labNo")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= io.github.carlos_emr.Misc.getString(rs,"demographic_no") %>' context="javaScriptAttribute"/>');">
                 </td>
-                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
+                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "last_name"))))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
+                <td><%=nbsp(SafeEncode.forHtml(Misc.toUpperLowerCase(io.github.carlos_emr.Misc.getString(rs, "first_name"))))%>
                 </td>
                 <td><%= age %>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "roster_status")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "patient_status")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "sex")))%>
                 </td>
-                <td><%=nbsp(Encode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
+                <td><%=nbsp(SafeEncode.forHtml(io.github.carlos_emr.Misc.getString(rs, "year_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "month_of_birth") + "-" + io.github.carlos_emr.Misc.getString(rs, "date_of_birth")))%>
                 </td>
-                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : Encode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
+                <td><%=providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no")) == null ? "&nbsp;" : SafeEncode.forHtml(providerBean.getProperty(io.github.carlos_emr.Misc.getString(rs, "provider_no"))) %>
                 </td>
 
             </tr>

@@ -54,6 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     Hl7LinkDao dao = SpringUtils.getBean(Hl7LinkDao.class);
 
@@ -124,7 +125,7 @@
                         String lastName = String.valueOf(o[1]);
                         String firstName = String.valueOf(o[2]);
 
-                        out.println("<option value='" + Encode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + Encode.forHtml(lastName) + ", " + Encode.forHtml(firstName) + "</option>");
+                        out.println("<option value='" + SafeEncode.forHtmlAttribute(providerNo) + "'" + (providerNo.equals(provider_no) ? "selected" : "") + ">" + SafeEncode.forHtml(lastName) + ", " + SafeEncode.forHtml(firstName) + "</option>");
                     }
                 %>
             </select></td>
@@ -174,9 +175,9 @@
         </a></td>
         <td class="Text" nowrap><carlos:encode value='<%= Misc.check(patient_name, "") %>' context="html"/>
         </td>
-        <td class="Text" nowrap><%=Encode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
+        <td class="Text" nowrap><%=SafeEncode.forHtml(Misc.check(ordering_provider, "")).replaceAll("~", ",<br/>")%>
         </td>
-        <td class="Text"><%=Encode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
+        <td class="Text"><%=SafeEncode.forHtml(Misc.check(result_copies_to, "")).replaceAll("~", ",<br/>")%>
         </td>
         <td class="Text" nowrap>
             <%
@@ -201,11 +202,11 @@
         <td class="Text" nowrap>
             <%
                 String signed = Misc.check(signed_on, "");
-                out.print(Encode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
+                out.print(SafeEncode.forHtml((signed.indexOf(" ") > -1) ? signed.substring(0, signed.indexOf(" ")) : signed));
             %>
         </td>
         <td class="Text"
-            nowrap><%=((last_name != null && !last_name.equals("")) ? Encode.forHtml(Misc.check(last_name, "")) + ", " + Encode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
+            nowrap><%=((last_name != null && !last_name.equals("")) ? SafeEncode.forHtml(Misc.check(last_name, "")) + ", " + SafeEncode.forHtml(Misc.check(first_name, "")) : "&nbsp;")%>
         </td>
         <td class="Text" nowrap><carlos:encode value='<%= date_time.substring(0, date_time.indexOf(" ")) %>' context="html"/>
         </td>

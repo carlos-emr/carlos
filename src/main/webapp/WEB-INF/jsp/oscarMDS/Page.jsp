@@ -28,6 +28,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -237,7 +238,7 @@
                             MiscUtils.getLogger().debug("result.isAbnormal()=" + result.isAbnormal());
                             doclabid_seq.add(segmentID);
                             request.setAttribute("segmentID", segmentID);
-                            String demoName = Encode.forJavaScript(result.getPatientName());
+                            String demoName = SafeEncode.forJavaScript(result.getPatientName());
 
                             if (!isListView) {
                                 try {
@@ -349,15 +350,15 @@
 
                                 //the browser html parser does not understand javascript so we need to account for the opening
                                 //and closing quotes used in the onclick event handler
-                                patientName = Encode.forHtml(patientName);
+                                patientName = SafeEncode.forHtml(patientName);
 
                                 //now that the html parser will pass the correct characters to the javascript engine we need to
                                 //escape chars for javascript that are not transformed by the html escape.
-                                url.append(Encode.forJavaScript(patientName));
+                                url.append(SafeEncode.forJavaScript(patientName));
                             %>
 
                             <a href="javascript:void(0);"
-                               onclick="reportWindow('<%=url.toString()%>',screen.availHeight, screen.availWidth); return false;"><%=labRead + Encode.forHtml(result.getPatientName())%>
+                               onclick="reportWindow('<%=url.toString()%>',screen.availHeight, screen.availWidth); return false;"><%=labRead + SafeEncode.forHtml(result.getPatientName())%>
                             </a>
 
                             <% } else if (result.isHRM()) {

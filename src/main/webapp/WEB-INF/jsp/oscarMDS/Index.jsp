@@ -17,6 +17,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -137,9 +138,9 @@
                             <td align="left" valign="top">
                                 <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"/>
-                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+                                <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                                <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                                <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
                                 <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="selectedProviders"/>
                                 <input type="hidden" name="favorites" value=""/>

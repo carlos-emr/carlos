@@ -146,7 +146,7 @@
 
                     for (ScheduleTemplateCode stc : stcs) {
                 %>
-                <option value="<%=stc.getCode()%>"><%=stc.getCode() + " |" + Encode.forHtmlContent(stc.getDescription())%>
+                <option value="<%=stc.getCode()%>"><%=stc.getCode() + " |" + SafeEncode.forHtmlContent(stc.getDescription())%>
                 </option>
                 <%
                     }
@@ -185,7 +185,7 @@
                 <label class="form-label" for="description"><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
                 <div>
                     <input type="text" name="description" id="description" maxlength="40"
-                            <%=bEdit?("value='"+Encode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
+                            <%=bEdit?("value='"+SafeEncode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
                 </div>
             </div>
             <div class="mb-3">

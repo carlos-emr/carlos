@@ -41,6 +41,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String curProvider_no, userfirstname, userlastname;
     curProvider_no = (String) session.getAttribute("user");
@@ -114,7 +115,7 @@
                     <td width="50%" align="right"><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <input type="text" name="prevention" size=30 maxlength="30"
-                               value="<%=request.getParameter("prevention")==null?"":Encode.forHtmlAttribute(request.getParameter("prevention"))%>">
+                               value="<%=request.getParameter("prevention")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("prevention"))%>">
                     </td>
                 </tr>
 
@@ -123,7 +124,7 @@
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"
-                               value="<%=request.getParameter("lotnr")==null?"":Encode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
+                               value="<%=request.getParameter("lotnr")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
                 </tr>
 
                 <tr>

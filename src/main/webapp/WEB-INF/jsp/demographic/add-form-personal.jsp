@@ -10,6 +10,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
@@ -886,8 +887,10 @@
 
                                 <select name="sex" id="sex">
                                     <option value=""></option>
-                                    <% for (Gender gn : Gender.values()) { %>
-                                    <option value="<%=gn.name()%>" <%=((sex.toUpperCase().equals(gn.name())) ? "selected=\"selected\"" : "") %>><%=gn.getText()%>
+                                    <% for (Gender gn : Gender.values()) {
+                                        String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), gn.name());
+                                    %>
+                                    <option value="<%=gn.name()%>" <%=((sex.toUpperCase().equals(gn.name())) ? "selected=\"selected\"" : "") %>><%=genderDisplayText%>
                                     </option>
                                     <% } %>
                                 </select>

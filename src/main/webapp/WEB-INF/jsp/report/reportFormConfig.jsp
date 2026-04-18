@@ -22,6 +22,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String SAVE_AS = "default";
@@ -168,8 +169,8 @@
                                 String color = i % 2 == 0 ? "#EEEEFF" : "";
                                 String captionName = (String) vecTableField.get(i);
                                 if (captionName.matches(strMatchConfig)) continue;
-                                String captionNameAttr = Encode.forHtmlAttribute(captionName);
-                                String captionNameHtml = Encode.forHtml(captionName);
+                                String captionNameAttr = SafeEncode.forHtmlAttribute(captionName);
+                                String captionNameHtml = SafeEncode.forHtml(captionName);
                         %>
                         <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                         </option>
@@ -194,8 +195,8 @@
                                                        ondblclick="javascript:onSelField();">
                     <% for (int i = 0; i < vecConfigField.size(); i++) {
                         String captionName = (String) vecConfigField.get(i);
-                        String captionNameAttr = Encode.forHtmlAttribute(captionName);
-                        String captionNameHtml = Encode.forHtml(captionName);
+                        String captionNameAttr = SafeEncode.forHtmlAttribute(captionName);
+                        String captionNameHtml = SafeEncode.forHtml(captionName);
                     %>
                     <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                     </option>

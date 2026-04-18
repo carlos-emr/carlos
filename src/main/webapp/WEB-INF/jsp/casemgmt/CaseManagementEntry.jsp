@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -61,7 +62,7 @@
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
     <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
     <script type="text/javascript">
-        var flag =<%= request.getAttribute("change_flag") == null ? "null" : Encode.forJavaScript((String)request.getAttribute("change_flag")) %>;
+        var flag =<%= request.getAttribute("change_flag") == null ? "null" : SafeEncode.forJavaScript((String)request.getAttribute("change_flag")) %>;
 
         <%
 

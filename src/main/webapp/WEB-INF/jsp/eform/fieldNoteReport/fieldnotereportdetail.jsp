@@ -34,6 +34,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -62,7 +63,7 @@
         String asciiSafeName = safeName.replaceAll("[^\\p{ASCII}]", "_");
         if (asciiSafeName.isEmpty()) asciiSafeName = "report";
         String rawFilename = asciiSafeName + ".doc";
-        String encodedFilename = Encode.forUriComponent(safeName + ".doc");
+        String encodedFilename = SafeEncode.forUriComponent(safeName + ".doc");
         response.setContentType("application/msword");
         response.setHeader("Content-Disposition",
                 "attachment; filename=\"" + rawFilename + "\"; filename*=UTF-8''" + encodedFilename);

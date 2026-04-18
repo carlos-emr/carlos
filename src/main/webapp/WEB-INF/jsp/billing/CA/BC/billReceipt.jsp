@@ -67,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.clinic.ClinicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -331,13 +332,13 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Telephone:
-                                                        <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : Encode.forHtmlContent(clinic.getClinicPhone())%>
+                                                        <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : SafeEncode.forHtmlContent(clinic.getClinicPhone())%>
                                                     </td>
                                                     <td class="address" id="clinicPhone">&nbsp;</td>
                                                 </tr>
                                                 <tr>
                                                     <td class="address"> Fax:
-                                                        <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : Encode.forHtmlContent(clinic.getClinicFax())%>
+                                                        <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : SafeEncode.forHtmlContent(clinic.getClinicFax())%>
                                                     </td>
                                                     <td class="address" id="clinicFax">&nbsp;</td>
                                                 </tr>

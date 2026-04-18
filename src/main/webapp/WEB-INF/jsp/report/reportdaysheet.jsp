@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -256,10 +257,10 @@
             }
             if (bFistL) {
                 bFistL = false;
-                String encodedProviderNo = Encode.forUriComponent(provider_no);
-                String encodedSdate = Encode.forUriComponent(sdate);
-                String encodedEdate = Encode.forUriComponent(edate);
-                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + Encode.forUriComponent(request.getParameter("dsmode")) : "";
+                String encodedProviderNo = SafeEncode.forUriComponent(provider_no);
+                String encodedSdate = SafeEncode.forUriComponent(sdate);
+                String encodedEdate = SafeEncode.forUriComponent(edate);
+                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + SafeEncode.forUriComponent(request.getParameter("dsmode")) : "";
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">

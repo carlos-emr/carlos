@@ -71,6 +71,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
@@ -206,8 +207,8 @@
     int intLimit2=Integer.parseInt(strLimit2);
     nNextPage=intLimit2+Integer.parseInt(strLimit1);
     nLastPage=Integer.parseInt(strLimit1)-intLimit2;
-    String encodedStartDate = Encode.forUriComponent(startDate != null ? startDate : "");
-    String encodedEndDate = Encode.forUriComponent(endDate != null ? endDate : "");
+    String encodedStartDate = SafeEncode.forUriComponent(startDate != null ? startDate : "");
+    String encodedEndDate = SafeEncode.forUriComponent(endDate != null ? endDate : "");
     if(nLastPage>=0) {
 %> <a
                 href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><%= bundle.getString("report.reportedblist.lastPage") %></a> | <%

@@ -61,6 +61,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String pid = request.getParameter("pid"),
@@ -133,7 +134,7 @@
                     size="4">oscar<font size="3">PathNET - View Lab Report</font></font></b></font>
             </td>
             <td align="right" class="Text"
-                nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + Encode.forHtml(provider.getFormattedName()) : "<b>Signed Off By Provider No.:</b> " + Encode.forHtml(provider.getProviderNo())) + " on " + Encode.forHtml(String.valueOf(hl7_link.getSignedOn())) : "")%>
+                nowrap><%=(signed ? (provider.getLastName() != null ? "<b>Signed Off By: </b>" + SafeEncode.forHtml(provider.getFormattedName()) : "<b>Signed Off By Provider No.:</b> " + SafeEncode.forHtml(provider.getProviderNo())) + " on " + SafeEncode.forHtml(String.valueOf(hl7_link.getSignedOn())) : "")%>
                 <input type="checkbox" name="cmd_sign" onclick="Sign(this);"
                        value="<carlos:encode value='<%= pid %>' context="htmlAttribute"/>" <%=(signed ? "checked disabled" : "")%> /><input
                         type="hidden" name="pid" value="<carlos:encode value='<%= pid %>' context="htmlAttribute"/>"/>Sign
@@ -180,7 +181,7 @@
         </tr>
         <tr>
             <td class="Text">Address:</td>
-            <td class="Text" colspan="3"><%=Encode.forHtml(hl7pid.getPatientAddress()).replaceAll("\\\\\\.br\\\\", " ")%>
+            <td class="Text" colspan="3"><%=SafeEncode.forHtml(hl7pid.getPatientAddress()).replaceAll("\\\\\\.br\\\\", " ")%>
             </td>
         </tr>
         <tr>
@@ -207,7 +208,7 @@
         </tr>
         <tr>
             <td class="Text">Ordered By:</td>
-            <td class="Text"><%=Encode.forHtml(hl7obr.getOrderingProvider()).replaceAll("~", ",<br/>")%>
+            <td class="Text"><%=SafeEncode.forHtml(hl7obr.getOrderingProvider()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Requested On:</td>
             <td class="Text"><carlos:encode value='<%= String.valueOf(hl7obr.getRequestedDateTime()) %>' context="html"/>
@@ -215,7 +216,7 @@
         </tr>
         <tr>
             <td class="Text">Copies To:</td>
-            <td class="Text"><%=Encode.forHtml(hl7obr.getResultCopiesTo()).replaceAll("~", ",<br/>")%>
+            <td class="Text"><%=SafeEncode.forHtml(hl7obr.getResultCopiesTo()).replaceAll("~", ",<br/>")%>
             </td>
             <td class="Text">Observed On:</td>
             <td class="Text"><carlos:encode value='<%= String.valueOf(hl7obr.getOberservationDateTime()) %>' context="html"/>
@@ -243,7 +244,7 @@
         </tr>
         <tr>
             <td class="Section"
-                colspan="7"><%=((hl7_obr.getDiagnosticServiceSectId() != null) ? Encode.forHtml(hl7_obr.getDiagnosticServiceSectId()) : "Other")%>
+                colspan="7"><%=((hl7_obr.getDiagnosticServiceSectId() != null) ? SafeEncode.forHtml(hl7_obr.getDiagnosticServiceSectId()) : "Other")%>
             </td>
         </tr>
         <%
@@ -264,7 +265,7 @@
         </tr>
         <tr>
             <td class="Text" valign="top">Note:</td>
-            <td class="Text" colspan="6"><%=Encode.forHtml(hl7_obx.getNote()).replaceAll("\\\\\\.br\\\\", " ")%>&nbsp;</td>
+            <td class="Text" colspan="6"><%=SafeEncode.forHtml(hl7_obx.getNote()).replaceAll("\\\\\\.br\\\\", " ")%>&nbsp;</td>
         </tr>
         <%
             }
@@ -291,10 +292,10 @@
                 class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getObservationIdentifier().substring(hl7_obx.getObservationIdentifier().indexOf(" ")) %>' context="html"/>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>">
-                <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : Encode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
+                <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : SafeEncode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
                 </b></td>
             <td class="Text"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? Encode.forHtml(hl7_obx.getObservationResults()) : "<b>" + Encode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? SafeEncode.forHtml(hl7_obx.getObservationResults()) : "<b>" + SafeEncode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getReferenceRange() %>' context="html"/>
             </td>

@@ -48,6 +48,7 @@
         import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -396,7 +397,7 @@
                         String sVal = prov[i].split("/")[0];
                         String sTxt = prov[i].split("/")[1];
 
-                        sb.append("<option value='" + Encode.forHtmlAttribute(sVal) + "'>" + Encode.forHtml(sTxt) + "</option>");
+                        sb.append("<option value='" + SafeEncode.forHtmlAttribute(sVal) + "'>" + SafeEncode.forHtml(sTxt) + "</option>");
                     }
                     return new String(sb);
                 }

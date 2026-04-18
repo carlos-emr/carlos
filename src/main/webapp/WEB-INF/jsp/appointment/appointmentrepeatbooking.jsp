@@ -67,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
@@ -353,7 +354,7 @@
                     <label class="col-sm-3 col-form-label"><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
                     <div class="col-sm-9">
                         <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
-                               value="<%=request.getParameter("appointment_date") != null ? Encode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
+                               value="<%=request.getParameter("appointment_date") != null ? SafeEncode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
                     </div>
                 </div>
             </div>
@@ -388,7 +389,7 @@
                     temp = e.nextElement().toString();
                     if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName))
                         continue;
-                    out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
+                    out.println("<input type=\"hidden\" name=\"" + SafeEncode.forHtmlAttribute(temp) + "\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
                 }
             %>
         </form>

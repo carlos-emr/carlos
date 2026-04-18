@@ -33,6 +33,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     //
     //int serviceCodeLen = 5;
@@ -53,12 +54,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("edit".length()))) {
                 if (dbObj.updateCodeByName(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag"))) {
-                    msg = Encode.forHtml(serviceCode) + " is updated.<br>"
+                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode)
+                    msg = SafeEncode.forHtml(serviceCode)
                             + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
                     action = "edit" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -71,7 +72,7 @@
                     prop.setProperty("gstFlag", request.getParameter("gstFlag"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the service code - " + Encode.forHtml(serviceCode)
+                msg = "You can <font color='red'>NOT</font> save the service code - " + SafeEncode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -84,12 +85,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("add".length()))) {
                 if (dbObj.addCodeByStr(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag")) > 0) {
-                    msg = Encode.forHtml(serviceCode) + " is added.<br>"
+                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode)
+                    msg = SafeEncode.forHtml(serviceCode)
                             + " is not added. Action failed! Try edit it again.";
                     action = "add" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -103,7 +104,7 @@
                     alert = "error";
                 }
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode)
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -150,7 +151,7 @@
                 serviceCode = "";
             serviceCode = "_" + serviceCode;
             if (dbObj.deletePrivateCode(serviceCode)) {
-                msg = Encode.forHtml(serviceCode) + " is deleted.<br>"
+                msg = SafeEncode.forHtml(serviceCode) + " is deleted.<br>"
                         + "Type in a service code and search first to see if it is available.";
                 action = "search";
                 prop.setProperty("service_code", "_");

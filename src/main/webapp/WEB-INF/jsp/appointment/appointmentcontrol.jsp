@@ -32,6 +32,7 @@
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     if (session.getAttribute("userrole") == null) {
@@ -85,7 +86,7 @@
     String target = opToFileDict.getDef(operation, "");
     if (target.isEmpty()) {
         MiscUtils.getLogger().warn("appointmentcontrol.jsp: unrecognized displaymode: {}",
-                org.owasp.encoder.Encode.forJava(operation));
+                org.owasp.encoder.SafeEncode.forJava(operation));
         response.sendError(HttpServletResponse.SC_BAD_REQUEST,
                 "Unrecognized appointment operation");
         return;

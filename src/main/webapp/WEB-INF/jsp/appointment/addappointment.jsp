@@ -130,6 +130,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -1145,7 +1146,7 @@ Ontario, Canada
                 <h4 class="page-header-title">
                     &nbsp;<% if (isMobileOptimized) { %><fmt:message key="appointment.addappointment.msgMainLabelMobile"/>
                     <% } else { %><fmt:message key="appointment.addappointment.msgMainLabel"/>
-                    <% out.println("(" + Encode.forHtmlContent(pFirstname) + " " + Encode.forHtmlContent(pLastname) + ")"); %>
+                    <% out.println("(" + SafeEncode.forHtmlContent(pFirstname) + " " + SafeEncode.forHtmlContent(pLastname) + ")"); %>
                     <% } %>
                 </h4>
             </div>
@@ -1218,7 +1219,7 @@ Ontario, Canada
                                     }
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
-                                           value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
+                                           value='<%=(bFirstDisp && !bFromWL) ? "" : SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
                                     <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
@@ -1253,7 +1254,7 @@ Ontario, Canada
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
-                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : Encode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
+                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
                             </div>
                         </div>
                         <%
@@ -1274,13 +1275,13 @@ Ontario, Canada
                                 <%
                                     // Validate CSS color values to prevent CSS injection: allow hex (#rgb or #rrggbb) or alpha-only named colors
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
-                                    String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? Encode.forHtmlAttribute(colo) : "";
+                                    String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
                                 <select tabindex="4" class="form-select form-select-sm" name="location"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (Site s : sites) {
-                                        String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? Encode.forHtmlAttribute(s.getBgColor()) : "";
+                                        String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? SafeEncode.forHtmlAttribute(s.getBgColor()) : "";
                                     %>
                                     <option value="<carlos:encode value='<%= s.getName() %>' context="htmlAttribute"/>"
                                             class="<carlos:encode value='<%= s.getShortName() %>' context="htmlAttribute"/>"
@@ -1315,7 +1316,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
                                 <input type="text" name="user_id" class="form-control form-control-sm"
-                                       value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
+                                       value='<%=bFirstDisp?(SafeEncode.forHtmlAttribute(userlastname)+", "+SafeEncode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
                                        readonly="readonly">
                             </div>
                         </div>
@@ -1375,7 +1376,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="mrp"><fmt:message key="Appointment.formDoctor"/>:</label>
                             <div class="col-sm-8">
                                 <input type="text" id="mrp" class="form-control form-control-sm"
-                                       value="<%=bFirstDisp ? "" : Encode.forHtmlAttribute(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
+                                       value="<%=bFirstDisp ? "" : SafeEncode.forHtmlAttribute(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1384,7 +1385,7 @@ Ontario, Canada
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
                                 <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
-                                          maxlength="255"><%=bFirstDisp ? "" : Encode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
+                                          maxlength="255"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1392,7 +1393,7 @@ Ontario, Canada
                             <div class="col-sm-8">
                                 <input type="text" name="resources" class="form-control form-control-sm"
                                        tabindex="6"
-                                       value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
+                                       value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1412,7 +1413,7 @@ Ontario, Canada
                                 <input type="hidden" name="provider_no" value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>">
                                 <input type="hidden" name="dboperation" value="search_titlename">
                                 <input type="hidden" name="creator"
-                                       value='<%=Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)%>'>
+                                       value='<%=SafeEncode.forHtmlAttribute(userlastname)+", "+SafeEncode.forHtmlAttribute(userfirstname)%>'>
                                 <input type="hidden" name="remarks" value="">
                             </div>
                         </div>

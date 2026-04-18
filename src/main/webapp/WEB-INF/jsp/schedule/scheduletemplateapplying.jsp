@@ -80,6 +80,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html lang="en">
 
     <%
@@ -1033,7 +1034,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                                 %>
-                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
+                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=SafeEncode.forHtml(st.getId().getName()) + " |" + SafeEncode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <%
                                                     }
@@ -1041,7 +1042,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                                 %>
-                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
+                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=SafeEncode.forHtml(st.getId().getName()) + " |" + SafeEncode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <% } %>
                                             </select></td>
@@ -1110,12 +1111,12 @@
             }
 
             if ((isExcludedSiteSelected) || (!excludedSites.contains(site[i]))) {
-                ret += "<option value='" + Encode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "") + ">" + Encode.forHtml(site[i]) + "</option>";
+                ret += "<option value='" + SafeEncode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "") + ">" + SafeEncode.forHtml(site[i]) + "</option>";
             }
         }
         ret += "</select>";
         if (bMultisites)
-            ret += "<script>document.schedule." + s + ".style.backgroundColor='" + Encode.forJavaScript(Encode.forCssString(bgColors[ind])) + "';</script>";
+            ret += "<script>document.schedule." + s + ".style.backgroundColor='" + SafeEncode.forJavaScript(SafeEncode.forCssString(bgColors[ind])) + "';</script>";
         if (isExcludedSiteSelected) {
             // For week-B addr inputs (e.g. "sunaddr2"), the checkbox name is "checksun2"; for week-A it's "checksun".
             // Uncheck before disabling so serializers don't pick up the checked+disabled state.

@@ -498,7 +498,7 @@
                                     while (iter.hasNext()) {
                                     	Provider p=iter.next();
                                     	if (pros.contains(p.getProviderNo())) {
-                                    %><option value='<%= SafeEncode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>'><%= SafeEncode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= SafeEncode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
+                                    %><option value='<%= SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo())) %>'><%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName())) %>, <%= SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName())) %></option><% }} %>";
                             <% } %>
 
                             function changeSite(sel) {
@@ -1057,7 +1057,7 @@
                         </td>
                         <% if (bMultisites) {%>
                         <td <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : "style='background-color:" + siteBgColor.get(ch1Obj.getClinic()) + ";'")%>>
-                            <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : Encode.forHtml(siteShortName.get(ch1Obj.getClinic())))%>
+                            <%=(ch1Obj.getClinic() == null || ch1Obj.getClinic().equalsIgnoreCase("null") ? "" : SafeEncode.forHtml(siteShortName.get(ch1Obj.getClinic())))%>
                         </td>
                         <!--SITE-->
                         <% }%>

@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
@@ -211,7 +212,7 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    vecAddress.add("<b>" + Encode.forHtml(doctorName) + "</b><br>" + Encode.forHtml(temp0[i]) + "<br>" + Encode.forHtml(temp1[i]) + "<br>" + temp2[i] + ", " + temp3[i] + " " + temp4[i] + "<br>" + rb.getString("RxPreview.msgTel") + ": " + temp5[i] + "<br>" + rb.getString("RxPreview.msgFax") + ": " + temp6[i]);
+                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(temp0[i]) + "<br>" + SafeEncode.forHtml(temp1[i]) + "<br>" + temp2[i] + ", " + temp3[i] + " " + temp4[i] + "<br>" + rb.getString("RxPreview.msgTel") + ": " + temp5[i] + "<br>" + rb.getString("RxPreview.msgFax") + ": " + temp6[i]);
                 }
             }
             String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
@@ -382,7 +383,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?Encode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -453,7 +454,7 @@
 	function writeToEncounter(print, text) {
     	try {
 			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
-			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
+			var prefPharmacy = "<%=prefPharmacy != null ? SafeEncode.forJavaScriptBlock(prefPharmacy) : ""%>";
 			fetch(url, {
 				method: 'POST',
 				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},

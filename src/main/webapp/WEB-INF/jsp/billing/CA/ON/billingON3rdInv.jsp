@@ -46,6 +46,7 @@
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.util.DisplayInvoiceLogo2Action" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -327,17 +328,17 @@
 <oscar:customInterface section="billingInvoice"/>
 <table width="100%" border="0">
     <tr>
-        <td id="ptName">Patient: <%=(bCh1 != null) ? Encode.forHtml(bCh1.getDemographicName()) : "N/A" %>
+        <td id="ptName">Patient: <%=(bCh1 != null) ? SafeEncode.forHtml(bCh1.getDemographicName()) : "N/A" %>
         </td>
-        <td id="ptDemoNo"> (<%=(bCh1 != null) ? Encode.forHtml(String.valueOf(bCh1.getDemographicNo())) : "N/A" %>)</td>
-        <td id="ptGender"><%=(bCh1 != null) ? Encode.forHtml(bCh1.getSex().equals("1") ? "Male" : "Female") : "N/A" %>
+        <td id="ptDemoNo"> (<%=(bCh1 != null) ? SafeEncode.forHtml(String.valueOf(bCh1.getDemographicNo())) : "N/A" %>)</td>
+        <td id="ptGender"><%=(bCh1 != null) ? SafeEncode.forHtml(bCh1.getSex().equals("1") ? "Male" : "Female") : "N/A" %>
         </td>
-        <td id="ptDOB"> DOB: <%=(bCh1 != null) ? Encode.forHtml(bCh1.getDob()) : "N/A" %>
+        <td id="ptDOB"> DOB: <%=(bCh1 != null) ? SafeEncode.forHtml(bCh1.getDob()) : "N/A" %>
         </td>
     </tr>
     <tr>
         <td id="ptHin">
-            Insurance No: <%=(demo != null) ? Encode.forHtml(demo.getHin()) : "N/A"%>
+            Insurance No: <%=(demo != null) ? SafeEncode.forHtml(demo.getHin()) : "N/A"%>
         </td>
     </tr>
 </table>

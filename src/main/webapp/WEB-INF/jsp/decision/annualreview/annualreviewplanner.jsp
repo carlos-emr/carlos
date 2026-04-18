@@ -77,6 +77,7 @@
 <%@ page import="org.w3c.dom.Document" %>
 <%@ page import="org.w3c.dom.Node" %>
 <%@ page import="org.w3c.dom.NodeList" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -228,7 +229,7 @@
         StringBuilder checkedJson = new StringBuilder("[");
         for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
             if (ci > 0) checkedJson.append(",");
-            checkedJson.append("\"").append(Encode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+            checkedJson.append("\"").append(SafeEncode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
         }
         checkedJson.append("]");
     %>

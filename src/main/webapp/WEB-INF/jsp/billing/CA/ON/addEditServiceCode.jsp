@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
     BillingPercLimitDao billingPercLimitDao = SpringUtils.getBean(BillingPercLimitDao.class);
@@ -76,7 +77,7 @@
                     if (!bsList.isEmpty()) {
                         bs = bsList.get(0);
                     } else {
-                        msg = Encode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
+                        msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
                         action = "search";
                         alert = "error";
                     }
@@ -121,12 +122,12 @@
                     }
 
                     billingServiceDao.merge(bs);
-                    msg = Encode.forHtml(serviceCode) + " is updated.<br>" + "Type in a service code and search first to see if it is available.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>" + "Type in a service code and search first to see if it is available.";
                     alert = "success";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is not updated. Action failed! Try edit it again.";
                     alert = "error";
                     action = "edit" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -138,7 +139,7 @@
                 }
 
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode) + ". Please search the service code first.";
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
                 alert = "error";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -195,14 +196,14 @@
                 } else {
                     billingServiceDao.persist(bs);
 
-                    msg = Encode.forHtml(serviceCode) + " is added.<br>" + "Type in a service code and search first to see if it is available.";
+                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>" + "Type in a service code and search first to see if it is available.";
                     alert = "success";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 }
 
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode) + ". Please search the service code first.";
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode) + ". Please search the service code first.";
                 alert = "error";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);

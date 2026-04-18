@@ -22,6 +22,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -81,7 +82,7 @@
                         output = "";
                     } else {
                         for (int i = 0; i < names.size(); i++) {
-                            output = DatabaseAP.parserReplace(names.get(i), Encode.forHtml(values.get(i)), output);
+                            output = DatabaseAP.parserReplace(names.get(i), SafeEncode.forHtml(values.get(i)), output);
                         }
                     }
                 }

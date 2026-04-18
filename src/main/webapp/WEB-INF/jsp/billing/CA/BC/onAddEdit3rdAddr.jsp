@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";
@@ -76,12 +77,12 @@
 
                 boolean ni = dbObj.update3rdAddr(request.getParameter("id"), val);
                 if (ni) {
-                    msg = Encode.forHtml(company_name) + " is updated.<br>"
+                    msg = SafeEncode.forHtml(company_name) + " is updated.<br>"
                             + "Type in a name and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("company_name", company_name);
                 } else {
-                    msg = Encode.forHtml(company_name) + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
+                    msg = SafeEncode.forHtml(company_name) + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
                     action = "edit" + company_name;
                     prop.setProperty("company_name", company_name);
                     prop.setProperty("id", request.getParameter("id"));
@@ -95,7 +96,7 @@
                     prop.setProperty("fax", request.getParameter("fax"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + Encode.forHtml(company_name)
+                msg = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(company_name)
                         + ". Please search the name first.";
                 action = "search";
                 prop.setProperty("company_name", company_name);
@@ -115,12 +116,12 @@
                 val.setProperty("fax", request.getParameter("fax"));
                 int ni = dbObj.addOne3rdAddrRecord(val);
                 if (ni > 0) {
-                    msg = Encode.forHtml(company_name) + " is added.<br>"
+                    msg = SafeEncode.forHtml(company_name) + " is added.<br>"
                             + "Type in a name and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("company_name", company_name);
                 } else {
-                    msg = Encode.forHtml(company_name) + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
+                    msg = SafeEncode.forHtml(company_name) + " is <font color='red'>NOT</font> added. Action failed! Try edit it again.";
                     action = "add" + company_name;
                     prop.setProperty("company_name", company_name);
                     prop.setProperty("attention", request.getParameter("attention"));
@@ -133,7 +134,7 @@
                     prop.setProperty("fax", request.getParameter("fax"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the name - " + Encode.forHtml(company_name)
+                msg = "You can <font color='red'>NOT</font> save the name - " + SafeEncode.forHtml(company_name)
                         + ". Please search the name first.";
                 action = "search";
                 prop.setProperty("company_name", company_name);

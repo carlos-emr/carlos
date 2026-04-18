@@ -50,6 +50,7 @@
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -235,7 +236,7 @@
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
+                                            out.print(SafeEncode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
 							/*
 							String startDate = drug.startDate;
 		            		PartialDate pd = partialDateDao.getPartialDate(PartialDate.DRUGS , drug.localDrugId, PartialDate.DRUGS_STARTDATE);
@@ -249,12 +250,12 @@
                                     %></td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(drug.endDate));
+                                            out.print(SafeEncode.forHtml(drug.endDate));
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.writtenDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
+                                            out.print(SafeEncode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
                                         }
                                     %></td>
                                     <td>

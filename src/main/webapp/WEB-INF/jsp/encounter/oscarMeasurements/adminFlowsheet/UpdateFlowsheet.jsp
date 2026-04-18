@@ -61,6 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -495,9 +496,9 @@ display:inline-block;
 
                     <div style="width:100%;text-align:right">
                         <%if (request.getParameter("demographic") == null) { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/><%=htQueryString%><%=scope != null ? "&scope=" + SafeEncode.forUriComponent(scope) : ""%>" class="btn btn-secondary">Cancel</a>
                         <%} else { %>
-                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/>&demographic=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic) %>' context="uriComponent"/><%=htQueryString%><%=scope != null ? "&scope=" + Encode.forUriComponent(scope) : ""%>"
+                        <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet?flowsheet=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/>&demographic=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic) %>' context="uriComponent"/><%=htQueryString%><%=scope != null ? "&scope=" + SafeEncode.forUriComponent(scope) : ""%>"
                            class="btn btn-secondary">Cancel</a>
                         <%} %>
                         <input type="submit" class="btn btn-primary" value="Update"/>

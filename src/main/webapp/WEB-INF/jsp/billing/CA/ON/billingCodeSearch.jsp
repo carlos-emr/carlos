@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -92,7 +93,7 @@
             <%
             String nameF = request.getParameter("nameF");
             if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + Encode.forJavaScript(nameF) + " = File0;");
+                    out.println("self.opener." + SafeEncode.forJavaScript(nameF) + " = File0;");
             } else {
             %>
             self.opener.document.serviceform.xml_other1.value = File0;
@@ -195,7 +196,7 @@
         type="button" name="cancel" value="Cancel"
         onclick="javascript:window.close()"> <%
     if (request.getParameter("nameF") != null) {
-        out.println("<input type='hidden' name='nameF' value=\"" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("nameF"))) + "\"/>");
+        out.println("<input type='hidden' name='nameF' value=\"" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter("nameF"))) + "\"/>");
     }
 %>
 </form>

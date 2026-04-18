@@ -67,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="java.util.UUID" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
     <head>
@@ -128,7 +129,7 @@
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                             "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}",
                             correlationId,
-                            org.owasp.encoder.Encode.forJava(ticklerforproviderno)
+                            org.owasp.encoder.SafeEncode.forJava(ticklerforproviderno)
                         );
                         errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
                     }

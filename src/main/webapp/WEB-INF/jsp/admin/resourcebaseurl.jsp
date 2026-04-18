@@ -35,6 +35,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -164,7 +165,7 @@
                 <!--<fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
-                       value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
+                       value="<%if(resource_baseurl_value!=null){ out.print(SafeEncode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">

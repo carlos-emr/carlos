@@ -63,6 +63,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 
 <%
@@ -522,7 +523,7 @@
             } else {
 
             %>
-            <%= Encode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
+            <%= SafeEncode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
             <% } %>
 
@@ -658,7 +659,7 @@
                                     String signedOffDisplay = "";
                                     if (p.getSignedOff() != null && p.getSignedOff() == 1) {
                                         String ts = Objects.toString(p.getSignedOffTimestamp(), "");
-                                        signedOffDisplay = "<abbr title='" + Encode.forHtmlAttribute(ts) + "'>(Signed-Off " + Encode.forHtml(ts) + ")</abbr>";
+                                        signedOffDisplay = "<abbr title='" + SafeEncode.forHtmlAttribute(ts) + "'>(Signed-Off " + SafeEncode.forHtml(ts) + ")</abbr>";
                                     }
                         %>
                         <carlos:encode value='<%= providerDao.getProviderName(p.getProviderNo()) %>' context="html"/> <%=signedOffDisplay%>

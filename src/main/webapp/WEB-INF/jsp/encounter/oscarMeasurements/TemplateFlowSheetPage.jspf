@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
 	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
@@ -92,11 +93,11 @@
 	LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
 
     // Pre-compute commonly used encoded values for demographic_no and template
-    String safeDemoNoHtml = Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
-    String safeDemoNoUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
-    String safeDemoNoJsUri = Encode.forJavaScriptAttribute(safeDemoNoUri);
-    String safeTempUri = Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp));
-    String safeTempJsUri = Encode.forJavaScriptAttribute(safeTempUri);
+    String safeDemoNoHtml = SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no));
+    String safeDemoNoJsUri = SafeEncode.forJavaScriptAttribute(safeDemoNoUri);
+    String safeTempUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(temp));
+    String safeTempJsUri = SafeEncode.forJavaScriptAttribute(safeTempUri);
 
     int numElementsToShow = 4;
     Date sdate = null;
@@ -161,7 +162,7 @@
     mFlowsheet.sortToCurrentOrder(recList);
     StringBuffer recListBuffer = new StringBuffer();
     for(int i = 0; i < recList.size(); i++){
-        recListBuffer.append("&amp;measurement="+Encode.forUriComponent((String) recList.get(i)));
+        recListBuffer.append("&amp;measurement="+SafeEncode.forUriComponent((String) recList.get(i)));
     }
 
 
@@ -1117,7 +1118,7 @@ if(idExists("WT") && idExists("HT" ) && idExists("BMI")){
         String ret = "";
         String q = "\"";
         if (s != null){
-            ret = "<span style='color:"+colour+"'>"+Encode.forHtml(s)+"</span> </br>";
+            ret = "<span style='color:"+colour+"'>"+SafeEncode.forHtml(s)+"</span> </br>";
         }
         return ret;
     }

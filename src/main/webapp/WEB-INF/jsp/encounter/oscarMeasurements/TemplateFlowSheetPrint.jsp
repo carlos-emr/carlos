@@ -718,7 +718,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                         %>
                         <div class="preventionProcedure" <%=hider%>
-                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
+                             onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(measure))%>&amp;id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no))%>&amp;template=<%= SafeEncode.forJavaScriptAttribute(URLEncoder.encode(temp,"UTF-8")) %>','addMeasurementData')">
 
                             <p <%=indColour%>
                                     title="Entered By: <carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>">
@@ -810,7 +810,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
-                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention?id=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no)) %>','addPreventionData')">
+                         onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/AddPrevention?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
                                 title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]">
                             Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>

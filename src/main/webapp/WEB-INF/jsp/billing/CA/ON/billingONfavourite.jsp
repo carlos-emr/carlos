@@ -37,6 +37,7 @@
 
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% //
     int serviceCodeLen = 5;
     String msg = "Type in a name and search first to see if it is available.";
@@ -48,7 +49,7 @@
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code
             String name = request.getParameter("name");
-            String safeName = Encode.forHtml(name);
+            String safeName = SafeEncode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("edit".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -99,7 +100,7 @@
 
         } else if (request.getParameter("action").startsWith("add")) {
             String name = request.getParameter("name");
-            String safeName = Encode.forHtml(name);
+            String safeName = SafeEncode.forHtml(name);
             if (name.equals(request.getParameter("action").substring("add".length()))) {
                 String list = "";
                 for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
@@ -167,7 +168,7 @@
                 action = "search";
             } else {
                 boolean ni = dbObj.delBillingFavouriteList(name, user_no);
-                String safeName = Encode.forHtml(name);
+                String safeName = SafeEncode.forHtml(name);
                 if (ni) {
                     msg = safeName + " is deleted.<br>"
                             + "Type in a name and search first to see if it is available.";

@@ -22,6 +22,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -54,7 +55,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     if (requestIdKey == null) {
         requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
     }
-    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + Encode.forUriComponent(requestIdKey);
+    String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + SafeEncode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
     boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
 %>

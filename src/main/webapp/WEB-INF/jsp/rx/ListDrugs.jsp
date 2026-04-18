@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@ page import="static io.github.carlos_emr.carlos.prescript.util.RxUtil.DateToString" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     RxPatientData.Patient patient = null;
     RxSessionBean bean = null;
@@ -312,7 +313,7 @@
 			String xComment=prescriptDrug.getComment();
 			String tComment="";
 			if(xComment!=null ){
-				tComment="TITLE='" + Encode.forHtmlAttribute(xComment) + " '";
+				tComment="TITLE='" + SafeEncode.forHtmlAttribute(xComment) + " '";
 			}
 			
 			%>
@@ -522,7 +523,7 @@
                 codeDescr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
             }
             if (codeDescr != null) {
-                sb.append(Encode.forHtml(codeDescr));
+                sb.append(SafeEncode.forHtml(codeDescr));
             } else {
                 sb.append(drugReason.getCode());
             }

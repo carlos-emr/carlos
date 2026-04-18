@@ -147,6 +147,7 @@
 <%@ page import="org.owasp.encoder.Encode"%>
 <%@ page import="org.springframework.web.context.WebApplicationContext"%>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
@@ -217,9 +218,9 @@
     String docId = curdoc.getDocId();
     String ackFunc;
     if(skipComment) {
-      ackFunc = "updateStatus('acknowledgeForm_" + Encode.forJavaScript(docId) + "'," + inQueueB + ");";
+      ackFunc = "updateStatus('acknowledgeForm_" + SafeEncode.forJavaScript(docId) + "'," + inQueueB + ");";
     } else {
-      ackFunc = "getDocComment('" + Encode.forJavaScript(docId) + "','" + Encode.forJavaScript(providerNo) + "'," + inQueueB + ");";
+      ackFunc = "getDocComment('" + SafeEncode.forJavaScript(docId) + "','" + SafeEncode.forJavaScript(providerNo) + "'," + inQueueB + ");";
     }
 
     int slash = 0;
@@ -278,7 +279,7 @@
         List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
         for (Tickler t : ticklers) {
             if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
-                notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+                notes.add(tlinkf + SafeEncode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + SafeEncode.forHtml(t.getMessage()) + "</a>");
             }
         }
         numTickler = notes.size();
@@ -821,7 +822,7 @@
                                     %>
                                     <span style="color: red;"><fmt:message key="${ackStatusKey}"/>
                                     </span>
-                                    <span id="timestamp_<carlos:encode value='<%= docId + "_" + report.getOscarProviderNo() %>' context="htmlAttribute"/>"><%= report.getTimestamp() == null ? "&nbsp;" : Encode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
+                                    <span id="timestamp_<carlos:encode value='<%= docId + "_" + report.getOscarProviderNo() %>' context="htmlAttribute"/>"><%= report.getTimestamp() == null ? "&nbsp;" : SafeEncode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
                                     <fmt:message key="inboxmanager.document.Comment"/> <span
                                         id="comment_<carlos:encode value='<%= docId + "_" + report.getOscarProviderNo() %>' context="htmlAttribute"/>"><% if (report.getComment() == null || report.getComment().isEmpty()) { %><fmt:message key="showDocument.noComment"/><% } else { %><carlos:encode value='<%= report.getComment() %>' context="html"/><% } %></span>
 

@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -845,7 +846,7 @@
                                                         </td>
                                                         <% if ((k + 1) < propDemoExt.length) { %>
                                                         <td align="right"><b>
-                                                            <%out.println(Encode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
+                                                            <%out.println(SafeEncode.forHtmlContent(propDemoExt[k + 1]) + ":");%></b>
                                                         </td>
                                                         <td align="left">
                                                             <% if (bExtForm) {

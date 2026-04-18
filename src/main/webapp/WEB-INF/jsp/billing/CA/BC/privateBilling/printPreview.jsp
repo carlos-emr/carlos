@@ -18,6 +18,7 @@
 <%@ page import="java.util.Vector" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -298,7 +299,7 @@
                             String providerNumber = (String) pageContext.getAttribute("providerNumber");
                             ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
                             Provider provider = providerDao.getProvider(providerNumber);
-                            pageContext.setAttribute("providerName", Encode.forHtml(provider.getFullName()));
+                            pageContext.setAttribute("providerName", SafeEncode.forHtml(provider.getFullName()));
                             pageContext.setAttribute("providerFormattedName", provider.getFormattedName());
                         %>
                             ${providerFormattedName}

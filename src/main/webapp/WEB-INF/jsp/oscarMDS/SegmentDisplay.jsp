@@ -36,6 +36,7 @@
         import="java.util.*, io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -537,7 +538,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>"
                         class="NormalRes">
                         <td align="middle"
-                            colspan="8"><%=((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x].equals("") ? "&nbsp;" : Encode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x])%>
+                            colspan="8"><%=((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x].equals("") ? "&nbsp;" : SafeEncode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x])%>
                         </td>
                     </tr>
                     <% }
@@ -724,7 +725,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                     <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>"
                         class="NormalRes">
                         <td align="middle"
-                            colspan="8"><%=((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x].equals("") ? "&nbsp;" : Encode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x])%>
+                            colspan="8"><%=((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x].equals("") ? "&nbsp;" : SafeEncode.forHtml(((Headers) mDSSegmentData.headersArray.get(i)).reportHeading[x])%>
                         </td>
                     </tr>
                     <% }

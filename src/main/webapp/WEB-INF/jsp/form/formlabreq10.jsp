@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -529,9 +530,9 @@
 					<%
                         if (props.getProperty("aci") == null) {
                             if (oscarProps.getProperty("clinic_code") != null)
-                                out.print(Encode.forHtml(" \n" + StringUtils.noNull(oscarProps.getProperty("clinic_code"))));
+                                out.print(SafeEncode.forHtml(" \n" + StringUtils.noNull(oscarProps.getProperty("clinic_code"))));
                         } else {
-                            out.print(Encode.forHtml(props.getProperty("aci", "").trim()));
+                            out.print(SafeEncode.forHtml(props.getProperty("aci", "").trim()));
                         }
                     %>
 					</textarea></td>

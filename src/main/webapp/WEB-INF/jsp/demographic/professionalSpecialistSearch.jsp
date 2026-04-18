@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
@@ -173,7 +174,7 @@
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
-                    strOnClick = "selectResult('" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                    strOnClick = "selectResult('" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"

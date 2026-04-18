@@ -41,6 +41,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -119,13 +120,13 @@
         for (EncounterTemplate template : encounterTemplateDao.findByName(request.getParameter("template"))) {
             String val = template.getEncounterTemplateValue();
             if (val != null) {
-                out.println(Encode.forHtml(val));
+                out.println(SafeEncode.forHtml(val));
             }
         }
 
 
     } else {
-        out.println("<table border='0'><tr><td><font color='blue'>" + bundle.getString("provider.providerencountersingle.content") + ":</font></td></tr><tr><td>" + Encode.forHtml(xmlContent) + "</td></tr></table>");
+        out.println("<table border='0'><tr><td><font color='blue'>" + bundle.getString("provider.providerencountersingle.content") + ":</font></td></tr><tr><td>" + SafeEncode.forHtml(xmlContent) + "</td></tr></table>");
     }
 %>
 

@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
@@ -116,7 +117,7 @@
         for (int i = 0; i < notes.size(); i++) {
             CaseManagementNote note = notes.get(i);
 %>
-    <input type="hidden" id="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("cmd"))) + note.getId() %>" value="<%= i %>" />
+    <input type="hidden" id="<%= SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter("cmd"))) + note.getId() %>" value="<%= i %>" />
 
     <% if (i % 2 == 0) { %>
         <li class="cpp" style="background-color: #F3F3F3;">
@@ -137,7 +138,7 @@
                 editors.append(p.getFormattedName()).append(";");
             }
 
-            String htmlNoteTxt = Encode.forHtml(note.getNote() + addlData);
+            String htmlNoteTxt = SafeEncode.forHtml(note.getNote() + addlData);
 
             boolean singleLine = Boolean.valueOf(CarlosProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
             UserPropertyDAO userPropertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -154,7 +155,7 @@
             }
 
             String noteTxt = note.getNote().replaceAll("\"", "");
-            noteTxt = Encode.forJavaScript(noteTxt);
+            noteTxt = SafeEncode.forJavaScript(noteTxt);
 
             Set<CaseManagementIssue> setIssues = note.getIssues();
             StringBuffer strNoteIssues = new StringBuffer();
@@ -163,7 +164,7 @@
                 CaseManagementIssue iss = iter.next();
                 strNoteIssues.append(iss.getIssue_id()).append(";")
                              .append(iss.getIssue().getCode()).append(";")
-                             .append(Encode.forJavaScript(iss.getIssue().getDescription()));
+                             .append(SafeEncode.forJavaScript(iss.getIssue().getDescription()));
                 if (iter.hasNext()) {
                     strNoteIssues.append(";");
                 }
@@ -213,7 +214,7 @@
 		if (key.contains(" Date")) {
 		    val = readPartialDate(cme);
 		} else {
-		    val = Encode.forJavaScript(cme.getValue());
+		    val = SafeEncode.forJavaScript(cme.getValue());
 		}
 		if (strcme.length()>0) strcme.append(";");
 		strcme.append(key + ";" + val);

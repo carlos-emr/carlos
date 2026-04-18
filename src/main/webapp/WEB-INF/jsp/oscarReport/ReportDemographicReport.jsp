@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptDemographicColumnNames" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%!
     // Helper method to check if a value exists in an array
     private boolean containsValue(String[] array, String value) {
@@ -65,7 +66,7 @@
 
     // Helper to safely get string value with HTML encoding
     private String safeValue(String value) {
-        return value == null ? "" : Encode.forHtmlAttribute(value);
+        return value == null ? "" : SafeEncode.forHtmlAttribute(value);
     }
 %>
 
@@ -175,7 +176,7 @@
 
         <form action="${pageContext.request.contextPath}/report/DemographicReport" method="post" onsubmit="return checkQuery();">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : Encode.forHtmlAttribute(studyId)%>'/>
+            <input type="hidden" name="studyId" id="studyId" value='<%=studyId == null ? "" : SafeEncode.forHtmlAttribute(studyId)%>'/>
 
             <div style="margin-bottom:10px; padding:5px 10px; background:#fafafa; border:1px solid #eee; border-radius:3px;">
                 <select name="savedQuery" id="savedQuery" class="form-select form-select-sm" style="width:auto;display:inline-block">
@@ -419,7 +420,7 @@
                         <tr>
                             <td>Demographic ID(s)</td>
                             <td>
-                                <textarea name="demoIds" class="form-control form-control-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? Encode.forHtml(formBean.getDemoIds()) : "" %></textarea>
+                                <textarea name="demoIds" class="form-control form-control-sm" rows="3" style="width:100%;"><%= formBean.getDemoIds() != null ? SafeEncode.forHtml(formBean.getDemoIds()) : "" %></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -501,7 +502,7 @@
                             String str = (String) al.get(j);
                             boolean isEmpty = (str == null || str.equals(""));
                     %>
-                    <td><%= isEmpty ? "&nbsp;" : Encode.forHtml(str) %></td>
+                    <td><%= isEmpty ? "&nbsp;" : SafeEncode.forHtml(str) %></td>
                     <%}%>
                 </tr>
                 <%}%>

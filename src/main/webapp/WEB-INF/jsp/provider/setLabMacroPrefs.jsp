@@ -110,6 +110,7 @@
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
 
 <%@page import="org.owasp.encoder.Encode"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt"%>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -164,7 +165,7 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 // ============================================================================
 
 // Localized confirmation message when user attempts to delete all macros.
-// Encoded with OWASP Encode.forJavaScript() to prevent XSS from translation strings.
+// Encoded with OWASP SafeEncode.forJavaScript() to prevent XSS from translation strings.
 var MSG_CONFIRM_DELETE_ALL = '<carlos:encode value='<%= (String) pageContext.getAttribute("confirmDeleteAllMsg") %>' context="javaScriptBlock"/>';
 
 /**

@@ -50,6 +50,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
@@ -248,7 +249,7 @@ Ontario, Canada
                     <tr>
                         <td>
                             <a HREF="#"
-                               ONCLICK="popupPage('efmformadd_data?fid=<carlos:encode value='<%= (String) curForm.get("fid") %>' context="uriComponent"/>&demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&appointment=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<%=Encode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + Encode.forJavaScriptAttribute(demographic_no) %>'); return true;"
+                               ONCLICK="popupPage('efmformadd_data?fid=<carlos:encode value='<%= (String) curForm.get("fid") %>' context="uriComponent"/>&demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&appointment=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','<%=SafeEncode.forJavaScriptAttribute((String) curForm.get("fid")) + "_" + SafeEncode.forJavaScriptAttribute(demographic_no) %>'); return true;"
                                TITLE='Add This eForm' OnMouseOver="window.status='Add This eForm' ; return true">
                                 <carlos:encode value='<%= (String) curForm.get("formName") %>' context="html"/>
                             </a></td>

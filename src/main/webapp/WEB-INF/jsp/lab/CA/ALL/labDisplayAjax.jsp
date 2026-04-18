@@ -126,9 +126,9 @@
 
     String ackLabFunc;
     if (skipComment) {
-        ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScriptAttribute(segmentID) + "','" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
+        ackLabFunc = "handleLab('acknowledgeForm_" + SafeEncode.forJavaScriptAttribute(segmentID) + "','" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
     } else {
-        ackLabFunc = "getComment('" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
+        ackLabFunc = "getComment('" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
     }
 
     Long reqIDL = LabRequestReportLink.getIdByReport("hl7TextMessage", Long.valueOf(segmentID.trim()));
@@ -247,7 +247,7 @@
     }
 
     linkreq = function (rptId, reqId) {
-        var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
+        var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + SafeEncode.forJavaScript(demographicID) : ""%>";
         window.open(link, "linkwin", "width=500, height=200");
     }
 
@@ -504,11 +504,11 @@
                            } else {
                                     if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiID[i].trim()))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>', 'labVersion');">v<%= i + 1 %>
                                 </a>&#160;<%
                                             }
                                         }
@@ -516,10 +516,10 @@
                                     if (multiID.length > 1) {
                                         if (searchProviderNo != null) { // null if we were called from e-chart
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&searchProviderNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                 } else {
                                 %><a href="javascript:void(0);"
-                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(Encode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
+                                     onclick="popup(850, 950, '${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&multiID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(multiLabId))%>&providerNo=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo)) %>&all=true', 'labVersion');">All</a>&#160;<%
                                         }
                                     }
                                 %>
@@ -719,7 +719,7 @@
                                         </td>
                                         <td>
                                             <div class="FieldData" nowrap="nowrap">
-                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : Encode.forHtml(handler.getOrderStatus())) %>
+                                                <%= (handler.getOrderStatus().equals("F") ? "Final" : handler.getOrderStatus().equals("C") ? "Corrected" : (handler.getMsgType().equals("PATHL7") && handler.getOrderStatus().equals("P")) ? "Preliminary" : handler.getOrderStatus().equals("X") ? "DELETED" : SafeEncode.forHtml(handler.getOrderStatus())) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -820,7 +820,7 @@
                                                     <td><b>Service Date:</b> <carlos:encode value='<%= String.valueOf(tickler.getServiceDate()) %>' context="html"/>
                                                     </td>
                                                     <td><b>Assigned
-                                                        To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
+                                                        To:</b> <%=tickler.getAssignee() != null ? SafeEncode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
                                                     <td width="90px">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
@@ -894,8 +894,8 @@
                                                         commentTitle = "comment: ";
                                                     }
                                                 %>
-                                                <span id="<%="V" + j + "commentLabel" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
-                                                    id="<%="V" + j + "commentText" + Encode.forHtmlAttribute(segmentID) + Encode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                <span id="<%="V" + j + "commentLabel" + SafeEncode.forHtmlAttribute(segmentID) + SafeEncode.forHtmlAttribute(report.getProviderNo())%>"><%=commentTitle%></span><span
+                                                    id="<%="V" + j + "commentText" + SafeEncode.forHtmlAttribute(segmentID) + SafeEncode.forHtmlAttribute(report.getProviderNo())%>"> <%=report.getComment() == null ? "" : SafeEncode.forHtml(report.getComment())%></span>
 
                                                 <br>
                                                 <% }
@@ -1149,7 +1149,7 @@
 											    	rtfParser.read(rtfStream, doc, 0);
 											    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
 											    	// Reversing this order would encode the <br> tags themselves.
-											    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
+											    	String rtfText = SafeEncode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 											    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                     <td align="left"><%= rtfText + disclaimer %>
                     </td>

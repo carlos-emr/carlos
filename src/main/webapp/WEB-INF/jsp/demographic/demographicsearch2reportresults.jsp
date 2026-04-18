@@ -95,6 +95,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -294,7 +295,7 @@
                     temp = e.nextElement().toString();
                     if (temp.equals("keyword") || temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("submit") || temp.equals("chart_no"))
                         continue;
-                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
+                    out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value='" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
                 }
 
                 //should close the pipe connected to the database here!!!
@@ -355,7 +356,7 @@
         for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
             temp = e.nextElement().toString();
             if (temp.equals("submit") || temp.equals("chart_no")) continue;
-            out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value='" + Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
+            out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value='" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter(temp))) + "'>");
 
         }
     %>

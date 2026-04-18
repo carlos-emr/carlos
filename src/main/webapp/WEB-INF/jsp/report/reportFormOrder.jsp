@@ -20,6 +20,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.ResourceBundle" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
@@ -124,8 +125,8 @@
                             for (int i = 0; i < vecConfigObj.size(); i++) {
                                 String color = i % 2 == 0 ? "trOdd" : "trEven"; //"#EEEEFF" : "";
                                 Properties prop = (Properties) vecConfigObj.get(i);
-                                String fieldName = Encode.forHtmlAttribute(prop.getProperty("name", ""));
-                                String fieldCaption = Encode.forHtml(prop.getProperty("caption", ""));
+                                String fieldName = SafeEncode.forHtmlAttribute(prop.getProperty("name", ""));
+                                String fieldCaption = SafeEncode.forHtml(prop.getProperty("caption", ""));
                                 String fieldId = prop.getProperty("id", "");
                                 String fieldPosition = prop.getProperty("order_no", "");
                                 String action = submitMoveHere;

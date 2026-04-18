@@ -66,7 +66,7 @@
         String color = ApptUtil.getColorFromLocation(sites, _loc);
         // Validate color against safe CSS characters to prevent CSS injection via style attribute
         if (!color.matches("[a-zA-Z0-9#]+")) { color = "white"; }
-        return "<span style='background-color:" + color + "'>" + Encode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
+        return "<span style='background-color:" + color + "'>" + SafeEncode.forHtml(ApptUtil.getShortNameFromLocation(sites, _loc)) + "</span>";
     }
 %>
 <% if (bMultisites) {
@@ -130,12 +130,12 @@
         <script language="JavaScript">
             <!--
             function changePro(providerno) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(providerno) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
                 self.location.href = a;
             }
 
             function selectprovider(s) {
-                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(Encode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+Encode.forJavaScript(Encode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
+                a = "${pageContext.request.contextPath}/schedule/FlipView?originalpage=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(originalPage))%>&provider_no=" + encodeURIComponent(s.options[s.selectedIndex].value) +<%=request.getParameter("startDate")!=null?("\"&startDate="+SafeEncode.forJavaScript(SafeEncode.forUriComponent(request.getParameter("startDate")))+"\""):"\""%>;
                 self.location.href = a;
             }//-->
 
@@ -143,30 +143,30 @@
             function t(s1, s2, s3, s4, s5, s6, doConfirm, allowDay, allowWeek) {
                 if (doConfirm == "Yes") {
                     if (confirm("<fmt:message key="provider.appointmentProviderAdminDay.confirmBooking"/>")) {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Day") {
                     if (allowDay == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameDay"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Wk") {
                     if (allowWeek == "No") {
                         alert("<fmt:message key="provider.appointmentProviderAdminDay.sameWeek"/>");
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else if (doConfirm == "Onc") {
                     if (allowDay == "No") {
                         if (confirm("<fmt:message key='schedule.scheduleflipview.msgOnCallUrgentConfirm'/>")) {
-                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                            popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                         }
                     } else {
-                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                        popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                     }
                 } else {
-                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(Encode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
+                    popupPage(360, 680, ('<%= request.getContextPath() %>/appointment/addappointment?demographic_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoNo))%>&name=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curDemoName))%>&provider_no=<%=SafeEncode.forJavaScript(SafeEncode.forUriComponent(curProvider_no))%>&bFirstDisp=<%=true%>&year=' + s1 + '&month=' + s2 + '&day=' + s3 + '&start_time=' + s4 + '&end_time=' + s5 + '&duration=' + s6));
                 }
             }
         </SCRIPT>
@@ -397,13 +397,13 @@
 
             %>
             <td
-                    <%=DateTimeCodeBean.get("color" + temp.toString()) != null ? ("bgcolor=\"" + Encode.forHtmlAttribute(String.valueOf(DateTimeCodeBean.get("color" + temp.toString()))) + "\"") : ""%>
+                    <%=DateTimeCodeBean.get("color" + temp.toString()) != null ? ("bgcolor=\"" + SafeEncode.forHtmlAttribute(String.valueOf(DateTimeCodeBean.get("color" + temp.toString()))) + "\"") : ""%>
                     title="<%=hour+":"+(min<10?"0":"")+min%>">
                 <table style="display:inline; font-size:x-small;">
                     <tr>
                         <td rowspan="2" style="vertical-align:middle;"><a href=#
                                                                           onClick="t(<%=cal.get(Calendar.YEAR)%>,<%=cal.get(Calendar.MONTH)+1%>,<%=cal.get(Calendar.DATE)%>,'<%=(hour<10?"0":"")+hour+":"+(min<10?"0":"")+min %>','<%=appointmentTime.get(Calendar.HOUR_OF_DAY)%>:<%=appointmentTime.get(Calendar.MINUTE)%>','<carlos:encode value='<%= DateTimeCodeBean.get("duration"+temp.toString()) != null ? String.valueOf(DateTimeCodeBean.get("duration"+temp.toString())) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= DateTimeCodeBean.get("confirm"+scheduleCode) != null ? String.valueOf(DateTimeCodeBean.get("confirm"+scheduleCode)) : "" %>' context="javaScriptAttribute"/>','<%=allowDay%>','<%=allowWeek%>');return false;">
-                            <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : Encode.forHtml(temp.toString()) %>
+                            <%= "&nbsp;".equals(temp.toString()) ? "&nbsp;" : SafeEncode.forHtml(temp.toString()) %>
                         </a></td>
                         <td title="<fmt:message key="schedule.scheduleflipview.msgbookings"/>"
                             style="vertical-align:top; font-size: x-small;"><%=strNumOfAppts%>

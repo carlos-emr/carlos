@@ -293,6 +293,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <head>
     <title>CARLOS Billing</title>
 
@@ -616,7 +617,7 @@
                                             String[] serviceDateLines = request.getParameter("service_date").split("\\n");
                                             for (int sdi = 0; sdi < serviceDateLines.length; sdi++) {
                                                 if (sdi > 0) out.print("<br>");
-                                                out.print(Encode.forHtml(serviceDateLines[sdi]));
+                                                out.print(SafeEncode.forHtml(serviceDateLines[sdi]));
                                             }
                                         }
                                         %>
@@ -1215,7 +1216,7 @@
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
-                               value="<%= providerNo != null ? Encode.forHtmlAttribute(providerNo) : "" %>"/>
+                               value="<%= providerNo != null ? SafeEncode.forHtmlAttribute(providerNo) : "" %>"/>
                         GST Billed:<input type="text" id="gst" name="gst" value="<%=gstTotal%>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<%=gstbilledtotal%>">
                         Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>

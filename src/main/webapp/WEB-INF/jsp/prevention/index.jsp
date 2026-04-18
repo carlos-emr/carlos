@@ -196,6 +196,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 
     <head>
@@ -665,7 +666,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
@@ -673,7 +674,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
@@ -708,7 +709,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/><%=ispa1 %>
                             </a></li>
@@ -716,7 +717,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/><%=ispa1 %>
                             </a></li>
@@ -745,7 +746,7 @@
                                             if (mappings != null && mappings.size() > 1) {%>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
@@ -753,7 +754,7 @@
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
+                                    onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?4=4&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= prevName %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>">
                                 <carlos:encode value='<%= displayName %>' context="html"/>
                             </a></li>
@@ -822,7 +823,7 @@
                              * support engine (DSPreventionDrools) from rule file messages — they are not
                              * derived from raw user/patient input and are therefore output unencoded here.
                              * If rule messages are ever allowed to incorporate patient-supplied text,
-                             * this output must be wrapped with Encode.forHtml().
+                             * this output must be wrapped with SafeEncode.forHtml().
                              */
                             if (warnings.size() > 0 ) {
                             %><div class="alert alert-danger py-1 mb-1" role="alert">
@@ -944,13 +945,13 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {%>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/ViewAddPreventionDataDisambiguate?1=1&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                             <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
                                                   style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1%></span>
                                         </a>
                                         <% } else { %>
                                         <a href="javascript: function myFunction() {return false; }"
-                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?1=1&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                           onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?1=1&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                             <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
                                                   style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1 %></span>
                                         </a>
@@ -964,7 +965,7 @@
                                         Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                                         result = hExt.get("result");
 
-                                        String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
+                                        String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + SafeEncode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + SafeEncode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
@@ -972,7 +973,7 @@
 
 
                                     <p <%=r(hdata.get("refused"),result)%> >
-                                        Age: <carlos:encode value='<%= (String)hdata.get("age") %>' context="html"/> <%if(result!=null && result.equals("abnormal")){out.print("result:"+Encode.forHtml(result));}%>
+                                        Age: <carlos:encode value='<%= (String)hdata.get("age") %>' context="html"/> <%if(result!=null && result.equals("abnormal")){out.print("result:"+SafeEncode.forHtml(result));}%>
                                         <br/>
                                         <!--<%=refused(hdata.get("refused"))%>-->
                                         Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
@@ -1042,7 +1043,7 @@
                                         </div>
                                         <div class="headPrevention">
                                             <p><a href="javascript: function myFunction() {return false; }"
-                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?2=2&<%=snomedId != null ? "snomedId=" + Encode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
+                                                  onclick="javascript:popup(600,900,'<%=request.getContextPath()%>/prevention/AddPrevention?2=2&<%=snomedId != null ? "snomedId=" + SafeEncode.forJavaScriptAttribute(snomedId) + "&" : ""%>prevention=<carlos:encode value='<%= h.get("name") %>' context="uriComponent"/>&amp;demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>&amp;prevResultDesc=<carlos:encode value='<%= h.get("resultDesc") %>' context="uriComponent"/>','addPreventionData<%=Math.abs( ( h.get("name")).hashCode() ) %>')">
                                                 <span title="<carlos:encode value='<%= h.get("desc") %>' context="htmlAttribute"/>"
                                                       style="font-weight: bold;"><carlos:encode value='<%= h.get("name") %>' context="html"/><%=ispa1 %></span>
                                             </a>
@@ -1143,7 +1144,7 @@
                                                 Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                                                 result = hExt.get("result");
 
-                                                String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + Encode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + Encode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
+                                                String onClickCode = "javascript:popup(600,900,'" + request.getContextPath() + "/prevention/AddPrevention?id=" + SafeEncode.forJavaScriptAttribute(hdata.get("id") != null ? String.valueOf(hdata.get("id")) : "") + "&amp;demographic_no=" + SafeEncode.forJavaScriptAttribute(demographic_no) + "','addPreventionData')";
                                         %>
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>

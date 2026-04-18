@@ -66,6 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -446,7 +447,7 @@ href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarM
                                                 color="red"><%= rs.getStatus() %>
                                         </font>
                                             <% if (rs.getStatus().equals("Acknowledged")) { %> <%= rs.getTimestamp() %>,
-                                            <%= (rs.getComment().equals("") ? "no comment" : "comment : " + Encode.forHtml(rs.getComment())) %>
+                                            <%= (rs.getComment().equals("") ? "no comment" : "comment : " + SafeEncode.forHtml(rs.getComment())) %>
                                             <% } %> <br>
                                             <% } %> <!--/center--></div>
                                     </td>

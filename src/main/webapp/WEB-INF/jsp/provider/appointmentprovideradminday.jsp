@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
@@ -277,7 +278,7 @@
 
     StringBuilder ectFormNames = new StringBuilder();
     for (String formName : formNamesList) {
-        ectFormNames = ectFormNames.append("&encounterFormName=" + Encode.forUriComponent(formName));
+        ectFormNames = ectFormNames.append("&encounterFormName=" + SafeEncode.forUriComponent(formName));
     }
     // end get eform form links
 
@@ -563,7 +564,7 @@
                     if (self.location.href.lastIndexOf("&viewall=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&viewall="));
                     else a = self.location.href;
                 } else {
-                    a = "<%= request.getContextPath() %>/provider/providercontrol?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : Encode.forJavaScriptBlock(selectedSite) )%>";
+                    a = "<%= request.getContextPath() %>/provider/providercontrol?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : SafeEncode.forJavaScriptBlock(selectedSite) )%>";
                 }
                 self.location.href = a + "&viewall=" + key;
             }
@@ -840,7 +841,7 @@
 
         //later in the code there is a complex inline ternary function that uses view as a parameter.
         //the following code "caches" the result of this function (as viewString) before setting view=1
-        String curProviderString = request.getParameter("curProvider") != null ? "&curProvider=" + Encode.forUriComponent(request.getParameter("curProvider")) : "";
+        String curProviderString = request.getParameter("curProvider") != null ? "&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider")) : "";
         String curProviderNameString = request.getParameter("curProviderName") != null ? "&curProviderName=" + URLEncoder.encode(request.getParameter("curProviderName"), StandardCharsets.UTF_8) : "";
         String viewString = view == 0 ? "&view=0" : "&view=1" + curProviderString + curProviderNameString;
 
@@ -1177,7 +1178,7 @@
                     <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
                 </span>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1198,7 +1199,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -1861,7 +1862,7 @@
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
                                                     </td>
                                                     <td class="hourmin"
-                                                        width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor='" + Encode.forHtmlAttribute((String) dateTimeCodeBean.get("color" + hourmin.toString())) + "'") : ""%>
+                                                        width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor='" + SafeEncode.forHtmlAttribute((String) dateTimeCodeBean.get("color" + hourmin.toString())) + "'") : ""%>
                                                         title='<carlos:encode value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' context="htmlAttribute"/>'>
                                                                         <span color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white"%>'><carlos:encode value='<%= hourmin.toString() %>' context="html"/>
                                                                         </span>
@@ -2085,10 +2086,10 @@
                                                             // Build tooltip variants for privacy-compliant display (dot-name format)
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
                                                             String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
-                                                            String dotTooltipShort = timeRange + " " + Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
+                                                            String dotTooltipShort = timeRange + " " + SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
                                                             String dotReasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String dotNotesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(dotNotesDisplay);
+                                                            String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(dotNotesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
                                                             boolean showTooltipDot = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
@@ -2104,7 +2105,7 @@
                                                            onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltipDot ? "data-title-full=\"" + dotTooltipFull + "\" data-title-short=\"" + dotTooltipShort + "\" title=\"" + dotTooltipFull + "\"" : "" %>>
                                                             <span>
-                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : Encode.forHtmlContent(name.toUpperCase())) : Encode.forHtmlContent(name.toUpperCase())%>
+                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
                                                         </a><!--Inline display of reason -->
 
@@ -2192,10 +2193,10 @@
                                                         <%
                                                             // Build tooltip variants for privacy-compliant display
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String tooltipShort = Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
+                                                            String tooltipShort = SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
                                                             String reasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String notesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String tooltipFull = tooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(notesDisplay);
+                                                            String tooltipFull = tooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(notesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
                                                             boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
@@ -2210,7 +2211,7 @@
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltip ? "data-title-full=\"" + tooltipFull + "\" data-title-short=\"" + tooltipShort + "\" title=\"" + tooltipFull + "\"" : "" %> >
-                                                            <%=(name.length() > len ? Encode.forHtmlContent(name.substring(0, len)) : Encode.forHtmlContent(name))%>
+                                                            <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
 

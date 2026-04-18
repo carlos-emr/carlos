@@ -71,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -519,7 +520,7 @@
                     </td>
                     <td class="lastName"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
                     </td>
-                    <td class="firstName"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName())) + " " + Encode.forHtml(Misc.toUpperLowerCase(demo.getMiddleNames()))%>
+                    <td class="firstName"><%=SafeEncode.forHtml(Misc.toUpperLowerCase(demo.getFirstName())) + " " + SafeEncode.forHtml(Misc.toUpperLowerCase(demo.getMiddleNames()))%>
                     </td>
                     <td class="age"><carlos:encode value='<%= demo.getAge() == null ? "" : String.valueOf(demo.getAge()) %>' context="html"/>
                     </td>

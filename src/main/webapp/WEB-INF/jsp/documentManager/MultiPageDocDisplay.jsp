@@ -71,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%!
     ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -771,7 +772,7 @@
                                     <font color="red"><carlos:encode value='<%= ackStatus %>' context="html"/>
                                     </font>
                                     &nbsp;
-                                    <%= report.getTimestamp() == null ? "" : Encode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
+                                    <%= report.getTimestamp() == null ? "" : SafeEncode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
                                     comment: <carlos:encode value='<%= report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment() %>' context="html"/>
 
                                     <br>
@@ -846,7 +847,7 @@
                                                        value=" <fmt:message key="global.btnPrint"/> "
                                                        onClick="popup(700,960,'<%=url2%>','file download')">
                                                 <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
-                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter?providerNo=" + Encode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + Encode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
+                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter?providerNo=" + SafeEncode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + SafeEncode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
                                                 %>
                                                 <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Msg"

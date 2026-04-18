@@ -78,6 +78,7 @@
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 
 <%@page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -281,7 +282,7 @@
             <td><carlos:encode value='<%= oldRoleList.get(i + 1).toString() %>' context="html"/>
             </td>
             <td align="center"><select
-                    name="<%="name" + Encode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
+                    name="<%="name" + SafeEncode.forHtmlAttribute(oldRoleList.get(i + 3).toString())%>">
                 <%
                     for (int j = 0; j < ROLE.length; j++) {
                         String roleOptionLabel = ROLE[j];

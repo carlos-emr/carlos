@@ -50,6 +50,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE HTML >
 
 <html>
@@ -2410,9 +2411,9 @@
     <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:message key="inboxmanager.documentsInQueues"/></h4>
     <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
     <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>">
-    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
     <input type="hidden" name="selectedProviders">
     <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
 </div>

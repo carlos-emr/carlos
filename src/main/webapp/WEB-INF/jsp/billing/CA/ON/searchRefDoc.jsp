@@ -135,6 +135,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%!
     /**
@@ -257,9 +258,9 @@
                     // When param2 was provided and matched (two-field update), use typeInData2;
                     // otherwise fall back to typeInData3 for multi-field update
                     if (param2Field != null) {
-                        strOnClick = "typeInData2('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "','" + Encode.forJavaScriptAttribute(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
+                        strOnClick = "typeInData2('" + SafeEncode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "','" + SafeEncode.forJavaScriptAttribute(prop.getProperty("last_name", "") + "," + prop.getProperty("first_name", "")) + "')";
                     } else {
-                        strOnClick = "typeInData3('" + Encode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_name", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_address", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("phone", "")) + "', '" + Encode.forJavaScriptAttribute(prop.getProperty("to_fax", "")) + "')";
+                        strOnClick = "typeInData3('" + SafeEncode.forJavaScriptAttribute(prop.getProperty("referral_no", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_name", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_address", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("phone", "")) + "', '" + SafeEncode.forJavaScriptAttribute(prop.getProperty("to_fax", "")) + "')";
                     }
             %>
             <tr style="background-color:<%=bgColor%>"

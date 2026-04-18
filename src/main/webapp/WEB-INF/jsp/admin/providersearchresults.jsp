@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -266,7 +267,7 @@
 
         nNextPage = Integer.parseInt(strLimit) + Integer.parseInt(strOffset);
         nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
-        String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
+        String searchStatusQ = (searchStatus != null) ? "&search_status=" + SafeEncode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
             href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<carlos:encode value='<%= keyword %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= searchMode %>' context="uriComponent"/><%= searchStatusQ %>&orderby=<carlos:encode value='<%= orderBy %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%

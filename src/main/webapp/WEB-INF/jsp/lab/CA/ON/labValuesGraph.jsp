@@ -72,7 +72,7 @@
         String[] drugs = request.getParameterValues("drug");
 
         for (String d : drugs) {
-            sb.append("&drug=" + Encode.forUriComponent(d));
+            sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
         }
         drugForGraph = sb.toString();
@@ -86,6 +86,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>

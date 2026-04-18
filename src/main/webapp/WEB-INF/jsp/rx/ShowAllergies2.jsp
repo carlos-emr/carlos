@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -493,7 +494,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='" + request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
+            out.print("<span class='view_menu'><a href='" + request.getContextPath() + "/rx/showAllergy?demographicNo=" + SafeEncode.forUriComponent(demoNo) + "&view=" + SafeEncode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }
@@ -560,7 +561,7 @@
 
                                                     String title = "";
                                                     if (allergy.getRegionalIdentifier() != null && !allergy.getRegionalIdentifier().trim().equalsIgnoreCase("null") && !allergy.getRegionalIdentifier().trim().equals("")) {
-                                                        title = " title=\"Din: " + Encode.forHtmlAttribute(allergy.getRegionalIdentifier()) + "\" ";
+                                                        title = " title=\"Din: " + SafeEncode.forHtmlAttribute(allergy.getRegionalIdentifier()) + "\" ";
                                                     }
 
                                                     boolean filterOut = false;
@@ -609,9 +610,9 @@
                                             <tr bgcolor="<%=trColour%>" id="allergy_<%= allergy.getAllergyId() %>">
                                                 <td><%=labelStatus%>
                                                 </td>
-                                                <td><%=entryDate == null ? "" : Encode.forHtml(entryDate) %>
+                                                <td><%=entryDate == null ? "" : SafeEncode.forHtml(entryDate) %>
                                                 </td>
-                                                <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
+                                                <td><%=allergy.getLastUpdateDate() != null ? SafeEncode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
                                                 <td <%=title%> ><carlos:encode value='<%= allergy.getDescription() %>' context="html"/>
                                                 </td>
@@ -624,13 +625,13 @@
                                                 </td>
                                                 <td><carlos:encode value='<%= allergy.getOnSetOfReactionDesc() %>' context="html"/>
                                                 </td>
-                                                <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
+                                                <td><%=allergy.getReaction() != null ? SafeEncode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
-                                                <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
+                                                <td><%=startDate == null ? "" : SafeEncode.forHtml(startDate) %>
                                                 </td>
                                                 <td><carlos:encode value='<%= allergy.getLifeStageDesc() %>' context="html"/>
                                                 </td>
-                                                <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
+                                                <td><%=allergy.getAgeOfOnset() == null ? "" : SafeEncode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
                                                 <td>
                                                     <%

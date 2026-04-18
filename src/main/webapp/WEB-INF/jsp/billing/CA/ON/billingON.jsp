@@ -162,7 +162,7 @@
 
         for (DSConsequence dscon : list) {
             if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(Encode.forHtml(dscon.getText())).append("<br/>");
+                billingRecomendations.append(SafeEncode.forHtml(dscon.getText())).append("<br/>");
             }
         }
     } catch (Exception e) {
@@ -604,6 +604,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
@@ -1454,7 +1455,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                 <td>
                     <a href="javascript:void(0);"
                        onclick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <%=ctldiagcodename.length() < 56 ? Encode.forHtml(ctldiagcodename) : Encode.forHtml(ctldiagcodename.substring(0, 55))%>
+                        <%=ctldiagcodename.length() < 56 ? SafeEncode.forHtml(ctldiagcodename) : SafeEncode.forHtml(ctldiagcodename.substring(0, 55))%>
                     </a>
                 </td>
             </tr>

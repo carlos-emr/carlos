@@ -16,6 +16,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
     PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
@@ -232,12 +233,12 @@
                             </tr>
                             <tr>
                                 <td class="address" id="clinicPhone">
-                                    Telephone: <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : Encode.forHtml(clinic.getClinicPhone())%>
+                                    Telephone: <%=vecPhones.size() >= 1 ? vecPhones.elementAt(0) : SafeEncode.forHtml(clinic.getClinicPhone())%>
                                 </td>
                             </tr>
                             <tr>
                                 <td class="address" id="clinicFax">
-                                    Fax: <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : Encode.forHtml(clinic.getClinicFax())%>
+                                    Fax: <%=vecFaxes.size() >= 1 ? vecFaxes.elementAt(0) : SafeEncode.forHtml(clinic.getClinicFax())%>
                                 </td>
                                 <% } else {
                                     SystemPreferences customInvoiceClinicInfo = systemPreferencesDao.findPreferenceByName(SystemPreferences.GENERAL_SETTINGS_KEYS.invoice_custom_clinic_info);

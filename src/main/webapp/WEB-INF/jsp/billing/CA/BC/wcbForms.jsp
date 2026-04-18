@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -64,10 +65,10 @@
     String billingcode = request.getParameter("billingcode");
 
     // Pre-compute commonly used encoded values
-    String encodedDemoNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demographicNo)));
-    String encodedDemoNoJs = Encode.forJavaScriptAttribute(StringUtils.noNull(demographicNo));
-    String encodedProvNo = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user"))));
-    String encodedBillingCode = Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(billingcode)));
+    String encodedDemoNo = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(StringUtils.noNull(demographicNo)));
+    String encodedDemoNoJs = SafeEncode.forJavaScriptAttribute(StringUtils.noNull(demographicNo));
+    String encodedProvNo = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(StringUtils.noNull((String) session.getAttribute("user"))));
+    String encodedBillingCode = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(StringUtils.noNull(billingcode)));
 %>
 
 <div>

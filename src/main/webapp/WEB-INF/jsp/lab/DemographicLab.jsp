@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ProviderData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -222,9 +223,9 @@
                         <td align="left" valign="center" width="30%"><input
                                 type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
                             <input type="hidden" name="searchProviderNo"
-                                   value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-                            <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-                            <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+                                   value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"> <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+                            <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+                            <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
                             <input type="hidden" name="status" value="<carlos:encode value='<%= ackStatus %>' context="htmlAttribute"/>">
                             <input type="hidden" name="selectedProviders"> <% if (demographicNo == null) { %>
                             <input type="button" class="smallButton"
@@ -384,7 +385,7 @@
                             <div class="Nav">
                                 <% if (pageNum > 1 || labs.size() > endIndex) {
                                     if (pageNum > 1) { %> <a class="visLink"
-                                                             href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
+                                                             href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum-1%>&startIndex=<%=startIndex-20%>"><
                                 <fmt:message key="oscarMDS.index.msgPrevious"/></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% } %> <%
@@ -392,7 +393,7 @@
                                 for (int i = 0; i < labs.size(); i = i + 20) {
                             %>
                                 <a style="text-decoration: none;" class="visLink"
-                                   href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
+                                   href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=count%>&startIndex=<%=i%>">[<%=count%>
                                     ]</a>
                                 <%
                                         count++;
@@ -400,7 +401,7 @@
                                 %> <% if (labs.size() > endIndex) { %>
                                 <a
                                         class="visLink"
-                                        href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+Encode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+Encode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+Encode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+Encode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
+                                        href="<%= request.getContextPath() %>/lab/ViewDemographicLab?providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/><%= (demographicNo == null ? "" : "&demographicNo="+SafeEncode.forUriComponent(demographicNo)) %>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= ackStatus %>' context="uriComponent"/><%= (request.getParameter("lname") == null ? "" : "&lname="+SafeEncode.forUriComponent(request.getParameter("lname"))) %><%= (request.getParameter("fname") == null ? "" : "&fname="+SafeEncode.forUriComponent(request.getParameter("fname"))) %><%= (request.getParameter("hnum") == null ? "" : "&hnum="+SafeEncode.forUriComponent(request.getParameter("hnum"))) %>&pageNum=<%=pageNum+1%>&startIndex=<%=startIndex+20%>"><fmt:message key="oscarMDS.index.msgNext"/> ></a> <% } else { %>
                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                 <% }
                                 } %>

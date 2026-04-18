@@ -93,6 +93,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -123,16 +124,16 @@
     String dboperation = request.getParameter("dboperation");
     String keyword = null;
     if (request.getParameter("keyword") != null) {
-        keyword = Encode.forJava(request.getParameter("keyword"));
+        keyword = SafeEncode.forJava(request.getParameter("keyword"));
     }
     String orderBy = request.getParameter("orderby");
 
     // Pre-encode request parameters used repeatedly in sort and pagination links.
     // Each is null-safe (noNull converts null to "") and URI-component-encoded.
-    String encKeyword = Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
-    String encDisplayMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
-    String encSearchMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
-    String encDbOperation = Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
+    String encKeyword = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
+    String encDisplayMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
+    String encSearchMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
+    String encDbOperation = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
     ;
@@ -301,7 +302,7 @@
                             + "&displaymode=" + encDisplayMode
                             + "&search_mode=" + encSearchMode
                             + "&dboperation=" + encDbOperation;
-                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + Encode.forUriComponent(ptStatus);
+                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + SafeEncode.forUriComponent(ptStatus);
                     %>
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
@@ -518,11 +519,11 @@
 
                 // Pagination links use local variables (already extracted from request params above)
                 String pageBase = "DemographicSearch?fromMessenger=" + fromMessenger
-                    + "&keyword=" + Encode.forUriComponent(StringUtils.noNull(keyword))
-                    + "&search_mode=" + Encode.forUriComponent(StringUtils.noNull(searchMode))
-                    + "&displaymode=" + Encode.forUriComponent(StringUtils.noNull(displayMode))
-                    + "&dboperation=" + Encode.forUriComponent(StringUtils.noNull(dboperation))
-                    + "&orderby=" + Encode.forUriComponent(StringUtils.noNull(orderBy));
+                    + "&keyword=" + SafeEncode.forUriComponent(StringUtils.noNull(keyword))
+                    + "&search_mode=" + SafeEncode.forUriComponent(StringUtils.noNull(searchMode))
+                    + "&displaymode=" + SafeEncode.forUriComponent(StringUtils.noNull(displayMode))
+                    + "&dboperation=" + SafeEncode.forUriComponent(StringUtils.noNull(dboperation))
+                    + "&orderby=" + SafeEncode.forUriComponent(StringUtils.noNull(orderBy));
 
                 if (nLastPage >= 0) {
             %>

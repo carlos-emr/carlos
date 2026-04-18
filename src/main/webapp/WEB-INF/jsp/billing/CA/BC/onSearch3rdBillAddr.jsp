@@ -130,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -252,15 +253,15 @@
                     prop = (Properties) vec.get(i);
                     String bgColor = i % 2 == 0 ? "#EEEEFF" : "ivory";
                     String strOnClick = param.length() > 0 ? "typeInData1('"
-                            + Encode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
-                            + Encode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
-                            + Encode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
-                            + Encode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
+                            + SafeEncode.forJavaScript((prop.getProperty("attention", "").equals("") ? "" : (prop.getProperty("attention") + "\n")))
+                            + SafeEncode.forJavaScript(prop.getProperty("company_name", "").equals("") ? "" : (prop.getProperty("company_name") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("address", "").equals("") ? "" : (prop.getProperty("address") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "").equals("") ? "" : (prop.getProperty("city") + " "))
+                            + SafeEncode.forJavaScript(prop.getProperty("province", "").equals("") ? "" : (prop.getProperty("province") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("telephone", "").equals("") ? "" : (prop.getProperty("telephone") + "\n"))
+                            + SafeEncode.forJavaScript(prop.getProperty("fax", "").equals("") ? "" : (prop.getProperty("fax") + "\n"))
                             + "')" : "typeInData1('"
-                            + Encode.forJavaScript(prop.getProperty("city", "")) + "')";
+                            + SafeEncode.forJavaScript(prop.getProperty("city", "")) + "')";
 
             %>
             <tr align="center" bgcolor="<%=bgColor%>" align="center"
@@ -339,6 +340,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return org.owasp.encoder.Encode.forJavaScript(d);
+        return org.owasp.encoder.SafeEncode.forJavaScript(d);
     }
 %>

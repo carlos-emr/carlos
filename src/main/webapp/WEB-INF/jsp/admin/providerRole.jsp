@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -170,14 +171,14 @@
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleNew = Encode.forHtml(roleNew);
+        String encodedRoleNew = SafeEncode.forHtml(roleNew);
 
         if (!"-".equals(roleNew)) {
             Secuserrole secUserRole = secUserRoleDao.findById(Integer.parseInt(roleId));
             if (secUserRole != null) {
                 secUserRole.setRoleName(roleNew);
                 secUserRoleDao.updateRoleName(Integer.parseInt(roleId), roleNew);
-                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgUpdated"), encodedRoleNew, Encode.forHtml(number));
+                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgUpdated"), encodedRoleNew, SafeEncode.forHtml(number));
 
                 RecycleBin recycleBin = new RecycleBin();
                 recycleBin.setProviderNo(curUser_no);
@@ -202,7 +203,7 @@
                 }
 
             } else {
-                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"), encodedRoleNew, Encode.forHtml(number));
+                msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotUpdated"), encodedRoleNew, SafeEncode.forHtml(number));
             }
         }
 
@@ -213,14 +214,14 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals(add)) {
         String number = request.getParameter("providerId") != null ? request.getParameter("providerId") : "";
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleNew = Encode.forHtml(roleNew);
+        String encodedRoleNew = SafeEncode.forHtml(roleNew);
         if (!"-".equals(roleNew)) {
             Secuserrole secUserRole = new Secuserrole();
             secUserRole.setProviderNo(number);
             secUserRole.setRoleName(roleNew);
             secUserRole.setActiveyn(1);
             secUserRoleDao.save(secUserRole);
-            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgAdded"), encodedRoleNew, Encode.forHtml(number));
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgAdded"), encodedRoleNew, SafeEncode.forHtml(number));
             LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_ROLE, number + "|" + roleNew, ip);
 	    if( newCaseManagement && caisiProgram != null) {
                 ProgramProvider programProvider = programProviderDao.getProgramProvider(number, Long.valueOf(caisiProgram));
@@ -233,7 +234,7 @@
                 programProviderDao.saveProgramProvider(programProvider);
             }
         } else {
-            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotAdded"), encodedRoleNew, Encode.forHtml(number));
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotAdded"), encodedRoleNew, SafeEncode.forHtml(number));
         }
 
     }
@@ -245,7 +246,7 @@
         String roleId = request.getParameter("roleId");
         String roleOld = request.getParameter("roleOld");
         String roleNew = request.getParameter("roleNew");
-        String encodedRoleOld = Encode.forHtml(roleOld);
+        String encodedRoleOld = SafeEncode.forHtml(roleOld);
 
 	List secUserRoles = secUserRoleDao.findByProviderNo(number);
 
@@ -256,7 +257,7 @@
             if(secUserRole.getId() == Integer.parseInt(roleId)) {
 
             secUserRoleDao.deleteById(secUserRole.getId());
-            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgDeleted"), encodedRoleOld, Encode.forHtml(number));
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgDeleted"), encodedRoleOld, SafeEncode.forHtml(number));
                 listIterator.remove();
 
             RecycleBin recycleBin = new RecycleBin();
@@ -305,7 +306,7 @@
         }
 
         } else {
-            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotDeleted"), encodedRoleOld, Encode.forHtml(number));
+            msg = MessageFormat.format(oscarRec.getString("admin.providerrole.msgNotDeleted"), encodedRoleOld, SafeEncode.forHtml(number));
         }
 
     }
@@ -371,7 +372,7 @@
 				if(programProvider == null || programProvider.isEmpty()) {
                     ProviderData provider = providerDao.findByProviderNo(user);
                     if (provider != null) {
-                        msg += String.format("</br><span style='color:red;'>WARNING: Provider %s requires a primary role assignment.</span>", Encode.forHtml(provider.getFirstName() + " " + provider.getLastName()));
+                        msg += String.format("</br><span style='color:red;'>WARNING: Provider %s requires a primary role assignment.</span>", SafeEncode.forHtml(provider.getFirstName() + " " + provider.getLastName()));
                     }
                 }
             }

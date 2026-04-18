@@ -75,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -235,7 +236,7 @@
                         <td>
                             <%
                                 String contextPath = request.getContextPath();
-                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages?demographic_no=" + Encode.forUriComponent(demographic_no);
+                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages?demographic_no=" + SafeEncode.forUriComponent(demographic_no);
                             %>
 
                             <form action="<%=strutsAction%>" method="post">

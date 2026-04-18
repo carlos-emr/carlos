@@ -51,6 +51,7 @@
 %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 
@@ -114,7 +115,7 @@
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                         NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                        value="<%=request.getParameter("keyword") != null ? Encode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
+                                                                        value="<%=request.getParameter("keyword") != null ? SafeEncode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
                         <INPUT
                                 TYPE="hidden" NAME="orderby" VALUE="prevention_type"> <INPUT
                                 TYPE="hidden" NAME="dboperation" VALUE="lotnr_search_prevention">

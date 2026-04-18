@@ -989,16 +989,7 @@
                                 %>
                                 <span class="patient-header-name"><carlos:encode value='<%= demographic.getLastName() %>' context="html"/>, <carlos:encode value='<%= demographic.getFirstName() %>' context="html"/></span>
                                 <%
-                                    String sexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
-                                    String genderI18nKey;
-                                    switch (sexCode) {
-                                        case "M":  genderI18nKey = "global.gender.male";        break;
-                                        case "F":  genderI18nKey = "global.gender.female";      break;
-                                        case "X":  genderI18nKey = "global.gender.intersex";    break;
-                                        case "O":  genderI18nKey = "global.gender.other";       break;
-                                        default:   genderI18nKey = "global.gender.undisclosed"; break;
-                                    }
-                                    String genderDisplayText = oscarResources.getString(genderI18nKey);
+                                    String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex());
                                 %>
                                 <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>

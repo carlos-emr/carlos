@@ -80,6 +80,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -518,7 +519,7 @@
                     temp = paramNames.nextElement().toString();
                     if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                         continue;
-                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
+                    out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
                 }
             %>
         </form>

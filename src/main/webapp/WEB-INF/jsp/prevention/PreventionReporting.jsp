@@ -42,6 +42,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -301,15 +302,15 @@
                     <td><%
                         String hExt = demo.getExtraValue(DemographicExt.DemographicProperty.hPhoneExt);
                         String wExt = demo.getExtraValue(DemographicExt.DemographicProperty.wPhoneExt);
-                        if (!demo.getPhone().isEmpty()) { %>H: <carlos:encode value='<%= demo.getPhone() %>' context="html"/><%= !hExt.isEmpty() ? " x" + Encode.forHtmlContent(hExt) : "" %><%
+                        if (!demo.getPhone().isEmpty()) { %>H: <carlos:encode value='<%= demo.getPhone() %>' context="html"/><%= !hExt.isEmpty() ? " x" + SafeEncode.forHtmlContent(hExt) : "" %><%
                         }
-                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <carlos:encode value='<%= demo.getPhone2() %>' context="html"/><%= !wExt.isEmpty() ? " x" + Encode.forHtmlContent(wExt) : "" %><%
+                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <carlos:encode value='<%= demo.getPhone2() %>' context="html"/><%= !wExt.isEmpty() ? " x" + SafeEncode.forHtmlContent(wExt) : "" %><%
                         }
                         if (!demo.getCellPhone().isEmpty()) { %><br/>C: <carlos:encode value='<%= demo.getCellPhone() %>' context="html"/><%
                         }
                     %></td>
                     <td><carlos:encode value='<%= StringUtils.defaultString(demo.getEmail()) %>' context="html"/></td>
-                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
+                    <td><%=SafeEncode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+SafeEncode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+SafeEncode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+SafeEncode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
@@ -330,10 +331,10 @@ else labelClass = "bg-secondary";
                     <td><carlos:encode value='<%= h.getOrDefault("sex", "") %>' context="html"/></td>
                     <td><carlos:encode value='<%= h.getOrDefault("lastName", "") %>' context="html"/></td>
                     <td><carlos:encode value='<%= h.getOrDefault("firstName", "") %>' context="html"/></td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
-                    <td><%=demoSDM == null ? "" :Encode.forHtmlContent(demoSDM.getAddress())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getCity())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getProvince())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPostal())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" :SafeEncode.forHtmlContent(demoSDM.getAddress())%> <%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getCity())%> <%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getProvince())%> <%=demoSDM == null ? "" : SafeEncode.forHtmlContent(demoSDM.getPostal())%>&nbsp;</td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;

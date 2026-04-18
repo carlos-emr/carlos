@@ -44,6 +44,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -80,7 +81,7 @@
 
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
         // check the input data
-        String encodedRoleName = Encode.forHtmlContent(StringUtils.trimToEmpty(role_name));
+        String encodedRoleName = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(role_name));
         if (request.getParameter("action").startsWith("edit")) {
             // update the code
             SecRole secRole = secRoleDao.findByName(request.getParameter("action").substring(4));

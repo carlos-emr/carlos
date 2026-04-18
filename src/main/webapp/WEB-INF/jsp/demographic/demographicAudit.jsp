@@ -53,6 +53,7 @@
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -119,9 +120,9 @@
         </td>
         <td><carlos:encode value='<%= log.getContent() %>' context="html"/>
         </td>
-        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? Encode.forHtml(log.getContentId()) : "" %>
+        <td><%=log.getContentId() != null && !"null".equals(log.getContentId()) ? SafeEncode.forHtml(log.getContentId()) : "" %>
         </td>
-        <td><%=log.getData() != null && !"null".equals(log.getData()) ? Encode.forHtml(log.getData()) : "" %>
+        <td><%=log.getData() != null && !"null".equals(log.getData()) ? SafeEncode.forHtml(log.getData()) : "" %>
         </td>
 
 

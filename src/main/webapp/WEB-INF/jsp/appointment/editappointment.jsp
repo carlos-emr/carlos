@@ -94,6 +94,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -848,7 +849,7 @@
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
          data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
+        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
@@ -871,7 +872,7 @@
                                     String providerName = prov.getLastName() + ", " + prov.getFirstName();
                     %>
 
-                    <%="".equals(providerName) ? "" : "(" + Encode.forHtmlContent(providerName) + ")"%>
+                    <%="".equals(providerName) ? "" : "(" + SafeEncode.forHtmlContent(providerName) + ")"%>
 
                     <% }
                     }
@@ -966,7 +967,7 @@
                     </td>
                     <td>
                 <input type="time" name="start_time" class="form-control"
-                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
+                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
                                onChange="checkTimeTypeIn(this);updateTime();">
                     </td>
                 </tr>
@@ -998,11 +999,11 @@
                                 }
                             }
                         %> <input type="hidden" name="end_time"
-                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
+                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
-                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :Encode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
                                onblur="calculateEndTime();">
                     </td>
                 </tr>
@@ -1087,12 +1088,12 @@
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
                                     if (s.getName().equals(loc)) isSiteSelected = true;
-                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
+                                    sb.append("<option value=\"").append(SafeEncode.forHtmlAttribute(s.getName())).append("\" class=\"").append(SafeEncode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(SafeEncode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(SafeEncode.forHtml(s.getName())).append("</option>");
                                 }
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
                                 } else {
-                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
+                                    out.println("<option value='" + SafeEncode.forHtmlAttribute(loc) + "'>" + SafeEncode.forHtml(loc) + "</option>");
                                 }
                             %>
 
@@ -1103,7 +1104,7 @@
                         %>
 		<select name="location" class="form-select">
                             <%
-                                String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
+                                String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
                                     for (Program program : programs) {
                                         String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
@@ -1178,7 +1179,7 @@
                         <label for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                     </td>
                     <td>
-                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
+                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:SafeEncode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
                     </td>
                 </tr>
                 <% } %>
@@ -1261,7 +1262,7 @@
                     <td>
                 <input type="text" name="demographic_no" id="demographic_no" class="form-control"
                                ONFOCUS="onBlockFieldFocus(this)" readonly
-                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
+                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
                     </td>
                 </tr>
                 <tr>

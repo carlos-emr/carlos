@@ -68,6 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -278,17 +279,7 @@
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</span>
-                                                                        <span class="info"><%
-                                                                            String viewSexCode = demographic.getSex() != null ? demographic.getSex().toUpperCase() : "U";
-                                                                            String viewGenderKey;
-                                                                            switch (viewSexCode) {
-                                                                                case "M":  viewGenderKey = "global.gender.male";        break;
-                                                                                case "F":  viewGenderKey = "global.gender.female";      break;
-                                                                                case "X":  viewGenderKey = "global.gender.intersex";    break;
-                                                                                case "O":  viewGenderKey = "global.gender.other";       break;
-                                                                                default:   viewGenderKey = "global.gender.undisclosed"; break;
-                                                                            }
-                                                                        %><carlos:encode value='<%= oscarResources.getString(viewGenderKey) %>' context="html"/></span>
+                                                                        <span class="info"><carlos:encode value='<%= DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex()) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/>:</span>
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="html"/></span>
@@ -979,7 +970,7 @@
                                                                                                         startTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin);
                                                                                                         endTimeStr = String.format("%02d", startHour) + ":" + String.format("%02d", startMin + timecodeInterval - 1);
 
-                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment?demographic_no=" + demographic.getDemographicNo() + "&name=" + Encode.forUriComponent(demographic.getLastName() + "," + demographic.getFirstName()) + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
+                                                                                                        provMap.get(thisProv).get(sortDateStr + "," + qApptWkDay + " " + qApptMonth + "-" + qApptDay).put(startTimeStr + "," + timecodeChar, request.getContextPath() + "/appointment/addappointment?demographic_no=" + demographic.getDemographicNo() + "&name=" + SafeEncode.forUriComponent(demographic.getLastName() + "," + demographic.getFirstName()) + "&provider_no=" + thisProvNo + "&bFirstDisp=true&year=" + qApptYear + "&month=" + qApptMonth + "&day=" + qApptDay + "&start_time=" + startTimeStr + "&end_time=" + endTimeStr + "&duration=" + templateDuration + "&search=true");
                                                                                                     }
                                                                                                 }
                                                                                             }

@@ -573,7 +573,7 @@
                                     }
                                 }
 
-                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest?requestId=" + Encode.forUriComponent(id);
+                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest?requestId=" + SafeEncode.forUriComponent(id);
                         %>
                         <tr class="<%=overdue ? "consult-row-overdue" : ""%>"
                             tabindex="0"
@@ -670,13 +670,13 @@
                         for (int i = 0; i < tickerList.size(); i++) {
                             String demo = (String) tickerList.get(i);
                             if (i == 0) {
-                                queryStr += "demo=" + Encode.forUriComponent(demo);
+                                queryStr += "demo=" + SafeEncode.forUriComponent(demo);
                             } else {
-                                queryStr += "&demo=" + Encode.forUriComponent(demo);
+                                queryStr += "&demo=" + SafeEncode.forUriComponent(demo);
                             }
                         }%>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
-                    <%  String addTicklerConfirmJs = Encode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
+                    <%  String addTicklerConfirmJs = SafeEncode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
                         String addTicklerUrl = request.getContextPath() + "/tickler/ViewAddTickler?" + queryStr
                             + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week", "UTF-8"); %>
                     <a class="btn btn-link btn-sm" target="_blank"

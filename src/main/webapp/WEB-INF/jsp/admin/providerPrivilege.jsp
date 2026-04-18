@@ -75,6 +75,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -167,8 +168,8 @@
             String priority = request.getParameter(prefix);
             if (objectName.equals("Name1")) objectName = request.getParameter("object$Name1").trim();
 
-            String encodedRoleUserGroup = Encode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
-            String encodedObjectName = Encode.forHtmlContent(StringUtils.trimToEmpty(objectName));
+            String encodedRoleUserGroup = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
+            String encodedObjectName = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(objectName));
             SecObjPrivilege sop = new SecObjPrivilege();
             sop.setId(new SecObjPrivilegePrimaryKey());
             sop.getId().setRoleUserGroup(roleUserGroup);
@@ -183,9 +184,9 @@
                 secExceptionMsg = divEx.getMostSpecificCause().getLocalizedMessage();
             }
             if (secExceptionMsg.length() > 0)
-                msg += Encode.forHtml(secExceptionMsg);
+                msg += SafeEncode.forHtml(secExceptionMsg);
             else {
-                msg += java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgAdded"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
+                msg += java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgAdded"), encodedRoleUserGroup, encodedObjectName, SafeEncode.forHtml(privilege));
                 LogAction.addLog(curUser_no, LogConst.ADD, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + encodedObjectName + "|" + privilege, ip);
             }
         }
@@ -194,9 +195,9 @@
 // update the role list
     if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
         String roleUserGroup = request.getParameter("roleUserGroup");
-        String encodedRoleUserGroup = Encode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
+        String encodedRoleUserGroup = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
         String objectName = request.getParameter("objectName");
-        String encodedObjectName = Encode.forHtmlContent(StringUtils.trimToEmpty(objectName));
+        String encodedObjectName = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(objectName));
 
         String privilege = request.getParameter("privilege");
         String priority = request.getParameter("priority");
@@ -240,10 +241,10 @@
             sop.setPrivilege(privilege);
             sop.setPriority(Integer.parseInt(priority));
             secObjPrivilegeDao.merge(sop);
-            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdated"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdated"), encodedRoleUserGroup, encodedObjectName, SafeEncode.forHtml(privilege));
             LogAction.addLog(curUser_no, LogConst.UPDATE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName + "|" + privilege, ip);
         } else {
-            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdateFailed"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgUpdateFailed"), encodedRoleUserGroup, encodedObjectName, SafeEncode.forHtml(privilege));
         }
 
     }
@@ -252,9 +253,9 @@
 // delete the role list
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Delete")) {
         String roleUserGroup = request.getParameter("roleUserGroup");
-        String encodedRoleUserGroup = Encode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
+        String encodedRoleUserGroup = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(roleUserGroup));
         String objectName = request.getParameter("objectName");
-        String encodedObjectName = Encode.forHtmlContent(StringUtils.trimToEmpty(objectName));
+        String encodedObjectName = SafeEncode.forHtmlContent(StringUtils.trimToEmpty(objectName));
 
         String privilege = request.getParameter("privilege");
         String priority = request.getParameter("priority");
@@ -266,7 +267,7 @@
             priority = String.valueOf(sop.getPriority());
             provider_no = sop.getProviderNo();
             secObjPrivilegeDao.remove(sop.getId());
-            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleted"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleted"), encodedRoleUserGroup, encodedObjectName, SafeEncode.forHtml(privilege));
 
             RecycleBin recycleBin = new RecycleBin();
             recycleBin.setProviderNo(curUser_no);
@@ -280,7 +281,7 @@
             recycleBinDao.persist(recycleBin);
             LogAction.addLog(curUser_no, LogConst.DELETE, LogConst.CON_PRIVILEGE, roleUserGroup + "|" + objectName, ip);
         } else {
-            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleteFailed"), encodedRoleUserGroup, encodedObjectName, Encode.forHtml(privilege));
+            msg = java.text.MessageFormat.format(bundle.getString("admin.providerPrivilege.msgDeleteFailed"), encodedRoleUserGroup, encodedObjectName, SafeEncode.forHtml(privilege));
         }
     }
 
@@ -427,8 +428,8 @@
     }
     for (SecObjPrivilege sop : sops) {
         prop = new Properties();
-        prop.setProperty("roleUserGroup", Encode.forHtmlAttribute(sop.getId().getRoleUserGroup()));
-        prop.setProperty("objectName", Encode.forHtmlAttribute(sop.getId().getObjectName()));
+        prop.setProperty("roleUserGroup", SafeEncode.forHtmlAttribute(sop.getId().getRoleUserGroup()));
+        prop.setProperty("objectName", SafeEncode.forHtmlAttribute(sop.getId().getObjectName()));
         prop.setProperty("privilege", sop.getPrivilege());
         prop.setProperty("priority", String.valueOf(sop.getPriority()));
         vec.add(prop);
@@ -455,7 +456,7 @@
             for (int i = 0; i < vec.size(); i++) {
                 bgColor = bgColor.equals("#f5f5f5;") ? color : "#f5f5f5;";
                 String roleUser = (vec.get(i)).getProperty("roleUserGroup", "");
-                String roleUserName = vecProviderNo.contains(roleUser) ? Encode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
+                String roleUserName = vecProviderNo.contains(roleUser) ? SafeEncode.forHtmlContent((String) vecProviderName.get(vecProviderNo.indexOf(roleUser))) : roleUser;
                 String obj = (vec.get(i)).getProperty("objectName", "");
         %>
         <form name="myformrow<%=i%>" action="${pageContext.request.contextPath}/admin/ProviderPrivilege"

@@ -89,6 +89,7 @@
 <%@ page import="java.util.Set" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -210,7 +211,7 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script>
-        // i18n messages for JavaScript — encoded via Encode.forJavaScript() to prevent XSS and broken JS strings
+        // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
         const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
         const i18nQuickPickReset = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickReset") %>' context="javaScriptBlock"/>';
         const i18nQuickPickTooltip = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip") %>' context="javaScriptBlock"/>';
@@ -725,7 +726,7 @@
                     <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
                     <%
                         String demoNoParam = request.getParameter("demographic_no");
-                        String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : Encode.forHtmlAttribute(demoNoParam);
+                        String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : SafeEncode.forHtmlAttribute(demoNoParam);
                     %>
                     <td style="width: 65%;"><span><input type="hidden" name="demographic_no"
                                                  value="<%=demoNoValue%>"><carlos:encode value='<%= ChartNo %>' context="html"/></span>
@@ -830,7 +831,7 @@
                             <input type="hidden" id="taskToNameBin" value="<carlos:encode value='<%= taskToNameBinValue %>' context="htmlAttribute"/>">
                         </div>
                         <script>
-                            document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(site.getName()) %>';
+                            document.getElementById("site").value = '<%= site==null?"none":SafeEncode.forJavaScript(site.getName()) %>';
                             changeSite(document.getElementById("site"));
                         </script>
 

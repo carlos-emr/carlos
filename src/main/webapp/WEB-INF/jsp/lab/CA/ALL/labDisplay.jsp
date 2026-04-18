@@ -137,6 +137,7 @@
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.w3c.dom.Document" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -359,7 +360,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 <html>
 <head>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
+    <title><%=SafeEncode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
      <!-- include jQuery Bootstrap jQueryUI fontawesome standard scripts and styles -->
@@ -613,7 +614,7 @@ input[id^='acklabel_']{
         }
 
         function linkreq(rptId, reqId) {
-            var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + Encode.forJavaScript(demographicID) : ""%>";
+            var link = "<%= request.getContextPath() %>/lab/ViewLinkReq?table=hl7TextMessage&rptid=" + rptId + "&reqid=" + reqId + "<%=demographicID != null ? "&demographicNo=" + SafeEncode.forJavaScript(demographicID) : ""%>";
             window.open(link, "linkwin", "width=500, height=200");
         }
 
@@ -834,9 +835,9 @@ input[id^='acklabel_']{
 
         String ackLabFunc;
         if (skipComment) {
-            ackLabFunc = "handleLab('acknowledgeForm_" + Encode.forJavaScriptAttribute(segmentID) + "','" + Encode.forJavaScriptAttribute(segmentID) + "','ackLab');";
+            ackLabFunc = "handleLab('acknowledgeForm_" + SafeEncode.forJavaScriptAttribute(segmentID) + "','" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
         } else {
-            ackLabFunc = "getComment('ackLab', " + Encode.forJavaScriptAttribute(segmentID) + ");";
+            ackLabFunc = "getComment('ackLab', " + SafeEncode.forJavaScriptAttribute(segmentID) + ");";
         }
 
 %>
@@ -1539,7 +1540,7 @@ input[id^='acklabel_']{
                                                     <td><b>Service Date:</b> <carlos:encode value='<%= String.valueOf(tickler.getServiceDate()) %>' context="html"/>
                                                     </td>
                                                     <td><b>Assigned
-                                                        To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
+                                                        To:</b> <%=tickler.getAssignee() != null ? SafeEncode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
                                                     <td style="width:90px;">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
@@ -1638,7 +1639,7 @@ input[id^='acklabel_']{
                                                 <carlos:encode value='<%= report.getTimestamp() %>' context="html"/>,
                                                 <% } %>
                                                 <span id="<carlos:encode value='<%= report.getOscarProviderNo() + "_" + segmentID %>' context="htmlAttribute"/>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
-                                                    id="<carlos:encode value='<%= report.getOscarProviderNo() + "_" + segmentID %>' context="htmlAttribute"/>commentText"><%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
+                                                    id="<carlos:encode value='<%= report.getOscarProviderNo() + "_" + segmentID %>' context="htmlAttribute"/>commentText"><%=report.getComment() == null ? "" : SafeEncode.forHtml(report.getComment())%></span>
                                                 <br>
                                                 <% }
                                                     if (ackList.size() == 0) {
@@ -1998,7 +1999,7 @@ input[id^='acklabel_']{
                     <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <% String abnormalFlag =Encode.forHtml(handler.getOBXAbnormalFlag(j, k));
+                <% String abnormalFlag =SafeEncode.forHtml(handler.getOBXAbnormalFlag(j, k));
                     if (abnormalFlag != null && abnormalFlag.length() > 0) {
                 %>
                 <td style="text-align:center">
@@ -2006,14 +2007,14 @@ input[id^='acklabel_']{
                 </td>
                 <% } %>
 
-                <% String refRange =Encode.forHtml(handler.getOBXReferenceRange(j, k));
+                <% String refRange =SafeEncode.forHtml(handler.getOBXReferenceRange(j, k));
                     if (refRange != null && refRange.length() > 0) {
                 %>
                 <td style="text-align:left"><%=refRange%>
                 </td>
                 <% } %>
 
-                <% String units =Encode.forHtml(handler.getOBXUnits(j, k));
+                <% String units =SafeEncode.forHtml(handler.getOBXUnits(j, k));
                     if (units != null && units.length() > 0) {
                 %>
                 <td style="text-align:left"><%=units %>
@@ -2077,7 +2078,7 @@ input[id^='acklabel_']{
 										    	javax.swing.text.Document doc = rtfParser.createDefaultDocument();
 										    	rtfParser.read(rtfStream, doc, 0);
 										    	// IMPORTANT: HTML-encode FIRST (XSS prevention), then convert newlines to <br>.
-										    	String rtfText = Encode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
+										    	String rtfText = SafeEncode.forHtml(doc.getText(0, doc.getLength())).replaceAll("\n", "<br>");
 										    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
                 <td style="text-align:left"><%= rtfText + disclaimer %>
                 </td>
@@ -2220,7 +2221,7 @@ input[id^='acklabel_']{
             </td>
             <td style="text-align:center">
                 <%
-                    String status =Encode.forHtml(handler.getOBXResultStatus(j, k));
+                    String status =SafeEncode.forHtml(handler.getOBXResultStatus(j, k));
                     if ("GDML".equals(handler.getMsgType()) && ((GDMLHandler) handler).isTestResultBlocked(j, k)) {
                         if (!StringUtils.isEmpty(status)) {
                             status += "/";
@@ -2240,7 +2241,7 @@ input[id^='acklabel_']{
                     allLicenseNames.add(licenseName);
                 }
             %>
-            <td><%=!currentLicenseNo.equals(lastLicenseNo) ? Encode.forHtml(currentLicenseNo) : ""%>
+            <td><%=!currentLicenseNo.equals(lastLicenseNo) ? SafeEncode.forHtml(currentLicenseNo) : ""%>
             </td>
             <% } %>
             </tr>

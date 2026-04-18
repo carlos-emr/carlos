@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -635,7 +636,7 @@ function fmtOscarMsg() {
 									title="${ fn:escapeXml(demographic.key) }">
                                 <span class="DoNotPrint">
 								<%
-                                    String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
+                                    String demoKeyJs = SafeEncode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
                                     <a href="javascript:popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>')"><fmt:message key="global.M" /></a>
                                     <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScript"/>');return false;"><fmt:message key="global.E" /></a>

@@ -65,6 +65,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
@@ -455,8 +456,8 @@
                         + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_name="
                         + URLEncoder.encode(demoLast, StandardCharsets.UTF_8) + "%2C"
                         + URLEncoder.encode(demoFirst, StandardCharsets.UTF_8) + "&demographic_no="
-                        + Encode.forJavaScript(demo_no) + "&providerview=1&user_no="
-                        + Encode.forJavaScript(user_no) + "&apptProvider_no=none&appointment_date="
+                        + SafeEncode.forJavaScript(demo_no) + "&providerview=1&user_no="
+                        + SafeEncode.forJavaScript(user_no) + "&apptProvider_no=none&appointment_date="
                         + curYear + "-" + curMonth + "-" + curDay + "&start_time=0:00:00&bNewForm=1&status=t'</script>";
             }
         }
@@ -509,7 +510,7 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
                         <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value='<%= demoname %>' context="html"/>
-                            <%= "1".equals(demoSex) ? "Male" : "Female" %> <%= " DOB: " + Encode.forHtml(demoDOBYY) + "/" + Encode.forHtml(demoDOBMM) + "/" + Encode.forHtml(demoDOBDD) + " HIN: " + Encode.forHtml(demoHIN) %>
+                            <%= "1".equals(demoSex) ? "Male" : "Female" %> <%= " DOB: " + SafeEncode.forHtml(demoDOBYY) + "/" + SafeEncode.forHtml(demoDOBMM) + "/" + SafeEncode.forHtml(demoDOBDD) + " HIN: " + SafeEncode.forHtml(demoHIN) %>
                         </td>
                         <td bgcolor="#99CCCC" align="center"><%= wrongMsg %>
                         </td>

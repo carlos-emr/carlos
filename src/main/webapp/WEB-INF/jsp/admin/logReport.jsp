@@ -75,6 +75,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
 
@@ -206,7 +207,7 @@
         if (propName.getProperty(providerNo, "").equals("")) {
             out.print(allProviderLabel);
         } else {
-            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
+            out.print(SafeEncode.forHtml(propName.getProperty(providerNo, "")));
         }
     %> - <fmt:message key="admin.logReport.title"/></h4>
 

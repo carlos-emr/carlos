@@ -47,6 +47,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
@@ -217,8 +218,8 @@
         displayNameValue = request.getParameter("displayName");
     }
     if (displayNameValue == null) displayNameValue = "";
-    String encodedDisplayNameForUri = Encode.forUriComponent(displayNameValue);
-    String encodedDisplayNameForJsUri = Encode.forJavaScript(Encode.forUriComponent(displayNameValue));
+    String encodedDisplayNameForUri = SafeEncode.forUriComponent(displayNameValue);
+    String encodedDisplayNameForJsUri = SafeEncode.forJavaScript(SafeEncode.forUriComponent(displayNameValue));
     String demographic = request.getParameter("demographic");
     String scope = request.getParameter("scope");
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
@@ -243,11 +244,11 @@
     String demographicStr = new String();
     String demoStash = new String();
     if (demographic != null) {
-        demographicStr = "&demographic=" + Encode.forUriComponent(demographic);
+        demographicStr = "&demographic=" + SafeEncode.forUriComponent(demographic);
         session.setAttribute("demoNo" + session.getAttribute("user"), demographic);
     } else {
         String demoNo = (String) session.getAttribute("demoNo" + session.getAttribute("user"));
-        if (demoNo != null) demoStash = "&demographic=" + Encode.forUriComponent(demoNo);
+        if (demoNo != null) demoStash = "&demographic=" + SafeEncode.forUriComponent(demoNo);
     }
 
     XMLOutputter outp = new XMLOutputter();
@@ -509,7 +510,7 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 		         		    if(mFlowsheet.getFlowSheetItem(mstring).getPreventionType()!=null){ %>
 		         		<i class="fa-solid fa-lock action-icon" style="opacity:0.6;" title="Prevention item - managed in Prevention module"></i>
 		                <%} else {%>
-		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet?flowsheet=<carlos:encode value='<%= temp %>' context="uriComponent"/>&measurement=<carlos:encode value='<%= mstring %>' context="uriComponent"/><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+Encode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
+		                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/adminFlowsheet/ViewUpdateFlowsheet?flowsheet=<carlos:encode value='<%= temp %>' context="uriComponent"/>&measurement=<carlos:encode value='<%= mstring %>' context="uriComponent"/><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+SafeEncode.forUriComponent(scope)%>" title="Edit" class="action-icon"><i class="fa-solid fa-pencil"></i></a>
 		                <%}%>
 		               <%
 		                boolean isHidden = mFlowsheet.getFlowSheetItem(mstring).isHide();
@@ -523,12 +524,12 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 		                } else if (isHidden) {
 		                    // Clickable restore for same-level hides
 		               %>
-		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'restore',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'restore',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+SafeEncode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+SafeEncode.forJavaScript(scope)+"'":""%>});" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
 		               <%
 		                } else {
 		                    // Clickable hide
 		               %>
-		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'hide',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'hide',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+SafeEncode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+SafeEncode.forJavaScript(scope)+"'":""%>});" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
 		               <% } %>
 		               <%
 		                // Show Revert button if current scope has an UPDATE customization
@@ -537,7 +538,7 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 		               %>
 		                   <a href="javascript:void(0);"
 		                      title="Revert to settings from higher scope" class="action-icon"
-		                      onclick="if(confirm('Revert this measurement to settings from higher scope?')){submitFlowsheetCustom({method:'revertUpdate',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});}"><i class="fa-solid fa-arrows-rotate"></i></a>
+		                      onclick="if(confirm('Revert this measurement to settings from higher scope?')){submitFlowsheetCustom({method:'revertUpdate',flowsheet:'<carlos:encode value='<%= temp %>' context="javaScriptAttribute"/>',measurement:'<carlos:encode value='<%= mstring %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+SafeEncode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+SafeEncode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+SafeEncode.forJavaScript(scope)+"'":""%>});}"><i class="fa-solid fa-arrows-rotate"></i></a>
 		               <% } %>
 
 		                </td>
@@ -609,7 +610,7 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
                                         <% if (isHigherScope) { %>
                                         <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <carlos:encode value='<%= custLevel %>' context="htmlAttribute"/> level"></i>
                                         <% } else { %>
-                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<carlos:encode value='<%= flowsheet %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+Encode.forJavaScriptAttribute(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScriptAttribute(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScriptAttribute(scope)+"'":""%>});"
+                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<carlos:encode value='<%= flowsheet %>' context="javaScriptAttribute"/>'<%=demographic!=null?",demographic:'"+SafeEncode.forJavaScriptAttribute(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+SafeEncode.forJavaScriptAttribute(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+SafeEncode.forJavaScriptAttribute(scope)+"'":""%>});"
                                            class="action-icon"><i class="fa-solid fa-trash"></i></a>
                                         <% } %>
                                     </td>
@@ -623,7 +624,7 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
                                     <%if (cust.getAction().equals("add")) { %>
                                     <td><%
                                         if (mtype != null) {
-                                            out.print(Encode.forHtml(mtype));
+                                            out.print(SafeEncode.forHtml(mtype));
                                         }
                                     %>
 

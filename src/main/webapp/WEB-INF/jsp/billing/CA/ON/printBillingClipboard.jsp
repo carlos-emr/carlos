@@ -24,6 +24,7 @@
 --%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -86,7 +87,7 @@
 
 
 <pre>
-<%=request.getParameter("textfield") == null ? "" : Encode.forHtml(request.getParameter("textfield").replaceAll("\r[^\n]|[^\r]\n]", "\r\n"))%>
+<%=request.getParameter("textfield") == null ? "" : SafeEncode.forHtml(request.getParameter("textfield").replaceAll("\r[^\n]|[^\r]\n]", "\r\n"))%>
 </pre>
 
 <pre>

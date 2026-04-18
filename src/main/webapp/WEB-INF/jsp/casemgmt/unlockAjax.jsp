@@ -54,10 +54,11 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <% CaseManagementNote note = (CaseManagementNote) request.getAttribute("Note");
     pageContext.setAttribute("provName", note.getProviderName());
-    pageContext.setAttribute("fmtTxt", Encode.forHtml(note.getNote()).replaceAll("\n", "<br>"));
+    pageContext.setAttribute("fmtTxt", SafeEncode.forHtml(note.getNote()).replaceAll("\n", "<br>"));
     String dateFormat = "dd-MMM-yyyy H:mm";
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -94,9 +95,9 @@
                             Provider p = it.next();
 
                             if (count % MAXLINE == 0) {
-                                out.print("<li>" + Encode.forHtml(p.getFormattedName()) + "; ");
+                                out.print("<li>" + SafeEncode.forHtml(p.getFormattedName()) + "; ");
                             } else {
-                                out.print(Encode.forHtml(p.getFormattedName()) + "</li>");
+                                out.print(SafeEncode.forHtml(p.getFormattedName()) + "</li>");
                             }
                             ++count;
                         }
@@ -108,7 +109,7 @@
             </div>
             <div style="clear: right; margin-right: 3px; float: right;">Enc
                 Type:&nbsp;<span
-                        id="encType<%=note.getId()%>"><%=note.getEncounter_type().equals("") ? "" : "&quot;" + Encode.forHtml(note.getEncounter_type()) + "&quot;"%></span>
+                        id="encType<%=note.getId()%>"><%=note.getEncounter_type().equals("") ? "" : "&quot;" + SafeEncode.forHtml(note.getEncounter_type()) + "&quot;"%></span>
             </div>
 
             <%
