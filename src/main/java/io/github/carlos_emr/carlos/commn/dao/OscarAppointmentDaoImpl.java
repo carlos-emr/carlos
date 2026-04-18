@@ -761,20 +761,20 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public int updateApptStatus(String ids, String status) {
         // remove non-number value
-        List<Integer> idList = new ArrayList<>();
+        StringBuilder idClean = new StringBuilder();
         for (String id : ids.split(",")) {
             if (!StringUtils.isNumeric(id)) {
                 continue;
             }
-            idList.add(Integer.parseInt(id));
+            idClean.append(id + ",");
         }
-        if (idList.isEmpty()) {
+        if (idClean.length() == 0) {
             return 0;
         }
+        idClean.deleteCharAt(idClean.length() - 1);
         Query q = entityManager
-                .createQuery("update Appointment set status=?1 where id in (?2)");
+                .createQuery("update Appointment set status=?1 where id in (" + idClean.toString() + ")");
         q.setParameter(1, status);
-        q.setParameter(2, idList);
         return q.executeUpdate();
     }
 
