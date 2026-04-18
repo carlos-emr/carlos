@@ -74,7 +74,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public abstract class DSValue {
     private static final Logger _log = MiscUtils.getLogger();
 
-    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'.+?'");
+    // ⚡ Bolt Optimization: Pre-compiled static regex patterns to avoid compilation overhead on every parsing invocation.
+    // Fixed ReDoS vulnerability by replacing wildcard `.+?` with `[^']+'`.
+    private static final Pattern STRING_QUOTE_PATTERN = Pattern.compile("'[^']+'");
     private static final Pattern STRING_SEPARATOR_PATTERN = Pattern.compile("'[\\s]*,");
     private static final Pattern OPERATOR_PATTERN = Pattern.compile("[<>=-]+");
     private static final Pattern UNIT_PATTERN = Pattern.compile("([^\\s]+$)");

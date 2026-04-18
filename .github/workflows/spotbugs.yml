@@ -171,7 +171,8 @@ jobs:
             mvn -B compile spotbugs:spotbugs \
               -Pspotbugs,skip-dependency-lock \
               -DskipTests \
-              -T 1C
+              -T 1C \
+              -Dspotbugs.maxHeap=4096
           "
 
       - name: Convert SpotBugs XML to SARIF
