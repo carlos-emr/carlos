@@ -138,8 +138,8 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
             }
 
             Map<Integer, List<EFormValue>> valuesByFormDataId = new HashMap<>();
-            for (int index = 0; index < fdids.size(); index += FORM_DATA_ID_BATCH_SIZE) {
-                List<Integer> fdidBatch = fdids.subList(index, Math.min(index + FORM_DATA_ID_BATCH_SIZE, fdids.size()));
+            for (int batchStartIndex = 0; batchStartIndex < fdids.size(); batchStartIndex += FORM_DATA_ID_BATCH_SIZE) {
+                List<Integer> fdidBatch = fdids.subList(batchStartIndex, Math.min(batchStartIndex + FORM_DATA_ID_BATCH_SIZE, fdids.size()));
                 for (EFormValue value : eformValueDao.findByFormDataIdList(fdidBatch)) {
                     valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new ArrayList<>()).add(value);
                 }
