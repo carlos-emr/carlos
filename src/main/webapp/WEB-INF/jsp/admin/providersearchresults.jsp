@@ -41,6 +41,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -176,7 +177,7 @@
     <table>
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>
-                : <e:forHtmlContent value='<%= keyword %>' />
+                : <carlos:encode value='<%= keyword %>' context="html"/>
             </td>
         </tr>
     </table>
@@ -235,7 +236,7 @@
         <!-- getPractionerNo() getPractitionerNoType() getFormattedName() getComments() getBillingNo() getTitle() getEmail() getOhipNo() getAddress() -->
         <tr>
             <td style="text-align:center"><a
-                    href='${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<e:forUriComponent value='<%= provider.getId() %>' />'><e:forHtmlContent value='<%= provider.getId() %>' />
+                    href='${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= provider.getId() %>' context="uriComponent"/>'><carlos:encode value='<%= provider.getId() %>' context="html"/>
             </a></td>
             <td><e:forHtmlContent value='<%= (provider.getLastName() == null ? "" : provider.getLastName()) + ", " + (provider.getFirstName() == null ? "" : provider.getFirstName()) %>' />
             </td>
@@ -268,11 +269,11 @@
         String searchStatusQ = (searchStatus != null) ? "&search_status=" + Encode.forUriComponent(searchStatus) : "";
         if (nLastPage >= 0) {
     %> <a
-            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<carlos:encode value='<%= keyword %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= searchMode %>' context="uriComponent"/><%= searchStatusQ %>&orderby=<carlos:encode value='<%= orderBy %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnLastPage"/></a> | <%
         }
         if (nItems == Integer.parseInt(strLimit)) {
     %> <a
-            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<e:forUriComponent value='<%= keyword %>' />&search_mode=<e:forUriComponent value='<%= searchMode %>' /><%= searchStatusQ %>&orderby=<e:forUriComponent value='<%= orderBy %>' />&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
+            href="${pageContext.request.contextPath}/admin/ViewProviderSearchResults?keyword=<carlos:encode value='<%= keyword %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= searchMode %>' context="uriComponent"/><%= searchStatusQ %>&orderby=<carlos:encode value='<%= orderBy %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>"><fmt:message key="admin.providersearchresults.btnNextPage"/></a> <%
         }
     %>
     <p><fmt:message key="admin.providersearchresults.msgClickForEditing"/></p>

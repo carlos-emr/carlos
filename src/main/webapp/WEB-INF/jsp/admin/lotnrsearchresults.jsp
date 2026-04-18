@@ -55,6 +55,7 @@
              scope="session"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -157,10 +158,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><e:forHtmlContent value='<%= pRec.getPreventionType() %>' />
+                    <td><carlos:encode value='<%= pRec.getPreventionType() %>' context="html"/>
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<e:forUriComponent value='<%= pRec.getPreventionType() %>' />&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><e:forHtmlContent value='<%= pRec.getLotNr() %>' />
+                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<carlos:encode value='<%= pRec.getPreventionType() %>' context="uriComponent"/>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><carlos:encode value='<%= pRec.getLotNr() %>' context="html"/>
                     </a></td>
                 </tr>
                 <% }

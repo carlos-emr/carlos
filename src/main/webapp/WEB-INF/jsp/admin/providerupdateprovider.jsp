@@ -37,6 +37,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -204,8 +205,8 @@
                     </td>
                     <td>
                                 <% String provider_no = provider.getId(); %>
-                                <e:forHtmlContent value='<%= provider_no %>' />
-                        <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= provider_no %>' />">
+                                <carlos:encode value='<%= provider_no %>' context="html"/>
+                        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= provider_no %>' context="htmlAttribute"/>">
 
                 </tr>
                 <tr>
@@ -489,19 +490,19 @@
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialFirstName"/>:</td>
                         <td><input type="text" name="officialFirstName"
-                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME)) %>' />"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialSecondName"/>:</td>
                         <td><input type="text" name="officialSecondName"
-                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME)) %>' />"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialLastName"/>:</td>
                         <td><input type="text" name="officialLastName"
-                                   value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME)) %>' />"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
@@ -517,7 +518,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue() %>' />" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><e:forHtmlContent value='<%= valueString %>' />
+                                <option value="<e:forHtmlAttribute value='<%= tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue() %>' />" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><carlos:encode value='<%= valueString %>' context="html"/>
                                 </option>
                                 <%}%>
 
@@ -539,8 +540,8 @@
                                     billCode = (String) keys.nextElement();
                                     codeDesc = billCenter.getAllBillCenter().getProperty(billCode);
                             %>
-                            <option value="<e:forHtmlAttribute value='<%= billCode %>' />"
-                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><e:forHtmlContent value='<%= codeDesc %>' />
+                            <option value="<carlos:encode value='<%= billCode %>' context="htmlAttribute"/>"
+                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><carlos:encode value='<%= codeDesc %>' context="html"/>
                             </option>
                             <%
                                 }

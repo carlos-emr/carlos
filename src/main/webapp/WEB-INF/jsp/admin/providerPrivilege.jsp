@@ -78,6 +78,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -406,7 +407,7 @@
                 </div>
                 <% } %></th>
             <th style="width: 600px"><fmt:message key="admin.providerPrivilege.objectNameRoleName"/> <input type="text" name="keyword"
-                                                                   value="<e:forHtmlAttribute value='<%= keyword %>' />"> <input
+                                                                   value="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"> <input
                     type="submit" name="search" class="btn btn-secondary"
                     value="<fmt:message key="admin.providerPrivilege.filter"/>"></th>
         </tr>
@@ -473,9 +474,9 @@
                                 out.print("</br>");
                                 bSet = false;
                             }
-                    %> <input type="checkbox" name="privilege<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"
+                    %> <input type="checkbox" name="privilege<carlos:encode value='<%= vecRightsName.get(j).toString() %>' context="htmlAttribute"/>"
                     <%=priv.indexOf(((String)vecRightsName.get(j)))>=0?"checked":""%> >
-                    <e:forHtmlContent value='<%= ((String) vecRightsDesc.get(j)).replaceAll("Only", "O") %>' />
+                    <carlos:encode value='<%= ((String) vecRightsDesc.get(j)).replaceAll("Only", "O") %>' context="html"/>
                     <% }%> <!--input type="text" name="privilege" value="<%--= priv--%>" /-->
                 </td>
                 <td><select name="priority" class="input-min" style="width:50px">
@@ -488,7 +489,7 @@
                 </select></td>
                 <td style="text-align:center">
                     <% if (!roleUser.equals("admin") && !obj.equals("_admin")) { %> <input
-                        type="hidden" name="keyword" value="<e:forHtmlAttribute value='<%= keyword %>' />"> <input
+                        type="hidden" name="keyword" value="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"> <input
                         type="hidden" name="objectName" value="<%=obj %>"> <input
                         type="hidden" name="roleUserGroup" value="<%=roleUser %>"> <input
                         type="submit" name="buttonUpdate" value="<fmt:message key="admin.providerPrivilege.update"/>" class="btn btn-secondary"> <input
@@ -510,13 +511,13 @@
                 onChange="onChangeSelect()">
             <option value="">-</option>
             <% for (int j = 0; j < vecRoleName.size(); j++) {%>
-            <option value="<e:forHtmlAttribute value='<%= vecRoleName.get(j).toString() %>' />"><e:forHtmlContent value='<%= vecRoleName.get(j).toString() %>' />
+            <option value="<carlos:encode value='<%= vecRoleName.get(j).toString() %>' context="htmlAttribute"/>"><carlos:encode value='<%= vecRoleName.get(j).toString() %>' context="html"/>
             </option>
             <% }%>
         </select> <fmt:message key="admin.providerPrivilege.or"/> <select name="roleUserGroup1">
         <option value="">-</option>
         <% for (int j = 0; j < vecProviderNo.size(); j++) {%>
-        <option value="<e:forHtmlAttribute value='<%= vecProviderNo.get(j).toString() %>' />"><e:forHtmlContent value='<%= (String) vecProviderName.get(j) %>' />
+        <option value="<carlos:encode value='<%= vecProviderNo.get(j).toString() %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) vecProviderName.get(j) %>' context="html"/>
         </option>
         <% }%>
         <option value="_principal">_principal</option>
@@ -552,7 +553,7 @@
                     %> <input type="text" name="object$<%=objName%>" value=""> <% } else {
 
                     objName = (String) vecObjectId.get(i);
-                %> <input type="checkbox" name="object$<e:forHtmlAttribute value='<%= objName %>' />"> <e:forHtmlContent value='<%= vecObjectId.get(i).toString() %>' />
+                %> <input type="checkbox" name="object$<carlos:encode value='<%= objName %>' context="htmlAttribute"/>"> <carlos:encode value='<%= vecObjectId.get(i).toString() %>' context="html"/>
                     <% if (objName.startsWith("_queue.")) {
                         String d = null;
                         SecObjectName son = secObjectNameDao.find(objName);
@@ -567,7 +568,7 @@
                         }
                     %>
 
-                    <e:forHtmlContent value='<%= d %>' />
+                    <carlos:encode value='<%= d %>' context="html"/>
                     <%
                             }
                         }
@@ -582,10 +583,10 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$<e:forHtmlAttribute value='<%= objName %>' />$<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"/> <e:forHtmlContent value='<%= vecRightsDesc.get(j).toString() %>' />
+                              name="privilege$<carlos:encode value='<%= objName %>' context="htmlAttribute"/>$<carlos:encode value='<%= vecRightsName.get(j).toString() %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= vecRightsDesc.get(j).toString() %>' context="html"/>
                     <% }%>
                 </td>
-                <td><select name="priority$<e:forHtmlAttribute value='<%= objName %>' />" style="width:50px;">
+                <td><select name="priority$<carlos:encode value='<%= objName %>' context="htmlAttribute"/>" style="width:50px;">
                     <option value="">-</option>
                     <% for (int j = 10; j >= 0; j--) { %>
                     <option value="<%=j%>" <%= ("" + j).equals("0") ? "selected" : "" %>>
@@ -621,7 +622,7 @@
                                 bSet = false;
                             }
                     %> <input type="checkbox"
-                              name="privilege$Name1$<e:forHtmlAttribute value='<%= vecRightsName.get(j).toString() %>' />"> <e:forHtmlContent value='<%= vecRightsDesc.get(j).toString() %>' />
+                              name="privilege$Name1$<carlos:encode value='<%= vecRightsName.get(j).toString() %>' context="htmlAttribute"/>"> <carlos:encode value='<%= vecRightsDesc.get(j).toString() %>' context="html"/>
                     <% }%>
                 </td>
                 <td><fmt:message key="admin.providerPrivilege.priority"/> <select name="priority$Name1" style="width:50px;">
@@ -639,7 +640,7 @@
             </tbody>
         </table>
         <input type="hidden"
-               name="keyword" value="<e:forHtmlAttribute value='<%= keyword %>' />">
+               name="keyword" value="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>">
 
     </form>
 </div>

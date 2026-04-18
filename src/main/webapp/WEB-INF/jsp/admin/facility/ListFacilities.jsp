@@ -34,6 +34,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -81,7 +82,7 @@
             <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
 
             <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${e:forHtmlAttribute(facility.id)}">
+                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
                     <fmt:message key="admin.facility.list.linkEdit"/> </a>
             </display:column>
             <!--

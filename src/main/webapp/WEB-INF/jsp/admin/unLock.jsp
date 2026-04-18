@@ -91,6 +91,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -119,14 +120,14 @@
     <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock">
         <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
-            <e:forHtmlContent value='<%= msg %>' />
+            <carlos:encode value='<%= msg %>' context="html"/>
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">
             <b><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>
-                <option value="<e:forHtmlAttribute value='<%= (String) vec.get(i) %>' />"><e:forHtmlContent value='<%= (String) vec.get(i) %>' />
+                <option value="<carlos:encode value='<%= (String) vec.get(i) %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) vec.get(i) %>' context="html"/>
                 </option>
                 <% } %>
             </select> <input type="submit" name="submit" class="btn btn-primary"

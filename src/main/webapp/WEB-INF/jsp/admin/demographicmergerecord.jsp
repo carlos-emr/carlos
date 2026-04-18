@@ -36,6 +36,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -230,7 +231,7 @@
 
 <% if (request.getParameter("keyword") != null) {%>
 
-        <i><fmt:message key="admin.demographicmergerecord.resultsBasedOnKeywords"/></i> : <e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' />
+        <i><fmt:message key="admin.demographicmergerecord.resultsBasedOnKeywords"/></i> : <carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="html"/>
 
 <CENTER>
     <form method="post" name="mergeform" action="MergeRecords" onSubmit="return confirmMerge()">
@@ -244,22 +245,22 @@
                 <th align="center" width="5%"><fmt:message key="admin.demographicmergerecord.mainRecord"/></th>
                 <%}%>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=demographic_no&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.demographic"/></a></b></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=demographic_no&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.demographic"/></a></b></font>
                 </TH>
                 <TH align="center" width="20%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=last_name&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.lastName"/></a> </b></font></TH>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=last_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastName"/></a> </b></font></TH>
                 <TH align="center" width="20%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=first_name&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.firstName"/></a> </b></font></TH>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=first_name&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.firstName"/></a> </b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=age&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.age"/></a></b></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=age&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.age"/></a></b></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=roster_status&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.rosterStatus"/></a></b></font></TH>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=roster_status&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.rosterStatus"/></a></b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=sex&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.sex"/></a></B></font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=sex&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.sex"/></a></B></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=date_of_birth&limit1=0&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.dobFormat"/></a></B></Font>
+                        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=date_of_birth&limit1=0&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.dobFormat"/></a></B></Font>
                 </TH>
             </tr>
             <%
@@ -335,7 +336,7 @@
 
                     if (mergedSearch || isHeadRecord) {%>
                 <td align="center" width="5%" height="25"><input type="checkbox" name="records"
-                                                                 value="<e:forHtmlAttribute value='<%= demographicNo %>' />"></td>
+                                                                 value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"></td>
                 <%} else {%>
                 <td align="center" width="5%" height="25">&nbsp;</td>
                 <%
@@ -343,7 +344,7 @@
                     if (!mergedSearch) {
                         if (isHeadRecord) {
                 %>
-                <td align="center" width="5%" height="25"><input type="radio" name="head" value="<e:forHtmlAttribute value='<%= demographicNo %>' />">
+                <td align="center" width="5%" height="25"><input type="radio" name="head" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>">
                 </td>
                 <%} else {%>
                 <td align="center" width="5%" height="25">&nbsp;</td>
@@ -353,20 +354,20 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= head != null ? head : "" %>' />')"><e:forHtmlContent value='<%= demographicNo %>' />
+                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forUriComponent value='<%= head != null ? head : "" %>' />')"><carlos:encode value='<%= demographicNo %>' context="html"/>
                         </a>
                     </caisi:isModuleLoad></td>
-                <td align="center" width="20%" height="25"><e:forHtmlContent value='<%= demo.getLastName() %>' />
+                <td align="center" width="20%" height="25"><carlos:encode value='<%= demo.getLastName() %>' context="html"/>
                 </td>
-                <td align="center" width="20%" height="25"><e:forHtmlContent value='<%= demo.getFirstName() %>' />
+                <td align="center" width="20%" height="25"><carlos:encode value='<%= demo.getFirstName() %>' context="html"/>
                 </td>
-                <td align="center" width="10%" height="25"><e:forHtmlContent value='<%= demo.getAge() %>' />
+                <td align="center" width="10%" height="25"><carlos:encode value='<%= demo.getAge() %>' context="html"/>
                 </td>
-                <td align="center" width="10%" height="25"><e:forHtmlContent value='<%= demo.getRosterStatus() %>' />
+                <td align="center" width="10%" height="25"><carlos:encode value='<%= demo.getRosterStatus() %>' context="html"/>
                 </td>
-                <td align="center" width="10%" height="25"><e:forHtmlContent value='<%= demo.getSex() %>' />
+                <td align="center" width="10%" height="25"><carlos:encode value='<%= demo.getSex() %>' context="html"/>
                 </td>
-                <td align="center" width="10%" height="25"><e:forHtmlContent value='<%= demo.getFormattedDob() %>' />
+                <td align="center" width="10%" height="25"><carlos:encode value='<%= demo.getFormattedDob() %>' context="html"/>
                 </td>
             </tr>
             <%
@@ -394,11 +395,11 @@
         nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
         if (nLastPage >= 0) {
     %> <a
-        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=<e:forUriComponent value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' />&limit1=<%=nLastPage%>&limit2=<e:forUriComponent value='<%= strLimit %>' />"><fmt:message key="admin.demographicmergerecord.lastPage"/></a> | <%
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=<e:forUriComponent value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' />&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>"><fmt:message key="admin.demographicmergerecord.lastPage"/></a> | <%
     }
     if (nItems == Integer.parseInt(strLimit)) {
 %> <a
-        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=<e:forUriComponent value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' />&limit1=<%=nNextPage%>&limit2=<e:forUriComponent value='<%= strLimit %>' />">
+        href="${pageContext.request.contextPath}/admin/DemographicMergeRecord?keyword=<e:forUriComponent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />&search_mode=<e:forUriComponent value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' />&orderby=<e:forUriComponent value='<%= request.getParameter("orderby") != null ? request.getParameter("orderby") : "" %>' />&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit %>' context="uriComponent"/>">
     <fmt:message key="admin.demographicmergerecord.nextPage"/></a> <%
     }
 

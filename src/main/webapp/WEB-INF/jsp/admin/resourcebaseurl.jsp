@@ -41,6 +41,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -221,7 +222,7 @@
 
     <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<e:forJavaScriptBlock value='<%= resource_helpHtml_value %>' />');
+    editor.setHTML('<carlos:encode value='<%= resource_helpHtml_value %>' context="javaScriptBlock"/>');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>

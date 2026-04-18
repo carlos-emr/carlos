@@ -47,6 +47,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -244,7 +245,7 @@
                     <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
                     <td><input type="text" name="user_name" maxlength="10"
-                               value="<e:forHtmlAttribute value='<%= security.getUserName() %>' />"></td>
+                               value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>
                     <td align="right" nowrap><fmt:message key="admin.securityrecord.formPassword"/>:
@@ -263,9 +264,9 @@
                         <div align="right"><fmt:message key="admin.securityrecord.formProviderNo"/>:
                         </div>
                     </td>
-                    <td><e:forHtmlContent value='<%= security.getProviderNo() %>' />
+                    <td><carlos:encode value='<%= security.getProviderNo() %>' context="html"/>
                         <input type="hidden" name="provider_no"
-                               value="<e:forHtmlAttribute value='<%= security.getProviderNo() %>' />"></td>
+                               value="<carlos:encode value='<%= security.getProviderNo() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <!-- new sec -->
                 <tr>
@@ -371,7 +372,7 @@
 
                 <tr>
                     <td colspan="2" align="center">
-                        <input type="hidden" name="security_no" value="<e:forHtmlAttribute value='<%= String.valueOf(security.getSecurityNo()) %>' />">
+                        <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <input type="button" value="<fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
@@ -386,7 +387,7 @@
                 if (security != null) {
             %>
             <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete" style="display:none">
-                <input type="hidden" name="keyword" value="<e:forHtmlAttribute value='<%= String.valueOf(security.getSecurityNo()) %>' />">
+                <input type="hidden" name="keyword" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
             </form>
             <%
                 }

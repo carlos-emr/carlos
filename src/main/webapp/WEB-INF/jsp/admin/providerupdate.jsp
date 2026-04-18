@@ -34,6 +34,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -240,7 +241,7 @@
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />.</h1>
+        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="html"/>.</h1>
         <%
             }
         } else {

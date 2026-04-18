@@ -34,6 +34,7 @@
        scope="request"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -94,7 +95,7 @@
             <label class="form-label"><fmt:message key="admin.oscarLogging.date"/></label>
             <div>
                 <input type="text" id="reportDate" name="reportDate" class="form-control"
-                       size="10" value="<e:forHtmlAttribute value='<%= reportDate %>' />">
+                       size="10" value="<carlos:encode value='<%= reportDate %>' context="htmlAttribute"/>">
             </div>
         </div>
         <div class="mb-3">
