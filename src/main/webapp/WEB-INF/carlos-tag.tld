@@ -6,8 +6,8 @@
 
     <description>
         CARLOS EMR custom tag library. Hosts the null-safe encoder tag
-        (`<carlos:encode>`) and EL functions (`${carlos:forXxx(...)}`).
-        Declare with: `<%@ taglib uri="carlos" prefix="carlos" %>`.
+        (`&lt;carlos:encode&gt;`) and EL functions (`${carlos:forXxx(...)}`).
+        Declare with: `&lt;%@ taglib uri="carlos" prefix="carlos" %&gt;`.
 
         The EL function names intentionally mirror `org.owasp.encoder.Encode`
         method names exactly, so migration from `${e:forXxx(...)}` is a literal
@@ -19,14 +19,14 @@
     <uri>carlos</uri>
 
     <!-- ============================================================
-         TAG: <carlos:encode value="..." context="..."/>
+         TAG: carlos:encode value="..." context="..."
          ============================================================ -->
     <tag>
         <description>
             Null-safe OWASP encoder. Coalesces a null `value` to empty string
             before delegating to the OWASP Encoder for the requested `context`.
-            This matches JSTL `<c:out>` null semantics (null -> ""), unlike
-            `<e:forHtmlContent>` from owasp.encoder.jakarta.advanced which
+            This matches JSTL `&lt;c:out&gt;` null semantics (null -&gt; ""), unlike
+            `&lt;e:forHtmlContent&gt;` from owasp.encoder.jakarta.advanced which
             renders null as the literal word "null".
 
             Default context = "html" (HTML element content). Valid contexts:
