@@ -6242,59 +6242,29 @@ Stacktrace:
 [ERROR] Compilation error
 java.util.concurrent.ExecutionException: org.apache.jasper.JasperException: Unable to compile class for JSP:
 
-An error occurred at line: [68] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-de.value cannot be resolved to a type
-65: 				<%
-66: 					k++;
-67: 					java.util.Date apptime = new java.util.Date();
-68: 					int demographic_no = Integer.parseInt(de.value);
-69: 					String demographic_name = de.label;
-70: 					String tickler_no = "";
-71: 					String tickler_note = "";
+An error occurred at line: [15] in the generated java file: [/app/target/classes/jsp/WEB_002dINF/jsp/provider/infirmarydemographiclist_jspf.java]
+Only a type can be imported. org.apache.struts.util.LabelValueBean resolves to a package
+
+An error occurred at line: [69] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
+org.apache.struts.util.LabelValueBean cannot be resolved to a type
+66: 				<%
+67: 					k++;
+68: 					java.util.Date apptime = new java.util.Date();
+69: 					org.apache.struts.util.LabelValueBean de = (org.apache.struts.util.LabelValueBean) pageContext.getAttribute("de");
+70: int demographic_no = Integer.parseInt(de.getValue());
+71: 					String demographic_name = de.getLabel();
+72: 					String tickler_no = "";
 
 
 An error occurred at line: [69] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-de.label cannot be resolved to a type
-66: 					k++;
-67: 					java.util.Date apptime = new java.util.Date();
-68: 					int demographic_no = Integer.parseInt(de.value);
-69: 					String demographic_name = de.label;
-70: 					String tickler_no = "";
-71: 					String tickler_note = "";
-72: 					// Using your ticklerManager logic in JSP to retrieve ticklers.
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-rsAppointNO cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-reason cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-status cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
+org.apache.struts.util.LabelValueBean cannot be resolved to a type
+66: 				<%
+67: 					k++;
+68: 					java.util.Date apptime = new java.util.Date();
+69: 					org.apache.struts.util.LabelValueBean de = (org.apache.struts.util.LabelValueBean) pageContext.getAttribute("de");
+70: int demographic_no = Integer.parseInt(de.getValue());
+71: 					String demographic_name = de.getLabel();
+72: 					String tickler_no = "";
 
 
 Stacktrace:
@@ -6309,59 +6279,29 @@ Stacktrace:
     at java.lang.Thread.run (Thread.java:1583)
 Caused by: org.apache.jasper.JasperException: Unable to compile class for JSP:
 
-An error occurred at line: [68] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-de.value cannot be resolved to a type
-65: 				<%
-66: 					k++;
-67: 					java.util.Date apptime = new java.util.Date();
-68: 					int demographic_no = Integer.parseInt(de.value);
-69: 					String demographic_name = de.label;
-70: 					String tickler_no = "";
-71: 					String tickler_note = "";
+An error occurred at line: [15] in the generated java file: [/app/target/classes/jsp/WEB_002dINF/jsp/provider/infirmarydemographiclist_jspf.java]
+Only a type can be imported. org.apache.struts.util.LabelValueBean resolves to a package
+
+An error occurred at line: [69] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
+org.apache.struts.util.LabelValueBean cannot be resolved to a type
+66: 				<%
+67: 					k++;
+68: 					java.util.Date apptime = new java.util.Date();
+69: 					org.apache.struts.util.LabelValueBean de = (org.apache.struts.util.LabelValueBean) pageContext.getAttribute("de");
+70: int demographic_no = Integer.parseInt(de.getValue());
+71: 					String demographic_name = de.getLabel();
+72: 					String tickler_no = "";
 
 
 An error occurred at line: [69] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-de.label cannot be resolved to a type
-66: 					k++;
-67: 					java.util.Date apptime = new java.util.Date();
-68: 					int demographic_no = Integer.parseInt(de.value);
-69: 					String demographic_name = de.label;
-70: 					String tickler_no = "";
-71: 					String tickler_note = "";
-72: 					// Using your ticklerManager logic in JSP to retrieve ticklers.
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-rsAppointNO cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-reason cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
-
-
-An error occurred at line: [105] in the jsp file: [/WEB-INF/jsp/provider/infirmarydemographiclist.jspf]
-status cannot be resolved to a variable
-102: 					<!-- Conditionally add encounter link based on bShowEncounterLink -->
-103: 					<c:if test="${bShowEncounterLink}">
-104: 						<%
-105: 							String eURL = base_eURL + "&appointmentNo=" + rsAppointNO + "&demographicNo=" + demographic_no + "&reason=" + URLEncoder.encode(reason) + "&startTime=" + apptime.getHours() + ":" + apptime.getMinutes() + "&status=" + status;
-106: 						%>
-107: 						<a href="#" onClick="popupWithApptNo(710, 1024, '${eURL}', 'encounter'); return false;" title="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.encounter'/>">
-108: 							|<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/>
+org.apache.struts.util.LabelValueBean cannot be resolved to a type
+66: 				<%
+67: 					k++;
+68: 					java.util.Date apptime = new java.util.Date();
+69: 					org.apache.struts.util.LabelValueBean de = (org.apache.struts.util.LabelValueBean) pageContext.getAttribute("de");
+70: int demographic_no = Integer.parseInt(de.getValue());
+71: 					String demographic_name = de.getLabel();
+72: 					String tickler_no = "";
 
 
 Stacktrace:
@@ -6380,12 +6320,12 @@ Stacktrace:
     at java.lang.Thread.run (Thread.java:1583)
 Error count: [31]
 [INFO] Number total of jsps : 1072
-[ERROR] Generation completed with [31] errors in [3431] milliseconds
+[ERROR] Generation completed with [31] errors in [3638] milliseconds
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  6.764 s
-[INFO] Finished at: 2026-04-18T16:11:23Z
+[INFO] Total time:  7.064 s
+[INFO] Finished at: 2026-04-18T16:32:45Z
 [INFO] ------------------------------------------------------------------------
 [ERROR] Failed to execute goal io.leonard.maven.plugins:jspc-maven-plugin:5.0.0:compile (default-cli) on project carlos: Failure processing jsps: see previous errors -> [Help 1]
 [ERROR]
