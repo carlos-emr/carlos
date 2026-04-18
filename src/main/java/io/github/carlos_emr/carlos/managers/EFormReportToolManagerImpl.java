@@ -59,6 +59,7 @@ import org.springframework.stereotype.Service;
 @Service
 //@Transactional
 public class EFormReportToolManagerImpl implements EFormReportToolManager {
+    private static final int FORM_DATA_ID_BATCH_SIZE = 500;
 
     private Logger logger = MiscUtils.getLogger();
 
@@ -137,8 +138,11 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
             }
 
             Map<Integer, List<EFormValue>> valuesByFormDataId = new HashMap<>();
-            for (EFormValue value : eformValueDao.findByFormDataIdList(fdids)) {
-                valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new ArrayList<>()).add(value);
+            for (int index = 0; index < fdids.size(); index += FORM_DATA_ID_BATCH_SIZE) {
+                List<Integer> fdidBatch = fdids.subList(index, Math.min(index + FORM_DATA_ID_BATCH_SIZE, fdids.size()));
+                for (EFormValue value : eformValueDao.findByFormDataIdList(fdidBatch)) {
+                    valuesByFormDataId.computeIfAbsent(value.getFormDataId(), key -> new ArrayList<>()).add(value);
+                }
             }
 
             Date dateStarted = new Date();

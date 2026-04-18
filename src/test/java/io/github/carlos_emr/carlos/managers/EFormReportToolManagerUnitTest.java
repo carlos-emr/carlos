@@ -37,14 +37,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -125,6 +129,48 @@ public class EFormReportToolManagerUnitTest extends CarlosUnitTestBase {
         verify(mockEFormReportToolDao).populateReportTableItem(eq(reportTool), eq(List.of(valueOne)), eq(10), eq(1001), any(Date.class), eq("999998"));
         verify(mockEFormReportToolDao).populateReportTableItem(eq(reportTool), eq(List.of(valueThree)), eq(12), eq(1003), any(Date.class), eq("999999"));
         verify(mockEFormReportToolDao, never()).populateReportTableItem(eq(reportTool), anyList(), eq(11), eq(1002), any(Date.class), eq("999998"));
+    }
+
+    @Test
+    @DisplayName("should chunk form data ID batches when populating large report tables")
+    void shouldChunkFormDataIdBatches_whenPopulatingLargeReportTables() {
+        // Given
+        EFormReportTool reportTool = new EFormReportTool();
+        reportTool.setId(78);
+        reportTool.setEformId(501);
+        reportTool.setTableName("eft_large_report");
+
+        List<Object[]> fdidRows = new ArrayList<>();
+        List<Integer> firstBatch = new ArrayList<>();
+        List<Integer> secondBatch = new ArrayList<>();
+        Set<Integer> populatedFdids = new LinkedHashSet<>();
+        Date formDate = new Date();
+
+        for (int fdid = 1; fdid <= 501; fdid++) {
+            fdidRows.add(new Object[]{fdid, 2000 + fdid, formDate, formDate, "999998"});
+            if (fdid <= 500) {
+                firstBatch.add(fdid);
+            } else {
+                secondBatch.add(fdid);
+            }
+            if (fdid == 1 || fdid == 501) {
+                populatedFdids.add(fdid);
+            }
+        }
+
+        when(mockEFormReportToolDao.find(78)).thenReturn(reportTool);
+        when(mockEFormDataDao.findMetaFieldsByFormId(501)).thenReturn(fdidRows);
+        when(mockEFormValueDao.findByFormDataIdList(firstBatch)).thenReturn(List.of(createValue(1, "bp")));
+        when(mockEFormValueDao.findByFormDataIdList(secondBatch)).thenReturn(List.of(createValue(501, "weight")));
+
+        // When
+        manager.populateReportTable(mockLoggedInInfo, 78);
+
+        // Then
+        verify(mockEFormValueDao).findByFormDataIdList(firstBatch);
+        verify(mockEFormValueDao).findByFormDataIdList(secondBatch);
+        verify(mockEFormValueDao, never()).findByFormDataId(anyInt());
+        verify(mockEFormReportToolDao, times(populatedFdids.size())).populateReportTableItem(eq(reportTool), anyList(), anyInt(), anyInt(), any(Date.class), eq("999998"));
     }
 
     /**
