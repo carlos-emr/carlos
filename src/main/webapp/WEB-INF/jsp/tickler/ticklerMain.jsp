@@ -914,10 +914,6 @@
             </div>
         </form>
 
-        <p class="yesprint">
-            <%=CarlosProperties.getConfidentialityStatement()%>
-        </p>
-
         <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">
             <form>
                 <input type="hidden" name="tickler_note_demographicNo" id="tickler_note_demographicNo" value=""/>

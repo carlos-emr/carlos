@@ -52,6 +52,7 @@
 <%@page import="java.util.*" %>
 <%@page import="java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
 		    String din = request.getParameter("din");
 		    String randomId = request.getParameter("randomId");

@@ -1171,7 +1171,7 @@
                                                             <td colspan="4">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                               value="<%= demographic_no %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>

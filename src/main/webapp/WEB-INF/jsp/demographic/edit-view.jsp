@@ -349,7 +349,7 @@
                                                                     %>
                                                                     <jsp:include page="<%=fieldJSP%>">
                                                                         <jsp:param name="demo"
-                                                                                   value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                                   value="<%= demographic_no %>"/>
                                                                     </jsp:include>
                                                                     <%}%>
 
@@ -830,7 +830,7 @@
                                                                     <jsp:include page="/WEB-INF/jsp/demographic/displayFirstNationsModule.jsp"
                                                                                  flush="false">
                                                                         <jsp:param name="demo"
-                                                                                   value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                                   value="<%= demographic_no %>"/>
                                                                         <jsp:param name="fncommunity"
                                                                                    value="${fncommunity}"/>
                                                                     </jsp:include>
@@ -1216,7 +1216,7 @@
                                                                     value="true">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/displayHealthCareTeam.jsp">
                                                                     <jsp:param name="demographicNo"
-                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                               value="<%= demographic_no %>"/>
                                                                 </jsp:include>
                                                             </oscar:oscarPropertiesCheck>
                                                                 <%-- TOGGLE OFF PATIENT CLINIC STATUS --%>

@@ -33,6 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <% String errorMessage = request.getParameter("errorMessage"); %>
 

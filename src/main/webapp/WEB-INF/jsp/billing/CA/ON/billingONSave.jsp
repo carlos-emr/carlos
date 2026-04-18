@@ -13,6 +13,7 @@
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <!DOCTYPE html>
 <html>
 <head>

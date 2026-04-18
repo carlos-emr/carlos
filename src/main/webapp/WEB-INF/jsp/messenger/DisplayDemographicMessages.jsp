@@ -76,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     // Build role string for security check
     String userrole = (String) session.getAttribute("userrole");
@@ -314,7 +315,7 @@
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><e:forHtmlContent value='<%= dm.getThedate() %>' />
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                            <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= dm.getDemographic_no() %>' />"></oscar:nameage>
+                                            <oscar:nameage demographicNo="<%= dm.getDemographic_no() %>"></oscar:nameage>
                                         </td>
                                     </tr>
                                     <%}%>

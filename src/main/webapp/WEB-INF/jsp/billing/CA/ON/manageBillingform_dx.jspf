@@ -28,6 +28,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlDiagCode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <form method="post" name="form1" action="DbManageBillingformDx">

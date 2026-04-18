@@ -32,6 +32,7 @@
 Use returnForm and returnItem request params and this page will fill in that input item on that page
 -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 
 

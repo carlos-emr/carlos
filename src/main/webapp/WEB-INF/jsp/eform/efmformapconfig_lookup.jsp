@@ -22,6 +22,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     // Security: require _eform read privilege (consistent with all other eForm endpoints)
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

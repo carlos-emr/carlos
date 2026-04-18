@@ -34,6 +34,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
 
 <%@page import="java.util.*,java.net.*,java.sql.*" %>
