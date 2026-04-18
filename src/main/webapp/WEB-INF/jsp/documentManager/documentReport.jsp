@@ -60,6 +60,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
@@ -404,7 +405,7 @@
         <div id="docListAlertContainer"></div>
 
         <% if ("demographic".equals(module)) { %>
-        <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= moduleid %>' />"/>
+        <oscar:nameage demographicNo="<%= moduleid %>"/>
         <%} %>
 
         <jsp:include page="addDocument.jsp">

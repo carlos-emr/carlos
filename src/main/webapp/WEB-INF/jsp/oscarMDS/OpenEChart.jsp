@@ -30,6 +30,7 @@
 --%>
 <%@ page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.net.URLEncoder" %>
 <%
     // Check if demographicNo is present and valid

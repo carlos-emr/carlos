@@ -56,6 +56,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ include file="/WEB-INF/jsp/common/webAppContextAndSuperMgr.jsp" %>

@@ -23,6 +23,7 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -2,6 +2,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <table width="100%" border="2" valign="top">
 	<% 
 String dateBegin = request.getParameter("xml_vdate");

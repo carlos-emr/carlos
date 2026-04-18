@@ -1851,7 +1851,9 @@ function popForm2(scriptId){
      function callAdditionWebService(url,id){
          var contextPath = '${e:forJavaScript(ctx)}';
          if (url.indexOf(contextPath) !== 0) {
-             url = contextPath + "/rx/" + url;
+             // url typically begins with '/rx/...' (already context-relative).
+             // Only prepend contextPath; don't double-stack '/rx/'.
+             url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
          }
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
@@ -1861,7 +1863,9 @@ function popForm2(scriptId){
 			function callReplacementWebService(url, id) {
             var contextPath = '${e:forJavaScript(ctx)}';
             if (url.indexOf(contextPath) !== 0) {
-                url = contextPath + "/rx/" + url;
+                // url typically begins with '/rx/...' (already context-relative).
+                // Only prepend contextPath; don't double-stack '/rx/'.
+                url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
             }
 				var ran_number = Math.round(Math.random() * 1000000);
 				// alert(url + "  " + id + "  " + ran_number);

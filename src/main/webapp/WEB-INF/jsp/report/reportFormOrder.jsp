@@ -46,6 +46,7 @@
     Vector vecConfigObj = tableObj.getConfigObj(SAVE_AS, reportId);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <html>
     <head>

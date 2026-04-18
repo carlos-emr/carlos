@@ -74,6 +74,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -1472,7 +1473,7 @@
                                                             <td colspan="8">
                                                                 <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<e:forHtmlAttribute value='<%= demographic_no %>' />"/>
+                                                                               value="<%= demographic_no %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>

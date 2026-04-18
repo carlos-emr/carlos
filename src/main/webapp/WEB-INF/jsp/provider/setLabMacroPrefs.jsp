@@ -112,6 +112,7 @@
 <%@page import="org.owasp.encoder.Encode"%>
 
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%-- Capture i18n message into page-scope variable for safe use in JavaScript with OWASP encoding --%>
 <fmt:message key="provider.labMacroPrefs.confirmDeleteAll" var="confirmDeleteAllMsg"/>

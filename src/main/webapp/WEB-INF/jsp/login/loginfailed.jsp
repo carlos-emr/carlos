@@ -30,6 +30,7 @@
 --%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String errormsg = request.getParameter("errormsg");
 %>
