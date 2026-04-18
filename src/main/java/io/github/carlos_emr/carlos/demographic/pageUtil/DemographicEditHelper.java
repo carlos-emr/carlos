@@ -23,8 +23,10 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.Admission;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Static helper methods for demographic edit and add JSP pages.
@@ -102,5 +104,39 @@ public final class DemographicEditHelper {
     public static int timeStrToMins(String timeStr) {
         String[] temp = timeStr.split(":");
         return Integer.parseInt(temp[0]) * 60 + Integer.parseInt(temp[1]);
+    }
+
+    /**
+     * Maps the stored sex code to the shared demographic gender i18n key.
+     *
+     * @param sexCode String the stored sex code (for example "M", "F", "X", "O")
+     * @return String the oscarResources key for display
+     */
+    public static String getGenderMessageKey(String sexCode) {
+        String normalizedSexCode = sexCode == null ? "U" : sexCode.trim().toUpperCase(Locale.ENGLISH);
+        switch (normalizedSexCode) {
+            case "M":
+                return "global.gender.male";
+            case "F":
+                return "global.gender.female";
+            case "X":
+                return "global.gender.intersex";
+            case "O":
+                return "global.gender.other";
+            default:
+                return "global.gender.undisclosed";
+        }
+    }
+
+    /**
+     * Returns the localized display text for the stored sex code, falling back
+     * to English and then to the key if the locale bundle is incomplete.
+     *
+     * @param locale Locale the request locale
+     * @param sexCode String the stored sex code
+     * @return String the localized display text
+     */
+    public static String getGenderDisplayText(Locale locale, String sexCode) {
+        return LocaleUtils.getMessage(locale, getGenderMessageKey(sexCode));
     }
 }
