@@ -29,7 +29,9 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.providersearchresults.tooltipPatientSearch" var="tooltipPatientSearch"/>
 <!DOCTYPE html>
 
 
@@ -122,7 +124,7 @@
     <body onLoad="setfocus()">
 
     <h4>
-        <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
+        <i class="fa-solid fa-magnifying-glass" title="${e:forHtmlAttribute(tooltipPatientSearch)}"></i>&nbsp;<fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
         <div class="card card-body bg-body-tertiary">
@@ -224,7 +226,7 @@
             int nItems = 0;
 
             if (providerList == null) {
-                out.println("failed!!!");
+                    out.println(Encode.forHtml(java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("admin.providersearchresults.msgFailed")));
             } else {
 
                 for (ProviderData provider : providerList) {

@@ -15,6 +15,7 @@
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -39,13 +40,15 @@
         import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/errorpage.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.clinicNbrManage.msgUnknownMethodPrefix" var="msgUnknownMethodPrefix"/>
+<fmt:message key="admin.clinicNbrManage.msgUnknownMethodSuffix" var="msgUnknownMethodSuffix"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
-        <title><fmt:message key="admin.clinicNbrManage.title"/> <%=Encode.forHtml(CarlosProperties.getInstance().getStartTime())%>
+        <title><fmt:message key="admin.clinicNbrManage.title"/> <%=Encode.forHtml(String.valueOf(CarlosProperties.getInstance().getStartTime()))%>
         </title>
         <script type="text/javascript">
             function toggleButtons(visible) {
@@ -93,7 +96,7 @@
                         alert(xml.error);
                     }
                 } else {
-                    alert("Error unknown method " + xml.method + " please contact an administrator");
+                    alert('${e:forJavaScript(msgUnknownMethodPrefix)} ' + xml.method + '${e:forJavaScript(msgUnknownMethodSuffix)}');
                 }
                 toggleButtons(false);
             }

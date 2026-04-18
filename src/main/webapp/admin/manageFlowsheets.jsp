@@ -182,9 +182,9 @@
 							<td>
 								<a href="<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp?flowsheet=<%=Encode.forUriComponent(flowSheet.getName())%>&displayName=<%=Encode.forUriComponent(flowSheet.getDisplayName())%>"><fmt:message key="admin.manageFlowsheets.linkEdit"/></a>&nbsp;
 								<%if(enabled) { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%');"><fmt:message key="admin.manageFlowsheets.linkDisable"/></a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScriptAttribute(flowSheet.getName())%>');"><fmt:message key="admin.manageFlowsheets.linkDisable"/></a>
 								<% } else { %>
-									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%');"><fmt:message key="admin.manageFlowsheets.linkEnable"/></a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScriptAttribute(flowSheet.getName())%>');"><fmt:message key="admin.manageFlowsheets.linkEnable"/></a>
 								<% } %>
 							</td>
 						</tr>

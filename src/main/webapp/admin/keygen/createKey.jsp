@@ -217,29 +217,29 @@
                     <tr>
                         <td><fmt:message key="admin.createKey.labelLabType"/></td>
                         <td><select name="type" id="selection" onClick="selectOther()">
-                            <option value="ALPHA">ALPHA</option>
-                            <option value="CML">CML</option>
-                            <option value="EPSILON">EPSILON/MHL</option>
+                            <option value="ALPHA"><fmt:message key="admin.createKey.optAlpha"/></option>
+                            <option value="CML"><fmt:message key="admin.createKey.optCml"/></option>
+                            <option value="EPSILON"><fmt:message key="admin.createKey.optEpsilonMhl"/></option>
 
                             <option value="PATHL7"
                                     <oscar:oscarPropertiesCheck property="PATHNET_LABS" value="yes">
                                         selected
-                                    </oscar:oscarPropertiesCheck>>EXCELLERIS
+                                    </oscar:oscarPropertiesCheck>><fmt:message key="admin.createKey.optExcelleris"/>
                             </option>
 
-                            <option value="GDML">GDML</option>
-                            <option value="HHSEMR">HHSEMR</option>
-                            <option value="HRMXML">HRM XML</option>
-                            <option value="IHA">IHA</option>
-                            <option value="IHAPOI">IHAPOI</option>
-                            <option value="MDS">MDS/Lifelabs</option>
+                            <option value="GDML"><fmt:message key="admin.createKey.optGdml"/></option>
+                            <option value="HHSEMR"><fmt:message key="admin.createKey.optHhsemr"/></option>
+                            <option value="HRMXML"><fmt:message key="admin.createKey.optHrmXml"/></option>
+                            <option value="IHA"><fmt:message key="admin.createKey.optIha"/></option>
+                            <option value="IHAPOI"><fmt:message key="admin.createKey.optIhapoi"/></option>
+                            <option value="MDS"><fmt:message key="admin.createKey.optMdsLifelabs"/></option>
                             <!-- <option value="HL7">HL7</option> -->
-                            <option value="SIOUX">SIOUX</option>
-                            <option value="Spire">Spire</option>
-                            <option value="PDFDOC">PDFDOC</option>
-                            <option value="BIOTEST">BioTest</option>
+                            <option value="SIOUX"><fmt:message key="admin.createKey.optSioux"/></option>
+                            <option value="Spire"><fmt:message key="admin.createKey.optSpire"/></option>
+                            <option value="PDFDOC"><fmt:message key="admin.createKey.optPdfdoc"/></option>
+                            <option value="BIOTEST"><fmt:message key="admin.createKey.optBioTest"/></option>
                             <option value="CLS"><fmt:message key="admin.createKey.optCalgaryLabService"/></option>
-                            <option value="TRUENORTH">TRUENORTH</option>
+                            <option value="TRUENORTH"><fmt:message key="admin.createKey.optTrueNorth"/></option>
                             <option value="OTHER"><fmt:message key="admin.createKey.optOther"/></option>
                         </select></td>
                     </tr>

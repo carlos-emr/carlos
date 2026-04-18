@@ -64,6 +64,7 @@
 %>
 
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.securityupdatesecurity.msgMfaResetError" var="mfaResetError"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
@@ -73,7 +74,7 @@
         <link rel="stylesheet" type="text/css" href="bcArStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="<%= request.getContextPath() %>/share/calendar/calendar.css"/>
 
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -207,10 +208,10 @@
 				if (response.ok) {
 					updateMfaElementsVisibility(true, false);
 				} else {
-					console.log("error resetting MFA");
+					console.log('${e:forJavaScript(mfaResetError)}');
 				}
 			}).catch(function() {
-				console.log("error resetting MFA");
+				console.log('${e:forJavaScript(mfaResetError)}');
 			});
 		}
 	}
@@ -328,10 +329,10 @@
                     <td>
                         <select name="forcePasswordReset">
                             <option value="1" <% if (security != null && security.isForcePasswordReset() != null && security.isForcePasswordReset()) { %>
-                                    SELECTED <%}%>>true
+                                    SELECTED <%}%>><fmt:message key="global.yes"/>
                             </option>
                             <option value="0" <% if (security != null && security.isForcePasswordReset() != null && !security.isForcePasswordReset()) { %>
-                                    SELECTED <%}%>>false
+                                    SELECTED <%}%>><fmt:message key="global.no"/>
                             </option>
                         </select>
                     </td>

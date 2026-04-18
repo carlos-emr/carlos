@@ -249,7 +249,7 @@
             <tr>
                 <TH align="CENTER" width="5%"></th>
                 <% if (!mergedSearch) {%>
-                <th align="center" width="5%">Main Record</th>
+                <th align="center" width="5%"><fmt:message key="admin.demographicmergerecord.thMainRecord"/></th>
                 <%}%>
                 <TH align="center" width="10%"><b><a
                         href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>">Demographic</a></b></font>
@@ -419,7 +419,7 @@
 %>
 </center>
 
-<h3 align="center">Please search for the records you wish to merge.</h3>
+<h3 align="center"><fmt:message key="admin.demographicmergerecord.msgSearchForRecords"/></h3>
 <% } %>
 
 

@@ -53,6 +53,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -415,12 +416,12 @@
                         <span id="pendingFaxBadge" class="badge bg-warning text-dark" style="display:none; font-size: 12px; vertical-align: middle; margin-left: 8px;"></span>
                     </legend>
                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                        Fax files downloaded from the provider but not yet fully imported into the document system. These are retried automatically each poll cycle.
+                        <fmt:message key="admin.configureFax.helpPendingFaxes"/>
                     </small>
                 </div>
                 <div class="col-md-12">
                     <div id="pendingFaxesNone" style="display:none; margin-bottom: 14px;">
-                        <span style="color: #059669;"><i class="fas fa-check-circle"></i> All downloaded faxes have been imported successfully.</span>
+                        <span style="color: #059669;"><i class="fas fa-check-circle"></i> <fmt:message key="admin.configureFax.msgPendingFaxesImported"/></span>
                     </div>
                     <table id="pendingFaxesTable" class="table table-striped table-sm" style="display:none; margin-bottom: 14px;">
                         <thead>
@@ -471,10 +472,10 @@
                             <div class="col-md-6">
                                 <label for="providerType"><fmt:message key="admin.configureFax.labelFaxProvider"/></label>
                                 <select class="form-select" id="providerType" name="providerType">
-                                    <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>>Middleware Relay (faxws)</option>
-                                    <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>>SRFax Direct API</option>
+                                    <option value="MIDDLEWARE" <%=providerType == FaxConfig.ProviderType.MIDDLEWARE ? "selected" : ""%>><fmt:message key="admin.configureFax.optMiddlewareRelay"/></option>
+                                    <option value="SRFAX" <%=providerType == FaxConfig.ProviderType.SRFAX ? "selected" : ""%>><fmt:message key="admin.configureFax.optSrfaxDirectApi"/></option>
                                 </select>
-                                <small class="fax-muted"><i class="fas fa-info-circle"></i> Choose how to connect: via middleware relay server or directly to SRFax API</small>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.helpProviderType"/></small>
                             </div>
                         </div>
 
@@ -484,14 +485,15 @@
                                 <div class="col-md-12">
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.headingMiddlewareRelay"/></h6>
                                     <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                                        <i class="fas fa-info-circle"></i> Configure the relay server that will forward faxes to/from SRFax
+                                        <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.helpMiddlewareConfig"/>
                                     </small>
                                 </div>
                                 <div class="col-md-12">
                                     <label for="faxUrl"><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.labelMiddlewareUrl"/></label>
-                                    <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="https://your-middleware-server.com/fax"
+                                    <fmt:message key="admin.configureFax.placeholderMiddlewareUrl" var="placeholderMiddlewareUrl"/>
+                                    <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="${e:forHtmlAttribute(placeholderMiddlewareUrl)}"
                                            value="<%=Encode.forHtmlAttribute(faxUrl)%>"/>
-                                    <small class="fax-muted">URL of your middleware relay server</small>
+                                    <small class="fax-muted"><fmt:message key="admin.configureFax.helpMiddlewareUrl"/></small>
                                 </div>
                             </div>
                             <div class="row">
@@ -499,13 +501,13 @@
                                     <label for="faxServiceUser"><i class="fas fa-user"></i> <fmt:message key="admin.configureFax.labelMiddlewareUsername"/></label>
                                     <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
                                            value="<%=Encode.forHtmlAttribute(siteUser)%>"/>
-                                    <small class="fax-muted">Username for middleware relay server</small>
+                                    <small class="fax-muted"><fmt:message key="admin.configureFax.helpMiddlewareUsername"/></small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="faxServicePasswd"><i class="fas fa-key"></i> <fmt:message key="admin.configureFax.labelMiddlewarePassword"/></label>
                                     <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
                                            value="<%=Encode.forHtmlAttribute(sitePasswd)%>"/>
-                                    <small class="fax-muted">Password for middleware relay server</small>
+                                    <small class="fax-muted"><fmt:message key="admin.configureFax.helpMiddlewarePassword"/></small>
                                 </div>
                             </div>
                         </div>
@@ -519,7 +521,7 @@
                                     <input class="form-control" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
-                                    <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in carlos.properties only</small>
+                                    <small class="fax-muted"><i class="fas fa-lock"></i> <fmt:message key="admin.configureFax.helpSrfaxEndpointPrefix"/> <code>srfax.api.url</code> <fmt:message key="admin.configureFax.helpSrfaxEndpointSuffix"/></small>
                                 </div>
                             </div>
                         </div>
@@ -529,7 +531,7 @@
                             <div class="col-md-12">
                                 <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.headingSrfaxCredentials"/></h6>
                                 <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                                    <i class="fas fa-info-circle"></i> Required for both provider types - your SRFax account details
+                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.helpSrfaxCredentials"/>
                                 </small>
                             </div>
                             <div class="col-md-6">
@@ -554,8 +556,9 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="senderEmail"><fmt:message key="admin.configureFax.labelEmail"/></label>
+                                <fmt:message key="admin.configureFax.placeholderAccountEmail" var="placeholderAccountEmail"/>
                                 <input class="form-control" type="email" id="senderEmail" name="senderEmail"
-                                       placeholder="Account email"
+                                       placeholder="${e:forHtmlAttribute(placeholderAccountEmail)}"
                                        value="<%=Encode.forHtmlAttribute(senderEmail)%>"/>
                             </div>
                         </div>
@@ -566,7 +569,7 @@
                                        value="<%=Encode.forHtmlAttribute(queueMap.getOrDefault(queueId, "default"))%>"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                 <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
-                                <small class="fax-muted">Incoming faxes are routed to this document review queue</small>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.helpInboxQueue"/></small>
                             </div>
                             <div class="col-md-6">
                                 <label for="accountName"><fmt:message key="admin.configureFax.labelAccountName"/></label>
@@ -589,7 +592,7 @@
                                 </div>
                                 <input type="hidden" id="activeState" name="activeState" value="<%=isActive%>"/>
                                 <br/>
-                                <small class="fax-muted"><i class="fas fa-info-circle"></i> Turn the selected fax gateway on or off for sending and receiving</small>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.helpEnableGateway"/></small>
                             </div>
                             <div class="col-md-6">
                                 <label>
@@ -600,7 +603,7 @@
                                 <input type="radio" id="download_of" name="download" value="false" style="display:none;" <%=!isDownload ? "checked" : ""%> />
                                 <input type="hidden" id="downloadState" name="downloadState" value="<%=isDownload%>"/>
                                 <br/>
-                                <small class="fax-muted"><i class="fas fa-info-circle"></i> When checked, scheduler will automatically download incoming faxes. SRFax uses unread-only fetch with mark-as-read.</small>
+                                <small class="fax-muted"><i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.helpPollFaxes"/></small>
                             </div>
                         </div>
 

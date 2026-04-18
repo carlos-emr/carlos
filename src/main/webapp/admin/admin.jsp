@@ -78,7 +78,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title><fmt:message key="admin.admin.page.title"/> Start Time
+        <title><fmt:message key="admin.admin.page.title"/> <fmt:message key="admin.admin.labelStartTime"/>
             : <%=CarlosProperties.getInstance().getStartTime()%>
         </title>
         <link rel="stylesheet" type="text/css"
@@ -635,7 +635,7 @@
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.jsp")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
                         <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/oscarPrevention/PreventionManager.jsp");return false;'
-                               title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
+                               title="<%= Encode.forHtmlAttribute(oscarResources.getString("admin.admin.tooltipPreventionNotification")) %>"><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
                     </security:oscarSec>
                 </ul>
             </div>
@@ -802,9 +802,8 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Integration"/></h3>
                 <ul>
 
-                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
-                        Report Manager (HRM) Status</a></li>
+                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'><fmt:message key="admin.admin.linkRestClients"/></a></li>
+                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'><fmt:message key="admin.admin.linkHrmStatus"/></a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/updateDrugref.jsp');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>

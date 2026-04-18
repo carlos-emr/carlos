@@ -101,7 +101,7 @@
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+              href="<%= request.getContextPath() %>/share/calendar/calendar.css"/>
 
         <!-- main calendar program -->
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -346,8 +346,8 @@
                     </td>
                     <td>
                         <select name="forcePasswordReset">
-                            <option value="1">true</option>
-                            <option value="0">false</option>
+                            <option value="1"><fmt:message key="global.yes"/></option>
+                            <option value="0"><fmt:message key="global.no"/></option>
                         </select>
                     </td>
                 </tr>

@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -72,8 +73,10 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
+    java.util.ResourceBundle providerUpdateResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
-
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
@@ -115,7 +118,7 @@
                     document.updatearecord.last_name.value == "" ||
                     document.updatearecord.first_name.value == "" ||
                     document.updatearecord.provider_type.value == "") {
-                    alert("<fmt:message key="global.msgInputKeyword"/>");
+                    alert('<%= Encode.forJavaScript(providerUpdateResources.getString("global.msgInputKeyword")) %>');
                     return false;
                 }
 
@@ -123,12 +126,12 @@
                 if (document.updatearecord.practitionerNo.value != "") {
                     var val = document.updatearecord.practitionerNoType.options[document.updatearecord.practitionerNoType.selectedIndex].value;
                     if (val == "") {
-                        alert("Please choose a College Type");
+                        alert('<%= Encode.forJavaScript(providerUpdateResources.getString("admin.providerupdateprovider.msgChooseCollegeType")) %>');
                         return false;
                     }
                 }
                 if (!(document.updatearecord.provider_no.value == "-new-" || document.updatearecord.provider_no.value.match(/^[1-9]\d*$/))) {
-                    alert("Provider No. must be a number.");
+                    alert('<%= Encode.forJavaScript(providerUpdateResources.getString("admin.providerupdateprovider.msgProviderNoNumeric")) %>');
                     return false;
                 } else {
                     return true;
@@ -287,11 +290,11 @@
                     }
                 %>">
                 <td align="right">
-                    Assigned Supervisor
+                    <fmt:message key="admin.providerupdateprovider.labelAssignedSupervisor"/>
                 </td>
                 <td>
                     <select id="supervisor" name="supervisor">
-                        <option value="">Please Assign Supervisor</option>
+                        <option value=""><fmt:message key="admin.providerupdateprovider.optAssignSupervisor"/></option>
                                 <%
                     for( ProviderData p : providerL ) {
                         
@@ -450,7 +453,7 @@
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
-                                <option value="">Select Below</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.optSelectBelow"/></option>
                                 <%
                                     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
@@ -470,7 +473,7 @@
                                 } else {
                                 %>
 
-                                <option value="">None Available</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.optNoneAvailable"/></option>
                                 <%
                                     }
 
@@ -509,7 +512,7 @@
                     </tr>
                     <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <tr>
-                        <td align="right">Default Clinic NBR:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.labelDefaultClinicNbr"/>:</td>
                         <td colspan="3">
                             <select name="xml_p_nbr">
                                 <%
@@ -529,7 +532,7 @@
                     </tr>
                     <%} %>
                     <tr>
-                        <td align="right">Bill Center:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.labelBillCenter"/>:</td>
                         <td><select name="billcenter">
                             <option value=""></option>
                             <%
