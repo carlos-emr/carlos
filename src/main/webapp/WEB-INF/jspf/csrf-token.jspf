@@ -1,0 +1,22 @@
+<%--
+    CSRF token bootstrap for JSPs that do AJAX POSTs reading
+    document.querySelector('input[name="CSRF-TOKEN"]').
+
+    Why: CSRFGuard's client script only injects the hidden CSRF-TOKEN
+    input into <form> elements whose action attribute is a valid URL and
+    whose method is non-GET. JSPs without such a form (e.g. pages that
+    only use action="javascript:void(0)" forms, action-less forms, or no
+    forms at all) will silently fail every POST. Including this fragment
+    populates the token via share/javascript/csrfTokenFetch.js.
+
+    Usage — place the include anywhere inside <body>:
+        <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+--%>
+<script type="text/javascript"
+        src="${pageContext.request.contextPath}/share/javascript/csrfTokenFetch.js"></script>
+<input type="hidden" name="CSRF-TOKEN" value="">
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchCsrfToken('${pageContext.request.contextPath}');
+    });
+</script>

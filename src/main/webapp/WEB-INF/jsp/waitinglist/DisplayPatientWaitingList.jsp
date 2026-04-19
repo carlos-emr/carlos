@@ -44,10 +44,15 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/share/javascript/csrfTokenFetch.js"></script>
         <title><fmt:message key='oscarwaitinglist.displayPatientWaitingList.waitinglist'/></title>
 
     </head>
     <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchCsrfToken('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>');
+        });
+
         function appendCsrfToken(form) {
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
             if (csrfEl) {
@@ -87,8 +92,7 @@
         }
     </script>
     <body class="BodyStyle" vlink="#0000FF">
-    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
-    <form id="csrfForm" method="post" style="display:none;"></form>
+    <input type="hidden" name="CSRF-TOKEN" value="">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">

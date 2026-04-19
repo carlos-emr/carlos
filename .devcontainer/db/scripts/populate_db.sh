@@ -12,6 +12,8 @@ echo 'Creating test database...'
 echo 'Creating drugref2 database...'
 mysql -u root -p"$DB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS drugref2;"
 mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/development-drugref.sql
+echo 'Applying drugref2 schema patches...'
+mysql -u root -p"$DB_PASSWORD" drugref2 < /database/mysql/updates/update-2026-04-19-drugref-tc-atc-f.sql
 echo 'Applying schema updates...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-01-29.sql
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-02-27.sql

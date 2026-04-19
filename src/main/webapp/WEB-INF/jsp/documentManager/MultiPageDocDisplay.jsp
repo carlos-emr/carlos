@@ -153,6 +153,7 @@
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/csrfTokenFetch.js"></script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
 
     <style type="text/css">
@@ -218,6 +219,12 @@
     </script>
 </head>
 <body>
+<input type="hidden" name="CSRF-TOKEN" value="">
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchCsrfToken('<%= request.getContextPath() %>');
+    });
+</script>
 <div id="labdoc_<%=docId%>">
     <table class="docTable">
         <tr>

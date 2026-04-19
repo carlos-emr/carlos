@@ -35,13 +35,20 @@ services:
       dockerfile: Dockerfile
       args:
         DRUGREF_REPO: ${DRUGREF_REPO:-https://github.com/carlos-emr/drugref2026.git}
-        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-v1.0.0-rc2}
+        DRUGREF_BRANCH: ${DRUGREF_BRANCH:-master}
     ports:
       - "8180:8080"
     volumes:
       - ./development/config/shared/volumes/drugref2.properties:/root/drugref2.properties:ro
+      # Override the WAR's restrictive META-INF/context.xml (allow=127.0.0.1 only)
+      # with one that permits loopback + RFC1918 private networks. Override the
+      # `allow` regex via DRUGREF_CATALINA_OPTS below.
+      - ./drugref/drugref2.xml:/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml:ro
     environment:
       TZ: America/Toronto
+      # Pass-through for site-specific Tomcat tuning, e.g.:
+      #   DRUGREF_CATALINA_OPTS='-Ddrugref.allowedRemoteAddresses=10.20.30.0/24,::1'
+      CATALINA_OPTS: ${DRUGREF_CATALINA_OPTS:-}
     networks:
       - carlos-network
     depends_on:
