@@ -22,12 +22,12 @@ import org.junit.jupiter.api.Test;
 class AppointmentJspRoutingTest {
 
     @Test
-    void shouldUseExtensionlessRoutes_whenSubmittingAppointmentEditFlows() throws IOException {
-        String editAppointment = read("src/main/webapp/WEB-INF/jsp/appointment/editappointment.jsp");
-        String addAppointment = read("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
-        String editRepeat = read("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
-        String repeat = read("src/main/webapp/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp");
-        String groupRecords = read("src/main/webapp/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp");
+    void shouldUseExtensionlessRoutes_forAllAppointmentWorkflows() throws IOException {
+        String editAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/editappointment.jsp");
+        String addAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
+        String editRepeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
+        String repeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp");
+        String groupRecords = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp");
 
         assertThat(editAppointment).contains("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
@@ -48,7 +48,7 @@ class AppointmentJspRoutingTest {
         assertThat(groupRecords).doesNotContain("action=\"appointmentgrouprecords.jsp\"");
     }
 
-    private String read(String path) throws IOException {
+    private String readJspContent(String path) throws IOException {
         return Files.readString(Path.of(path), StandardCharsets.UTF_8);
     }
 }
