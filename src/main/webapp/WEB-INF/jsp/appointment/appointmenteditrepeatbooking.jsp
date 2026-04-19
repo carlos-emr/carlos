@@ -397,7 +397,7 @@
             </div>
         </div>
 
-        <form name="groupappt" method="POST" action="appointmenteditrepeatbooking.jsp">
+        <form name="groupappt" method="POST" action="<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking">
             <input type="hidden" name="groupappt" value="">
 
             <div class="bg-light border rounded p-3">

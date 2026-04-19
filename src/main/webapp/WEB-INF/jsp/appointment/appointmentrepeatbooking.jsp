@@ -295,7 +295,7 @@
         </div>
 
         <form name="groupappt" method="POST"
-              action="appointmentrepeatbooking.jsp" onSubmit="return onSub();">
+              action="<%=request.getContextPath() %>/appointment/appointmentrepeatbooking" onSubmit="return onSub();">
             <input type="hidden" name="groupappt" value="">
             <input type="hidden" name="everyUnit" id="everyUnit" value="day">
 
