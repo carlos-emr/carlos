@@ -1882,15 +1882,10 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.errorResponse("Parameter error");
 
-        ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) {
-            noteList = new ConcurrentHashMap<String, Long>();
-            editList.put(noteUUID, noteList);
-        }
+        ConcurrentHashMap<String, Long> noteList = editList.computeIfAbsent(noteUUID, k -> new ConcurrentHashMap<String, Long>());
         if (editList.size() > MAX_EDIT_LIST_SIZE) {
             clearDanglingFlags();
         }
-        clearDanglingFlags();
 
         boolean success = true;
 
@@ -1919,9 +1914,11 @@ public class NotesService extends AbstractServiceImpl {
         String[] noteUUIDs = editList.keySet().toArray(new String[editList.keySet().size()]);
         for (String uuid : noteUUIDs) {
             ConcurrentHashMap<String, Long> noteList = editList.get(uuid);
+            if (noteList == null) continue; // concurrent removal
             String[] providerNos = noteList.keySet().toArray(new String[noteList.keySet().size()]);
             for (String providerNo : providerNos) {
                 Long editTime = noteList.get(providerNo);
+                if (editTime == null) continue; // concurrent removal
                 // 360,000 ms = 6 minutes; UI heartbeat renews every ~5 min, so 6 min means the session is stale
                 if (now - editTime >= 360000)
                     noteList.remove(providerNo);
@@ -1950,7 +1947,9 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.successResponse(null);
 
-        clearDanglingFlags();
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) return RestResponse.successResponse(null);

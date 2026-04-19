@@ -59,18 +59,18 @@ public class UserSessionManagerImpl implements UserSessionManager {
     public void registerUserSession(Integer userSecurityCode, HttpSession session) {
         purgeInvalidSessions();
 
-        if (this.isUserSessionRegistered(userSecurityCode))
-            // Explicitly invalidate the previous session if it exists
+        // Atomically detach any previously registered session to avoid a TOCTOU race
+        // with unregisterUserSession() / session invalidation on other threads.
+        HttpSession previousSession = userSessionMap.remove(userSecurityCode);
+        if (previousSession != null) {
             try {
-                HttpSession previousSession = userSessionMap.get(userSecurityCode);
                 logger.debug("Existing User Session found, invalidating: {}", previousSession.getId());
-
                 previousSession.invalidate();
-
                 logger.debug("Previous user session successfully invalidated");
             } catch (IllegalStateException e) {
                 MiscUtils.getLogger().debug(e.getMessage());
             }
+        }
 
         // Register the new session, overwrite previous registry
         userSessionMap.put(userSecurityCode, session);
