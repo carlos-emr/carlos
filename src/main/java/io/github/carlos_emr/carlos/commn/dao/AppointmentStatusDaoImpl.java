@@ -116,6 +116,12 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         super.persist(o);
     }
 
+    /**
+     * Saves or updates an appointment status and invalidates all cached appointment-status lookups.
+     *
+     * @param entity AppointmentStatus the entity to persist or merge
+     * @return AppointmentStatus the saved entity
+     */
     @CacheEvict(value = "appointmentStatuses", allEntries = true)
     @Override
     public AppointmentStatus saveEntity(AppointmentStatus entity) {

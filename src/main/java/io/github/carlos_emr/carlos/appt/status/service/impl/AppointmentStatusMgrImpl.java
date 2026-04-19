@@ -47,19 +47,6 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         return appointStatusDao.findActive();
     }
 
-    public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
-        // Spring Cache now owns appointment-status caching and eviction.
-    }
-
-
-    public static boolean isCacheIsDirty() {
-        return false;
-    }
-
-    public static void setCacheIsDirty(boolean cacheIsDirty) {
-        // Spring Cache now owns appointment-status caching and eviction.
-    }
-
     public List<AppointmentStatus> getAllStatus() {
         return appointStatusDao.findAll();
     }

@@ -33,11 +33,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PostPersist;
-import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
-
-import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
 
 
 @Entity
@@ -140,11 +136,5 @@ public class AppointmentStatus extends AbstractModel<Integer> {
 
     public void setShortLetterColour(String shortLetterColour) {
         this.shortLetterColour = shortLetterColour;
-    }
-
-    @PostPersist
-    @PostUpdate
-    public void on_jpa_update() {
-        AppointmentStatusMgrImpl.setCacheIsDirty(true);
     }
 }

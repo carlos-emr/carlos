@@ -82,6 +82,12 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         super.persist(o);
     }
 
+    /**
+     * Saves or updates a measurement type and invalidates all cached measurement-type lists.
+     *
+     * @param entity MeasurementType the entity to persist or merge
+     * @return MeasurementType the saved entity
+     */
     @CacheEvict(value = "measurementTypes", allEntries = true)
     @Override
     public MeasurementType saveEntity(MeasurementType entity) {

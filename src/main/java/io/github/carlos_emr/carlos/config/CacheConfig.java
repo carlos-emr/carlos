@@ -77,7 +77,9 @@ public class CacheConfig {
                 buildCache("measurementTypes", 10, 60, TimeUnit.MINUTES),
                 buildCache("lookupLists", 50, 30, TimeUnit.MINUTES)
         ));
+        // Initialize the delegate before wrapping it so the cache names are fully registered.
         cacheManager.afterPropertiesSet();
+        // Defer puts/evictions until transaction commit so rolled-back writes do not leak into the cache.
         return new TransactionAwareCacheManagerProxy(cacheManager);
     }
 

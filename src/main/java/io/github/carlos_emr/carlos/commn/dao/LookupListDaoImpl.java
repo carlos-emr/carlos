@@ -81,6 +81,12 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
         super.persist(o);
     }
 
+    /**
+     * Saves or updates a lookup list and invalidates all cached lookup-list reads.
+     *
+     * @param entity LookupList the entity to persist or merge
+     * @return LookupList the saved entity
+     */
     @CacheEvict(value = "lookupLists", allEntries = true)
     @Override
     public LookupList saveEntity(LookupList entity) {
