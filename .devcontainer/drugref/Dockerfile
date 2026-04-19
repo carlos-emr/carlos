@@ -6,7 +6,7 @@ FROM tomcat:11.0-jdk21-temurin AS builder
 # Note: DRUGREF_BRANCH accepts branch names or tags, but not commit SHAs
 # (shallow clone with --depth 1 doesn't support checking out by SHA)
 ARG DRUGREF_REPO=https://github.com/carlos-emr/drugref2026.git
-ARG DRUGREF_BRANCH=v1.0.0rc2
+ARG DRUGREF_BRANCH=master
 
 RUN apt-get update && apt-get install -y --no-install-recommends git maven \
     && rm -rf /var/lib/apt/lists/*
