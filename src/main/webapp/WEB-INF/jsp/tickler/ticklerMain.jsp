@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE html>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
@@ -152,9 +152,7 @@
     List<Provider> providers = providerDao.getActiveProviders();
     java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
-
-<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language}"/>
-
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language == 'es' || pageContext.request.locale.language == 'fr' || pageContext.request.locale.language == 'pl' || pageContext.request.locale.language == 'pt' ? pageContext.request.locale.language : 'en'}"/>
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
