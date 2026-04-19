@@ -477,6 +477,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (!note.isIncludeissue()) cform.setIncludeIssue("off");
         else cform.setIncludeIssue("on");
 
+        // Note password protection has been discontinued. Explicitly discard any
+        // request-bound password value so a crafted caseNote.password parameter
+        // cannot (re)lock the note through request tampering.
+        note.setPassword(null);
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
