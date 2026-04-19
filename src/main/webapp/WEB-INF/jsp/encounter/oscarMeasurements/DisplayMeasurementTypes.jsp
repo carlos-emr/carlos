@@ -37,6 +37,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.List" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
@@ -119,14 +120,14 @@
                                             <c:url var="exportMeasurementUrl" value="/encounter/oscarMeasurements/ViewExportMeasurement">
                                                 <c:param name="mType" value="${measurementType.type}"/>
                                             </c:url>
-                                            <a href="${e:forHtmlAttribute(exportMeasurementUrl)}" target="_blank">
-                                                ${e:forHtml(measurementType.type)}
+                                            <a href="${carlos:forHtmlAttribute(exportMeasurementUrl)}" target="_blank">
+                                                ${carlos:forHtml(measurementType.type)}
                                             </a>
                                         </td>
-                                        <td width="20">${e:forHtml(measurementType.typeDisplayName)}</td>
-                                        <td width="10">${e:forHtml(measurementType.typeDesc)}</td>
-                                        <td width="300">${e:forHtml(measurementType.measuringInstrc)}</td>
-                                        <td width="300">${e:forHtml(measurementType.validation)}</td>
+                                        <td width="20">${carlos:forHtml(measurementType.typeDisplayName)}</td>
+                                        <td width="10">${carlos:forHtml(measurementType.typeDesc)}</td>
+                                        <td width="300">${carlos:forHtml(measurementType.measuringInstrc)}</td>
+                                        <td width="300">${carlos:forHtml(measurementType.validation)}</td>
                                         <td width="10">
                                             <input type="checkbox" name="deleteCheckbox" value="${measurementType.id}"/>
                                         </td>

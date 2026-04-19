@@ -57,6 +57,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 
@@ -228,7 +230,7 @@
                         for (int i = 0; i < list.size(); i++) {
                             Hashtable h = (Hashtable) list.get(i);
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= String.valueOf(h.get("ID")) %>' />"><e:forHtmlContent value='<%= String.valueOf(h.get("report_name")) %>' />
+                    <option value="<carlos:encode value='<%= String.valueOf(h.get("ID")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h.get("report_name")) %>' context="html"/>
                     </option>
                     <%}%>
                 </select> <%
@@ -239,9 +241,9 @@
                     if (followUpType != null && followUpValue != null) { %>
                     <fmt:message key="report.GenerateLetters.markInPatientRecords"/> <input type="checkbox" name="addFollowUp"
                                                      value="ON" checked/> <input type="hidden" name="followupType"
-                                                                                 value="<e:forHtmlAttribute value='<%= followUpType %>' />"/> <input
+                                                                                 value="<carlos:encode value='<%= followUpType %>' context="htmlAttribute"/>"/> <input
                             type="hidden"
-                            name="followupValue" value="<e:forHtmlAttribute value='<%= followUpValue %>' />"/> <%}%>
+                            name="followupValue" value="<carlos:encode value='<%= followUpValue %>' context="htmlAttribute"/>"/> <%}%>
                 </div>
 
                 <input type="submit" value="<fmt:message key='report.GenerateLetters.btnGenerateLetters'/>"/>
@@ -265,11 +267,11 @@
                     <tr>
                         <td><%=i + 1%>
                         </td>
-                        <td><input type="checkbox" name="demos" value="<e:forHtmlAttribute value='<%= demos[i] %>' />"
+                        <td><input type="checkbox" name="demos" value="<carlos:encode value='<%= demos[i] %>' context="htmlAttribute"/>"
                                    checked/></td>
-					<td><e:forHtmlContent value='<%= h.get("lastName") %>' />, <e:forHtmlContent value='<%= h.get("firstName") %>' /></td>
-					<td><e:forHtmlContent value='<%= h.get("sex") %>' /></td>
-					<td><e:forHtmlContent value='<%= h.get("age") %>' /></td>
+					<td><carlos:encode value='<%= h.get("lastName") %>' context="html"/>, <carlos:encode value='<%= h.get("firstName") %>' context="html"/></td>
+					<td><carlos:encode value='<%= h.get("sex") %>' context="html"/></td>
+					<td><carlos:encode value='<%= h.get("age") %>' context="html"/></td>
                     </tr>
                     <%}%>
                 </table>

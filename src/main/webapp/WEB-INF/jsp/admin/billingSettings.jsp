@@ -50,6 +50,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
@@ -215,8 +216,8 @@
 
                                 for (BillingFormData.BillingVisit billingVisit : billingVisits) {
                             %>
-                            <option value="<e:forHtmlAttribute value='<%= billingVisit.getVisitType() %>' />" <%= billingVisit.getVisitType().equalsIgnoreCase(defaultServiceLocation) ? "selected" : ""%>>
-                                <e:forHtmlContent value='<%= billingVisit.getDescription() %>' />
+                            <option value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>" <%= billingVisit.getVisitType().equalsIgnoreCase(defaultServiceLocation) ? "selected" : ""%>>
+                                <carlos:encode value='<%= billingVisit.getDescription() %>' context="html"/>
                             </option>
                             <% } %>
                         </select>
@@ -237,8 +238,8 @@
                                 currentSelection = currentSelection.trim();
                                 for (BillingFormData.BillingForm billingForm : billformlist) {
                             %>
-                            <option value="<e:forHtmlAttribute value='<%= billingForm.getFormCode() %>' />" <%= billingForm.getFormCode().equalsIgnoreCase(currentSelection) ? "selected" : "" %> >
-                                <e:forHtmlContent value='<%= billingForm.getDescription() %>' />
+                            <option value="<carlos:encode value='<%= billingForm.getFormCode() %>' context="htmlAttribute"/>" <%= billingForm.getFormCode().equalsIgnoreCase(currentSelection) ? "selected" : "" %> >
+                                <carlos:encode value='<%= billingForm.getDescription() %>' context="html"/>
                             </option>
                             <% } %>
                         </select>

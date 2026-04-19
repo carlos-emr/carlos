@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <title></title>
@@ -40,7 +42,7 @@
                 }
                 if(parentAjaxId != null) {
             %>
-            window.opener.reloadNav('<e:forJavaScriptBlock value='<%= parentAjaxId %>' />');
+            window.opener.reloadNav('<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>');
             window.close();
             <% } else { %>
             window.opener.location.reload();

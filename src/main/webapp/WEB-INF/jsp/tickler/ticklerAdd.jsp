@@ -89,9 +89,12 @@
 <%@ page import="java.util.Set" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -208,11 +211,11 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script>
-        // i18n messages for JavaScript — encoded via Encode.forJavaScript() to prevent XSS and broken JS strings
-        const i18nQuickPickFrom = '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' />';
-        const i18nQuickPickReset = '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickReset") %>' />';
-        const i18nQuickPickTooltip = '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip") %>' />';
-        const i18nSelectPreference = '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.selectPreference") %>' />';
+        // i18n messages for JavaScript — encoded via SafeEncode.forJavaScript() to prevent XSS and broken JS strings
+        const i18nQuickPickFrom = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickFrom") %>' context="javaScriptBlock"/>';
+        const i18nQuickPickReset = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickReset") %>' context="javaScriptBlock"/>';
+        const i18nQuickPickTooltip = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip") %>' context="javaScriptBlock"/>';
+        const i18nSelectPreference = '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.selectPreference") %>' context="javaScriptBlock"/>';
 
         function pasteMessageText() {
             let selectedIdx = document.serviceform.suggestedText.selectedIndex;
@@ -453,7 +456,7 @@
                     // HTTP 4xx/5xx responses trigger onload instead — error detection is handled there.
                     iframe.onerror = function() {
                         console.error('[ticklerAdd] iframe network error during form submission');
-                        alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed") %>' />');
+                        alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorNetworkFailed") %>' context="javaScriptBlock"/>');
                         enableSubmitButtons();
                     };
                 }
@@ -467,7 +470,7 @@
                     } catch (e) {
                         // SecurityError: cross-origin redirect — almost certainly a session timeout
                         console.error('[ticklerAdd] iframe cross-origin access blocked — possible session expiry:', e);
-                        alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' />');
+                        alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' context="javaScriptBlock"/>');
                         enableSubmitButtons();
                         return;
                     }
@@ -476,20 +479,20 @@
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-save-ok');
                         if (!saveOk) {
                             console.error('[ticklerAdd] Server did not confirm tickler save — possible server-side error');
-                            alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed") %>' />');
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed") %>' context="javaScriptBlock"/>');
                             enableSubmitButtons();
                             return;
                         }
                         if (iframe.contentDocument.getElementById('tickler-save-ok-link-failed')) {
-                            alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.warnLinkFailed") %>' />');
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.warnLinkFailed") %>' context="javaScriptBlock"/>');
                         }
                         // Warn if the encounter note write failed (tickler itself was saved OK)
                         if (iframe.contentDocument.getElementById('tickler-write-encounter-failed')) {
-                            alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.warnEncounterWriteFailed") %>' />');
+                            alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.warnEncounterWriteFailed") %>' context="javaScriptBlock"/>');
                         }
                     } catch (e) {
                         console.error('[ticklerAdd] Cannot read iframe response body — possible session expiry:', e);
-                        alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' />');
+                        alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' context="javaScriptBlock"/>');
                         enableSubmitButtons();
                         return;
                     }
@@ -519,7 +522,7 @@
                     }
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
-                        var demoNo = '<e:forJavaScriptBlock value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' />';
+                        var demoNo = '<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' context="javaScriptBlock"/>';
                         var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
                         bc.postMessage({ action: 'refresh' });
                         bc.close();
@@ -547,7 +550,7 @@
                 form.submit();
                 submitTimeout = setTimeout(function() {
                     console.error('[ticklerAdd] Form submission timed out after 30s');
-                    alert('<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed") %>' />');
+                    alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSaveFailed") %>' context="javaScriptBlock"/>');
                     enableSubmitButtons();
                 }, 30000);
             }
@@ -555,7 +558,7 @@
 
         function validateSelectedProgram() {
             if (document.serviceform.program_assigned_to.value === "none") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' />');
+                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             }
@@ -569,12 +572,12 @@
 
         function validateDemoNo() {
             if (document.serviceform.demographic_no.value == "") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' />');
+                document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic") %>' context="javaScriptBlock"/>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             } else {
                 if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' />');
+                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 }
@@ -582,7 +585,7 @@
                 else if (!document.serviceform.task_assigned_to ||
                          document.serviceform.task_assigned_to.options.length === 0 ||
                          document.serviceform.task_assigned_to.value === "") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<e:forJavaScriptBlock value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' />');
+                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 }
@@ -668,8 +671,8 @@
         %>
         <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol">
             <input type="hidden" name="orderby" value="last_name">
-            <input type="hidden" name="search_mode" value="<e:forHtmlAttribute value='<%= searchMode %>' />">
-            <input type="hidden" name="originalpage" value="<e:forHtmlAttribute value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' />">
+            <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
+            <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">
             <input type="hidden" name="limit1" value="0">
             <input type="hidden" name="limit2" value="5">
             <input type="hidden" name="displaymode" value="Search ">
@@ -688,8 +691,8 @@
             <input type="hidden" name="provider_no" value="115">
             <input type="hidden" name="creator" value="oscardoc, doctor">
             <input type="hidden" name="remarks" value="">
-            <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
-            <input type="hidden" name="updateParent" value="<e:forHtmlAttribute value='<%= updateParent %>' />">
+            <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>">
+            <input type="hidden" name="updateParent" value="<carlos:encode value='<%= updateParent %>' context="htmlAttribute"/>">
             <table class="table table-sm">
                 <tr>
                     <td colspan="2">
@@ -702,7 +705,7 @@
 
                         <div class="input-group">
                             <input type="text" class="form-control" name="keyword" placeholder="<fmt:message key='tickler.ticklerAdd.phSearchDemographic'/>"
-                                   size="25" value="<e:forHtmlAttribute value='<%= demoName %>' />">
+                                   size="25" value="<carlos:encode value='<%= demoName %>' context="htmlAttribute"/>">
                             <input type="submit" name="Submit" class="btn btn-primary"
                                    value="<fmt:message key="tickler.ticklerAdd.btnSearch"/>">
                         </div>
@@ -712,10 +715,10 @@
             </table>
         </form>
         <form name="serviceform" method="post" action="<%=request.getContextPath()%>/tickler/DbTicklerAdd">
-            <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
-            <input type="hidden" name="updateParent" value="<e:forHtmlAttribute value='<%= updateParent %>' />">
-            <input type="hidden" name="writeToEncounter" value="<e:forHtmlAttribute value='<%= writeToEncounter.toString() %>' />">
-            <input type="hidden" name="user_no" value="<e:forHtmlAttribute value='<%= user_no %>' />">
+            <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>">
+            <input type="hidden" name="updateParent" value="<carlos:encode value='<%= updateParent %>' context="htmlAttribute"/>">
+            <input type="hidden" name="writeToEncounter" value="<carlos:encode value='<%= writeToEncounter.toString() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="user_no" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>">
 
             <table class="table table-sm">
 
@@ -723,17 +726,17 @@
                     <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
                     <%
                         String demoNoParam = request.getParameter("demographic_no");
-                        String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : Encode.forHtmlAttribute(demoNoParam);
+                        String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : SafeEncode.forHtmlAttribute(demoNoParam);
                     %>
                     <td style="width: 65%;"><span><input type="hidden" name="demographic_no"
-                                                 value="<%=demoNoValue%>"><e:forHtmlContent value='<%= ChartNo %>' /></span>
+                                                 value="<%=demoNoValue%>"><carlos:encode value='<%= ChartNo %>' context="html"/></span>
                     </td>
                 </tr>
 
                 <tr>
                     <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formServiceDate"/></td>
                     <td><input type="date" class="form-control" name="xml_appointment_date"
-                               value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
+                               value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
                             <div id="quickPickDateOptions" class="grid">
                                 <!-- Quick pick will be added here using JavaScript -->
                             </div>
@@ -743,9 +746,9 @@
                     <td class="tickler-label"><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
                         <select name="priority" class="form-select">
-                            <option value="<e:forHtmlAttribute value='<%= oscarBundle.getString("tickler.ticklerMain.priority.high") %>' />" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <option value="<e:forHtmlAttribute value='<%= oscarBundle.getString("tickler.ticklerMain.priority.normal") %>' />" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <option value="<e:forHtmlAttribute value='<%= oscarBundle.getString("tickler.ticklerMain.priority.low") %>' />" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.high") %>' context="htmlAttribute"/>" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.normal") %>' context="htmlAttribute"/>" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.low") %>' context="htmlAttribute"/>" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </td>
                 </tr>
@@ -789,11 +792,11 @@
                                 Set<Provider> siteProviders = sites.get(i).getProviders();
                                 List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
                                  Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                            _providers["<e:forJavaScriptBlock value='<%= sites.get(i).getName() %>' />"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
+                            _providers["<carlos:encode value='<%= sites.get(i).getName() %>' context="javaScriptBlock"/>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus())) {
-	%><c:set var="__enc_1"><e:forHtmlAttribute value='<%= p.getProviderNo() %>' /></c:set><c:set var="__enc_2"><e:forHtmlContent value='<%= p.getLastName() %>' /></c:set><c:set var="__enc_3"><e:forHtmlContent value='<%= p.getFirstName() %>' /></c:set><option value='<e:forJavaScriptBlock value='${__enc_1}' />'><e:forJavaScript value='${__enc_2}' />, <e:forJavaScript value='${__enc_3}' /></option><% }} %>";
+	%><c:set var="__enc_1"><carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/></c:set><c:set var="__enc_2"><carlos:encode value='<%= p.getLastName() %>' context="html"/></c:set><c:set var="__enc_3"><carlos:encode value='<%= p.getFirstName() %>' context="html"/></c:set><option value='<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>'><carlos:encode value='${__enc_2}' context="javaScript"/>, <carlos:encode value='${__enc_3}' context="javaScript"/></option><% }} %>";
                             <%
                                 } %>
 
@@ -809,8 +812,8 @@
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= sites.get(i).getName() %>' />"
-                                        style="background-color:'<e:forCssString value='<%= sites.get(i).getBgColor() %>' />'"><e:forHtmlContent value='<%= sites.get(i).getName() %>' />
+                                <option value="<carlos:encode value='<%= sites.get(i).getName() %>' context="htmlAttribute"/>"
+                                        style="background-color:'<carlos:encode value='<%= sites.get(i).getBgColor() %>' context="cssString"/>'"><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -822,13 +825,13 @@
                         </div>
 
                         <div id="nameWrapper" style="display:none">
-                            <h4><% if (taskToIsMRP) { %><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><e:forHtmlContent value='<%= taskToName %>' /><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
-                            <input type="hidden" id="taskToBin" value="<e:forHtmlAttribute value='<%= taskTo %>' />">
+                            <h4><% if (taskToIsMRP) { %><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><carlos:encode value='<%= taskToName %>' context="html"/><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
+                            <input type="hidden" id="taskToBin" value="<carlos:encode value='<%= taskTo %>' context="htmlAttribute"/>">
                             <% String taskToNameBinValue = taskToIsMRP ? oscarBundle.getString("tickler.ticklerAdd.msgPreferenceMRP") : taskToName; %>
-                            <input type="hidden" id="taskToNameBin" value="<e:forHtmlAttribute value='<%= taskToNameBinValue %>' />">
+                            <input type="hidden" id="taskToNameBin" value="<carlos:encode value='<%= taskToNameBinValue %>' context="htmlAttribute"/>">
                         </div>
                         <script>
-                            document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(site.getName()) %>';
+                            document.getElementById("site").value = '<%= site==null?"none":SafeEncode.forJavaScript(site.getName()) %>';
                             changeSite(document.getElementById("site"));
                         </script>
 
@@ -886,8 +889,8 @@
                                     proOHIP = p.getProviderNo();
 
                             %>
-                            <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=taskTo.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />
-                                , <e:forHtmlContent value='<%= proFirst %>' />
+                            <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=taskTo.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>
+                                , <carlos:encode value='<%= proFirst %>' context="html"/>
                             </option>
                             <%
                                 }
@@ -895,8 +898,8 @@
                         </select>
                         <% } %>
 
-                        <input type="hidden" name="docType" value="<e:forHtmlAttribute value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' />">
-                        <input type="hidden" name="docId" value="<e:forHtmlAttribute value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' />">
+                        <input type="hidden" name="docType" value="<carlos:encode value='<%= request.getParameter("docType") != null ? request.getParameter("docType") : "" %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="docId" value="<carlos:encode value='<%= request.getParameter("docId") != null ? request.getParameter("docId") : "" %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
                 <tr>
@@ -908,7 +911,7 @@
                                 TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
                                 for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) {
                             %>
-                            <option><e:forHtmlContent value='<%= tTextSuggest.getSuggestedText() %>' /></option>
+                            <option><carlos:encode value='<%= tTextSuggest.getSuggestedText() %>' context="html"/></option>
                             <% } %>
                         </select>
                     </td>

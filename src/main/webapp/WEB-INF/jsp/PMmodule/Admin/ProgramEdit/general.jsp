@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
 
 
@@ -58,37 +59,37 @@
 
 <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="view.tab" value="General"/>
-    <input type="hidden" name="program.id" value="${e:forHtmlAttribute(program.id)}"/>
-    <input type="hidden" name="program.numOfMembers" value="${e:forHtmlAttribute(empty program.numOfMembers ? 0 : program.numOfMembers)}"/>
+    <input type="hidden" name="program.id" value="${carlos:forHtmlAttribute(program.id)}"/>
+    <input type="hidden" name="program.numOfMembers" value="${carlos:forHtmlAttribute(empty program.numOfMembers ? 0 : program.numOfMembers)}"/>
 
-    <input type="hidden" name="old_maxAllowed" value="${e:forHtmlAttribute(empty program.maxAllowed ? 0 : program.maxAllowed)}"/>
-    <input type="hidden" name="old_name" value="${e:forHtmlAttribute(program.name)}"/>
-    <input type="hidden" name="old_descr" value="${e:forHtmlAttribute(program.description)}"/>
-    <input type="hidden" name="old_type" value="${e:forHtmlAttribute(program.type)}"/>
-    <input type="hidden" name="old_address" value="${e:forHtmlAttribute(program.address)}"/>
-    <input type="hidden" name="old_phone" value="${e:forHtmlAttribute(program.phone)}"/>
-    <input type="hidden" name="old_fax" value="${e:forHtmlAttribute(program.fax)}"/>
-    <input type="hidden" name="old_url" value="${e:forHtmlAttribute(program.url)}"/>
-    <input type="hidden" name="old_email" value="${e:forHtmlAttribute(program.email)}"/>
-    <input type="hidden" name="old_emergencyNumber" value="${e:forHtmlAttribute(program.emergencyNumber)}"/>
-    <input type="hidden" name="old_location" value="${e:forHtmlAttribute(program.location)}"/>
-    <input type="hidden" name="old_programStatus" value="${e:forHtmlAttribute(program.programStatus)}"/>
-    <input type="hidden" name="old_manOrWoman" value="${e:forHtmlAttribute(program.manOrWoman)}"/>
-    <input type="hidden" name="old_abstinenceSupport" value="${e:forHtmlAttribute(program.abstinenceSupport)}"/>
-    <input type="hidden" name="old_exclusiveView" value="${e:forHtmlAttribute(program.exclusiveView)}"/>
-    <input type="hidden" name="old_holdingTank" value="${e:forHtmlAttribute(program.holdingTank)}"/>
-    <input type="hidden" name="old_allowBatchAdmission" value="${e:forHtmlAttribute(program.allowBatchAdmission)}"/>
-    <input type="hidden" name="old_allowBatchDischarge" value="${e:forHtmlAttribute(program.allowBatchDischarge)}"/>
-    <input type="hidden" name="old_hic" value="${e:forHtmlAttribute(program.hic)}"/>
-    <input type="hidden" name="old_transgender" value="${e:forHtmlAttribute(program.transgender)}"/>
-    <input type="hidden" name="old_firstNation" value="${e:forHtmlAttribute(program.firstNation)}"/>
-    <input type="hidden" name="old_alcohol" value="${e:forHtmlAttribute(program.alcohol)}"/>
-    <input type="hidden" name="old_physicalHealth" value="${e:forHtmlAttribute(program.physicalHealth)}"/>
-    <input type="hidden" name="old_mentalHealth" value="${e:forHtmlAttribute(program.mentalHealth)}"/>
-    <input type="hidden" name="old_housing" value="${e:forHtmlAttribute(program.housing)}"/>
-    <input type="hidden" name="old_facility_id" value="${e:forHtmlAttribute(empty program.facilityId ? 0 : program.facilityId)}"/>
-    <input type="hidden" name="old_enableEncounterTime" value="${e:forHtmlAttribute(program.enableEncounterTime)}"/>
-    <input type="hidden" name="old_enableEncounterTransportationTime" value="${e:forHtmlAttribute(program.enableEncounterTransportationTime)}"/>
+    <input type="hidden" name="old_maxAllowed" value="${carlos:forHtmlAttribute(empty program.maxAllowed ? 0 : program.maxAllowed)}"/>
+    <input type="hidden" name="old_name" value="${carlos:forHtmlAttribute(program.name)}"/>
+    <input type="hidden" name="old_descr" value="${carlos:forHtmlAttribute(program.description)}"/>
+    <input type="hidden" name="old_type" value="${carlos:forHtmlAttribute(program.type)}"/>
+    <input type="hidden" name="old_address" value="${carlos:forHtmlAttribute(program.address)}"/>
+    <input type="hidden" name="old_phone" value="${carlos:forHtmlAttribute(program.phone)}"/>
+    <input type="hidden" name="old_fax" value="${carlos:forHtmlAttribute(program.fax)}"/>
+    <input type="hidden" name="old_url" value="${carlos:forHtmlAttribute(program.url)}"/>
+    <input type="hidden" name="old_email" value="${carlos:forHtmlAttribute(program.email)}"/>
+    <input type="hidden" name="old_emergencyNumber" value="${carlos:forHtmlAttribute(program.emergencyNumber)}"/>
+    <input type="hidden" name="old_location" value="${carlos:forHtmlAttribute(program.location)}"/>
+    <input type="hidden" name="old_programStatus" value="${carlos:forHtmlAttribute(program.programStatus)}"/>
+    <input type="hidden" name="old_manOrWoman" value="${carlos:forHtmlAttribute(program.manOrWoman)}"/>
+    <input type="hidden" name="old_abstinenceSupport" value="${carlos:forHtmlAttribute(program.abstinenceSupport)}"/>
+    <input type="hidden" name="old_exclusiveView" value="${carlos:forHtmlAttribute(program.exclusiveView)}"/>
+    <input type="hidden" name="old_holdingTank" value="${carlos:forHtmlAttribute(program.holdingTank)}"/>
+    <input type="hidden" name="old_allowBatchAdmission" value="${carlos:forHtmlAttribute(program.allowBatchAdmission)}"/>
+    <input type="hidden" name="old_allowBatchDischarge" value="${carlos:forHtmlAttribute(program.allowBatchDischarge)}"/>
+    <input type="hidden" name="old_hic" value="${carlos:forHtmlAttribute(program.hic)}"/>
+    <input type="hidden" name="old_transgender" value="${carlos:forHtmlAttribute(program.transgender)}"/>
+    <input type="hidden" name="old_firstNation" value="${carlos:forHtmlAttribute(program.firstNation)}"/>
+    <input type="hidden" name="old_alcohol" value="${carlos:forHtmlAttribute(program.alcohol)}"/>
+    <input type="hidden" name="old_physicalHealth" value="${carlos:forHtmlAttribute(program.physicalHealth)}"/>
+    <input type="hidden" name="old_mentalHealth" value="${carlos:forHtmlAttribute(program.mentalHealth)}"/>
+    <input type="hidden" name="old_housing" value="${carlos:forHtmlAttribute(program.housing)}"/>
+    <input type="hidden" name="old_facility_id" value="${carlos:forHtmlAttribute(empty program.facilityId ? 0 : program.facilityId)}"/>
+    <input type="hidden" name="old_enableEncounterTime" value="${carlos:forHtmlAttribute(program.enableEncounterTime)}"/>
+    <input type="hidden" name="old_enableEncounterTransportationTime" value="${carlos:forHtmlAttribute(program.enableEncounterTransportationTime)}"/>
 
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
@@ -100,15 +101,15 @@
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
             <td width="20%">Name:</td>
-            <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="${e:forHtmlAttribute(program.name)}"/></td>
+            <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.name)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Facility:</td>
             <td>
                 <select name="program.facilityId">
                     <c:forEach var="facility" items="${facilities}">
-                        <option value="${e:forHtmlAttribute(facility.id)}" <c:if test="${program.facilityId == facility.id}">selected</c:if>>
-                            ${e:forHtml(facility.name)}
+                        <option value="${carlos:forHtmlAttribute(facility.id)}" <c:if test="${program.facilityId == facility.id}">selected</c:if>>
+                            ${carlos:forHtml(facility.name)}
                         </option>
                     </c:forEach>
                 </select>
@@ -116,7 +117,7 @@
         </tr>
         <tr class="b">
             <td width="20%">Description:</td>
-            <td><input type="text" name="program.description" size="30" maxlength="255" value="${e:forHtmlAttribute(program.description)}"/></td>
+            <td><input type="text" name="program.description" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.description)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Functional Centre:</td>
@@ -124,8 +125,8 @@
                 <select name="program.functionalCentreId">
                     <option value="">&nbsp;</option>
                     <c:forEach var="functionalCentre" items="${functionalCentres}">
-                        <option value="${e:forHtmlAttribute(functionalCentre.accountId)}" <c:if test="${program.functionalCentreId == functionalCentre.accountId}">selected</c:if>>
-                            ${e:forHtml(functionalCentre.accountId)}, ${e:forHtml(functionalCentre.description)}
+                        <option value="${carlos:forHtmlAttribute(functionalCentre.accountId)}" <c:if test="${program.functionalCentreId == functionalCentre.accountId}">selected</c:if>>
+                            ${carlos:forHtml(functionalCentre.accountId)}, ${carlos:forHtml(functionalCentre.description)}
                         </option>
                     </c:forEach>
                 </select>
@@ -137,27 +138,27 @@
         </tr>
         <tr class="b">
             <td width="20%">Address:</td>
-            <td><input type="text" name="program.address" size="30" maxlength="255" value="${e:forHtmlAttribute(program.address)}"/></td>
+            <td><input type="text" name="program.address" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.address)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Phone:</td>
-            <td><input type="text" name="program.phone" size="30" maxlength="25" value="${e:forHtmlAttribute(program.phone)}"/></td>
+            <td><input type="text" name="program.phone" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.phone)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Fax:</td>
-            <td><input type="text" name="program.fax" size="30" maxlength="25" value="${e:forHtmlAttribute(program.fax)}"/></td>
+            <td><input type="text" name="program.fax" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.fax)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">URL:</td>
-            <td><input type="text" name="program.url" size="30" maxlength="100" value="${e:forHtmlAttribute(program.url)}"/></td>
+            <td><input type="text" name="program.url" size="30" maxlength="100" value="${carlos:forHtmlAttribute(program.url)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Email:</td>
-            <td><input type="text" name="program.email" size="30" maxlength="50" value="${e:forHtmlAttribute(program.email)}"/></td>
+            <td><input type="text" name="program.email" size="30" maxlength="50" value="${carlos:forHtmlAttribute(program.email)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Emergency Number:</td>
-            <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="${e:forHtmlAttribute(program.emergencyNumber)}"/></td>
+            <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.emergencyNumber)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Type:</td>
@@ -183,11 +184,11 @@
         </tr>
         <tr class="b">
             <td width="20%">Location:</td>
-            <td><input type="text" name="program.location" size="30" maxlength="70" value="${e:forHtmlAttribute(program.location)}"/></td>
+            <td><input type="text" name="program.location" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.location)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Max Participants:</td>
-            <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="${e:forHtmlAttribute(program.maxAllowed)}"/></td>
+            <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.maxAllowed)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Holding Tank:</td>
@@ -259,11 +260,11 @@
         </tr>
         <tr class="b">
             <td width="20%">Minimum Age (inclusive):</td>
-            <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="${e:forHtmlAttribute(program.ageMin)}"/></td>
+            <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMin)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Maximum Age (inclusive):</td>
-            <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="${e:forHtmlAttribute(program.ageMax)}"/></td>
+            <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMax)}"/></td>
         </tr>
         <tr class="b">
             <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
@@ -299,13 +300,13 @@
         </tr>
         <tr class="b">
             <td>
-                <a href="javascript:void(0)" onclick="return openProgramSignatures('${e:forJavaScript(requestScope.id)}');">
+                <a href="javascript:void(0)" onclick="return openProgramSignatures('${carlos:forJavaScript(requestScope.id)}');">
                     <img alt="View details" src="${pageContext.request.contextPath}/images/details.gif" border="0"/>
                 </a>
             </td>
-            <td>${e:forHtml(programFirstSignature.providerName)}</td>
-            <td>${e:forHtml(programFirstSignature.caisiRoleName)}</td>
-            <td>${e:forHtml(programFirstSignature.updateDate)}</td>
+            <td>${carlos:forHtml(programFirstSignature.providerName)}</td>
+            <td>${carlos:forHtml(programFirstSignature.caisiRoleName)}</td>
+            <td>${carlos:forHtml(programFirstSignature.updateDate)}</td>
         </tr>
     </table>
 </c:if>

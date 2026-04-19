@@ -30,6 +30,7 @@
 <%@ taglib prefix="s" uri="/struts-tags" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%--RJ 07/07/2006 --%>
 <%
@@ -168,7 +169,7 @@
                             <form action="${pageContext.request.contextPath}/appointment/appointmentTypeAction" method="post">
                                 <input TYPE="hidden" NAME="oper" VALUE="save"/>
                                 <input TYPE="hidden" NAME="id"
-                                       VALUE="${e:forHtmlAttribute(id)}"/>
+                                       VALUE="${carlos:forHtmlAttribute(id)}"/>
                                 <table border=0 cellspacing=0 cellpadding=0 width="100%">
                                     <tr bgcolor="#CCCCFF">
                                         <th><font face="Helvetica">EDIT APPOINTMENT TYPE</font></th>
@@ -184,7 +185,7 @@
                                                         <div align="right"><font face="arial">Name:</font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="name"
-                                                                           VALUE="${e:forHtmlAttribute(name)}"
+                                                                           VALUE="${carlos:forHtmlAttribute(name)}"
                                                                            WIDTH="10" HEIGHT="20" border="0" hspace="2"
                                                                            maxlength="50"
                                                                            onChange="checkTimeTypeIn(this)">
@@ -192,7 +193,7 @@
                                                         <div align="right"><font face="arial">Duration:</font></div>
                                                     </td>
                                                     <td width="25%"><INPUT TYPE="TEXT" NAME="duration"
-                                                                           VALUE="${e:forHtmlAttribute(duration)}"
+                                                                           VALUE="${carlos:forHtmlAttribute(duration)}"
                                                                            WIDTH="5" HEIGHT="20" border="0"
                                                                            onChange="checkTimeTypeIn(this)"></td>
                                                 </tr>
@@ -202,13 +203,13 @@
                                                                 face="arial">Reason:</font></font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="reason" COLS="40" ROWS="2" border="0" hspace="2">
-                                                        ${e:forHtml(reason)}</TEXTAREA>
+                                                        ${carlos:forHtml(reason)}</TEXTAREA>
                                                     </td>
                                                     <td>
                                                         <div align="right"><font face="arial">Notes:</font></div>
                                                     </td>
                                                     <td><TEXTAREA NAME="notes" COLS="40" ROWS="2" border="0" hspace="2">
-                                                        ${e:forHtml(notes)}
+                                                        ${carlos:forHtml(notes)}
                                                     </TEXTAREA>
                                                     </td>
                                                 </tr>
@@ -221,7 +222,7 @@
                                                                 <c:forEach var="location" items="${locationsList}">
                                                                     <c:set var="locValue" value="${location.label}" />
                                                                     <option value="${locValue}">
-                                                                        ${e:forHtml(location.label)}
+                                                                        ${carlos:forHtml(location.label)}
                                                                     </option>
                                                                 </c:forEach>
                                                             </select>
@@ -237,7 +238,7 @@
                                                         <div align="right"><font face="arial">Resources:</font></div>
                                                     </td>
                                                     <td><INPUT TYPE="TEXT" NAME="resources"
-                                                               VALUE="${e:forHtmlAttribute(resources)}"
+                                                               VALUE="${carlos:forHtmlAttribute(resources)}"
                                                                WIDTH="10" HEIGHT="20" maxlength="10" border="0"
                                                                hspace="2"></td>
                                                 </tr>

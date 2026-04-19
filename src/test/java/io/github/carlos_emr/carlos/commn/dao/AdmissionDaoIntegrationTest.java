@@ -258,6 +258,35 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
+    // getDischargedAdmissions
+    // ========================================================================
+
+    @Nested
+    @DisplayName("getDischargedAdmissions")
+    @Tag("read")
+    class GetDischargedAdmissions {
+
+        @Test
+        @DisplayName("should exclude discharged admissions when program is still current")
+        void shouldExcludeDischargedAdmissions_whenProgramStillHasCurrentAdmission() {
+            // Given
+            Admission dischargedForCurrentProgram = createAndPersist(DEMO_NO, PROGRAM_ID, Admission.STATUS_DISCHARGED, yesterday);
+            dischargedForCurrentProgram.setDischargeDate(today);
+            Admission currentForSameProgram = createAndPersist(DEMO_NO, PROGRAM_ID, Admission.STATUS_CURRENT, today);
+            Admission dischargedForClosedProgram = createAndPersist(DEMO_NO, PROGRAM_ID_2, Admission.STATUS_DISCHARGED, lastWeek);
+            dischargedForClosedProgram.setDischargeDate(yesterday);
+            entityManager.flush();
+
+            // When
+            List<Admission> result = admissionDao.getDischargedAdmissions(DEMO_NO);
+
+            // Then
+            assertThat(result).extracting(Admission::getId).contains(dischargedForClosedProgram.getId());
+            assertThat(result).extracting(Admission::getId).doesNotContain(dischargedForCurrentProgram.getId(), currentForSameProgram.getId());
+        }
+    }
+
+    // ========================================================================
     // getCurrentAdmissionsByProgramId
     // ========================================================================
 

@@ -36,6 +36,7 @@
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -229,27 +230,27 @@
                 <td align="right"><b><fmt:message key="demographic.contactForm.firstName"/></b></td>
                 <td>
                     <input type="text" name="pcontact.firstName" id="pcontact.firstName"
-                           value="${e:forHtmlAttribute(pcontact.firstName)}" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
                 <td>
                     <input type="text" name="pcontact.address" id="pcontact.address"
-                           value="${e:forHtmlAttribute(pcontact.address)}" size="50">
+                           value="${carlos:forHtmlAttribute(pcontact.address)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.address2"/></b></td>
                 <td>
                     <input type="text" name="pcontact.address2" id="pcontact.address2"
-                           value="${e:forHtmlAttribute(pcontact.address2)}" size="50">
+                           value="${carlos:forHtmlAttribute(pcontact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.city"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.city" id="pcontact.city" value="${e:forHtmlAttribute(pcontact.city)}"
+                    <input type="text" name="pcontact.city" id="pcontact.city" value="${carlos:forHtmlAttribute(pcontact.city)}"
                            size="30">
                 </td>
             </tr>
@@ -281,43 +282,43 @@
 
                     <label for="pcontact.country"><fmt:message key="demographic.contactForm.country"/> </label>
                     <input type="text" name="pcontact.country" id="pcontact.country"
-                           value="${e:forHtmlAttribute(pcontact.country)}" size="2" maxlength="2">
+                           value="${carlos:forHtmlAttribute(pcontact.country)}" size="2" maxlength="2">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.postal"/></b></td>
                 <td>
                     <input type="text" name="pcontact.postal" id="pcontact.postal"
-                           value="${e:forHtmlAttribute(pcontact.postal)}" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.resPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.residencePhone" id="pcontact.residencePhone"
-                           value="${e:forHtmlAttribute(pcontact.residencePhone)}" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.residencePhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.cellPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.cellPhone" id="pcontact.cellPhone"
-                           value="${e:forHtmlAttribute(pcontact.cellPhone)}" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.workPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.workPhone" id="pcontact.workPhone"
-                           value="${e:forHtmlAttribute(pcontact.workPhone)}" size="15"/>
+                           value="${carlos:forHtmlAttribute(pcontact.workPhone)}" size="15"/>
                     <fmt:message key="demographic.contactForm.ext"/> <input type="text" name="pcontact.workPhoneExtension"
-                                value="${e:forHtmlAttribute(pcontact.workPhoneExtension)}" size="10"/>
+                                value="${carlos:forHtmlAttribute(pcontact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.fax"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="${e:forHtmlAttribute(pcontact.fax)}"
+                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="${carlos:forHtmlAttribute(pcontact.fax)}"
                            size="30">
                 </td>
             </tr>
@@ -325,7 +326,7 @@
                 <td align="right"><b><fmt:message key="demographic.contactForm.email"/></b></td>
                 <td>
                     <input type="text" name="pcontact.email" id="pcontact.email"
-                           value="${e:forHtmlAttribute(pcontact.email)}" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.email)}" size="30">
                 </td>
             </tr>
             <tr>
@@ -337,13 +338,13 @@
                         <select id="pcontact.specialty" name="pcontact.specialty">
                             <c:forEach items="${ specialties }" var="specialtyType">
                                 <option value="${ specialtyType.id }" ${ specialtyType.id == selectedSpecialty ? 'selected' : '' } >
-                                    ${e:forHtml(specialtyType.specialty)}
+                                    ${carlos:forHtml(specialtyType.specialty)}
                                 </option>
                             </c:forEach>
                         </select>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="false">
-                        <input type="text" name="pcontact.specialty" value="${e:forHtmlAttribute(pcontact.specialty)}"
+                        <input type="text" name="pcontact.specialty" value="${carlos:forHtmlAttribute(pcontact.specialty)}"
                                size="30">
                     </oscar:oscarPropertiesCheck>
                 </td>
@@ -351,20 +352,20 @@
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.cpso"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.cpso" value="${e:forHtmlAttribute(pcontact.cpso)}" size="30">
+                    <input type="text" name="pcontact.cpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.systemId"/></b></td>
                 <td>
                     <input type="text" readonly="readonly"
-                           name="pcontact.systemId" value="${e:forHtmlAttribute(pcontact.systemId)}" size="30">
+                           name="pcontact.systemId" value="${carlos:forHtmlAttribute(pcontact.systemId)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.note"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.note" value="${e:forHtmlAttribute(pcontact.note)}" size="30">
+                    <input type="text" name="pcontact.note" value="${carlos:forHtmlAttribute(pcontact.note)}" size="30">
                 </td>
             </tr>
             <tr>

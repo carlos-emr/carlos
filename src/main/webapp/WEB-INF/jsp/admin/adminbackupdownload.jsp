@@ -40,6 +40,7 @@
       io.github.carlos_emr.CarlosProperties,
       io.github.carlos_emr.carlos.util.FileSortByDate
 " %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core"   prefix="c"   %>
@@ -139,7 +140,7 @@
                   }
 
                   // 2) XSS-safe name
-                  String safeName = Encode.forHtml(name);
+                  String safeName = SafeEncode.forHtml(name);
 
                   String encoded = URLEncoder.encode(name, "UTF-8");
                   long bytes = f.length();

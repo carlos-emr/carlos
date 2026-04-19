@@ -31,9 +31,10 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <ul>
     <c:forEach var="l" items="${list}">
-        <li id="${e:forHtmlAttribute(l.demographicNo)}">${e:forHtml(l.formattedName)} (${e:forHtml(l.formattedDob)})
+        <li id="${carlos:forHtmlAttribute(l.demographicNo)}">${carlos:forHtml(l.formattedName)} (${carlos:forHtml(l.formattedDob)})
         </li>
     </c:forEach>
 </ul>

@@ -33,6 +33,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
@@ -71,7 +72,7 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%>
                 <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <input type="checkbox" name="eDocBrowserInMasterFileProperty.checked" <c:if test="${eDocBrowserInMasterFileProperty.checked}">checked</c:if>  /><fmt:message key="provider.btnSetEDocBrowserInMasterFile"/>
                     <br/>
                     <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />

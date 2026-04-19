@@ -50,7 +50,9 @@
 <%@page import="java.util.ArrayList" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -130,7 +132,7 @@
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, currentDemographicNo);
         %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
 
         <script language="javascript">
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -150,9 +152,9 @@
                         credentials: 'same-origin',
                         body: data
                     }).then(function() {
-                        <c:set var="__enc_1"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' /></c:set>
-                        <c:set var="__enc_2"><e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' /></c:set>
-                        window.location.href = "${e:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<e:forJavaScriptBlock value='${__enc_1}' />' + "&cn=" + '<e:forJavaScriptBlock value='${__enc_2}' />';
+                        <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
+                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>';
                     });
                 }
             }
@@ -160,7 +162,7 @@
             //represcribe a drug
             async function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "${e:forJavaScript(ctx)}" + "/rx/WriteScript";
+                var urlUpdateId = "${carlos:forJavaScript(ctx)}" + "/rx/WriteScript";
                 fetch(urlUpdateId, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -169,14 +171,14 @@
                 });
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
-                var url = "${e:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
+                var url = "${carlos:forJavaScript(ctx)}" + "/rx/rePrescribe2?method=saveReRxDrugIdToStash";
                 await fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                     credentials: 'same-origin',
                     body: data
                 });
-                location.href = "${e:forJavaScript(ctx)}" + "/rx/searchDrug?";
+                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/searchDrug?";
             }
 
         </script>
@@ -204,7 +206,7 @@
                     <tr>
                         <td style="font-size: small;"><br/>
                             <br/>
-                            <b>Patient Name:</b> <e:forHtmlContent value='<%= patient.getFirstName() %>' /> <e:forHtmlContent value='<%= patient.getSurname() %>' /> <br/>
+                            <b>Patient Name:</b> <carlos:encode value='<%= patient.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient.getSurname() %>' context="html"/> <br/>
                             <br/>
                         </td>
                     </tr>
@@ -230,11 +232,11 @@
 								}
 					%>
                                 <tr style="height:20px;<%=arch%>">
-                                    <td><e:forHtmlContent value='<%= drug.providerName %>' />
+                                    <td><carlos:encode value='<%= drug.providerName %>' context="html"/>
                                     </td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
+                                            out.print(SafeEncode.forHtml(partialDateDao.getDatePartial(drug.startDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_STARTDATE)));
 							/*
 							String startDate = drug.startDate;
 		            		PartialDate pd = partialDateDao.getPartialDate(PartialDate.DRUGS , drug.localDrugId, PartialDate.DRUGS_STARTDATE);
@@ -248,20 +250,20 @@
                                     %></td>
                                     <td><%
                                         if (!drug.startDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(drug.endDate));
+                                            out.print(SafeEncode.forHtml(drug.endDate));
                                         }
                                     %></td>
                                     <td><%
                                         if (!drug.writtenDate.equals("0001/01/01")) {
-                                            out.print(Encode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
+                                            out.print(SafeEncode.forHtml(partialDateDao.getDatePartial(drug.writtenDate, PartialDate.DRUGS, drug.localDrugId, PartialDate.DRUGS_WRITTENDATE)));
                                         }
                                     %></td>
                                     <td>
                                         <%if (drug.localDrugId != null) { %>
                                         <a href="javascript:void(0);"
-                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/rx/ViewDisplayRxRecord?id=<e:forUriComponent value='<%= String.valueOf(drug.localDrugId) %>' />','displayRxWindow')">
+                                           onclick="popup(600, 425,'<%= request.getContextPath() %>/rx/ViewDisplayRxRecord?id=<carlos:encode value='<%= String.valueOf(drug.localDrugId) %>' context="uriComponent"/>','displayRxWindow')">
                                             <%}%>
-                                            <e:forHtmlContent value='<%= drug.prescriptionDetails %>' />
+                                            <carlos:encode value='<%= drug.prescriptionDetails %>' context="html"/>
                                             <%if (drug.localDrugId != null) { %>
                                         </a>
                                         <%}%>
@@ -274,10 +276,10 @@
                                         <%
                                             if (drug.pickupDate != null && !drug.pickupDate.equals("") && !drug.pickupDate.equals("0000-00-00")) {
                                         %><br/><fmt:message
-                                            key="WriteScript.msgPickUpDate"/>&nbsp;<e:forHtmlContent value='<%= drug.pickupDate %>' />&nbsp;
+                                            key="WriteScript.msgPickUpDate"/>&nbsp;<carlos:encode value='<%= drug.pickupDate %>' context="html"/>&nbsp;
                                         <%
                                             if (!((drug.pickupTime).equals("")) && !((drug.pickupTime).equals("12:00 AM"))) {
-                                        %> &nbsp;<e:forHtmlContent value='<%= drug.pickupTime %>' />&nbsp;
+                                        %> &nbsp;<carlos:encode value='<%= drug.pickupTime %>' context="html"/>&nbsp;
                                         <% }
                                         } %>
                                         <%if (drug.eTreatmentType != null && !drug.eTreatmentType.equals("null")) { %>
@@ -298,14 +300,14 @@
                                             }
                                         %>
                                         <%if (drug.rxStatus != null && !drug.rxStatus.equals("null")) { %>
-                                        &nbsp;<fmt:message key="WriteScript.msgRxStatus"/>: <e:forHtmlContent value='<%= drug.rxStatus %>' />
+                                        &nbsp;<fmt:message key="WriteScript.msgRxStatus"/>: <carlos:encode value='<%= drug.rxStatus %>' context="html"/>
                                         <%}%>
 
                                     </td>
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<e:forJavaScriptAttribute value='<%= drug.genericName %>' />');">Info</a> <%
+						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>');">Info</a> <%
 							}
 						%>
                         </td>
@@ -316,24 +318,24 @@
                             %>
                             <input type="button" align="top" value="Represcribe" style="width: 100px"
                                    class="ControlPushButton"
-                                   onclick="javascript:reRxDrugSearch3('<e:forJavaScriptAttribute value='<%= String.valueOf(drug.localDrugId) %>' />');"/>
+                                   onclick="javascript:reRxDrugSearch3('<carlos:encode value='<%= String.valueOf(drug.localDrugId) %>' context="javaScriptAttribute"/>');"/>
                             <input type="button" align="top" value="Add to Favorites" style="width: 100px"
                                    class="ControlPushButton"
-                                   onclick="javascript:addFavorite2(<e:forJavaScriptAttribute value='<%= String.valueOf(drug.localDrugId) %>' />, '<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName) %>' />');"/>
+                                   onclick="javascript:addFavorite2(<carlos:encode value='<%= String.valueOf(drug.localDrugId) %>' context="javaScriptAttribute"/>, '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull((drug.customName!=null&&(!drug.customName.equalsIgnoreCase("null")))?drug.customName:drug.brandName) %>' context="javaScriptAttribute"/>');"/>
 
 
                             <%
                             } else {
                             %>
                             <form action="<%=request.getContextPath()%>/rx/searchDrug" method="post">
-                                <input type="hidden" name="demographicNo" value="<e:forHtmlAttribute value='<%= String.valueOf(currentDemographicNo) %>' />"/>
+                                <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="htmlAttribute"/>"/>
                                 <%
                                     String searchString = drug.brandName;
                                     if (searchString == null) searchString = drug.customName;
                                     if (searchString == null) searchString = drug.genericName;
                                     if (searchString == null) searchString = drug.prescriptionDetails;
                                 %>
-                                <input type="hidden" name="searchString" value="<e:forHtmlAttribute value='<%= searchString %>' />"/>
+                                <input type="hidden" name="searchString" value="<carlos:encode value='<%= searchString %>' context="htmlAttribute"/>"/>
                                 <input type="submit" class="ControlPushButton" value="Search to Re-prescribe"/>
                             </form>
                             <%

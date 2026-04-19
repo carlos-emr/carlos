@@ -29,6 +29,7 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <br/>
 <%-- Error Messages --%>
 <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
@@ -36,7 +37,7 @@
            bgcolor="#C0C0C0">
         <c:if test="${not empty savedMessage}">
             <tr>
-                <td class="error">${e:forHtml(savedMessage)}</td>
+                <td class="error">${carlos:forHtml(savedMessage)}</td>
             </tr>
         </c:if>
     </table>
@@ -47,7 +48,7 @@
            bgcolor="#C0C0C0">
         <c:if test="${not empty savedMessage}">
             <tr>
-                <td class="message">${e:forHtml(savedMessage)}</td>
+                <td class="message">${carlos:forHtml(savedMessage)}</td>
             </tr>
         </c:if>
     </table>

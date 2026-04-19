@@ -30,6 +30,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -88,7 +89,7 @@
                     <display-el:column title="<fmt:message key='admin.sitesAdmin.col.active'/>"><c:choose><c:when
                             test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></display-el:column>
                     <display-el:column title="<fmt:message key='admin.sitesAdmin.col.siteName'/>">
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=update&siteId=${e:forHtmlAttribute(site.siteId)}">${e:forHtml(site.name)}</a></display-el:column>
+                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=update&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></display-el:column>
                     <display-el:column property="shortName" title="<fmt:message key='admin.sitesAdmin.col.shortName'/>"/>
                     <display-el:column property="bgColor" title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.bgColor}"/>
                     <display-el:column property="phone" title="<fmt:message key='admin.sitesAdmin.col.telephone'/>"/>

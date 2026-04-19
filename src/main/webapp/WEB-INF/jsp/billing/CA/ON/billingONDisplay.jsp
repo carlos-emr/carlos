@@ -86,6 +86,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -321,7 +323,7 @@
     <form name="serviceform" method="post"
           action=""
           onsubmit="return validateAllItems()"><input type="hidden"
-                                                      name="xml_billing_no" value="<e:forHtmlAttribute value='<%= billNo %>' />"/> <input type="hidden"
+                                                      name="xml_billing_no" value="<carlos:encode value='<%= billNo %>' context="htmlAttribute"/>"/> <input type="hidden"
                                                                                                          name="update_date"
                                                                                                          value="<%=UpdateDate%>"/>
 

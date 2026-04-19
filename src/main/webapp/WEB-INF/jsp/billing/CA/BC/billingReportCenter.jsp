@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -162,9 +164,9 @@
                             proOHIP = p.getProviderNo();
 
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />"
-                            <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />,
-                        <e:forHtmlContent value='<%= proFirst %>' />
+                    <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>"
+                            <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
+                        <carlos:encode value='<%= proFirst %>' context="html"/>
                     </option>
                     <%
                         }
@@ -185,13 +187,13 @@
             </td>
             <td width="41%">
                 <div align="center"><input type="text" name="xml_vdate"
-                                           value="<e:forHtmlAttribute value='<%= xml_vdate %>' />"> <font size="1"
+                                           value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
                                                                          face="Arial, Helvetica, sans-serif"><a href="#"
                                                                                                                 onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_vdate&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">Begin:</a></font>
                 </div>
             </td>
             <td width="40%"><input type="text" name="xml_appointment_date"
-                                   value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"> <font size="1"
+                                   value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
                                                                             face="Arial, Helvetica, sans-serif"><a
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>

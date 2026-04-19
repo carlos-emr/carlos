@@ -45,6 +45,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -84,7 +86,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><e:forHtmlContent value='<%= error %>' /></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -99,7 +101,7 @@
             </div>
 
             <div class="col-md-9">
-                <p>Please check off all the departments offered by <e:forHtmlContent value='<%= name %>' />.</p>
+                <p>Please check off all the departments offered by <carlos:encode value='<%= name %>' context="html"/>.</p>
 
                 <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment" method="post">
                     <input type="hidden" name="id" value="<%=id %>">
@@ -119,7 +121,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>" <%=assoc != null ? "checked" : ""%>></td>
-                                <td><e:forHtmlContent value='<%= i.getName() %>' /></td>
+                                <td><carlos:encode value='<%= i.getName() %>' context="html"/></td>
                             </tr>
                             <% } %>
                         </tbody>

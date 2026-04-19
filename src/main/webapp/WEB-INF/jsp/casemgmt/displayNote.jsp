@@ -29,9 +29,10 @@
 
 --%>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String noteStr = (String) request.getAttribute("noteStr");
-    noteStr = Encode.forHtmlContent(noteStr);
+    noteStr = SafeEncode.forHtmlContent(noteStr);
     Boolean raw = (Boolean) request.getAttribute("raw");
     if (raw) {
 %>

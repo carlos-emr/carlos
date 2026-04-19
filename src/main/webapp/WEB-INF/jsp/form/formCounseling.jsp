@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -100,21 +101,21 @@
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)" bgcolor="#eeeeee">
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
 
-    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
+    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <div class="DoNotPrint">
             <p><fmt:message key="form.counseling.dateNote"/></p>
         </div>
-        <input type="text" name="formCreated" value="<e:forHtmlAttribute value='<%= props.getProperty("formCreated","") %>' />"/>
-        <input type="hidden" name="form_class" value="<e:forHtmlAttribute value='<%= formClass %>' />"/>
-        <input type="hidden" name="form_link" value="<e:forHtmlAttribute value='<%= formLink %>' />"/>
-        <input type="hidden" name="formId" value="<e:forHtmlAttribute value='<%= String.valueOf(formId) %>' />"/>
-        <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= props.getProperty("demographic_no", "0") %>' />"/>
-        <input type="hidden" name="doc_name" value="<e:forHtmlAttribute value='<%= props.getProperty("doc_name", "") %>' />"/>
-        <input type="hidden" name="cl_name" value="<e:forHtmlAttribute value='<%= props.getProperty("clinicName", "") %>' />"/>
-        <input type="hidden" name="cl_address1" value="<e:forHtmlAttribute value='<%= props.getProperty("clinicAddress","") %>' />"/>
-        <input type="hidden" name="cl_address2" value="<e:forHtmlAttribute value='<%= props.getProperty("clinicCity","") %>' />"/>
-        <input type="hidden" name="cl_phone" value="<e:forHtmlAttribute value='<%= props.getProperty("clinicPhone","") %>' />"/>
-        <input type="hidden" name="cl_fax" value="<e:forHtmlAttribute value='<%= props.getProperty("clinicFax","") %>' />"/>
+        <input type="text" name="formCreated" value="<carlos:encode value='<%= props.getProperty("formCreated","") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_class" value="<carlos:encode value='<%= formClass %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="form_link" value="<carlos:encode value='<%= formLink %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="formId" value="<carlos:encode value='<%= String.valueOf(formId) %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="doc_name" value="<carlos:encode value='<%= props.getProperty("doc_name", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_name" value="<carlos:encode value='<%= props.getProperty("clinicName", "") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_address1" value="<carlos:encode value='<%= props.getProperty("clinicAddress","") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_address2" value="<carlos:encode value='<%= props.getProperty("clinicCity","") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_phone" value="<carlos:encode value='<%= props.getProperty("clinicPhone","") %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="cl_fax" value="<carlos:encode value='<%= props.getProperty("clinicFax","") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <div style="font-size: 24px; font-family: arial, helvetica, sans-serif;">
@@ -124,23 +125,23 @@
         </div>
         <div style="font-size: 19px; font-family: arial, helvetica, sans-serif;">
             <center>
-                <b><i><e:forHtmlContent value='<%= props.getProperty("clinicName", "") %>' />
+                <b><i><carlos:encode value='<%= props.getProperty("clinicName", "") %>' context="html"/>
                 </i></b>
             </center>
         </div>
         <font face="Arial, Helvetica, sans-serif">
             <TABLE WIDTH="100%" align="center" cellpadding="0" cellspacing="0" style="font-size: 13px;">
                 <TR>
-                    <TD><e:forHtmlContent value='<%= props.getProperty("clinicAddress", "") %>' />
+                    <TD><carlos:encode value='<%= props.getProperty("clinicAddress", "") %>' context="html"/>
                     </TD>
-                    <TD ALIGN="right"><fmt:message key="global.phoneLabel"/> <e:forHtmlContent value='<%= props.getProperty("clinicPhone", "") %>' />
+                    <TD ALIGN="right"><fmt:message key="global.phoneLabel"/> <carlos:encode value='<%= props.getProperty("clinicPhone", "") %>' context="html"/>
                     </TD>
                 </TR>
 
                 <TR>
-                    <TD><e:forHtmlContent value='<%= props.getProperty("clinicCity", "") %>' />
+                    <TD><carlos:encode value='<%= props.getProperty("clinicCity", "") %>' context="html"/>
                     </TD>
-                    <TD ALIGN="right"><fmt:message key="global.faxLabel"/> <e:forHtmlContent value='<%= props.getProperty("clinicFax", "") %>' />
+                    <TD ALIGN="right"><fmt:message key="global.faxLabel"/> <carlos:encode value='<%= props.getProperty("clinicFax", "") %>' context="html"/>
                     </TD>
                 </TR>
 
@@ -156,7 +157,7 @@
 
                                     <INPUT NAME="p_name"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getFormattedName() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getFormattedName() %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -167,7 +168,7 @@
 
                                     <INPUT NAME="p_address1"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getAddress() %>' />, <e:forHtmlAttribute value='<%= demo.getCity() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getAddress() %>' context="htmlAttribute"/>, <carlos:encode value='<%= demo.getCity() %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -178,7 +179,7 @@
 
                                     <INPUT NAME="p_address2"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getProvince() %>' />, <e:forHtmlAttribute value='<%= demo.getPostal() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getProvince() %>' context="htmlAttribute"/>, <carlos:encode value='<%= demo.getPostal() %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -188,7 +189,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_phone"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getPhone() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getPhone() %>' context="htmlAttribute"/>">
                                     </INPUT>
 
                                 </TD>
@@ -198,7 +199,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_birthdate"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getFormattedDob() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getFormattedDob() %>' context="htmlAttribute"/>">
                                     </INPUT>
                                 </TD>
                             </TR>
@@ -207,7 +208,7 @@
                                 <TD align="left">
                                     <INPUT NAME="p_healthcard"
                                            style="border: none; font-size: 13px; text-decoration: underline; width: 100%;"
-                                           TYPE="text" value="<e:forHtmlAttribute value='<%= demo.getHin() %>' />">
+                                           TYPE="text" value="<carlos:encode value='<%= demo.getHin() %>' context="htmlAttribute"/>">
                                     </INPUT>
                                 </TD>
                             </TR>
@@ -220,7 +221,7 @@
 
             <div id="textareaDiv" style="position: relative;width:800px">
                 <textarea id="comments" name="comments" cols="100" rows="60"
-                          style="overflow:hidden; font-family:courier new; font-size:12px;"><e:forHtmlContent value='<%= props.getProperty("comments", "") %>' /></textarea>
+                          style="overflow:hidden; font-family:courier new; font-size:12px;"><carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea>
             </div>
 
             <div id="buttons">

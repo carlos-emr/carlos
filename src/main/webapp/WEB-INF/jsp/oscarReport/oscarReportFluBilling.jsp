@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -91,7 +93,7 @@
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <e:forHtmlContent value='<%= years %>' />
+        <carlos:encode value='<%= years %>' context="html"/>
     </h4>
 </div>
 
@@ -113,7 +115,7 @@
     <%
         for (Provider p : providers) {
     %>
-    <option value="<e:forHtmlAttribute value='<%= p.getProviderNo() %>' />" <%=selled(p.getProviderNo(), pros)%>><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=selled(p.getProviderNo(), pros)%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
     </option>
     <%
         }
@@ -146,19 +148,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><e:forHtmlContent value='<%= demoData.demoName %>' />
+        <td><carlos:encode value='<%= demoData.demoName %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.getDemoDOB() %>' />
+        <td><carlos:encode value='<%= demoData.getDemoDOB() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.getDemoAge() %>' />
+        <td><carlos:encode value='<%= demoData.getDemoAge() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.demoRosterStatus %>' />
+        <td><carlos:encode value='<%= demoData.demoRosterStatus %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.demoPatientStatus %>' />
+        <td><carlos:encode value='<%= demoData.demoPatientStatus %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.getDemoPhone() %>' />
+        <td><carlos:encode value='<%= demoData.getDemoPhone() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= demoData.getBillingDate(fluData.years) %>' />
+        <td><carlos:encode value='<%= demoData.getBillingDate(fluData.years) %>' context="html"/>
         </td>
     </tr>
     <%

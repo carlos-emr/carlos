@@ -33,6 +33,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -172,7 +174,7 @@
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestActive.getId().toString()%>"><e:forHtmlContent value='<%= tTextSuggestActive.getSuggestedText() %>' />
+                                value="<%=tTextSuggestActive.getId().toString()%>"><carlos:encode value='<%= tTextSuggestActive.getSuggestedText() %>' context="html"/>
                         </option>
                         <% }
                         }
@@ -199,7 +201,7 @@
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestInactive.getId().toString()%>"><e:forHtmlContent value='<%= tTextSuggestInactive.getSuggestedText() %>' />
+                                value="<%=tTextSuggestInactive.getId().toString()%>"><carlos:encode value='<%= tTextSuggestInactive.getSuggestedText() %>' context="html"/>
                         </option>
                         <% }
                         }

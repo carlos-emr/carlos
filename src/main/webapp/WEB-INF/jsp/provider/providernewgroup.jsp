@@ -34,6 +34,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
@@ -134,11 +136,11 @@
                 <tr>
                     <td class="text-center">
                         <input type="checkbox" class="form-check-input provider-check" name="data<%=i%>" value="<%=i%>">
-                        <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= p.getProviderNo() == null ? "" : p.getProviderNo() %>' />">
-                        <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />">
-                        <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' />">
+                        <input type="hidden" name="provider_no<%=i%>" value="<carlos:encode value='<%= p.getProviderNo() == null ? "" : p.getProviderNo() %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="last_name<%=i%>" value="<carlos:encode value='<%= p.getLastName() == null ? "" : p.getLastName() %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="first_name<%=i%>" value="<carlos:encode value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' context="htmlAttribute"/>">
                     </td>
-                    <td><e:forHtmlContent value='<%= p.getLastName() == null ? "" : p.getLastName() %>' />, <e:forHtmlContent value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' /></td>
+                    <td><carlos:encode value='<%= p.getLastName() == null ? "" : p.getLastName() %>' context="html"/>, <carlos:encode value='<%= p.getFirstName() == null ? "" : p.getFirstName() %>' context="html"/></td>
                 </tr>
                 <%
                     }

@@ -31,6 +31,7 @@
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 
 <%
@@ -44,10 +45,10 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <c:set var="ctx" value="${pageContext.request.contextPath}"
                scope="request"/>
-        <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css"
               type="text/css">
         <link rel="stylesheet" type="text/css"
-              href="${e:forHtmlAttribute(ctx)}/css/print.css" media="print"/>
+              href="${carlos:forHtmlAttribute(ctx)}/css/print.css" media="print"/>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title>Case Management</title>
         <%! String refresh = CarlosProperties.getInstance().getProperty("refresh.encounterLayout.jsp", "-1"); %>

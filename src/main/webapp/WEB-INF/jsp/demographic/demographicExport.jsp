@@ -62,6 +62,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -376,7 +377,7 @@
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
-            <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
+            <a href='${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport'><fmt:message key="demographic.demographicexport.rourke2009export"/></a>
             <%} %>
         </div><!--span2-->
 
@@ -399,8 +400,8 @@
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
-                <fmt:message key="demographic.demographicexport.exportingdemographicno"/><e:forHtmlContent value='<%= demographicNo %>' />
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                <fmt:message key="demographic.demographicexport.exportingdemographicno"/><carlos:encode value='<%= demographicNo %>' context="html"/>
                 <%} else {%>
                 <fmt:message key="demographic.demographicexport.patientset"/><br>
                 <select style="width: 189px" name="patientSet" id="patientSet">

@@ -35,6 +35,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 
@@ -56,7 +58,7 @@
                 display: inline-block;
             }
         </style>
-    <link rel="stylesheet" href="<e:forHtmlAttribute value='<%= request.getContextPath() %>' />/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
     </head>

@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -103,10 +105,10 @@
 
 <body>
 <form method="post" name="CONFIG" action="RemapMeasurementMap">
-    <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= id %>' />"> <input
-        type="hidden" name="identifier" value="<e:forHtmlAttribute value='<%= identifier %>' />"> <input
-        type="hidden" name="name" value="<e:forHtmlAttribute value='<%= name %>' />"> <input
-        type="hidden" name="type" value="<e:forHtmlAttribute value='<%= type %>' />">
+    <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="name" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="type" value="<carlos:encode value='<%= type %>' context="htmlAttribute"/>">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">
@@ -133,17 +135,17 @@
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Identifier:</td>
-                            <td class="Cell" width="80%"><e:forHtmlContent value='<%= identifier %>' />
+                            <td class="Cell" width="80%"><carlos:encode value='<%= identifier %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Name:</td>
-                            <td class="Cell" width="80%"><e:forHtmlContent value='<%= name %>' />
+                            <td class="Cell" width="80%"><carlos:encode value='<%= name %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Lab Type:</td>
-                            <td class="Cell" width="80%"><e:forHtmlContent value='<%= type %>' />
+                            <td class="Cell" width="80%"><carlos:encode value='<%= type %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
@@ -155,7 +157,7 @@
                                         searchstring = "";
                                 %>
                                 <input type="text" size="30" name="searchstring"
-                                       value="<e:forHtmlAttribute value='<%= searchstring %>' />"/> <input type="submit" value="Search"
+                                       value="<carlos:encode value='<%= searchstring %>' context="htmlAttribute"/>"/> <input type="submit" value="Search"
                                                                             onclick="return reloadPage()"/></td>
                         <tr>
                             <td class="Cell" width="20%">Select code to map to:</td>

@@ -41,6 +41,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
@@ -170,7 +172,7 @@
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if(pbc != null) {
             %>
-        providerBillCenterMap['<e:forJavaScriptBlock value='<%= providerNo %>' />'] = '<e:forJavaScriptBlock value='<%= pbc.getBillCenterCode() %>' />';
+        providerBillCenterMap['<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>'] = '<carlos:encode value='<%= pbc.getBillCenterCode() %>' context="javaScriptBlock"/>';
         <%
         }
     }
@@ -252,7 +254,7 @@
                         if (providerStr.size() == 1) {
                             String temp[] = ((String) providerStr.get(0)).split("\\|");
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= temp[0] %>' />"><e:forHtmlContent value='<%= temp[1] %>' />, <e:forHtmlContent value='<%= temp[2] %>' />
+                    <option value="<carlos:encode value='<%= temp[0] %>' context="htmlAttribute"/>"><carlos:encode value='<%= temp[1] %>' context="html"/>, <carlos:encode value='<%= temp[2] %>' context="html"/>
                     </option>
                     <%
                     } else {
@@ -263,7 +265,7 @@
                         for (int i = 0; i < providerStr.size(); i++) {
                             String temp[] = ((String) providerStr.get(i)).split("\\|");
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= temp[0] %>' />"><e:forHtmlContent value='<%= temp[1] %>' />, <e:forHtmlContent value='<%= temp[2] %>' />
+                    <option value="<carlos:encode value='<%= temp[0] %>' context="htmlAttribute"/>"><carlos:encode value='<%= temp[1] %>' context="html"/>, <carlos:encode value='<%= temp[2] %>' context="html"/>
                     </option>
                     <%
                             }
@@ -279,8 +281,8 @@
                         for (Enumeration e = BillingDataHlp.propBillingCenter.propertyNames(); e.hasMoreElements(); ) {
                             String centerCode = (String) e.nextElement();
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= centerCode %>' />"
-                            <%=oscarVariables.getProperty("billcenter").compareTo(centerCode) == 0 ? "selected" : ""%>><e:forHtmlContent value='<%= BillingDataHlp.propBillingCenter.getProperty(centerCode) %>' />
+                    <option value="<carlos:encode value='<%= centerCode %>' context="htmlAttribute"/>"
+                            <%=oscarVariables.getProperty("billcenter").compareTo(centerCode) == 0 ? "selected" : ""%>><carlos:encode value='<%= BillingDataHlp.propBillingCenter.getProperty(centerCode) %>' context="html"/>
                     </option>
                     <%
                         }
@@ -288,16 +290,16 @@
                 </select>
             </div>
 
-            <input type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />">
+            <input type="hidden" name="monthCode" value="<carlos:encode value='<%= monthCode %>' context="htmlAttribute"/>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= curProvider_no %>' />">
-            <input type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />">
+            <input type="hidden" name="curUser" value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>">
+            <input type="hidden" name="curDate" value="<carlos:encode value='<%= nowDate %>' context="htmlAttribute"/>">
 
 
             <div class="col-md-4">
                 <label>Service Date Start:</label>
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />"
+                    <input type="text" name="xml_vdate" id="xml_vdate" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -307,7 +309,7 @@
                 <label>Service Date End:</label>
                 <div class="input-group">
                     <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                           value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                           value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -371,26 +373,26 @@
 
         %>
 
-        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<e:forJavaScriptAttribute value='<%= bgColor %>' />';"
-            bgcolor="<e:forHtmlAttribute value='<%= bgColor %>' />">
-            <td><font size="2"><e:forHtmlContent value='<%= pro_name %>' />
+        <tr onMouseOver="this.style.backgroundColor='pink';" onMouseout="this.style.backgroundColor='<carlos:encode value='<%= bgColor %>' context="javaScriptAttribute"/>';"
+            bgcolor="<carlos:encode value='<%= bgColor %>' context="htmlAttribute"/>">
+            <td><font size="2"><carlos:encode value='<%= pro_name %>' context="html"/>
             </font></td>
-            <td align="center"><font size="2"><e:forHtmlContent value='<%= updatedate.substring(0, 16) %>' />
+            <td align="center"><font size="2"><carlos:encode value='<%= updatedate.substring(0, 16) %>' context="html"/>
             </font></td>
-            <td align="center"><font size="2"><e:forHtmlContent value='<%= cr %>' />
+            <td align="center"><font size="2"><carlos:encode value='<%= cr %>' context="html"/>
             </font></td>
-            <td align="right"><font size="2"><e:forHtmlContent value='<%= total %>' />
+            <td align="right"><font size="2"><carlos:encode value='<%= total %>' context="html"/>
             </font></td>
 
             <td width="15%"><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= oFile %>' />"
-                    target="_blank"><e:forHtmlContent value='<%= oFile %>' />
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= oFile %>' context="uriComponent"/>"
+                    target="_blank"><carlos:encode value='<%= oFile %>' context="html"/>
             </a></font></td>
             <td width="3%"><input type="button" value="R" class="btn d-print-none"
                                   onclick="recreate(<%=obj.getId() %>)"/></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= hFile %>' />"
-                    target="_blank"><e:forHtmlContent value='<%= hFile %>' />
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= hFile %>' context="uriComponent"/>"
+                    target="_blank"><carlos:encode value='<%= hFile %>' context="html"/>
             </a></font></td>
         </tr>
 
@@ -429,23 +431,23 @@
         %>
 
         <tr bgcolor="<%=count%2==0?yearColor:"white"%>">
-            <td><%if (pro_name != null) { %><font size="2"><e:forHtmlContent value='<%= pro_name %>' />
+            <td><%if (pro_name != null) { %><font size="2"><carlos:encode value='<%= pro_name %>' context="html"/>
             </font><%}%></td>
-            <td align="center"><font size="2"><e:forHtmlContent value='<%= updatedate %>' />
+            <td align="center"><font size="2"><carlos:encode value='<%= updatedate %>' context="html"/>
             </font></td>
-            <td align="center"><font size="2"><e:forHtmlContent value='<%= cr %>' />
+            <td align="center"><font size="2"><carlos:encode value='<%= cr %>' context="html"/>
             </td>
             <td align="right"><font
-                    size="2"><e:forHtmlContent value='<%= total.substring(0, total.indexOf(".")) + total.substring(total.indexOf("."), total.indexOf(".") + 3) %>' />
+                    size="2"><carlos:encode value='<%= total.substring(0, total.indexOf(".")) + total.substring(total.indexOf("."), total.indexOf(".") + 3) %>' context="html"/>
             </font></td>
 
             <td colspan=2><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= oFile %>' />"
-                    target="_blank"><e:forHtmlContent value='<%= oFile %>' />
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= oFile %>' context="uriComponent"/>"
+                    target="_blank"><carlos:encode value='<%= oFile %>' context="html"/>
             </a></font></td>
             <td><font size="2"> <a
-                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<e:forUriComponent value='<%= hFile %>' />"
-                    target="_blank"><e:forHtmlContent value='<%= hFile %>' />
+                    href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<carlos:encode value='<%= hFile %>' context="uriComponent"/>"
+                    target="_blank"><carlos:encode value='<%= hFile %>' context="html"/>
             </a></font></td>
         </tr>
 

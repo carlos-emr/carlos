@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2006Record" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "Rourke2006";
@@ -339,7 +340,7 @@
         <input type="hidden" name="ID"
                value="<%= props.getProperty("ID", "0") %>"/>
         <input type="hidden" name="provider_no"
-               value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+               value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
                value="<%= props.getProperty("formCreated", "") %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>

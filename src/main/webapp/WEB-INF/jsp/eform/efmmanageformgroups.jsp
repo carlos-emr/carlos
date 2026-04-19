@@ -32,6 +32,8 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -138,18 +140,18 @@
                     <%}%>
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup" style="display:inline;">
-                            <input type="hidden" name="group_name" value="<e:forHtmlAttribute value='<%= groupName %>' />"/>
+                            <input type="hidden" name="group_name" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
                                class="btn btn-sm btn-secondary" title="delete this group"
-                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><e:forHtmlAttribute value='<%= groupName %>' /></strong>?"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><carlos:encode value='<%= groupName %>' context="htmlAttribute"/></strong>?"
 ><i
                                     class="fa-solid fa-trash"></i></a>
                         </form></td>
-                    <td title="<e:forHtmlAttribute value='<%= groupName %>' />"><a
+                    <td title="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                            class="contentLink"><e:forHtmlContent value='<%= groupName %>' />
+                            class="contentLink"><carlos:encode value='<%= groupName %>' context="html"/>
                     </a></td>
-                    <td><e:forHtmlContent value='<%= (String) curhash.get("count") %>' />
+                    <td><carlos:encode value='<%= (String) curhash.get("count") %>' context="html"/>
                     </td>
 
                 </tr>
@@ -163,7 +165,7 @@
         <!--EFORMS IN GROUP-->
 
         <div class="card card-body bg-body-tertiary col-md-6">
-            <h4><fmt:message key="eform.groups.contents"/>: <e:forHtmlContent value='<%= groupView %>' />
+            <h4><fmt:message key="eform.groups.contents"/>: <carlos:encode value='<%= groupView %>' context="html"/>
             </h4>
 
             <table class="table table-sm table-striped">
@@ -173,14 +175,14 @@
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<e:forUriComponent value='<%= groupView %>' />"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?orderby=form_name&group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnFormName"/>
                         </a>
                     </th>
 
                     <th>
-                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<e:forUriComponent value='<%= groupView %>' />"
+                        <a href="<%= request.getContextPath() %>/eform/efmmanageformgroups?group_view=<carlos:encode value='<%= groupView %>' context="uriComponent"/>"
                            class="contentLink">
                             <fmt:message key="eform.uploadhtml.btnDate"/>
                         </a>
@@ -197,17 +199,17 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <c:set var="__enc_1"><e:forHtmlContent value='<%= (String) curForm.get("formName") %>' /></c:set>
-                <c:set var="__enc_2"><e:forHtmlContent value='<%= (String) curForm.get("formSubject") %>' /></c:set>
-                <c:set var="__enc_3"><e:forHtmlContent value='<%= (String) curForm.get("formFileName") %>' /></c:set>
-                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<e:forHtmlAttribute value='${__enc_1}' />"
-                    data-bs-content="<strong><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <e:forHtmlAttribute value='${__enc_2}' /> <br> <small><fmt:message key="eform.uploadhtml.btnFile"/>: <e:forHtmlAttribute value='${__enc_3}' /></small>"
+                <c:set var="__enc_1"><carlos:encode value='<%= (String) curForm.get("formName") %>' context="html"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= (String) curForm.get("formSubject") %>' context="html"/></c:set>
+                <c:set var="__enc_3"><carlos:encode value='<%= (String) curForm.get("formFileName") %>' context="html"/></c:set>
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<carlos:encode value='${__enc_1}' context="htmlAttribute"/>"
+                    data-bs-content="<strong><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <carlos:encode value='${__enc_2}' context="htmlAttribute"/> <br> <small><fmt:message key="eform.uploadhtml.btnFile"/>: <carlos:encode value='${__enc_3}' context="htmlAttribute"/></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
                     <td>
                         <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup" style="display:inline;">
-                            <input type="hidden" name="fid" value="<e:forHtmlAttribute value='<%= (String) curForm.get("fid") %>' />"/>
-                            <input type="hidden" name="groupName" value="<e:forHtmlAttribute value='<%= groupView %>' />"/>
+                            <input type="hidden" name="fid" value="<carlos:encode value='<%= (String) curForm.get("fid") %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
                             <a href="javascript:void(0);"
                                title="remove from group" class="btn btn-sm btn-secondary"
                                data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
@@ -217,10 +219,10 @@
                     </td>
 
                     <td><a href="#"
-                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<e:forUriComponent value='<%= (String) curForm.get("fid") %>' />', '<%="FormG" + i%>'); return false;"><e:forHtmlContent value='<%= (String) curForm.get("formName") %>' />
+                           onclick="newWindow('<%= request.getContextPath() %>/eform/efmshowform_data?fid=<carlos:encode value='<%= (String) curForm.get("fid") %>' context="uriComponent"/>', '<%="FormG" + i%>'); return false;"><carlos:encode value='<%= (String) curForm.get("formName") %>' context="html"/>
                     </a></td>
 
-                    <td align='center'><e:forHtmlContent value='<%= (String) curForm.get("formDate") %>' />
+                    <td align='center'><carlos:encode value='<%= (String) curForm.get("formDate") %>' context="html"/>
                     </td>
 
 
@@ -252,7 +254,7 @@
              aria-hidden="true">
             <div class="modal-dialog"><div class="modal-content">
             <div class="modal-header">
-                <h3 id="myModalLabel"><fmt:message key="eform.groups.addToGroup"/> <e:forHtmlContent value='<%= groupView %>' />
+                <h3 id="myModalLabel"><fmt:message key="eform.groups.addToGroup"/> <carlos:encode value='<%= groupView %>' context="html"/>
                 </h3>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -266,13 +268,13 @@
                                 HashMap<String, ? extends Object> curhash = forms.get(i);
                         %>
                         <option
-                                value="<e:forHtmlAttribute value='<%= (String) curhash.get("fid") %>' />"><e:forHtmlContent value='<%= (String) curhash.get("formName") %>' /> | <e:forHtmlContent value='<%= (String) curhash.get("formDate") %>' />
+                                value="<carlos:encode value='<%= (String) curhash.get("fid") %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) curhash.get("formName") %>' context="html"/> | <carlos:encode value='<%= (String) curhash.get("formDate") %>' context="html"/>
                         </option>
                         <% } %>
                     </select>
 
 
-                    <input type="hidden" name="groupName" value="<e:forHtmlAttribute value='<%= groupView %>' />">
+                    <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>">
 
                 </div>
 

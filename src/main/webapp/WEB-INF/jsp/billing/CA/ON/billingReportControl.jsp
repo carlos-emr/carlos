@@ -46,6 +46,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -147,9 +149,9 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast %>' />,
-                    <e:forHtmlContent value='<%= proFirst %>' />
+                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>"
+                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
+                    <carlos:encode value='<%= proFirst %>' context="html"/>
                 </option>
                 <%
                     }
@@ -165,11 +167,11 @@
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                                                onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
-                <input type="text" name="xml_vdate" size="10" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
+                <input type="text" name="xml_vdate" size="10" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
                                                                        onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
-                                          value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"></td>
+                                          value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"></td>
             <td></td>
         </tr>
     </form>

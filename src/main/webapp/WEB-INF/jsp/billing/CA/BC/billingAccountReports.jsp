@@ -1,5 +1,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -289,7 +291,7 @@
                                         <a href="javascript: function myFunction() {return false; }"
                                            id="hlSDate">Start Date :</a> </font></td>
                                     <td><input type="text" name="xml_vdate" id="xml_vdate"
-                                               value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" readonly="true"> <a
+                                               value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" readonly="true"> <a
                                             href="javascript: clearField('xml_vdate')">clear</a></td>
                                 </tr>
                                 <tr>
@@ -297,7 +299,7 @@
                                         <a href="javascript: function myFunction() {return false; }"
                                            id="hlADate">End Date :</a> </font></td>
                                     <td><input type="text" name="xml_appointment_date"
-                                               id="xml_appointment_date" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />"
+                                               id="xml_appointment_date" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"
                                                readonly="true"> <a
                                             href="javascript: clearField('xml_appointment_date')">clear</a></td>
                                 </tr>

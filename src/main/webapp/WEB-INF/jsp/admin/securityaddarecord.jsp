@@ -60,6 +60,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
@@ -267,7 +268,7 @@
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
                                     if (s.size() > 0) {
                         %>
-                        <option value="<%=p.getProviderNo()%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                        <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
                         <%
                                 }
@@ -277,7 +278,7 @@
                         } else {
                             for (Provider p : providerDao.getActiveProviders()) {
                         %>
-                        <option value="<%=p.getProviderNo()%>"><e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                        <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>
                         <%
                                 }

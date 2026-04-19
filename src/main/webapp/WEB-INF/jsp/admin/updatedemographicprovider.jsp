@@ -65,6 +65,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <title><fmt:message key="admin.admin.btnUpdatePatientProvider"/></title>
@@ -294,8 +296,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -305,8 +307,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select><br>
@@ -357,8 +359,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -368,8 +370,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select><br>
@@ -422,8 +424,8 @@
                                 <%
                                     for (int i = 0; i < names.size(); i = i + 2) {
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -433,8 +435,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select><br>
@@ -485,8 +487,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select>
@@ -496,8 +498,8 @@
                                     <fmt:message key="admin.updatedemographicprovider.msgNoProvider"/>
                                 </option>
                                 <% for (int i = 0; i < names.size(); i = i + 2) { %>
-                                <option value="<e:forHtmlAttribute value='<%= names.get(i) %>' />">
-                                    <e:forHtmlContent value='<%= names.get(i + 1) %>' />
+                                <option value="<carlos:encode value='<%= names.get(i) %>' context="htmlAttribute"/>">
+                                    <carlos:encode value='<%= names.get(i + 1) %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select><br>

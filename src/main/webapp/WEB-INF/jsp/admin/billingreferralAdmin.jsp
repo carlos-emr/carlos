@@ -28,6 +28,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -154,13 +156,13 @@
                 <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.nameOrReferralId'/>"
-                           value="<e:forHtmlAttribute value='<%= name != null ? name : "" %>' />">
+                           value="<carlos:encode value='<%= name != null ? name : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <input type="text" name="specialtyQuery" id="specialtyQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.specialty'/>"
-                           value="<e:forHtmlAttribute value='<%= specialty != null ? specialty : "" %>' />">
+                           value="<carlos:encode value='<%= specialty != null ? specialty : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <input type="text" name="addressQuery" id="addressQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.address'/>"
-                           value="<e:forHtmlAttribute value='<%= addressQ != null ? addressQ : "" %>' />">
+                           value="<carlos:encode value='<%= addressQ != null ? addressQ : "" %>' context="htmlAttribute"/>">
                     &nbsp;
                     <fmt:message key="admin.billingreferralAdmin.label.includeHidden"/>:
                     <input type="checkbox" name="showHidden"
@@ -222,7 +224,7 @@
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
                         <tr>
-                            <td><e:forHtmlContent value='<%= ps.getFormattedName() %>' />
+                            <td><carlos:encode value='<%= ps.getFormattedName() %>' context="html"/>
                             </td>
                         </tr>
                         <%

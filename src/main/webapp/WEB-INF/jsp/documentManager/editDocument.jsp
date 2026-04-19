@@ -55,6 +55,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer" %>
@@ -269,13 +271,13 @@
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
-           value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />" size="20"/>
+           value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>" size="20"/>
     <input type="hidden" name="functionId"
-           value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />" size="20"/>
-    <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />" size="20"/>
-    <input type="hidden" name="mode" value="<e:forHtmlAttribute value='<%= editDocumentNo %>' />"/>
-    <input type="hidden" name="reviewerId" value="<e:forHtmlAttribute value='<%= formdata.getReviewerId() %>' />"/>
-    <input type="hidden" name="reviewDateTime" value="<e:forHtmlAttribute value='<%= formdata.getReviewDateTime() %>' />"/>
+           value="<carlos:encode value='<%= formdata.getFunctionId() %>' context="htmlAttribute"/>" size="20"/>
+    <input type="hidden" name="functionid" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>" size="20"/>
+    <input type="hidden" name="mode" value="<carlos:encode value='<%= editDocumentNo %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reviewerId" value="<carlos:encode value='<%= formdata.getReviewerId() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reviewDateTime" value="<carlos:encode value='<%= formdata.getReviewDateTime() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
 
     <input type="hidden" name="extraReviewerId" value=""/>
@@ -292,8 +294,8 @@
                     for (int i = 0; i < doctypes.size(); i++) {
                         String doctype = (String) doctypes.get(i);
                 %>
-                <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
-                        <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>"
+                        <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                 </option>
                 <%}%>
             </select></td>
@@ -310,7 +312,7 @@
                             consultShown = true;
                         }
                 %>
-                <option value="<e:forHtmlAttribute value='<%= reportClass %>' />" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><e:forHtmlContent value='<%= reportClass %>' />
+                <option value="<carlos:encode value='<%= reportClass %>' context="htmlAttribute"/>" <%=reportClass.equals(formdata.getDocClass()) ? "selected" : ""%>><carlos:encode value='<%= reportClass %>' context="html"/>
                 </option>
                 <% } %>
             </select>
@@ -319,7 +321,7 @@
         <tr>
             <td><fmt:message key="dms.addDocument.msgDocSubClass"/>:</td>
             <td><input type="text" name="docSubClass" id="docSubClass"
-                       value="<e:forHtmlAttribute value='<%= formdata.getDocSubClass() %>' />" style="width:330px">
+                       value="<carlos:encode value='<%= formdata.getDocSubClass() %>' context="htmlAttribute"/>" style="width:330px">
                 <div class="autocomplete_style" id="docSubClass_list"></div>
             </td>
         </tr>
@@ -327,19 +329,19 @@
             <td>Description:</td>
             <td><input <% if (docerrors.containsKey("descmissing")) {%>
                     class="warning" <%}%> type="text" name="docDesc" size="30"
-                    value="<e:forHtmlAttribute value='<%= formdata.getDocDesc() %>' />">
+                    value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>">
             <td>
         </tr>
         <tr>
             <td>Observation Date:</td>
             <td><input id="observationDate" name="observationDate"
-                       type="text" value="<e:forHtmlAttribute value='<%= formdata.getObservationDate() %>' />"><a
+                       type="text" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context="htmlAttribute"/>"><a
                     id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                       alt="Calendar" border="0"/></a></td>
         </tr>
         <tr>
             <td>Added By:</td>
-            <td><e:forHtmlContent value='<%= EDocUtil.getProviderName(formdata.getDocCreator()) %>' />
+            <td><carlos:encode value='<%= EDocUtil.getProviderName(formdata.getDocCreator()) %>' context="html"/>
             </td>
         </tr>
         <tr>
@@ -351,8 +353,8 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><e:forHtmlContent value='<%= pd.get("lastName") %>' />
-                        , <e:forHtmlContent value='<%= pd.get("firstName") %>' />
+                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><carlos:encode value='<%= pd.get("lastName") %>' context="html"/>
+                        , <carlos:encode value='<%= pd.get("firstName") %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -360,36 +362,36 @@
         </tr>
         <tr>
             <td>Date Added/Updated:</td>
-            <td><e:forHtmlContent value='<%= lastUpdate %>' />
+            <td><carlos:encode value='<%= lastUpdate %>' context="html"/>
             </td>
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
-            <td><e:forHtmlContent value='<%= formdata.getContentDateTime() %>' />
+            <td><carlos:encode value='<%= formdata.getContentDateTime() %>' context="html"/>
             </td>
         </tr>
         <tr>
             <td><label for="source">Source Author:</label></td>
             <td><input type="text" id="source" name="source" size="15"
-                       value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(formdata.getSource()) %>' />"/></td>
+                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(formdata.getSource()) %>' context="htmlAttribute"/>"/></td>
         </tr>
         <tr>
             <td>Source Facility:</td>
             <td><input type="text" name="sourceFacility" size="15"
-                       value="<e:forHtmlAttribute value='<%= StringUtils.trimToEmpty(formdata.getSourceFacility()) %>' />"/>
+                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(formdata.getSourceFacility()) %>' context="htmlAttribute"/>"/>
             </td>
         </tr>
         <% if (EDocUtil.isProviderModule(module)) {%>
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"
-                    <e:forHtmlAttribute value='<%= formdata.getDocPublic() + " " %>' /> value="checked"></td>
+                    <carlos:encode value='<%= formdata.getDocPublic() + " " %>' context="htmlAttribute"/> value="checked"></td>
         </tr>
         <%}%>
         <tr>
             <td>File Name:</td>
             <td>
-                <div style="width: 300px; overflow: hidden; text-overflow: ellipsis;"><e:forHtmlContent value='<%= fileName %>' />
+                <div style="width: 300px; overflow: hidden; text-overflow: ellipsis;"><carlos:encode value='<%= fileName %>' context="html"/>
                 </div>
         </tr>
         <tr>
@@ -402,7 +404,7 @@
         <tr>
             <td>Date Received:</td>
             <td><input id="receivedDate" name="receivedDate"
-                       type="text" value="<e:forHtmlAttribute value='<%= formdata.getReceivedDate() %>' />"><a
+                       type="text" value="<carlos:encode value='<%= formdata.getReceivedDate() %>' context="htmlAttribute"/>"><a
                     id="rdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                     alt="Calendar" border="0"/></a></td>
         </tr>
@@ -410,7 +412,7 @@
         <tr>
             <td>Abnormal Result(s):</td>
             <td><input type="checkbox" name="abnormal"
-                    <e:forHtmlAttribute value='<%= formdata.getAbnormal() + " " %>' /> value="checked"></td>
+                    <carlos:encode value='<%= formdata.getAbnormal() + " " %>' context="htmlAttribute"/> value="checked"></td>
         </tr>
 
         <tr>
@@ -442,7 +444,7 @@
                             reviewedByMe = true;
                         }
                 %>
-                Reviewed: &nbsp; <e:forHtmlContent value='<%= EDocUtil.getProviderName(formdata.getReviewerId()) %>' />
+                Reviewed: &nbsp; <carlos:encode value='<%= EDocUtil.getProviderName(formdata.getReviewerId()) %>' context="html"/>
                 &nbsp; [<%=formdata.getReviewDateTime()%>]
                 <% } %>
                 <%
@@ -452,7 +454,7 @@
                         }
                 %>
                 <br/>
-                Reviewed: &nbsp; <e:forHtmlContent value='<%= EDocUtil.getProviderName(der.getReviewerProviderNo()) %>' />
+                Reviewed: &nbsp; <carlos:encode value='<%= EDocUtil.getProviderName(der.getReviewerProviderNo()) %>' context="html"/>
                 &nbsp; [<%=der.getReviewDateTime()%>]
                 <% } %>
 

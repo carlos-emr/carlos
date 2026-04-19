@@ -53,6 +53,8 @@
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager,io.github.carlos_emr.carlos.demographic.data.*,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -136,9 +138,9 @@
 
         <script LANGUAGE="JavaScript">
             self.opener.refresh();
-            <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' /></c:set>
-            <c:set var="__enc_2"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("appointment_date")) %>' /></c:set>
-            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=new&provider_no=<e:forJavaScript value='${__enc_1}' />&sdate=<e:forJavaScript value='${__enc_2}' />');
+            <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
+            popupPage(350, 750, '<%= request.getContextPath() %>/report/ViewReportdaysheet?dsmode=new&provider_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&sdate=<carlos:encode value='${__enc_2}' context="javaScript"/>');
             self.close();
         </script>
         <%

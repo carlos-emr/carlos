@@ -3,6 +3,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.*,io.github.carlos_emr.carlos.utility.*,io.github.carlos_emr.carlos.util.*,java.net.URLEncoder"%>
@@ -89,14 +90,14 @@
 									</a>
 							</c:when>
 							<c:otherwise>
-								<b>${e:forHtml(de.label)}</b>
+								<b>${carlos:forHtml(de.label)}</b>
 							</c:otherwise>
 						</c:choose>
 					</c:if>
 
 					<!-- Display demographic link -->
 					<a href="#" onclick="location.href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=${demographic_no}"">
-						${e:forHtml(de.label)}
+						${carlos:forHtml(de.label)}
 					</a>
 
 					<!-- Conditionally add encounter link based on bShowEncounterLink -->

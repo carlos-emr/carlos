@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class HashAudit extends AbstractModel<Integer> {
 
     public final static String NOTE = "enc";
-    public final static String ALGORITHM = "MD5";
+    public final static String ALGORITHM = "SHA-256";
     private static final HexFormat HEX_FORMAT = HexFormat.of();
 
 

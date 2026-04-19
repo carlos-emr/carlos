@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
@@ -74,6 +75,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -276,7 +278,7 @@
 
     StringBuilder ectFormNames = new StringBuilder();
     for (String formName : formNamesList) {
-        ectFormNames = ectFormNames.append("&encounterFormName=" + Encode.forUriComponent(formName));
+        ectFormNames = ectFormNames.append("&encounterFormName=" + SafeEncode.forUriComponent(formName));
     }
     // end get eform form links
 
@@ -562,7 +564,7 @@
                     if (self.location.href.lastIndexOf("&viewall=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&viewall="));
                     else a = self.location.href;
                 } else {
-                    a = "<%= request.getContextPath() %>/provider/providercontrol?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : Encode.forJavaScriptBlock(selectedSite) )%>";
+                    a = "<%= request.getContextPath() %>/provider/providercontrol?year=" + document.jumptodate.year.value + "&month=" + document.jumptodate.month.value + "&day=" + document.jumptodate.day.value + "&view=0&displaymode=day&dboperation=searchappointmentday&site=" + "<%=(selectedSite==null? "none" : SafeEncode.forJavaScriptBlock(selectedSite) )%>";
                 }
                 self.location.href = a + "&viewall=" + key;
             }
@@ -839,7 +841,7 @@
 
         //later in the code there is a complex inline ternary function that uses view as a parameter.
         //the following code "caches" the result of this function (as viewString) before setting view=1
-        String curProviderString = request.getParameter("curProvider") != null ? "&curProvider=" + Encode.forUriComponent(request.getParameter("curProvider")) : "";
+        String curProviderString = request.getParameter("curProvider") != null ? "&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider")) : "";
         String curProviderNameString = request.getParameter("curProviderName") != null ? "&curProviderName=" + URLEncoder.encode(request.getParameter("curProviderName"), StandardCharsets.UTF_8) : "";
         String viewString = view == 0 ? "&view=0" : "&view=1" + curProviderString + curProviderNameString;
 
@@ -886,13 +888,13 @@
     </oscar:oscarPropertiesCheck>
     <input type="hidden" value="${ hideReason }" id="hideReason"/>
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
-    <input type="hidden" id="scheduleLoggedInProviderNo" value="<e:forHtmlAttribute value='<%= loggedInInfo1.getLoggedInProviderNo() %>' />"/>
-    <input type="hidden" id="scheduleCurrentDate" value="<e:forHtmlAttribute value='<%= strYear + "-" + strMonth + "-" + strDay %>' />"/>
+    <input type="hidden" id="scheduleLoggedInProviderNo" value="<carlos:encode value='<%= loggedInInfo1.getLoggedInProviderNo() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" id="scheduleCurrentDate" value="<carlos:encode value='<%= strYear + "-" + strMonth + "-" + strDay %>' context="htmlAttribute"/>"/>
     <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
-    <input type="hidden" id="scheduleVisibleProviderNos" value="<e:forHtmlAttribute value='<%= java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(",")) %>' />"/>
+    <input type="hidden" id="scheduleVisibleProviderNos" value="<carlos:encode value='<%= java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(",")) %>' context="htmlAttribute"/>"/>
     <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
-    <input type="hidden" id="scheduleViewAll" value="<e:forHtmlAttribute value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' />"/>
-    <input type="hidden" id="scheduleView" value="<e:forHtmlAttribute value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' />"/>
+    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
@@ -973,8 +975,8 @@
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','${e:forJavaScript(ticklerTitle)}');return false;"
-                                       TITLE='${e:forHtmlAttribute(ticklerTitle)}'>
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','${carlos:forJavaScript(ticklerTitle)}');return false;"
+                                       TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
                                         <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
                             </security:oscarSec>
@@ -1042,7 +1044,7 @@
                             <fmt:message var="workflowTitle" key="global.workflow"/>
                             <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                                 <li><a href="javascript:void(0)"
-                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList','${e:forJavaScript(workflowTitle)}')"><fmt:message key="global.btnworkflow"/>
+                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList','${carlos:forJavaScript(workflowTitle)}')"><fmt:message key="global.btnworkflow"/>
                                 </a></li>
                             </oscar:oscarPropertiesCheck>
 
@@ -1055,7 +1057,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                       onclick="newWindow('<%=request.getContextPath()%>/administration/','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="newWindow('<%=request.getContextPath()%>/administration','admin')"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>
@@ -1077,7 +1079,7 @@
                                                     <li>
                                                         <a href="javascript:void(0)"
                                                            onclick="newWindow('<%=request.getContextPath()%>/web/dashboard/display/DashboardDisplay?method=getDashboard&dashboardId=${ dashboard.id }','dashboard')">
-                                                            ${e:forHtml(dashboard.name)}
+                                                            ${carlos:forHtml(dashboard.name)}
                                                         </a>
                                                     </li>
                                                 </c:forEach>
@@ -1132,7 +1134,7 @@
                     </li>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<e:forUriComponent value='<%= loggedInInfo1.getLoggedInProviderNo() %>' />')"
+                           onClick="popupPage(800,1000,'<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<carlos:encode value='<%= loggedInInfo1.getLoggedInProviderNo() %>' context="uriComponent"/>')"
                            title='<fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -1141,7 +1143,7 @@
                                 </svg>
 						    </span>
                             <div>
-                                <e:forHtmlContent value='<%= userfirstname + " " + userlastname %>' />
+                                <carlos:encode value='<%= userfirstname + " " + userlastname %>' context="html"/>
                             </div>
                         </a>
                     </li>
@@ -1176,7 +1178,7 @@
                     <div id="quickSearchDropdown" class="quick-search-dropdown" role="listbox" aria-live="polite" aria-hidden="true" style="display:none;"></div>
                 </span>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' />">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1197,7 +1199,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<e:forUriComponent value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' />">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -1215,9 +1217,9 @@
                 <fmt:message key="provider.appointmentProviderAdminDay.findProvider" var="findProviderTitle"/>
                 <fmt:message key="provider.appointmentProviderAdminDay.enterLastname" var="enterLastnameLabel"/>
                 <span class="quick-nav noprint" style="margin-left: 10px;">
-                    <input type="button" value="${e:forHtmlAttribute(msgM)}-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthBackTitle)}"/>
-                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekBackTitle)}"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="${e:forHtmlAttribute(multiplierTitle)}"/>
+                    <input type="button" value="${carlos:forHtmlAttribute(msgM)}-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="${carlos:forHtmlAttribute(monthBackTitle)}"/>
+                    <input type="button" value="${carlos:forHtmlAttribute(weekLetter)}-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="${carlos:forHtmlAttribute(weekBackTitle)}"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="${carlos:forHtmlAttribute(multiplierTitle)}"/>
                     <script>
                       (function() {
                         'use strict';
@@ -1249,22 +1251,22 @@
                         });
                       })();
                     </script>
-                    <input type="button" value="${e:forHtmlAttribute(weekLetter)}+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(weekForwardTitle)}"/>
-                    <input type="button" value="${e:forHtmlAttribute(msgM)}+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="${e:forHtmlAttribute(monthForwardTitle)}"/>
+                    <input type="button" value="${carlos:forHtmlAttribute(weekLetter)}+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="${carlos:forHtmlAttribute(weekForwardTitle)}"/>
+                    <input type="button" value="${carlos:forHtmlAttribute(msgM)}+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="${carlos:forHtmlAttribute(monthForwardTitle)}"/>
                     |
-                    <input type="button" value="2${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 ${e:forHtmlAttribute(weeksLabel)}"/>
-                    <input type="button" value="4${e:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 ${e:forHtmlAttribute(weeksLabel)}"/>
-                    <input type="button" value="3${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 ${e:forHtmlAttribute(monthsLabel)}"/>
-                    <input type="button" value="6${e:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 ${e:forHtmlAttribute(monthsLabel)}"/>
+                    <input type="button" value="2${carlos:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 ${carlos:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="4${carlos:forHtmlAttribute(weekLetter)}" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 ${carlos:forHtmlAttribute(weeksLabel)}"/>
+                    <input type="button" value="3${carlos:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 ${carlos:forHtmlAttribute(monthsLabel)}"/>
+                    <input type="button" value="6${carlos:forHtmlAttribute(msgM)}" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 ${carlos:forHtmlAttribute(monthsLabel)}"/>
                 </span>
 
                 <!-- Toggle Cancelled Appointments -->
                 <fmt:message var="hideCancelledTitle" key="provider.appointmentProviderAdminDay.hideCancelled"/>
                 <fmt:message var="showCancelledTitle" key="provider.appointmentProviderAdminDay.showCancelled"/>
                 <a id="toggleCancelledBtn" href="javascript:void(0)" onclick="toggleCancelled();" class="noprint" style="margin-left: 10px;"
-                   title="${e:forHtmlAttribute(hideCancelledTitle)}"
-                   data-title-hide="${e:forHtmlAttribute(hideCancelledTitle)}"
-                   data-title-show="${e:forHtmlAttribute(showCancelledTitle)}">
+                   title="${carlos:forHtmlAttribute(hideCancelledTitle)}"
+                   data-title-hide="${carlos:forHtmlAttribute(hideCancelledTitle)}"
+                   data-title-show="${carlos:forHtmlAttribute(showCancelledTitle)}">
                     <span id="toggleCancelledIcon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
                             <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
@@ -1335,7 +1337,7 @@
                         for (int provIndex = 0; provIndex < numProvider; provIndex++) {
                             if (curProvider_no[provIndex].equals(provNum)) {
                 %>
-                <e:forHtmlContent value='<%= curProviderName[provIndex] %>' />
+                <carlos:encode value='<%= curProviderName[provIndex] %>' context="html"/>
                 <%
                             }
                         }
@@ -1362,7 +1364,7 @@
                               target="apptReception"
                               action="<%= request.getContextPath() %>/provider/ViewReceptionistFindProvider">
                             <INPUT TYPE="text" NAME="providername" VALUE=""
-                                   maxlength="10" class="noprint" title="${e:forHtmlAttribute(findProviderTitle)}" placeholder="${e:forHtmlAttribute(enterLastnameLabel)}">
+                                   maxlength="10" class="noprint" title="${carlos:forHtmlAttribute(findProviderTitle)}" placeholder="${carlos:forHtmlAttribute(enterLastnameLabel)}">
                             <INPUT TYPE="SUBMIT" NAME="Go"
                                    VALUE='<fmt:message key="provider.appointmentprovideradminmonth.btnGo"/>'
                                    class="noprint" onClick="findProvider(<%=year%>,<%=month%>,<%=day%>);return false;">
@@ -1427,7 +1429,7 @@
                                             function changeSite(sel) {
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
-                                                var newGroupNo = "<e:forJavaScriptBlock value='<%= mygroupno == null ? ".default" : mygroupno %>' />";
+                                                var newGroupNo = "<carlos:encode value='<%= mygroupno == null ? ".default" : mygroupno %>' context="javaScriptBlock"/>";
                                                 postViaForm("<%= request.getContextPath() %>/provider/providercontrol?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + encodeURIComponent(newGroupNo) + "&site=" + encodeURIComponent(siteName), "attachment");
                                             }
                                         </script>
@@ -1469,7 +1471,7 @@
                                                         if (!skip) {
                                                 %>
                                                 <option value='<%=p.getProviderNo()%>'<%=mygroupno.equals(p.getProviderNo()) ? " selected" : ""%> >
-                                                    <e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                                 </option>
                                                 <%
                                                         }
@@ -1489,7 +1491,7 @@
                                                         if (!skip && (!bMultisites || siteGroups == null || siteGroups.size() == 0 || siteGroups.contains(g.getId().getMyGroupNo()))) {
                                                 %>
                                                 <option value='<%="_grp_"+g.getId().getMyGroupNo()%>' <%=mygroupno.equals(g.getId().getMyGroupNo()) ? "selected" : ""%>>
-                                                    <e:forHtmlContent value='<%= g.getId().getMyGroupNo() %>' />
+                                                    <carlos:encode value='<%= g.getId().getMyGroupNo() %>' context="html"/>
                                                 </option>
                                                 <%
                                                         }
@@ -1501,7 +1503,7 @@
                                                         if (!skip && (!bMultisites || siteProviderNos == null || siteProviderNos.size() == 0 || siteProviderNos.contains(p.getProviderNo()))) {
                                                 %>
                                                 <option value='<%=p.getProviderNo()%>' <%=mygroupno.equals(p.getProviderNo()) ? "selected" : ""%>>
-                                                    <e:forHtmlContent value='<%= p.getFormattedName() %>' />
+                                                    <carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                                                 </option>
                                                 <%
                                                         }
@@ -1719,10 +1721,10 @@
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
-                                               onClick="goZoomView('<%=curProvider_no[nProvider]%>','<e:forJavaScriptAttribute value='<%= curProviderName[nProvider] %>' />')"
+                                               onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
                                                onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
-                                                <e:forHtmlContent value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' />
+                                                <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
                                                 <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
                                                     <a href="#"
@@ -1845,24 +1847,24 @@
                                                         }
                                                 %>
                                                 <tr>
-                                                                                                           <c:set var="__enc_1"><e:forUriComponent value='<%= curProvider_no[nProvider] %>' /></c:set>
-                                                           <c:set var="__enc_2"><e:forUriComponent value='<%= strYear %>' /></c:set>
-                                                           <c:set var="__enc_3"><e:forUriComponent value='<%= strMonth %>' /></c:set>
-                                                           <c:set var="__enc_4"><e:forUriComponent value='<%= strDay %>' /></c:set>
-                                                           <c:set var="__enc_5"><e:forUriComponent value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor %>' /></c:set>
-                                                           <c:set var="__enc_6"><e:forUriComponent value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1) %>' /></c:set>
-                                                           <c:set var="__enc_7"><e:forUriComponent value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' /></c:set>
+                                                                                                           <c:set var="__enc_1"><carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_2"><carlos:encode value='<%= strYear %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_3"><carlos:encode value='<%= strMonth %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_4"><carlos:encode value='<%= strDay %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_5"><carlos:encode value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+ (minuteCursor<10?"0":"") +minuteCursor %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_6"><carlos:encode value='<%= (hourCursor>9?(""+hourCursor):("0"+hourCursor))+":"+(minuteCursor+depth-1) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_7"><carlos:encode value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' context="uriComponent"/></c:set>
     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<e:forJavaScriptAttribute value='${__enc_1}' />&bFirstDisp=<%=true%>&year=<e:forJavaScriptAttribute value='${__enc_2}' />&month=<e:forJavaScriptAttribute value='${__enc_3}' />&day=<e:forJavaScriptAttribute value='${__enc_4}' />&start_time=<e:forJavaScriptAttribute value='${__enc_5}' />&end_time=<e:forJavaScriptAttribute value='${__enc_6}' />&duration=<e:forJavaScriptAttribute value='${__enc_7}' />','<e:forJavaScriptAttribute value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' />','<e:forJavaScriptAttribute value='<%= allowDay %>' />','<e:forJavaScriptAttribute value='<%= allowWeek %>' />');return false;"
+                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
                                                     </td>
                                                     <td class="hourmin"
-                                                        width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor='" + Encode.forHtmlAttribute((String) dateTimeCodeBean.get("color" + hourmin.toString())) + "'") : ""%>
-                                                        title='<e:forHtmlAttribute value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' />'>
-                                                                        <span color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white"%>'><e:forHtmlContent value='<%= hourmin.toString() %>' />
+                                                        width='1%' <%=dateTimeCodeBean.get("color" + hourmin.toString()) != null ? ("bgcolor='" + SafeEncode.forHtmlAttribute((String) dateTimeCodeBean.get("color" + hourmin.toString())) + "'") : ""%>
+                                                        title='<carlos:encode value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' context="htmlAttribute"/>'>
+                                                                        <span color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white"%>'><carlos:encode value='<%= hourmin.toString() %>' context="html"/>
                                                                         </span>
                                                     </td>
                                                             <%
@@ -2000,8 +2002,8 @@
                                                         %>
                                                         <!-- Short letters -->
                                                         <a class="apptStatus" href="javascript:void(0)"
-                                                           onclick="postViaForm('<%= request.getContextPath() %>/provider/providercontrol?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${e:forUriComponent(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
-                                                           title='<e:forHtmlAttribute value='<%= as.getTitleString(request.getLocale()) %>' />'>
+                                                           onclick="postViaForm('<%= request.getContextPath() %>/provider/providercontrol?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${carlos:forUriComponent(not empty param.viewall ? param.viewall : '0')}<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
+                                                           title='<carlos:encode value='<%= as.getTitleString(request.getLocale()) %>' context="htmlAttribute"/>'>
                                                             <%
                                                                 }
                                                                 if (nextStatus != null) {
@@ -2024,7 +2026,7 @@
 
                                                             <img src="<%= request.getContextPath() %>/images/<%=as.getImageName()%>"
                                                                  border="0" height="10"
-                                                                 alt="<e:forHtmlAttribute value='<%= (as.getTitleString(request.getLocale()).length()>0)?as.getTitleString(request.getLocale()):as.getTitle() %>' />">
+                                                                 alt="<carlos:encode value='<%= (as.getTitleString(request.getLocale()).length()>0)?as.getTitleString(request.getLocale()):as.getTitle() %>' context="htmlAttribute"/>">
 
                                                             <%
                                                                     }
@@ -2050,7 +2052,7 @@
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
                                                                onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=0');return false;"
-                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <e:forHtmlContent value='<%= tickler_note %>' />">
+                                                               title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <carlos:encode value='<%= tickler_note %>' context="html"/>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
 
@@ -2060,7 +2062,7 @@
                                                         <% if (dCust != null && dCust.getAlert() != null && !dCust.getAlert().isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<e:forHtmlAttribute value='<%= dCust.getAlert() %>' />">A</a>
+                                                           title="<carlos:encode value='<%= dCust.getAlert() %>' context="htmlAttribute"/>">A</a>
 
                                                         <%
                                                                 }
@@ -2072,7 +2074,7 @@
                                                         <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' />">N</a>
+                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2084,31 +2086,31 @@
                                                             // Build tooltip variants for privacy-compliant display (dot-name format)
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
                                                             String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
-                                                            String dotTooltipShort = timeRange + " " + Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
+                                                            String dotTooltipShort = timeRange + " " + SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
                                                             String dotReasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String dotNotesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(dotNotesDisplay);
+                                                            String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(dotNotesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
                                                             boolean showTooltipDot = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
                                                         %>
                                                         <a href="javascript:void(0)"
                                                            class="<%= showTooltipDot ? "appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>"
-                                                           <c:set var="__enc_8"><e:forUriComponent value='<%= String.valueOf(appointment.getId()) %>' /></c:set>
-                                                           <c:set var="__enc_9"><e:forUriComponent value='<%= curProvider_no[nProvider] %>' /></c:set>
-                                                           <c:set var="__enc_10"><e:forUriComponent value='<%= String.valueOf(year) %>' /></c:set>
-                                                           <c:set var="__enc_11"><e:forUriComponent value='<%= String.valueOf(month) %>' /></c:set>
-                                                           <c:set var="__enc_12"><e:forUriComponent value='<%= String.valueOf(day) %>' /></c:set>
-                                                           <c:set var="__enc_13"><e:forUriComponent value='<%= iS+":"+iSm %>' /></c:set>
-                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<e:forJavaScriptAttribute value='${__enc_8}' />&provider_no=<e:forJavaScriptAttribute value='${__enc_9}' />&year=<e:forJavaScriptAttribute value='${__enc_10}' />&month=<e:forJavaScriptAttribute value='${__enc_11}' />&day=<e:forJavaScriptAttribute value='${__enc_12}' />&start_time=<e:forJavaScriptAttribute value='${__enc_13}' />&demographic_no=0&displaymode=edit&dboperation=search');return false;"
+                                                           <c:set var="__enc_8"><carlos:encode value='<%= String.valueOf(appointment.getId()) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_9"><carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_10"><carlos:encode value='<%= String.valueOf(year) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_11"><carlos:encode value='<%= String.valueOf(month) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_12"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_13"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
+                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltipDot ? "data-title-full=\"" + dotTooltipFull + "\" data-title-short=\"" + dotTooltipShort + "\" title=\"" + dotTooltipFull + "\"" : "" %>>
                                                             <span>
-                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : Encode.forHtmlContent(name.toUpperCase())) : Encode.forHtmlContent(name.toUpperCase())%>
+                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
                                                         </a><!--Inline display of reason -->
 
                                                         <span class="reason reason_<%=curProvider_no[nProvider]%> hideReason">
-                                                            <e:forHtmlContent value='<%= reasonCodeName %>' />
+                                                            <carlos:encode value='<%= reasonCodeName %>' context="html"/>
                                                         </span>
 
 
@@ -2126,7 +2128,7 @@
                                                         <% if (dCust != null && dCust.getAlert() != null && !dCust.getAlert().isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<e:forHtmlAttribute value='<%= dCust.getAlert() %>' />">A</a>
+                                                           title="<carlos:encode value='<%= dCust.getAlert() %>' context="htmlAttribute"/>">A</a>
                                                         <%
                                                                 }
                                                             }
@@ -2137,7 +2139,7 @@
                                                         <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<e:forHtmlAttribute value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' />">N</a>
+                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2172,7 +2174,7 @@
                                                             <img src="${pageContext.servletContext.contextPath}/images/stop_sign.png"
                                                                  width="14px" height="14px"
                                                                  style="margin-bottom: 3px;margin-left: 3px;"
-                                                                 title="<e:forHtmlAttribute value='<%= warning %>' />"/>&nbsp;
+                                                                 title="<carlos:encode value='<%= warning %>' context="htmlAttribute"/>"/>&nbsp;
                                                             <% } %>
                                                         </c:if>
                                                         <%
@@ -2191,26 +2193,25 @@
                                                         <%
                                                             // Build tooltip variants for privacy-compliant display
                                                             // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String tooltipShort = Encode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + Encode.forHtmlAttribute(type) : "");
+                                                            String tooltipShort = SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
                                                             String reasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
                                                             String notesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String tooltipFull = tooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(notesDisplay);
+                                                            String tooltipFull = tooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(notesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
                                                             boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
                                                         %>
                                                         <a class="apptLink<%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" href="javascript:void(0)"
-                                                           <c:set var="__enc_14"><e:forUriComponent value='<%= String.valueOf(appointment.getId()) %>' /></c:set>
-                                                           <c:set var="__enc_15"><e:forUriComponent value='<%= curProvider_no[nProvider] %>' /></c:set>
-                                                           <c:set var="__enc_16"><e:forUriComponent value='<%= String.valueOf(year) %>' /></c:set>
-                                                           <c:set var="__enc_17"><e:forUriComponent value='<%= String.valueOf(month) %>' /></c:set>
-                                                           <c:set var="__enc_18"><e:forUriComponent value='<%= String.valueOf(day) %>' /></c:set>
-                                                           <c:set var="__enc_19"><e:forUriComponent value='<%= iS+":"+iSm %>' /></c:set>
-                                                           <c:set var="__enc_20"><e:forUriComponent value='<%= String.valueOf(demographic_no) %>' /></c:set>
-                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<e:forJavaScriptAttribute value='${__enc_14}' />&provider_no=<e:forJavaScriptAttribute value='${__enc_15}' />&year=<e:forJavaScriptAttribute value='${__enc_16}' />&month=<e:forJavaScriptAttribute value=                                                           
-"${__enc_17}" />&day=<e:forJavaScriptAttribute value='${__enc_18}' />&start_time=<e:forJavaScriptAttribute value='${__enc_19}' />&demographic_no=<e:forJavaScriptAttribute value='${__enc_20}' />&displaymode=edit&dboperation=search');return false;"
+                                                           <c:set var="__enc_14"><carlos:encode value='<%= String.valueOf(appointment.getId()) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_15"><carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_16"><carlos:encode value='<%= String.valueOf(year) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_17"><carlos:encode value='<%= String.valueOf(month) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_18"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_19"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
+                                                           <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
+                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"
                                                            <%= showTooltip ? "data-title-full=\"" + tooltipFull + "\" data-title-short=\"" + tooltipShort + "\" title=\"" + tooltipFull + "\"" : "" %> >
-                                                            <%=(name.length() > len ? Encode.forHtmlContent(name.substring(0, len)) : Encode.forHtmlContent(name))%>
+                                                            <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
 
@@ -2323,7 +2324,7 @@
 
                                                             <span class='reason reason_<%=curProvider_no[nProvider]%> hideReason'>
                                                         &#124; <strong><i>
-                                                            <e:forHtmlContent value='<%= reasonCodeName %>' />
+                                                            <carlos:encode value='<%= reasonCodeName %>' context="html"/>
                                                         </i></strong>
                                                     </span>
                                                         </c:if>
@@ -2343,14 +2344,14 @@
                                                                 alt="Happy Birthday"/>
                                                         </span>
                                                         <c:forEach items="${formNamesList}" var="form">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/form/forwardshortcutname?formname=${e:forUriComponent(form)}&amp;formId=0&provNo=${appointment.providerNo}&parentAjaxId=forms&amp;demographic_no=${appointment.demographicNo}&amp;appointmentNo=${appointment.id}")'
-                                                            title='${e:forHtmlAttribute(form)}'>
-                                                            ${e:forHtml(fn:substring(form, 0, truncateLimit))}
+                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/form/forwardshortcutname?formname=${carlos:forUriComponent(form)}&amp;formId=0&provNo=${appointment.providerNo}&parentAjaxId=forms&amp;demographic_no=${appointment.demographicNo}&amp;appointmentNo=${appointment.id}")'
+                                                            title='${carlos:forHtmlAttribute(form)}'>
+                                                            ${carlos:forHtml(fn:substring(form, 0, truncateLimit))}
                                                             </a>
                                                         </c:forEach>
                                                         <c:forEach items="${eFormsList}" var="eform">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/eform/efmformadd_data?fid=${eform.appointmentScreenEForm}&amp;demographic_no=${appointment.demographicNo}&amp;appointment=${appointment.id}")' title='${e:forHtmlAttribute(eform.eFormName)}'>
-                                                            ${e:forHtml(fn:substring(eform.eFormName, 0, truncateLimit))}
+                                                            |<a href="javascript:void(0)" onClick='popupPage2("${pageContext.servletContext.contextPath}/eform/efmformadd_data?fid=${eform.appointmentScreenEForm}&amp;demographic_no=${appointment.demographicNo}&amp;appointment=${appointment.id}")' title='${carlos:forHtmlAttribute(eform.eFormName)}'>
+                                                            ${carlos:forHtml(fn:substring(eform.eFormName, 0, truncateLimit))}
                                                             </a>
                                                         </c:forEach>
                                                         <c:if test="${not empty quickLinksList}">
@@ -2440,7 +2441,7 @@
                 //use (evt.altKey || evt.metaKey) for Mac if you want Apple+A, you will probably want a seperate onkeypress handler in that case to return false to prevent propagation
                 switch (evt.keyCode) {
                     case <fmt:message key="global.adminShortcut"/> :
-                        newWindow("<%= request.getContextPath() %>/administration/", "admin");
+                        newWindow("<%= request.getContextPath() %>/administration", "admin");
                         return false;  //run code for 'A'dmin
                     case <fmt:message key="global.calendarShortcut"/> :
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
@@ -2455,11 +2456,11 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${e:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${carlos:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${e:forJavaScript(labTitle)}');
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${carlos:forJavaScript(labTitle)}');
                         return false;  //run code for 'L'ab
                     case <fmt:message key="global.msgShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
@@ -2474,12 +2475,12 @@
                         popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
-                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<e:forJavaScript value='${__enc_21}' />'); //run code for 'P'references
+                        popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<carlos:encode value='${__enc_21}' context="javaScript"/>'); //run code for 'P'references
                         return false;
                     }
                     case <fmt:message key="global.searchShortcut"/> :
                         popupOscarRx(550, 687, '<%= request.getContextPath() %>/demographic/ViewSearch');
-                        <c:set var="__enc_21"><e:forUriComponent value='<%= mygroupno %>' /></c:set>
+                        <c:set var="__enc_21"><carlos:encode value='<%= mygroupno %>' context="uriComponent"/></c:set>
                         return false;  //run c                        
 ode for 'S'earch
                     case <fmt:message key="global.dayShortcut"/> :
@@ -2495,7 +2496,7 @@ ode for 'S'earch
                         <% } %>
                     }
                     case <fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${e:forJavaScript(workflowTitle)}');
+                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${carlos:forJavaScript(workflowTitle)}');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -2519,9 +2520,9 @@ ode for 'S'earch
             jQuery('.ds-btn').click(function () {
                 //var provider_no = '<%=loggedInInfo1.getLoggedInProviderNo()%>';
                 var provider_no = jQuery(this).attr('data-provider_no');
-                var y = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' />';
-                var m = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' />';
-                var d = '<e:forJavaScriptBlock value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' />';
+                var y = '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' context="javaScriptBlock"/>';
+                var m = '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="javaScriptBlock"/>';
+                var d = '<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="javaScriptBlock"/>';
                 var sTime = 8;
                 var eTime = 20;
                 var dateStr = y + '-' + m + '-' + d;
@@ -2599,17 +2600,17 @@ ode for 'S'earch
         <fmt:message var="qsSlotErrorAlert"     key="provider.appointmentProviderAdminDay.quickSearch.slotErrorAlert"/>
         /* Translated UI strings — OWASP-encoded for JS string context to prevent injection */
         var msgs = {
-            noPatientsFound:    '${e:forJavaScript(qsNoPatientsFound)}',
-            addNewPatient:      '${e:forJavaScript(qsAddNewPatient)}',
-            badgeMasterFile:    '${e:forJavaScript(qsBadgeMasterFile)}',
-            badgeEChart:        '${e:forJavaScript(qsBadgeEChart)}',
-            badgePrescriptions: '${e:forJavaScript(qsBadgePrescriptions)}',
-            badgeApptTitle:     '${e:forJavaScript(qsBadgeApptTitle)}',
-            labelDob:           '${e:forJavaScript(qsLabelDob)}',
-            labelHin:           '${e:forJavaScript(qsLabelHin)}',
-            noMrpAlert:         '${e:forJavaScript(qsNoMrpAlert)}',
-            noSlotsAlert:       '${e:forJavaScript(qsNoSlotsAlert)}',
-            slotErrorAlert:     '${e:forJavaScript(qsSlotErrorAlert)}'
+            noPatientsFound:    '${carlos:forJavaScript(qsNoPatientsFound)}',
+            addNewPatient:      '${carlos:forJavaScript(qsAddNewPatient)}',
+            badgeMasterFile:    '${carlos:forJavaScript(qsBadgeMasterFile)}',
+            badgeEChart:        '${carlos:forJavaScript(qsBadgeEChart)}',
+            badgePrescriptions: '${carlos:forJavaScript(qsBadgePrescriptions)}',
+            badgeApptTitle:     '${carlos:forJavaScript(qsBadgeApptTitle)}',
+            labelDob:           '${carlos:forJavaScript(qsLabelDob)}',
+            labelHin:           '${carlos:forJavaScript(qsLabelHin)}',
+            noMrpAlert:         '${carlos:forJavaScript(qsNoMrpAlert)}',
+            noSlotsAlert:       '${carlos:forJavaScript(qsNoSlotsAlert)}',
+            slotErrorAlert:     '${carlos:forJavaScript(qsSlotErrorAlert)}'
         };
 
         /**

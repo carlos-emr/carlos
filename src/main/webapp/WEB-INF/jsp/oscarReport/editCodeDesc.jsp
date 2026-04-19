@@ -26,6 +26,8 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -69,8 +71,8 @@
     <form action="<%= request.getContextPath() %>/report/DxresearchReport" method="post">
         <input type="hidden" name="method" value="editDesc"/>
 
-        <input type="hidden" name="editingCodeType" value="<e:forHtmlAttribute value='<%= editingCodeType != null ? editingCodeType : "" %>' />"/>
-        <input type="hidden" name="editingCodeCode" value="<e:forHtmlAttribute value='<%= editingCodeCode != null ? editingCodeCode : "" %>' />"/>
+        <input type="hidden" name="editingCodeType" value="<carlos:encode value='<%= editingCodeType != null ? editingCodeType : "" %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="editingCodeCode" value="<carlos:encode value='<%= editingCodeCode != null ? editingCodeCode : "" %>' context="htmlAttribute"/>"/>
 
         <table class="table">
             <tr>
@@ -80,11 +82,11 @@
                 <th>Action</th>
             </tr>
             <tr>
-                <td><e:forHtmlContent value='<%= editingCodeType != null ? editingCodeType : "" %>' />
+                <td><carlos:encode value='<%= editingCodeType != null ? editingCodeType : "" %>' context="html"/>
                 </td>
-                <td><e:forHtmlContent value='<%= editingCodeCode != null ? editingCodeCode : "" %>' />
+                <td><carlos:encode value='<%= editingCodeCode != null ? editingCodeCode : "" %>' context="html"/>
                 </td>
-                <td><input name="editingCodeDesc" value="<e:forHtmlAttribute value='<%= editingCodeDesc != null ? editingCodeDesc : "" %>' />" class="col-md-4"></td>
+                <td><input name="editingCodeDesc" value="<carlos:encode value='<%= editingCodeDesc != null ? editingCodeDesc : "" %>' context="htmlAttribute"/>" class="col-md-4"></td>
                 <td><input type="submit" name="submit" class="btn btn-primary" value="Modify"></td>
             </tr>
         </table>

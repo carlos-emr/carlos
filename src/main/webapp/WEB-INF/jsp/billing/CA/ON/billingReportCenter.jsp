@@ -43,6 +43,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
 %>
@@ -150,7 +152,7 @@
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
                 %>
-                <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=providerview.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proLast + ", " + proFirst %>' /></option>
+                <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast + ", " + proFirst %>' context="html"/></option>
                 <%
                     }
                 %>
@@ -159,10 +161,10 @@
             <input type="hidden" name="verCode" value="V03">
 
             <label style="margin-left:10px;">From:
-                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_vdate %>' />">
+                <input type="date" name="xml_vdate" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
             </label>
             <label>To:
-                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />">
+                <input type="date" name="xml_appointment_date" class="form-control form-control-sm" style="width:auto; display:inline-block;" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
             </label>
 
             <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">

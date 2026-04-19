@@ -73,11 +73,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String country = request.getLocale().getCountry();
     CarlosProperties carlosVariables = CarlosProperties.getInstance();
@@ -122,21 +123,33 @@
 
 </security:oscarSec>
 
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language}"/>
+
 <!DOCTYPE html>
-<html>
+<html lang="${flatpickrLanguage}">
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="report.reportindex.title"/></title>
 
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/calendar-en.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+        <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+        <c:if test="${flatpickrLanguage != 'en'}">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forHtmlAttribute(flatpickrLanguage)}.js"></script>
+        </c:if>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
+        <style>
+          .date-inline-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+          }
+          .date-inline-group .form-control {
+            width: 140px; /* compact width close to date length */
+          }
+        </style>
 
-        <script type="text/javascript">
+        <script>
             <!--
             function setfocus() {
                 this.focus();
@@ -172,6 +185,74 @@
 
             //-->
         </script>
+
+        <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            const localeCode = "${carlos:forJavaScript(flatpickrLanguage)}";
+            const fromPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncFrom,
+              onClose: syncFrom
+            };
+            const toPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncTo,
+              onClose: syncTo
+            };
+
+            if (localeCode !== "en") {
+              fromPickerOptions.locale = localeCode;
+              toPickerOptions.locale = localeCode;
+            }
+
+            const fromPicker = flatpickr("#asdate", fromPickerOptions);
+            const toPicker = flatpickr("#aedate", toPickerOptions);
+        
+            function syncFrom(selectedDates, dateStr, instance) {
+              const fromDate = instance.selectedDates[0];
+              const toDate = toPicker.selectedDates[0];
+        
+              if (fromDate) {
+                toPicker.set("minDate", fromDate);
+        
+                // auto-correct if To < From
+                if (toDate && toDate < fromDate) {
+                  toPicker.setDate(fromDate, true);
+                }
+              } else {
+                toPicker.set("minDate", null);
+              }
+            }
+        
+            function syncTo(selectedDates, dateStr, instance) {
+              const toDate = instance.selectedDates[0];
+              const fromDate = fromPicker.selectedDates[0];
+        
+              if (toDate) {
+                fromPicker.set("maxDate", toDate);
+        
+                // auto-correct if From > To
+                if (fromDate && fromDate > toDate) {
+                  fromPicker.setDate(toDate, true);
+                }
+              } else {
+                fromPicker.set("maxDate", null);
+              }
+            }
+        
+            // Button triggers
+            document.getElementById("btn-asdate").addEventListener("click", function () {
+              fromPicker.open();
+            });
+        
+            document.getElementById("btn-aedate").addEventListener("click", function () {
+              toPicker.open();
+            });
+          });
+        </script>
+
     </head>
     <body onload="setfocus()">
     <%
@@ -193,11 +274,11 @@
         <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
-                <td width="2"><%=j%>
+                <td style="width: 30px;"><%=j%>
                     <%j++;%>
                 </td>
-                <td width="1"></td>
-                <td width="300"><fmt:message key="report.reportindex.formDaySheet"/></td>
+                <td style="width: 10px;"></td>
+                <td  style="width: 300px;"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
@@ -206,8 +287,8 @@
                             if (isTeamAccessPrivacy)
                                 continue;    //skip mygroup display if user have TeamAccessPrivacy
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' />"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= "GRP: " + rsgroup.getString("mygroup_no") %>' />
+                    <option value="<carlos:encode value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' context="htmlAttribute"/>"
+                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= rsgroup.getString("mygroup_no") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -216,8 +297,8 @@
                         rsgroup = reportMainBean.queryResults(provider_dboperation);
                         while (rsgroup.next()) {
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= rsgroup.getString("provider_no") %>' />"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><e:forHtmlContent value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' />
+                    <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
+                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><carlos:encode value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -229,17 +310,32 @@
                 <td></td>
             </tr>
             <tr>
-                <td width="2"></td>
-                <td width="1">&nbsp;</td>
-                <td width="300">
+                <td style="width: 30px;"></td>
+                <td style="width: 0px;">&nbsp;</td>
+                <td style="width: 300px;">
                     <sup>*</sup><a HREF="#" ONCLICK="go('all')"><fmt:message key="report.reportindex.btnAllAppt"/></a><br>&nbsp;&nbsp; <fmt:message key="report.reportindex.chkRostered"/> <input type="checkbox" id="rosteredOnly" value="true">
                 </td>
-                <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('asdate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formFrom"/></a> <input type='text' name="asdate"
-                                                                       VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
-                <td><a HREF="#"
-                       onClick="popupPage(310,430,'<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/report/ViewReportindex&year=<%=now.get(Calendar.YEAR)%>&month=<%=now.get(Calendar.MONTH)+1%>&param=<%=URLEncoder.encode("&formdatebox=document.getElementsByName('aedate')[0].value", StandardCharsets.UTF_8)%>')"><fmt:message key="report.reportindex.formTo"/> </a> <input type='text' name="aedate"
-                                                                      VALUE="<%=today%>" class="form-control form-control-sm" style="width:auto;display:inline-block"></td>
+                <td colspan="2">
+                  <div class="date-inline-group">
+                    <!-- From -->
+                    <label for="asdate" class="mb-0"><fmt:message key="report.reportindex.formFrom"/></label>
+                    <div class="input-group input-group-sm" style="width: auto;">
+                      <input type="text" id="asdate" name="asdate" class="form-control" value="<%=today%>">
+                      <button class="btn btn-outline-secondary" type="button" id="btn-asdate">
+                        <i class="fa-solid fa-calendar-day"></i>
+                      </button>
+                    </div>
+                  
+                    <!-- To -->
+                    <label for="aedate" class="mb-0"><fmt:message key="report.reportindex.formTo"/></label>
+                    <div class="input-group input-group-sm" style="width: auto;">
+                      <input type="text" id="aedate" name="aedate" class="form-control" value="<%=today%>">
+                      <button class="btn btn-outline-secondary" type="button" id="btn-aedate">
+                        <i class="fa-solid fa-calendar-day"></i>
+                      </button>
+                    </div>
+                  </div>
+                </td>
                 <td><select name="sTime" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (int i = 0; i < 24; i++) {
@@ -261,11 +357,11 @@
             </tr>
 
             <tr>
-                <td width="2"><%=j%>
+                <td style="width: 30px;"><%=j%>
                     <%j++;%>
                 </td>
-                <td width="1"></td>
-                <td width="300"><a
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;"><a
                         href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
                 <td></td>
                 <td></td>
@@ -274,11 +370,11 @@
             </tr>
 
             <tr>
-                <td width="2"><%=j%>
+                <td style="width: 30px;"><%=j%>
                     <%j++;%>
                 </td>
-                <td width="1"></td>
-                <td width="300"><a
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;"><a
                         href="<%= request.getContextPath() %>/prevention/PreventionReport" target="_blank"><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
                 <td></td>
@@ -288,11 +384,11 @@
             <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
             <% if (StringUtils.isNotBlank(prov)) { %>
             <tr>
-                <td width="2"><%=j%>
+                <td style="width: 30px;"><%=j%>
                     <%j++;%>
                 </td>
-                <td width="1"></td>
-                <td width="300">
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;">
                   <a href="<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&amp;providerview=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProviderNo(), StandardCharsets.UTF_8)%>" target="_blank"><fmt:message key="global.genBillReport"/></a></td>
                 <td></td>
                 <td></td>

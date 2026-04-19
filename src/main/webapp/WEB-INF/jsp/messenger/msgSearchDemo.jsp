@@ -104,6 +104,8 @@
 <body
         onload="<% if ( firstSearch) { %> document.forms[0].submit() <% } %>">
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -173,7 +175,7 @@
                         <td nowrap></td>
                         <td nowrap></td>
                         <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
-                                                                            NAME="keyword" VALUE="<e:forHtmlAttribute value='<%= keyword %>' />"
+                                                                            NAME="keyword" VALUE="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"
                                                                             SIZE="17" MAXLENGTH="100">
                             <%
                                 String searchMode = request.getParameter("search_mode");
@@ -182,7 +184,7 @@
                                 }
                             %>
                             <input type="hidden" name="outofdomain" value="">
-                            <input type="hidden" name="search_mode" value="<e:forHtmlAttribute value='<%= searchMode %>' />">
+                            <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
                             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
                             <INPUT TYPE="hidden" NAME="dboperation" VALUE="search_titlename">
                             <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT
@@ -213,8 +215,8 @@
 </table>
 <script>
     // Auto-close window and write selection back to parent if demographic was selected
-    if ("<e:forJavaScriptBlock value='<%= demographic_no %>' />" != "null") {
-        write2Parent("<e:forJavaScriptBlock value='<%= keyword %>' />", "<e:forJavaScriptBlock value='<%= demographic_no %>' />");
+    if ("<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>" != "null") {
+        write2Parent("<carlos:encode value='<%= keyword %>' context="javaScriptBlock"/>", "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>");
         self.window.close();
     }
 </script>

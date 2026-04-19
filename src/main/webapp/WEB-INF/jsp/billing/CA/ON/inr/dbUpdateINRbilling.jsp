@@ -33,6 +33,8 @@
     @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script language="JavaScript">
@@ -63,12 +65,12 @@
     <%
         } else {
     %>
-    <div style="white-space: pre-line"><e:forHtmlContent value='<%= errorCode %>' /></div>
+    <div style="white-space: pre-line"><carlos:encode value='<%= errorCode %>' context="html"/></div>
     <input type="button" value="Change" onClick="history.go(-1);return false;">
     <%
         }
     %>
-    <p><e:forHtmlContent value='<%= inraction %>' /> Bill number <e:forHtmlContent value='<%= billinginr_no %>' /></p>
+    <p><carlos:encode value='<%= inraction %>' context="html"/> Bill number <carlos:encode value='<%= billinginr_no %>' context="html"/></p>
     <hr width="90%"/>
     <form><input type="button" value="Close this window" onClick="window.close()"></form>
 </center>

@@ -33,6 +33,7 @@
 <%-- Updated by Eugene Petruhin on 08 jan 2009 while fixing #2482832 & #2494061 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -59,7 +60,7 @@
 <head>
     <title>Issue Search</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">
 </head>
 
 <body>
@@ -69,8 +70,8 @@
     <script type="text/javascript">
         function backToNote(from) {
 
-            if (from == null) location.href = "${e:forJavaScript(url)}";
-            else location.href = "${e:forJavaScript(url)}" + "&from=" + from;
+            if (from == null) location.href = "${carlos:forJavaScript(url)}";
+            else location.href = "${carlos:forJavaScript(url)}" + "&from=" + from;
             return false;
         }
 
@@ -88,14 +89,14 @@
     <input type="hidden" name="providerNo" id="providerNo"/>
     <input type="hidden" name="method" value="issueSearch"/>
     <input type="hidden" name="lastPage" value="true"/>
-    <input type="hidden" name="change_diagnosis" value="${e:forHtmlAttribute(change_diagnosis)}"/>
-    <input type="hidden" name="change_diagnosis_id" value="${e:forHtmlAttribute(change_diagnosis_id)}"/>
+    <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}"/>
+    <input type="hidden" name="change_diagnosis_id" value="${carlos:forHtmlAttribute(change_diagnosis_id)}"/>
 
     <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
         <input type="hidden" name="from" value="casemgmt"/>
     </c:if>
 
-    <b>Client name: <I>${e:forHtml(requestScope.demoName)}</I></b>
+    <b>Client name: <I>${carlos:forHtml(requestScope.demoName)}</I></b>
     <br><br>
 
     <P><b>Search the Issue </b></P>

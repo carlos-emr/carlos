@@ -35,6 +35,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String date = null;
@@ -57,7 +59,7 @@
 %>
 
 <head>
-    <title><fmt:message key="ScratchPad.title"/> <e:forHtmlContent value='<%= title %>' />
+    <title><fmt:message key="ScratchPad.title"/> <carlos:encode value='<%= title %>' context="html"/>
     </title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -166,7 +168,7 @@
             </h2>
         </div>
         <div class="user-name">
-            <h4><e:forHtmlContent value='<%= userfirstname %>' /> <e:forHtmlContent value='<%= userlastname %>' />
+            <h4><carlos:encode value='<%= userfirstname %>' context="html"/> <carlos:encode value='<%= userlastname %>' context="html"/>
             </h4>
         </div>
 
@@ -175,23 +177,23 @@
         <tr>
             <td>&nbsp;</td>
             <td>
-                <div class="pad-version"><fmt:message key="ScratchPad.title"/> <e:forHtmlContent value='<%= title %>' />
+                <div class="pad-version"><fmt:message key="ScratchPad.title"/> <carlos:encode value='<%= title %>' context="html"/>
                 </div>
             </td>
         </tr>
         <tr>
             <td class="MainTableLeftColumn">
-                <button name="deleteVersion" class="btn btn-danger" onclick="deleteVersion('<e:forUriComponent value='<%= id %>' />')">Delete</button>
+                <button name="deleteVersion" class="btn btn-danger" onclick="deleteVersion('<carlos:encode value='<%= id %>' context="uriComponent"/>')">Delete</button>
             </td>
             <td class="MainTableRightColumn" id="scratchpad-version" style="white-space: pre-line;">
-                <e:forHtmlContent value='<%= scratchPad.getText() %>' />
+                <carlos:encode value='<%= scratchPad.getText() %>' context="html"/>
             </td>
         </tr>
 
     </table>
 
     <script>
-	    const context = "<e:forJavaScriptBlock value='<%= request.getContextPath() %>' />";
+	    const context = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>";
 
 	    function deleteVersion(id) {
 			let action = confirm("Are you sure you would like to delete this version?");

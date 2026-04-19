@@ -60,6 +60,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
@@ -258,29 +259,29 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
-                handlerNotRemoved: '${e:forJavaScript(msg_handlerNotRemoved)}',
-                confirmMedRecComplete: '${e:forJavaScript(msg_confirmMedRecComplete)}',
-                medRecCompleted: '${e:forJavaScript(msg_medRecCompleted)}',
-                confirmChangeDrugName: '${e:forJavaScript(msg_confirmChangeDrugName)}',
-                confirmDeletePrescriptions: '${e:forJavaScript(msg_confirmDeletePrescriptions)}',
-                confirmCustomNote: '${e:forJavaScript(msg_confirmCustomNote)}',
-                confirmCustomDrug: '${e:forJavaScript(msg_confirmCustomDrug)}',
-                startDateWrongFormat: '${e:forJavaScript(msg_startDateWrongFormat)}',
-                startDateInvalidYear: '${e:forJavaScript(msg_startDateInvalidYear)}',
-                startDateInvalidMonth: '${e:forJavaScript(msg_startDateInvalidMonth)}',
-                startDateInvalidDay: '${e:forJavaScript(msg_startDateInvalidDay)}',
-                startDateFuture: '${e:forJavaScript(msg_startDateFuture)}',
-                writtenDateWrongFormat: '${e:forJavaScript(msg_writtenDateWrongFormat)}',
-                writtenDateInvalidYear: '${e:forJavaScript(msg_writtenDateInvalidYear)}',
-                writtenDateInvalidMonth: '${e:forJavaScript(msg_writtenDateInvalidMonth)}',
-                writtenDateInvalidDay: '${e:forJavaScript(msg_writtenDateInvalidDay)}',
-                writtenDateFuture: '${e:forJavaScript(msg_writtenDateFuture)}',
-                pleaseAddDrugFirst: '${e:forJavaScript(msg_pleaseAddDrugFirst)}',
-                reviewDrugSpecifyTerm: '${e:forJavaScript(msg_reviewDrugSpecifyTerm)}',
-                unstagedReRxSingle: '${e:forJavaScript(msg_unstagedReRxSingle)}',
-                unstagedReRxMultiple: '${e:forJavaScript(msg_unstagedReRxMultiple)}',
-                saveWarning: '${e:forJavaScript(msg_saveWarning)}',
-                savePrompt: '${e:forJavaScript(msg_savePrompt)}'
+                handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
+                confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
+                medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
+                confirmChangeDrugName: '${carlos:forJavaScript(msg_confirmChangeDrugName)}',
+                confirmDeletePrescriptions: '${carlos:forJavaScript(msg_confirmDeletePrescriptions)}',
+                confirmCustomNote: '${carlos:forJavaScript(msg_confirmCustomNote)}',
+                confirmCustomDrug: '${carlos:forJavaScript(msg_confirmCustomDrug)}',
+                startDateWrongFormat: '${carlos:forJavaScript(msg_startDateWrongFormat)}',
+                startDateInvalidYear: '${carlos:forJavaScript(msg_startDateInvalidYear)}',
+                startDateInvalidMonth: '${carlos:forJavaScript(msg_startDateInvalidMonth)}',
+                startDateInvalidDay: '${carlos:forJavaScript(msg_startDateInvalidDay)}',
+                startDateFuture: '${carlos:forJavaScript(msg_startDateFuture)}',
+                writtenDateWrongFormat: '${carlos:forJavaScript(msg_writtenDateWrongFormat)}',
+                writtenDateInvalidYear: '${carlos:forJavaScript(msg_writtenDateInvalidYear)}',
+                writtenDateInvalidMonth: '${carlos:forJavaScript(msg_writtenDateInvalidMonth)}',
+                writtenDateInvalidDay: '${carlos:forJavaScript(msg_writtenDateInvalidDay)}',
+                writtenDateFuture: '${carlos:forJavaScript(msg_writtenDateFuture)}',
+                pleaseAddDrugFirst: '${carlos:forJavaScript(msg_pleaseAddDrugFirst)}',
+                reviewDrugSpecifyTerm: '${carlos:forJavaScript(msg_reviewDrugSpecifyTerm)}',
+                unstagedReRxSingle: '${carlos:forJavaScript(msg_unstagedReRxSingle)}',
+                unstagedReRxMultiple: '${carlos:forJavaScript(msg_unstagedReRxMultiple)}',
+                saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
+                savePrompt: '${carlos:forJavaScript(msg_savePrompt)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -640,8 +641,8 @@ function addEvent(elm, evType, fn, useCapture)
 }
 function checkFav(){
     //oscarLog("****** in checkFav");
-    var usefav='<e:forJavaScriptBlock value='<%= usefav %>' />';
-    var favid='<e:forJavaScriptBlock value='<%= favid %>' />';
+    var usefav='<carlos:encode value='<%= usefav %>' context="javaScriptBlock"/>';
+    var favid='<carlos:encode value='<%= favid %>' context="javaScriptBlock"/>';
     if(usefav=="true" && favid!=null && favid!='null'){
         //oscarLog("****** favid "+favid);
         useFav2(favid);
@@ -669,7 +670,7 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('${e:forJavaScript(ctx)}/rx/reorderDrug', {
+    	CarlosAjax.request('${carlos:forJavaScript(ctx)}/rx/reorderDrug', {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
@@ -681,7 +682,7 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('${e:forJavaScript(ctx)}/rx/reorderDrug', {
+    	CarlosAjax.request('${carlos:forJavaScript(ctx)}/rx/reorderDrug', {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
@@ -802,7 +803,7 @@ function renderRxStage() {
                        float:left;
                    }
         </style>
-      <title>Rx-<e:forHtmlContent value='<%= patient.getSurname() %>' /></title>
+      <title>Rx-<carlos:encode value='<%= patient.getSurname() %>' context="html"/></title>
     </head>
 
     <%
@@ -1126,7 +1127,7 @@ function renderRxStage() {
                             					%>
                             						<tr>
                             							<td><%=formatter.format(note.getCreate_date()) %></td>
-                                                    <td><e:forHtmlContent value='<%= str %>' />
+                                                    <td><carlos:encode value='<%= str %>' context="html"/>
                                                     </td>
                             						</tr>
                             					<% 
@@ -1195,7 +1196,7 @@ function renderRxStage() {
     <table class="hiddenLayer">
         <tr>
             <td>&nbsp;</td>
-            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='${e:forHtmlAttribute(ctx)}/images/close.png' border="0"></a></td>
+            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a></td>
         </tr>
 
         <tr>
@@ -1825,7 +1826,7 @@ function popForm2(scriptId){
             modalBody.appendChild(iframe);
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
-            var editRxMsg = '${e:forJavaScript(msg_editRx)}';
+            var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';
             var closeBtn = document.getElementById('carlosModalCloseBtn');
             closeBtn.textContent = editRxMsg;
             closeBtn.onclick = updateDeleteOnCloseRxBox;
@@ -1849,9 +1850,11 @@ function popForm2(scriptId){
      }
 
      function callAdditionWebService(url,id){
-         var contextPath = '${e:forJavaScript(ctx)}';
+         var contextPath = '${carlos:forJavaScript(ctx)}';
          if (url.indexOf(contextPath) !== 0) {
-             url = contextPath + "/rx/" + url;
+             // url typically begins with '/rx/...' (already context-relative).
+             // Only prepend contextPath; don't double-stack '/rx/'.
+             url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
          }
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
@@ -1859,9 +1862,11 @@ function popForm2(scriptId){
      }
 
 			function callReplacementWebService(url, id) {
-            var contextPath = '${e:forJavaScript(ctx)}';
+            var contextPath = '${carlos:forJavaScript(ctx)}';
             if (url.indexOf(contextPath) !== 0) {
-                url = contextPath + "/rx/" + url;
+                // url typically begins with '/rx/...' (already context-relative).
+                // Only prepend contextPath; don't double-stack '/rx/'.
+                url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
             }
 				var ran_number = Math.round(Math.random() * 1000000);
 				// alert(url + "  " + id + "  " + ran_number);

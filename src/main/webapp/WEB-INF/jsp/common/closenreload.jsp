@@ -2,6 +2,7 @@
 
 <%@ taglib prefix="e" uri="owasp.encoder.jakarta.advanced" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
 </head>
@@ -9,7 +10,7 @@
 <c:set var="parentAjaxId" value="${not empty param.parentAjaxId ? param.parentAjaxId : parentAjaxId}" />
 <center>Closing Window, Please Wait....</center>
 <script type="text/javascript" language="javascript">
-    const parentAjaxId = "<e:forHtml value='${parentAjaxId}' />";
+    const parentAjaxId = "<carlos:encode value='${parentAjaxId}' context="forHtml"/>";
     if (window.opener && !window.opener.closed) {
         if (parentAjaxId !== "") {
             window.opener.reloadNav(parentAjaxId);

@@ -47,6 +47,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.form.graphic.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -1061,8 +1062,8 @@ if (!fedb.equals("") && fedb.length()==10 ) {
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
-        <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
-        <input type="hidden" name="provNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' />"/>
+        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="provNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
         <input type="hidden" name="DOB" id="DOB" value="<%= props.getProperty("pg1_dateOfBirth", "") %>"/>
         <input type="hidden" name="height" id="height" value="<%= props.getProperty("c_ppHt", "") %>"/>

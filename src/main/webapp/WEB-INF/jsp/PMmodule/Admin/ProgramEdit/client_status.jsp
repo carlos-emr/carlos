@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!-- 
 /*
 * 
@@ -62,7 +63,7 @@ function add_status(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteStatus('${e:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
 	</display:column>
 	<display:column property="name" sortable="true" title="Name" />	
 </display:table>

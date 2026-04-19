@@ -29,6 +29,8 @@
 
 --%>
 <%@ page import="java.util.List" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 <head>
@@ -44,7 +46,7 @@ You tried to access a resource with insufficient privileges.
     if (vals != null) {
         for (String val : vals) {
 %>
-<h5>Object:<e:forHtmlContent value='<%= val %>' />
+<h5>Object:<carlos:encode value='<%= val %>' context="html"/>
 </h5>
 <%
         }
@@ -57,7 +59,7 @@ You tried to access a resource with insufficient privileges.
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>

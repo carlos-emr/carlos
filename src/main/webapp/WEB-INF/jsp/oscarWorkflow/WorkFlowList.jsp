@@ -44,6 +44,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
 
@@ -178,7 +180,7 @@
                         <td><a
                                 href="javascript: function myFunction() {return false; }"
                                 onclick="popup(700,1000,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=(String) h.get("demographic_no")%>','master')"
-					title="Master File"> <e:forHtmlContent value='<%= demoHash.get("lastName") %>' />, <e:forHtmlContent value='<%= demoHash.get("firstName") %>' />
+					title="Master File"> <carlos:encode value='<%= demoHash.get("lastName") %>' context="html"/>, <carlos:encode value='<%= demoHash.get("firstName") %>' context="html"/>
                         </a></td>
                         <td><%=h.get("completion_date")%>
                         </td>
@@ -186,7 +188,7 @@
                         </td>
                         <td><%=gestAge%>
                         </td>
-	                        <c:set var="__enc_1"><e:forHtmlAttribute value='<%= (String) h.get("demographic_no") %>' /></c:set>
+	                        <c:set var="__enc_1"><carlos:encode value='<%= (String) h.get("demographic_no") %>' context="htmlAttribute"/></c:set>
 	                        <td><oscar:nextAppt demographicNo="${__enc_1}" /></td>
                     </tr>
                     <%}%>

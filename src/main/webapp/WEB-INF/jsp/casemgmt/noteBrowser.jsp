@@ -45,6 +45,8 @@
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
 <%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
@@ -138,7 +140,7 @@
 <html>
 <head>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
-            demographicNo="<e:forHtmlAttribute value='<%= demographicID %>' />"/></title>
+            demographicNo="<%= demographicID %>"/></title>
     <script type="text/javascript">
 
         function popup(vheight, vwidth, varpage) { //open a new popup window
@@ -249,10 +251,10 @@
 
         }
 
-        <c:set var="__enc_1"><e:forUriComponent value='<%= demographicID %>' /></c:set>
+        <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
         function showEncounter(enc            
 List) {
-            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<e:forJavaScript value='${__enc_1}' />' + encList + '&printCPP=false&printRx=false';
+            var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
             iframe.width = (getWidth() - 40);
@@ -414,15 +416,15 @@ List) {
                     }
                 }
 
-                <c:set var="__enc_2"><e:forUriComponent value='<%= demographicID %>' /></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
                 po                
-pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<e:forJavaScript value='${__enc_2}' />' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
         function AddTickler() {
-            <c:set var="__enc_3"><e:forUriComponent value='<%= demographicID %>' /></c:set>
-            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=<e:forJavaScript value='${__enc_3}' />', 'tickler');
+            <c:set var="__enc_3"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
+            popup(450, 600, '<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=<carlos:encode value='${__enc_3}' context="javaScript"/>', 'tickler');
         }
 
 
@@ -435,14 +437,14 @@ pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=pri
             var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
             if (doctype == 'text/html') {
-                <c:set var="__enc_4"><e:forUriComponent value='<%= demographicID %>' /></c:set>
+                <c:set var="__enc_4"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
                 popup(450, 600, '<%= request.getContextPath() %>/docum                
-entManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript value='${__enc_4}' />', 'EditDoc');
+entManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
             } else {
 
-                <c:set var="__enc_5"><e:forUriComponent value='<%= demographicID %>' /></c:set>
+                <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
                 popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocumen                
-t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript value='${__enc_5}' />', 'EditDoc');
+t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
@@ -483,10 +485,10 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
         <%}%>
         <tr>
             <td align="left" valign="top" width="50%">
-                <oscar:nameage demographicNo="<e:forHtmlAttribute value='<%= demographicID %>' />"/><br>
+                <oscar:nameage demographicNo="<%= demographicID %>"/><br>
 
-                <input type="hidden" name="viewstatus" value="<e:forHtmlAttribute value='<%= viewstatus %>' />">
-                <input type="hidden" name="sortorder" value="<e:forHtmlAttribute value='<%= sortorder %>' />">
+                <input type="hidden" name="viewstatus" value="<carlos:encode value='<%= viewstatus %>' context="htmlAttribute"/>">
+                <input type="hidden" name="sortorder" value="<carlos:encode value='<%= sortorder %>' context="htmlAttribute"/>">
 
                 <fmt:message key="encounter.noteBrowser.msgViewStatus"/> <select id="selviewstatus"
                                                                                        name="selviewstatus"
@@ -511,8 +513,8 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
                 </select>
                 <fieldset>
                     <legend><fmt:message key="encounter.noteBrowser.msgView"/>:</legend>
-                    <input type="hidden" name="view" value="<e:forHtmlAttribute value='<%= view %>' />">
-                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicID %>' />">
+                    <input type="hidden" name="view" value="<carlos:encode value='<%= view %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>">
                     <input type="hidden" name="undelDocumentNo" value="">
                     <input type="hidden" name="delDocumentNo" value="">
                     <input type="hidden" name="refileDocumentNo" value="">
@@ -524,7 +526,7 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><e:forHtmlContent value='<%= (String) doctypes.get(i3) %>' /><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>
@@ -546,7 +548,7 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
                                     int id = (Integer) ht.get("id");
                                     String qName = (String) ht.get("queue");
                             %>
-                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><e:forHtmlContent value='<%= qName %>' />
+                            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
                             </option>
                             <%}%>
                         </select>
@@ -576,10 +578,10 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<e:forHtmlAttribute value='<%= cmicurdoc.getDocId() %>' />-<e:forHtmlAttribute value='<%= cmicurdoc.getContentType() %>' />"
-                                title="<e:forHtmlAttribute value='<%= cmicurdoc.getDescription() %>' />"><e:forHtmlContent value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' />&nbsp;&nbsp; <e:forHtmlContent value='<%= cmicurdoc.getObservationDate() %>' />
-                            [<e:forHtmlContent value='<%= cmicurdoc.getType() %>' />
-                            ] <e:forHtmlContent value='<%= cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "..." %>' />
+                        <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() %>' context="htmlAttribute"/>-<carlos:encode value='<%= cmicurdoc.getContentType() %>' context="htmlAttribute"/>"
+                                title="<carlos:encode value='<%= cmicurdoc.getDescription() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
+                            [<carlos:encode value='<%= cmicurdoc.getType() %>' context="html"/>
+                            ] <carlos:encode value='<%= cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "..." %>' context="html"/>
                         </option>
                         <%}%>
                     </SELECT>
@@ -602,14 +604,14 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<e:forJavaScript 
                                 NoteDisplay curNote = notesToDisplay.get(idx);
                                 if (!(curNote.isDocument()) && !(curNote.isEformData()) && !(curNote.isRxAnnotation()) && !(curNote.isCpp())) {
                         %>
-                        <option value="<e:forHtmlAttribute value='<%= String.valueOf(curNote.getNoteId()) %>' />"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <e:forHtmlContent value='<%= curNote.getProviderName() %>' />
+                        <option value="<carlos:encode value='<%= String.valueOf(curNote.getNoteId()) %>' context="htmlAttribute"/>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <carlos:encode value='<%= curNote.getProviderName() %>' context="html"/>
                         </option>
                         <%
                             }
 
                             if (curNote.isExternalNote()) {
                         %>
-                        <option value="<e:forHtmlAttribute value='<%= String.valueOf(curNote.getNoteId()) %>' />"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <e:forHtmlContent value='<%= curNote.getProviderName() %>' />
+                        <option value="<carlos:encode value='<%= String.valueOf(curNote.getNoteId()) %>' context="htmlAttribute"/>"><%=DateUtils.getDate(MyDateFormat.getCalendar(curNote.getObservationDate()).getTime(), "yyyy-MM-dd  HH:mm ", request.getLocale())%> <carlos:encode value='<%= curNote.getProviderName() %>' context="html"/>
                         </option>
                         <%
                                 }

@@ -33,6 +33,8 @@
 <%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
@@ -87,17 +89,17 @@ Invalid Requestor Value. - Please contact your support vendor for configuration
 <body>
 <form id="loginFormID" name="loginForm" action="https://www.ontariomd.ca/AutoAuthentication/redirect.jsp" method="post">
     <p>JSESSIONID:</p>
-    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<e:forHtmlAttribute value='<%= Objects.toString(loginCreds.get("jsessionID"), "") %>' />"/>
+    <input type="text" size="70" id="jsessionID" name="jsessionID" value="<carlos:encode value='<%= Objects.toString(loginCreds.get("jsessionID"), "") %>' context="htmlAttribute"/>"/>
     <p>PT login Token:</p>
-    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<e:forHtmlAttribute value='<%= Objects.toString(loginCreds.get("ptLoginToken"), "") %>' />"/>
+    <input type="text" size="70" id="ptLoginToken" name="ptLoginToken" value="<carlos:encode value='<%= Objects.toString(loginCreds.get("ptLoginToken"), "") %>' context="htmlAttribute"/>"/>
     <p>Keyword:</p>
-    <input type="text" size="100" id="keyword" name="keyword" value="<e:forHtmlAttribute value='<%= Objects.toString(keyword, "") %>' />"/>
+    <input type="text" size="100" id="keyword" name="keyword" value="<carlos:encode value='<%= Objects.toString(keyword, "") %>' context="htmlAttribute"/>"/>
     <p>Params:</p>
-    <input type="text" size="200" id="params" name="params" value="<e:forHtmlAttribute value='<%= Objects.toString(params, "") %>' />"/>
+    <input type="text" size="200" id="params" name="params" value="<carlos:encode value='<%= Objects.toString(params, "") %>' context="htmlAttribute"/>"/>
     <p>Requestor:</p>
-    <input type="text" size="50" id="requestor" name="requestor" value="<e:forHtmlAttribute value='<%= Objects.toString(requestor, "") %>' />"/>
+    <input type="text" size="50" id="requestor" name="requestor" value="<carlos:encode value='<%= Objects.toString(requestor, "") %>' context="htmlAttribute"/>"/>
     <p>Username:</p>
-    <input type="text" size="50" id="username" name="username" value="<e:forHtmlAttribute value='<%= uname %>' />"/>
+    <input type="text" size="50" id="username" name="username" value="<carlos:encode value='<%= uname %>' context="htmlAttribute"/>"/>
     <p></p>
     <input type="submit" value="Submit"/>
 </form>

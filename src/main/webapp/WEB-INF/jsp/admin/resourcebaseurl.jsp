@@ -35,12 +35,14 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -163,7 +165,7 @@
                 <!--<fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
-                       value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
+                       value="<%if(resource_baseurl_value!=null){ out.print(SafeEncode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">
@@ -221,7 +223,7 @@
 
     <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<e:forJavaScriptBlock value='<%= resource_helpHtml_value %>' />');
+    editor.setHTML('<carlos:encode value='<%= resource_helpHtml_value %>' context="javaScriptBlock"/>');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>
