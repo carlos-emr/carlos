@@ -2411,7 +2411,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
                                                 <div style="white-space: pre-line;">
-                                                <carlos:encode value='<%= thisForm.getPatientAddress() == null ? "" : thisForm.getPatientAddress().replace("null", "") %>' context="html"/>
+                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">
