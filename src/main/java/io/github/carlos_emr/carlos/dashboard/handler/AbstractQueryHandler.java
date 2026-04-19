@@ -97,7 +97,10 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
             hibernateQuery.setTupleTransformer((tuple, aliases) -> {
                 Map<String, Object> map = new LinkedHashMap<>();
                 for (int i = 0; i < aliases.length; i++) {
-                    map.put(aliases[i], tuple[i]);
+                    String key = (aliases[i] != null && !aliases[i].isEmpty())
+                            ? aliases[i]
+                            : "col" + i;
+                    map.put(key, tuple[i]);
                 }
                 return map;
             });

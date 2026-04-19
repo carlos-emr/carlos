@@ -854,7 +854,9 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
         NativeQuery<?> nativeQuery = query.unwrap(NativeQuery.class);
         if (param == null) {
-            nativeQuery.setParameter(position, null);
+            // Explicit type hint avoids Hibernate "could not determine type" errors
+            // when binding a bare null to a native-query positional parameter.
+            nativeQuery.setParameter(position, (String) null, StandardBasicTypes.STRING);
         } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
             nativeQuery.setParameter(position, param.getStringValue(), StandardBasicTypes.STRING);
         } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
