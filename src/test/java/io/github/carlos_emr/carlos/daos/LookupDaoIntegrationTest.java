@@ -659,6 +659,18 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             INSERT INTO cfv_all_codes_test (code_col, name_col)
             VALUES ('A', 'Alpha'), ('B', 'Beta')""";
 
+    /** Literal backing-table name for the save-null-string regression fixture. */
+    private static final String SAVE_NULL_STRING_TABLE_NAME = "svc_null_string_test";
+
+    /** Literal DDL for the save-null-string regression fixture — idempotent across runs. */
+    private static final String CREATE_SAVE_NULL_STRING_TABLE = """
+            CREATE TABLE IF NOT EXISTS svc_null_string_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
+
     // =========================================================================
     // GetCodeFieldValues tests
     // =========================================================================
@@ -926,6 +938,53 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             assertThat(codeValue.getBuf8()).isEqualTo("buffer8");
             assertThat(codeValue.getBuf9()).isEqualTo("buffer9");
             assertThat(codeValue.getCodecsv()).isEqualTo("CSV001,");
+        }
+
+        @Test
+        @Tag("create")
+        @Tag("regression")
+        @DisplayName("should persist nullable string fields and read them back as empty strings")
+        void shouldPersistNullStringFields_withTypedNullBindingAndDefaultEmptyStrings() throws SQLException {
+            // Given - a simple backing table with a nullable VARCHAR column. The legacy
+            // JDBC path used PreparedStatement.setString(..., null), which sent a typed
+            // SQL NULL on insert, and Misc.getString(...) which read SQL NULL back as "".
+            // The JPA migration regressed both halves: untyped native-query null binding
+            // on write, and null-preserving asString() on read.
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_SAVE_NULL_STRING_TABLE).executeUpdate();
+                session.createNativeQuery("DELETE FROM " + SAVE_NULL_STRING_TABLE_NAME).executeUpdate();
+                return null;
+            });
+
+            String tableId = nextTableId("SN");
+            insertLookupTableDef(tableId, SAVE_NULL_STRING_TABLE_NAME);
+            insertFieldFull(tableId, "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            LookupCodeValue codeValue = new LookupCodeValue();
+            codeValue.setPrefix(tableId);
+            codeValue.setCode("A");
+            codeValue.setDescription(null);
+            codeValue.setActive(true);
+            codeValue.setOrderByIndex(7);
+
+            // When
+            lookupDao.SaveCodeValue(true, codeValue);
+
+            // Then - insert succeeds with a typed SQL NULL, and the read path restores
+            // the historic NULL -> "" coercion for both real nullable columns and the
+            // synthetic missing generic-idx columns.
+            LookupCodeValue saved = lookupDao.GetCode(tableId, "A");
+            assertThat(saved).isNotNull();
+            assertThat(saved.getCode()).isEqualTo("A");
+            assertThat(saved.getDescription()).isEmpty();
+            assertThat(saved.isActive()).isTrue();
+            assertThat(saved.getOrderByIndex()).isEqualTo(7);
+            assertThat(saved.getParentCode()).isEmpty();
+            assertThat(saved.getBuf1()).isEmpty();
         }
 
         @Test

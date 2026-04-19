@@ -57,7 +57,10 @@ import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.query.NativeQuery;
+import org.hibernate.type.StandardBasicTypes;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
@@ -859,25 +862,26 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * @param param the typed parameter (may be null)
      */
     private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
+        NativeQuery<?> nativeQuery = query.unwrap(NativeQuery.class);
         if (param == null) {
-            query.setParameter(position, null);
+            nativeQuery.setParameter(position, null);
         } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-            query.setParameter(position, param.getStringValue());
+            nativeQuery.setParameter(position, param.getStringValue(), StandardBasicTypes.STRING);
         } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-            query.setParameter(position, param.getDateValue());
+            nativeQuery.setParameter(position, param.getDateValue(), StandardBasicTypes.DATE);
         } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-            query.setParameter(position, param.getIntValue());
+            nativeQuery.setParameter(position, param.getIntValue(), StandardBasicTypes.INTEGER);
         } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-            query.setParameter(position, param.getTimestampValue());
+            nativeQuery.setParameter(position, param.getTimestampValue(), StandardBasicTypes.TIMESTAMP);
         }
     }
 
     /**
-     * Null-safe conversion of a query result column to a String, matching the behaviour
-     * of {@code ResultSet.getString()} which returns {@code null} for SQL NULL values.
+     * Null-safe conversion of a query result column to a String, matching the legacy
+     * {@code Misc.getString(...)} behaviour that coerced SQL NULL to the empty string.
      */
     private static String asString(Object value) {
-        return value == null ? null : value.toString();
+        return StringUtils.defaultString(value == null ? null : value.toString());
     }
 
     /**
