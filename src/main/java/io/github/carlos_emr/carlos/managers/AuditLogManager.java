@@ -119,7 +119,8 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            ProcessBuilder pb = new ProcessBuilder(vars); // nosemgrep
+            // nosemgrep
+            ProcessBuilder pb = new ProcessBuilder(vars);
             pb.environment().put("MYSQL_PWD", password);
             Process p = pb.start();
 
