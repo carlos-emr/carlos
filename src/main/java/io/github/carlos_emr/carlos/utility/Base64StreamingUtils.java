@@ -46,15 +46,15 @@ public final class Base64StreamingUtils {
 
     /**
      * Reads a file as a stream and returns its Base64-encoded string form.
+     * Reads a file as a stream and returns its Base64-encoded string form.
      *
-     * @param path Path the file to encode
+     * @param path the file to encode
      * @return String the Base64-encoded file contents
      * @throws IOException if the file cannot be read
      */
     public static String encode(Path path) throws IOException {
-        long fileSize = Files.size(path);
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return encode(inputStream, estimateEncodedSize(fileSize));
+            return encode(inputStream);
         }
     }
 
