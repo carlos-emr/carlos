@@ -27,8 +27,6 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
@@ -45,32 +43,21 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
 
-    private static List<AppointmentStatus> cachedActiveStatuses = null;
-    private static boolean cacheIsDirty = false;
-
     public static List<AppointmentStatus> getCachedActiveStatuses() {
-        if (cachedActiveStatuses == null || cacheIsDirty) {
-            cachedActiveStatuses = appointStatusDao.findActive();
-        }
-        return cachedActiveStatuses;
+        return appointStatusDao.findActive();
     }
 
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
-        // Sort a defensive copy — the incoming list may be unmodifiable (e.g. from a @Cacheable DAO read)
-        List<AppointmentStatus> source =
-                (cachedActiveStatuses == null) ? java.util.Collections.emptyList() : cachedActiveStatuses;
-        List<AppointmentStatus> sorted = new ArrayList<>(source);
-        sorted.sort(Comparator.comparing(AppointmentStatus::getId));
-        AppointmentStatusMgrImpl.cachedActiveStatuses = java.util.Collections.unmodifiableList(sorted);
+        // Spring Cache now owns appointment-status caching and eviction.
     }
 
 
     public static boolean isCacheIsDirty() {
-        return cacheIsDirty;
+        return false;
     }
 
     public static void setCacheIsDirty(boolean cacheIsDirty) {
-        AppointmentStatusMgrImpl.cacheIsDirty = cacheIsDirty;
+        // Spring Cache now owns appointment-status caching and eviction.
     }
 
     public List<AppointmentStatus> getAllStatus() {
@@ -78,10 +65,6 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     public List<AppointmentStatus> getAllActiveStatus() {
-        if (cacheIsDirty) {
-            setCachedActiveStatuses(appointStatusDao.findActive());
-            cacheIsDirty = false;
-        }
         return appointStatusDao.findActive();
     }
 

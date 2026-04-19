@@ -84,6 +84,12 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
 
     @CacheEvict(value = "measurementTypes", allEntries = true)
     @Override
+    public MeasurementType saveEntity(MeasurementType entity) {
+        return super.saveEntity(entity);
+    }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
     public void merge(AbstractModel<?> o) {
         super.merge(o);
     }

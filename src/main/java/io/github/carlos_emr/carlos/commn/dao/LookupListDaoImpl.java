@@ -83,6 +83,12 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
 
     @CacheEvict(value = "lookupLists", allEntries = true)
     @Override
+    public LookupList saveEntity(LookupList entity) {
+        return super.saveEntity(entity);
+    }
+
+    @CacheEvict(value = "lookupLists", allEntries = true)
+    @Override
     public void merge(AbstractModel<?> o) {
         super.merge(o);
     }

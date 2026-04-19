@@ -30,6 +30,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.cache.support.SimpleCacheManager;
+import org.springframework.cache.transaction.TransactionAwareCacheManagerProxy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -76,7 +77,8 @@ public class CacheConfig {
                 buildCache("measurementTypes", 10, 60, TimeUnit.MINUTES),
                 buildCache("lookupLists", 50, 30, TimeUnit.MINUTES)
         ));
-        return cacheManager;
+        cacheManager.afterPropertiesSet();
+        return new TransactionAwareCacheManagerProxy(cacheManager);
     }
 
     private CaffeineCache buildCache(String name, long maxSize, long duration, TimeUnit unit) {

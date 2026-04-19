@@ -118,6 +118,12 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
 
     @CacheEvict(value = "appointmentStatuses", allEntries = true)
     @Override
+    public AppointmentStatus saveEntity(AppointmentStatus entity) {
+        return super.saveEntity(entity);
+    }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
     public void merge(AbstractModel<?> o) {
         super.merge(o);
     }
