@@ -140,7 +140,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     long savedId = 0;
     boolean found = false;
     String bgColour;
-    ArrayList<Integer> lockedNotes = new ArrayList<Integer>();
     ArrayList<Integer> unLockedNotes = new ArrayList<Integer>();
     ArrayList<Integer> unEditableNotes = new ArrayList<Integer>();
 
@@ -810,14 +809,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         //Internet Explorer does not play nice with inserting javascript between divs
         //so we store the ids here and list the event listeners at the end of this script
         if (note.getNoteId() != null && note.getNoteId() != savedId) {
-            if (false) {
-                lockedNotes.add(note.getNoteId());
-			}
-			else if (!fulltxt && !note.isDocument() && !note.isEformData() && !note.isEncounterForm() && !note.isRxAnnotation() && !note.isInvoice() && !note.isEmailNote())
-			{
-				%><script> document.getElementById('n<%=note.getNoteId()%>').addEventListener('click', fullView); </script><%
-                    unLockedNotes.add(note.getNoteId());
-                }
+            if (!fulltxt && !note.isDocument() && !note.isEformData() && !note.isEncounterForm() && !note.isRxAnnotation() && !note.isInvoice() && !note.isEmailNote())
+            {
+                %><script> document.getElementById('n<%=note.getNoteId()%>').addEventListener('click', fullView); </script><%
+                unLockedNotes.add(note.getNoteId());
             }
 
         } //end for */
@@ -962,14 +957,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     document.getElementById(caseNote).addEventListener('click', getActiveText);
     <%Integer num;
-			Iterator<Integer> iterator = lockedNotes.iterator();
-			while (iterator.hasNext())
-			{
-				num = iterator.next();%>
-    document.getElementById('n<%=num%>').addEventListener('click', unlockNote);
-    <%}
-
-			iterator = unLockedNotes.iterator();
+			Iterator<Integer> iterator = unLockedNotes.iterator();
 			while (iterator.hasNext())
 			{
 				num = iterator.next();%>

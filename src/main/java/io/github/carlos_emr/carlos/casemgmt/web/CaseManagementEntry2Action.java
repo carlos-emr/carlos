@@ -477,17 +477,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (!note.isIncludeissue()) cform.setIncludeIssue("off");
         else cform.setIncludeIssue("on");
 
-        // Note password protection has been discontinued. Explicitly discard any
-        // request-bound password value so a crafted caseNote.password parameter
-        // cannot (re)lock the note through request tampering. Clear both the
-        // persisted note state and the request-bound action model so downstream
-        // save logic cannot restore password-based locking from tampered input.
-        note.setPassword(null);
-        note.setLocked(false);
-        if (this.getCaseNote() != null) {
-            this.getCaseNote().setPassword(null);
-            this.getCaseNote().setLocked(false);
-        }
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
@@ -1457,13 +1446,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
             verify = true;
-        }
-
-        // update password
-        String passwd = this.getCaseNote().getPassword();
-        if (passwd != null && passwd.trim().length() > 0) {
-            note.setPassword(passwd);
-            note.setLocked(true);
         }
 
         Date now = new Date();
@@ -2869,16 +2851,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String programId = (String) session.getAttribute("case_program_id");
-        Map unlockedNotesMap = this.getUnlockedNotesMap(request);
-        return caseManagementMgr.getLastSaved(programId, demono, providerNo, unlockedNotesMap);
-    }
-
-    protected Map getUnlockedNotesMap(HttpServletRequest request) {
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
+        return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
     /*

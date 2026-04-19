@@ -311,8 +311,6 @@ public interface CaseManagementManager {
 
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo);
 
-    public boolean unlockNote(int noteId, String password);
-
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
 
     public void setHashAuditDao(HashAuditDao dao);
@@ -368,7 +366,7 @@ public interface CaseManagementManager {
 
     public void setEncounterWindowDao(EncounterWindowDao encounterWindowDao);
 
-    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap);
+    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo);
 
     public CaseManagementNote makeNewNote(String providerNo, String demographicNo, String encType, String appointmentNo,
                                           Locale locale);

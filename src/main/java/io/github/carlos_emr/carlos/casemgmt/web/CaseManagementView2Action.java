@@ -163,10 +163,6 @@ public class CaseManagementView2Action extends ActionSupport {
             return listNotes();
         } else if ("search".equals(method)) {
             return search();
-        } else if ("unlock".equals(method)) {
-            return unlock();
-        } else if ("do_unlock".equals(method)) {
-            return do_unlock();
         } else if ("addToDx".equals(method)) {
             return addToDx();
         } else if ("viewNotesOpt".equals(method)) {
@@ -592,8 +588,8 @@ public class CaseManagementView2Action extends ActionSupport {
         // deal with local notes
         startTime = System.currentTimeMillis();
         Collection<CaseManagementNote> localNotes = caseManagementNoteDao.findNotesByDemographicAndIssueCode(demographicNo, checkedCodeList.toArray(new String[0]));
-        //show locked notes anyway: localNotes = manageLockedNotes(localNotes, true, this.getUnlockedNotesMap(request));
-        localNotes = manageLockedNotes(localNotes, false, this.getUnlockedNotesMap(request));
+        //show locked notes anyway: localNotes = manageLockedNotes(localNotes, true);
+        localNotes = manageLockedNotes(localNotes, false);
         
         // Only filter if we have a valid program ID
         if (programId != null && !programId.equals("0") && !programId.isEmpty()) {
@@ -878,22 +874,17 @@ public class CaseManagementView2Action extends ActionSupport {
         return filteredNotes;
     }
 
-    private List<CaseManagementNote> manageLockedNotes(List<CaseManagementNote> notes, boolean removeLockedNotes, Map<Long, Boolean> unlockedNotesMap) {
+    private List<CaseManagementNote> manageLockedNotes(List<CaseManagementNote> notes, boolean removeLockedNotes) {
+        if (!removeLockedNotes) {
+            return notes;
+        }
         List<CaseManagementNote> notesNoLocked = new ArrayList<CaseManagementNote>();
         for (CaseManagementNote note : notes) {
-            if (note.isLocked()) {
-                if (unlockedNotesMap.get(note.getId()) != null) {
-                    note.setLocked(false);
-                }
-            }
-            if (removeLockedNotes && !note.isLocked()) {
+            if (!note.isLocked()) {
                 notesNoLocked.add(note);
             }
         }
-        if (removeLockedNotes) {
-            return notesNoLocked;
-        }
-        return notes;
+        return notesNoLocked;
     }
 
     private List<CaseManagementNote> applyProviderFilters(List<CaseManagementNote> notes, String[] providerNo) {
@@ -1113,7 +1104,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         // need to apply issue filter
         notes = caseManagementMgr.getActiveNotes(demoNo, issueIds);
-        notes = manageLockedNotes(notes, true, this.getUnlockedNotesMap(request));
+        notes = manageLockedNotes(notes, true);
 
         logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
         logger.debug("REFERER {}", LogSanitizer.sanitize(request.getRequestURL().toString()));
@@ -1190,7 +1181,7 @@ public class CaseManagementView2Action extends ActionSupport {
         searchBean.setSearchStartDate(this.getSearchStartDate());
         searchBean.setSearchText(this.getSearchText());
         List<CaseManagementNote> results = caseManagementMgr.search(searchBean);
-        Collection<CaseManagementNote> filtered1 = manageLockedNotes(results, false, this.getUnlockedNotesMap(request));
+        Collection<CaseManagementNote> filtered1 = manageLockedNotes(results, false);
         
         // Only filter if we have a valid program ID
         List<CaseManagementNote> filteredResults;
@@ -1258,64 +1249,6 @@ public class CaseManagementView2Action extends ActionSupport {
         return notes;
     }
 
-    // unlock a note temporarily - session
-    /*
-     * show password
-     */
-    public String unlock() throws Exception {
-        String noteId = request.getParameter("noteId");
-        this.setNoteId(Integer.parseInt(noteId));
-        return "unlockForm";
-    }
-
-    public String do_unlock_ajax() throws Exception {
-        String password = request.getParameter("password");
-        int noteId = Integer.parseInt(request.getParameter("noteId"));
-
-        CaseManagementNote note = this.caseManagementMgr.getNote(request.getParameter("noteId"));
-        this.caseManagementMgr.getEditors(note);
-        request.setAttribute("Note", note);
-
-        boolean success = caseManagementMgr.unlockNote(noteId, password);
-        request.setAttribute("success", Boolean.valueOf(success));
-
-        if (success) {
-            Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
-            unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        }
-
-        return "unlock_ajax";
-
-    }
-
-    public String do_unlock() throws Exception {
-        String password = this.getPassword();
-        int noteId = this.getNoteId();
-
-        boolean success = caseManagementMgr.unlockNote(noteId, password);
-        request.setAttribute("success", Boolean.valueOf(success));
-
-        if (success) {
-            Map<Long, Boolean> unlockedNoteMap = this.getUnlockedNotesMap(request);
-            unlockedNoteMap.put(Long.valueOf(noteId), Boolean.valueOf(success));
-            request.getSession().setAttribute("unlockedNoteMap", unlockedNoteMap); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            return "unlockSuccess";
-        } else {
-            return unlock();
-        }
-
-    }
-
-    protected Map<Long, Boolean> getUnlockedNotesMap(HttpServletRequest request) {
-        @SuppressWarnings("unchecked")
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
-    }
-
     private ArrayList<NoteDisplay> applyRoleFilter(ArrayList<NoteDisplay> notes, String[] roleId) {
 
         if (roleId == null || hasRole(roleId, "a")) return (notes);
@@ -1337,22 +1270,17 @@ public class CaseManagementView2Action extends ActionSupport {
         return (false);
     }
 
-    private Collection<CaseManagementNote> manageLockedNotes(Collection<CaseManagementNote> notes, boolean removeLockedNotes, Map<Long, Boolean> unlockedNotesMap) {
+    private Collection<CaseManagementNote> manageLockedNotes(Collection<CaseManagementNote> notes, boolean removeLockedNotes) {
+        if (!removeLockedNotes) {
+            return notes;
+        }
         List<CaseManagementNote> notesNoLocked = new ArrayList<CaseManagementNote>();
         for (CaseManagementNote note : notes) {
-            if (note.isLocked()) {
-                if (unlockedNotesMap.get(note.getId()) != null) {
-                    note.setLocked(false);
-                }
-            }
-            if (removeLockedNotes && !note.isLocked()) {
+            if (!note.isLocked()) {
                 notesNoLocked.add(note);
             }
         }
-        if (removeLockedNotes) {
-            return notesNoLocked;
-        }
-        return notes;
+        return notesNoLocked;
     }
 
     private ArrayList<NoteDisplay> applyProviderFilter(ArrayList<NoteDisplay> notes, String[] providerName) {
@@ -1746,7 +1674,6 @@ public class CaseManagementView2Action extends ActionSupport {
     private String filter_roles[];
     private long formId;
     private int noteId;
-    private String password;
 
     @StrutsParameter(depth = 1)
     public EncounterWindow getEctWin() {
@@ -1756,15 +1683,6 @@ public class CaseManagementView2Action extends ActionSupport {
     @StrutsParameter
     public void setEctWin(EncounterWindow ectWin) {
         this.ectWin = ectWin;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    @StrutsParameter
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     public String getNote_sort() {

@@ -407,7 +407,6 @@
             insertTemplateError = "<fmt:message key="encounter.templateError.msg"/>";
             unsavedNoteWarning = "<fmt:message key="encounter.unsavedNoteWarning.msg"/>";
             sessionExpiredError = "<fmt:message key="encounter.sessionExpiredError.msg"/>";
-            unlockNoteError = "<fmt:message key="encounter.unlockNoteError.msg"/>";
             filterError = "<fmt:message key="encounter.filterError.msg"/>";
             pastObservationDateError = "<fmt:message key="encounter.pastObservationDateError.msg"/>";
             encTimeError = "<fmt:message key="encounter.encounterTimeError.msg"/>";
@@ -432,8 +431,6 @@
             nothing2PrintMsg = "<fmt:message key="encounter.nothingToPrint.msg"/>";
             editUnsignedMsg = "<fmt:message key="encounter.editUnsignedNote.msg"/>";
             msgDraftSaved = "<fmt:message key="encounter.draftSaved.msg"/>";
-            msgPasswd = "<fmt:message key="Logon.passWord"/>";
-            btnMsgUnlock = "<fmt:message key="encounter.Index.btnUnLock"/>";
             editLabel = "<fmt:message key="encounter.edit.msgEdit"/>";
             annotationLabel = "<fmt:message key="encounter.Index.btnAnnotation"/>";
             month[0] = "<fmt:message key="share.CalendarPopUp.msgJan"/>";

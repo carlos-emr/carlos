@@ -1335,15 +1335,6 @@ function updateCPPNote() {
 
         Element.remove(Event.element(e).id);
         Event.stop(e);
-
-        if (error)
-            Element.remove("passwdError");
-
-        if (frm)
-            Element.remove("passwdPara");
-
-        //$(parent).insertAdjacentHTML('afterbegin', img);
-        Element.observe(parent, 'click', unlockNote);
     }
 
     function removeLock(id) {
@@ -1788,68 +1779,8 @@ function updateCPPNote() {
 
 // send password to server for auth to display locked Note
     var sessionExpiredError;
-    var unlockNoteError;
-    function unlock_ajax(id) {
-        var url = ctx + "/CaseManagementView";
-        var noteId = id.substr(1);
-        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + encodeURIComponent($F("passwd"));
-
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    var html = request.responseText;
-                    $(id).update(html);
-                },
-                onFailure: function (request) {
-                    if (request.status == 403)
-                        alert(sessionExpiredError);
-                    else
-                        alert(request.status + " " + unlockNoteError);
-                }
-            }
-        );
-        return false;
-    }
 
 //display unlock note password text field and submit button
-    var msgPasswd;
-    var btnMsgUnlock;
-    function unlockNote(e) {
-        var txt;
-        var el;
-
-        el = Event.element(e);
-
-        //get id for parent div
-        if (el.id.search(/^n/) > -1)
-            txt = el.id;
-        else {
-            var level = 0;
-            var ancestor = $(el).up('div', level);
-            while (ancestor && ancestor.id.search(/^n/) === -1) {
-                ++level;
-                ancestor = $(el).up('div', level);
-            }
-            if (!ancestor) return;
-            txt = ancestor.id;
-        }
-
-        var passwd = "passwd";
-        var nId = txt.substr(1);
-        var img = "<img id='quitImg" + nId + "' onclick='resetView(true, false, event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        var lockForm = "<p id='passwdPara' class='passwd'>" + msgPasswd + ":&nbsp;<input onkeypress=\"return grabEnter('btnUnlock', event);\" type='password' id='" + passwd + "' size='16'>&nbsp;<input id='btnUnlock' type='button' onclick=\"return unlock_ajax('" + txt + "');\" value='" + btnMsgUnlock + "'><\/p>";
-        $(txt).insertAdjacentHTML('beforeend', lockForm);
-
-        $(txt).style.height = "auto";
-        $(passwd).focus();
-        Element.stopObserving(txt, 'click', unlockNote);
-    }
-
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";

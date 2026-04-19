@@ -65,7 +65,6 @@ public class CaseManagementViewFormBean {
 
 
     private int noteId;
-    private String password;
 
     public EncounterWindow getEctWin() {
         return this.ectWin;
@@ -73,14 +72,6 @@ public class CaseManagementViewFormBean {
 
     public void setEctWin(EncounterWindow ectWin) {
         this.ectWin = ectWin;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 
     public String getNote_sort() {

@@ -40,7 +40,6 @@ import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.model.security.Secrole;
-import java.security.MessageDigest;
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.StringUtils;
@@ -1813,22 +1812,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
-    public boolean unlockNote(int noteId, String password) {
-        if (password == null) {
-            return false;
-        }
-        CaseManagementNote note = this.caseManagementNoteDAO.getNote(Long.valueOf(noteId));
-        if (note != null) {
-            if (note.isLocked() && note.getPassword() != null && MessageDigest.isEqual(
-                    note.getPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    password.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId) {
         List<CaseManagementIssue> issues = this.caseManagementIssueDAO.getIssuesByDemographic(demographicNo);
         for (CaseManagementIssue issue : issues) {
@@ -2128,18 +2111,16 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     /**
      * Gets all the notes.
-     * If we have a key, and the note is locked, consider it.
      * Caisi - filter notes.
      * Grab the last one, where I am providers, and it's not signed.
      *
      * @param programId the program ID
      * @param demono the demographic number
      * @param providerNo the provider number
-     * @param unlockedNotesMap map of unlocked notes
      * @return the last saved case management note
      */
     @Override
-    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap) {
+    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo) {
         // CaseManagementNote note = null;
         List<EChartNoteEntry> entries = new ArrayList<EChartNoteEntry>();
 
@@ -2165,11 +2146,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         }
 
-        // UserProperty prop = caseManagementMgr.getUserProperty(providerNo,
-        // UserProperty.STALE_NOTEDATE);
-        // notes = caseManagementMgr.getNotes(demono);
-        // notes = manageLockedNotes(notes, false, this.getUnlockedNotesMap(request));
-
         if (programId == null || programId.length() == 0) {
             programId = "0";
         }
@@ -2180,9 +2156,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         for (EChartNoteEntry entry : entries) {
             CaseManagementNote n = getNote(String.valueOf(entry.getId()));
-            if (n.isLocked() && unlockedNotesMap.get(entry.getId()) != null) {
-                n.setLocked(false);
-            }
             if (n.getProviderNo().equals(providerNo)) {
                 return n;
             }
