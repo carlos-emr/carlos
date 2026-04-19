@@ -82,7 +82,7 @@
                 <h1><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
                 <script language="JavaScript">
                     <c:if test="${printReceipt}">
-                    popupPage(350, 750, 'printappointment.jsp?appointment_no=${carlos:forJavaScript(apptId)}');
+                    popupPage(350, 750, '${pageContext.request.contextPath}/appointment/printappointment?appointment_no=${carlos:forJavaScript(apptId)}');
                     </c:if>
                     try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();

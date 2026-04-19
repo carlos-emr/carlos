@@ -28,6 +28,9 @@ class AppointmentJspRoutingTest {
         String editRepeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
         String repeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp");
         String groupRecords = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp");
+        String addRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp");
+        String updateRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp");
+        String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
 
         assertThat(editAppointment).contains("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
@@ -46,6 +49,16 @@ class AppointmentJspRoutingTest {
 
         assertThat(groupRecords).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentgrouprecords\"");
         assertThat(groupRecords).doesNotContain("action=\"appointmentgrouprecords.jsp\"");
+
+        assertThat(addRecord).contains("/appointment/printappointment?appointment_no=");
+        assertThat(addRecord).doesNotContain("printappointment.jsp?appointment_no=");
+
+        assertThat(updateRecord).contains("/appointment/printappointment?appointment_no=");
+        assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
+
+        assertThat(providerDay).contains("/appointment/addappointment?");
+        assertThat(providerDay).contains("return ctx + '/appointment/addappointment'");
+        assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
     }
 
     private String readJspContent(String path) throws IOException {
