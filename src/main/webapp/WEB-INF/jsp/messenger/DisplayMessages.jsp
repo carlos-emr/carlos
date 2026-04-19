@@ -76,9 +76,6 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-
- 
-	
  
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -212,7 +209,8 @@
         </style>
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
-        <script type="text/javascript">
+
+        <script>
             function uload() {
                 if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
@@ -256,6 +254,36 @@
                     // Set title attribute
                     element.setAttribute("title", text);
                 });
+
+                // Show bulk action controls only when one or more message checkboxes are selected.
+                // Skip control groups that have no actionable buttons (e.g. demographic view, pageType == 3)
+                // so an empty strip never appears.
+                const controlGroups = Array.from(document.querySelectorAll('.action-controls'))
+                        .filter(function (el) { return el.querySelector('button'); });
+                if (controlGroups.length > 0) {
+                    const selectAll = document.getElementById('checkA');
+                    function updateControlsVisibility() {
+                        // Count only per-message checkboxes, not the select-all toggle,
+                        // so controls stay hidden when the list is empty or all rows are unchecked.
+                        const anyChecked = document.querySelectorAll('input[name="messageNo"]:checked').length > 0;
+                        const displayStyle = anyChecked ? 'inline-block' : 'none';
+                        controlGroups.forEach(function (el) { el.style.display = displayStyle; });
+                    }
+                    // 'change' is the idiomatic event for checkbox state and also covers keyboard toggling.
+                    document.addEventListener('change', function (e) {
+                        if (e.target && e.target.classList && e.target.classList.contains('chk')) {
+                            updateControlsVisibility();
+                        }
+                    });
+                    // checkAll() programmatically sets .checked without firing 'change', so re-sync
+                    // after the inline onclick handler has propagated the state to per-message checkboxes.
+                    if (selectAll) {
+                        selectAll.addEventListener('click', function () {
+                            updateControlsVisibility();
+                        });
+                    }
+                    updateControlsVisibility();
+                }
             });
 
         </script>
@@ -376,7 +404,7 @@
                         }   //messageid
 %>
                     <tr>
-                        <td style="padding: 10px;" ><span>
+                        <td style="padding: 10px;" ><span class="action-controls" style="display: none;">
                             <%if (pageType == 0){%>
                                     <button name="btnDelete" type="submit" class="btn btn-light" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
                                     <button name="btnRead" type="submit" class="btn btn-light" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
@@ -432,7 +460,7 @@
                                 <thead><tr>
                                     <th style="text-align: left;">
                                     <%if( pageType!=1 ) {%>
-                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
+                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList'); " id="checkA" style="margin-bottom: 10px;" title="<fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
@@ -512,7 +540,7 @@
                                 <tr class="<%=rowClass%>">
                                     <td style="width:25px;">
                                     <%if (pageType != 1){%>
-                                       <input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>">
+                                       <input type="checkbox" class="chk" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>">
                                      <% } %>
 
                                     </td>
@@ -564,7 +592,7 @@
                             <%}%>
 
                             <tr><td colspan="6">
-                        <span>
+                            <span class="action-controls" style="display: none;">
                             <%if (pageType == 0){%>
                                     <button name="btnDelete" type="submit" class="btn btn-light" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
                                     <button name="btnRead" type="submit" class="btn btn-light" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
