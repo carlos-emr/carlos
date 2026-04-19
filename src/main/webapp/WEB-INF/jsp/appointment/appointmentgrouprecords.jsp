@@ -414,7 +414,7 @@
         </div>
 
     <form name="groupappt" method="POST"
-          action="appointmentgrouprecords.jsp" onSubmit="return onSub();">
+          action="<%=request.getContextPath() %>/appointment/appointmentgrouprecords" onSubmit="return onSub();">
         <input type="hidden" name="groupappt" value="">
 
         <%

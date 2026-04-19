@@ -359,7 +359,7 @@
 
             function onButRepeat() {
                 if (calculateEndTime()) {
-                    document.forms[0].action = "appointmenteditrepeatbooking.jsp";
+                    document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking";
                     document.forms[0].submit();
                 }
             }
@@ -830,7 +830,7 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/appointmentcontrol" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
@@ -1403,7 +1403,7 @@
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a class="btn"
-                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
+                       onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentcontrol?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">

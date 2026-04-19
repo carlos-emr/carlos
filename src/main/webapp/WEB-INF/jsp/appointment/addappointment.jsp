@@ -468,7 +468,7 @@ Ontario, Canada
             }
 
             function onButRepeat() {
-                document.forms[0].action = "appointmentrepeatbooking.jsp";
+                document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmentrepeatbooking";
                 if (calculateEndTime()) {
                     document.forms[0].submit();
                 }
