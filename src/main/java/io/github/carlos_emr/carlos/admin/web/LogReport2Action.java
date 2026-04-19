@@ -170,7 +170,11 @@ public class LogReport2Action extends ActionSupport {
             // Build the allowed provider set for all site-restricted requests so both the
             // all-providers and specific-provider report paths enforce the same privacy boundary.
             List<String> siteRestrictedProviderNos = isSiteAccessPrivacy
-                    ? providers.stream().map(ProviderData::getId).toList()
+                    ? providers.stream()
+                            .map(ProviderData::getId)
+                            .filter(StringUtils::isNotBlank)
+                            .distinct()
+                            .toList()
                     : null;
 
             if (isUnauthorizedSiteRestrictedProviderRequest(isSiteAccessPrivacy, bAll, providerNo, siteRestrictedProviderNos)) {
