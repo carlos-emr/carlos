@@ -109,9 +109,7 @@
             }
 
             function ShowDrugInfo(drug) {
-                // RxDrugInfo2Action resolves generic-name lookups from the GN parameter.
-                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(drug), "_blank",
-                    "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
+                ShowDrugInfoBN(drug);
             }
 
             function ShowDrugInfoGN(drug) {
