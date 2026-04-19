@@ -46,7 +46,6 @@ public final class Base64StreamingUtils {
 
     /**
      * Reads a file as a stream and returns its Base64-encoded string form.
-     * Reads a file as a stream and returns its Base64-encoded string form.
      *
      * @param path the file to encode
      * @return String the Base64-encoded file contents
