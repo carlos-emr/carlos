@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
@@ -29,6 +30,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -37,9 +39,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -47,6 +51,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -86,31 +92,16 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         return provider;
     }
 
-    @AfterEach
-    void tearDown() {
-        if (loggedInInfoMock != null) {
-            loggedInInfoMock.close();
-        }
-        if (servletActionContextMock != null) {
-            servletActionContextMock.close();
-        }
-    }
-
-    @Test
-    @DisplayName("should return empty results when site-restricted user requests another provider")
-    void shouldReturnEmptyResults_whenSiteRestrictedUserRequestsAnotherProvider() throws Exception {
+    @BeforeEach
+    void setUp() {
         MockitoAnnotations.openMocks(this);
 
         request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setParameter("submit", "true");
-        request.setParameter("providerNo", "prov-outside-site");
-        request.setParameter("content", "admin");
         request.setParameter("startDate", "2026-04-01");
         request.setParameter("endDate", "2026-04-19");
         request.getSession().setAttribute("user", "site-user");
-
-        ProviderData allowedProvider = createProvider("prov-allowed", "Alice", "Smith");
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ProviderDataDao.class, providerDataDao);
@@ -124,17 +115,97 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(loggedInInfo);
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (loggedInInfoMock != null) {
+            loggedInInfoMock.close();
+        }
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+    }
+
+    @Test
+    @DisplayName("should return empty results when site-restricted user requests another provider")
+    void shouldReturnEmptyResults_whenSiteRestrictedUserRequestsAnotherProvider() throws Exception {
+        request.setParameter("providerNo", "prov-outside-site");
+        request.setParameter("content", "admin");
+
+        ProviderData allowedProvider = createProvider("prov-allowed", "Alice", "Smith");
+
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
-        when(providerDataDao.findByProviderSite("site-user")).thenReturn(List.of(allowedProvider));
+        // The action sorts the returned list in place, so the DAO must return a mutable list.
+        when(providerDataDao.findByProviderSite("site-user")).thenReturn(new ArrayList<>(List.of(allowedProvider)));
 
-        LogReport2Action action = new LogReport2Action();
-
-        String result = action.execute();
+        String result = new LogReport2Action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         @SuppressWarnings("unchecked")
         Vector<Properties> vec = (Vector<Properties>) request.getAttribute("vec");
         assertThat(vec).isEmpty();
         verify(oscarLogDao, never()).findForReport(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should query all allowed providers when site-restricted user requests all providers")
+    void shouldQueryAllAllowedProviders_whenSiteRestrictedUserRequestsAllProviders() throws Exception {
+        request.setParameter("providerNo", "*");
+        request.setParameter("content", "admin");
+
+        ProviderData allowed1 = createProvider("prov-a", "Alice", "Smith");
+        ProviderData allowed2 = createProvider("prov-b", "Bob", "Jones");
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
+        when(providerDataDao.findByProviderSite("site-user")).thenReturn(new ArrayList<>(List.of(allowed1, allowed2)));
+        when(oscarLogDao.findForReport(any(), any(), any(), any(), any())).thenReturn(List.of());
+
+        String result = new LogReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<String>> siteProviderNosCaptor = ArgumentCaptor.forClass(List.class);
+        verify(oscarLogDao).findForReport(any(), any(), eq("admin"), isNull(), siteProviderNosCaptor.capture());
+        assertThat(siteProviderNosCaptor.getValue()).containsExactlyInAnyOrder("prov-a", "prov-b");
+    }
+
+    @Test
+    @DisplayName("should query specific provider without site filter when user is unrestricted")
+    void shouldQuerySpecificProvider_whenUnrestrictedUserRequestsProvider() throws Exception {
+        request.setParameter("providerNo", "prov-target");
+        request.setParameter("content", "login");
+
+        ProviderData target = createProvider("prov-target", "Target", "Provider");
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(false);
+        when(providerDataDao.findAllOrderByLastName()).thenReturn(new ArrayList<>(List.of(target)));
+
+        OscarLog sampleLog = new OscarLog();
+        sampleLog.setAction("read");
+        sampleLog.setContent("login");
+        sampleLog.setContentId("42");
+        sampleLog.setIp("10.0.0.1");
+        sampleLog.setProviderNo("prov-target");
+        sampleLog.setDemographicId(7);
+        sampleLog.setData("line1\nline2");
+        when(oscarLogDao.findForReport(any(), any(), any(), any(), any())).thenReturn(List.of(sampleLog));
+
+        String result = new LogReport2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(oscarLogDao).findForReport(any(), any(), eq("login"), eq("prov-target"), isNull());
+
+        @SuppressWarnings("unchecked")
+        Vector<Properties> vec = (Vector<Properties>) request.getAttribute("vec");
+        assertThat(vec).hasSize(1);
+        Properties row = vec.get(0);
+        assertThat(row.getProperty("action")).isEqualTo("read");
+        assertThat(row.getProperty("content")).isEqualTo("login");
+        assertThat(row.getProperty("provider_no")).isEqualTo("prov-target");
+        assertThat(row.getProperty("demographic_no")).isEqualTo("7");
+        // The action pre-encodes and injects <br/> line breaks for the data column.
+        assertThat(row.getProperty("data")).isEqualTo("line1<br/>line2");
     }
 }

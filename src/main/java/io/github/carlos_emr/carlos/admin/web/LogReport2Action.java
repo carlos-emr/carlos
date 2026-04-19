@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -119,8 +120,8 @@ public class LogReport2Action extends ActionSupport {
                     .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(Comparator.naturalOrder())));
 
             for (ProviderData provider : providers) {
-                String pNo = defaultString(provider.getId());
-                String fullName = (defaultString(provider.getFirstName()) + " " + defaultString(provider.getLastName())).trim();
+                String pNo = StringUtils.defaultString(provider.getId());
+                String fullName = (StringUtils.defaultString(provider.getFirstName()) + " " + StringUtils.defaultString(provider.getLastName())).trim();
                 propName.setProperty(pNo, fullName);
 
                 Properties prop = new Properties();
@@ -193,18 +194,18 @@ public class LogReport2Action extends ActionSupport {
                     prop.setProperty("dateTime", formatTimestamp(logEntry.getCreated()));
                     // Do not pre-encode these string fields — the view layer is responsible for output encoding.
                     // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
-                    prop.setProperty("action", defaultString(logEntry.getAction()));
-                    prop.setProperty("content", defaultString(logEntry.getContent()));
-                    prop.setProperty("contentId", defaultString(logEntry.getContentId()));
-                    prop.setProperty("ip", defaultString(logEntry.getIp()));
-                    prop.setProperty("provider_no", defaultString(logEntry.getProviderNo()));
+                    prop.setProperty("action", StringUtils.defaultString(logEntry.getAction()));
+                    prop.setProperty("content", StringUtils.defaultString(logEntry.getContent()));
+                    prop.setProperty("contentId", StringUtils.defaultString(logEntry.getContentId()));
+                    prop.setProperty("ip", StringUtils.defaultString(logEntry.getIp()));
+                    prop.setProperty("provider_no", StringUtils.defaultString(logEntry.getProviderNo()));
                     prop.setProperty("demographic_no", logEntry.getDemographicId() == null ? "" : logEntry.getDemographicId().toString());
                     // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
                     // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
                     // to preserve the injected markup. The injected <br/> is constant application markup
                     // and does not include any user-controlled content.
                     prop.setProperty("data",
-                            Encode.forHtml(defaultString(logEntry.getData())).replace("\n", "<br/>"));
+                            Encode.forHtml(StringUtils.defaultString(logEntry.getData())).replace("\n", "<br/>"));
                     vec.add(prop);
                 }
             } catch (Exception e) {
@@ -219,10 +220,6 @@ public class LogReport2Action extends ActionSupport {
         }
 
         return SUCCESS;
-    }
-
-    private String defaultString(String value) {
-        return value == null ? "" : value;
     }
 
     private boolean isUnauthorizedSiteRestrictedProviderRequest(boolean isSiteAccessPrivacy, boolean bAll,

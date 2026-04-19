@@ -231,39 +231,64 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
             return Collections.emptyList();
         }
 
-        StringBuilder sqlCommand = new StringBuilder("select x from ");
-        sqlCommand.append(modelClass.getSimpleName());
-        sqlCommand.append(" x where x.created <= ?1 and x.created >= ?2 and x.content like ?3");
+        // Native SQL preserves the FORCE INDEX (datetime) hint inherited from the previous JDBC
+        // implementation. The composite index datetime(dateTime, provider_no) covers the
+        // date-range and provider predicates; without the hint MariaDB may choose
+        // provider_noIndex and sort, which regresses on large production audit-log tables.
+        // H2 (used in tests) does not recognise FORCE INDEX even in MySQL compatibility mode,
+        // so the hint is only emitted against MySQL/MariaDB connections.
+        //
+        // When a specific provider is supplied the caller (LogReport2Action) has already verified
+        // that it falls within the site-allowed set, so the provider_no IN (?4) clause would be
+        // redundant and is omitted.
+        String fromClause = isMySqlFamilyDatabase()
+                ? "from log force index (datetime)"
+                : "from log";
 
-        int nextParameterIndex = 4;
+        String sql;
         if (providerNo != null) {
-            sqlCommand.append(" and x.providerNo = ?").append(nextParameterIndex++);
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no = ?4 order by dateTime desc";
+        } else if (siteProviderNos != null) {
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 and provider_no in (?4) order by dateTime desc";
+        } else {
+            sql = "select * " + fromClause + " where dateTime <= ?1 and dateTime >= ?2 and content like ?3 order by dateTime desc";
         }
 
-        if (siteProviderNos != null) {
-            sqlCommand.append(" and x.providerNo in (?").append(nextParameterIndex).append(")");
-        }
-
-        sqlCommand.append(" order by x.created desc");
-
-        Query query = entityManager.createQuery(sqlCommand.toString());
+        Query query = entityManager.createNativeQuery(sql, OscarLog.class);
         query.setParameter(1, endDate);
         query.setParameter(2, startDate);
         query.setParameter(3, content);
 
-        int currentParameterIndex = 4;
         if (providerNo != null) {
-            query.setParameter(currentParameterIndex++, providerNo);
-        }
-
-        if (siteProviderNos != null) {
-            query.setParameter(currentParameterIndex, siteProviderNos);
+            query.setParameter(4, providerNo);
+        } else if (siteProviderNos != null) {
+            query.setParameter(4, siteProviderNos);
         }
 
         @SuppressWarnings("unchecked")
         List<OscarLog> results = query.getResultList();
 
         return results;
+    }
+
+    private Boolean mysqlFamilyCache;
+
+    private boolean isMySqlFamilyDatabase() {
+        if (mysqlFamilyCache != null) {
+            return mysqlFamilyCache;
+        }
+        try {
+            Boolean detected = entityManager.unwrap(org.hibernate.Session.class)
+                    .doReturningWork(connection -> {
+                        String product = connection.getMetaData().getDatabaseProductName();
+                        return product != null
+                                && (product.equalsIgnoreCase("MySQL") || product.equalsIgnoreCase("MariaDB"));
+                    });
+            mysqlFamilyCache = detected != null && detected;
+        } catch (Exception e) {
+            mysqlFamilyCache = false;
+        }
+        return mysqlFamilyCache;
     }
 
     /*
