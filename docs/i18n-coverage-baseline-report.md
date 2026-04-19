@@ -25,8 +25,9 @@ these baseline numbers.
 **Overall i18n completion: 19% (full) + 32% (partial) = 51% of files touched**
 
 The remaining 48% of files have zero `fmt:message` usage and are entirely hardcoded
-in English. The largest untranslated areas are `form/` (clinical forms, 167 files),
-`billing/` (165 files), and `encounter/` (61 files).
+in English. The largest remediation areas are `form/` (clinical forms, 167 files
+needing work), `billing/` (165 files needing work), and `encounter/` (61 files
+needing work).
 
 ---
 
@@ -207,7 +208,7 @@ All five locale files have been checked as of April 11, 2026:
 | `pl` | 7,823 | **355** | 35 | 95% |
 | `pt_BR` | 8,239 | **31** | 127 | 99% |
 
-**Encoding:** All five files pass ISO 8859-1 compliance check (no raw non-ASCII bytes).
+**Encoding:** All five files are valid UTF-8 in the April 11, 2026 baseline snapshot.
 
 ### Universal Gaps (missing from ALL non-English locales)
 
@@ -244,6 +245,9 @@ last bulk Polish translation update. Recommend a targeted batch update.
 1. **Add 12 universal-gap keys** to all 4 non-English locales (~5 min)
 2. **Add 31 missing es/pt_BR keys** (all in `dms.*` and `messenger.*`) to Spanish and Portuguese
 3. **Verify French is complete** after step 1 — the 12 universal-gap keys cover the French gap entirely
+
+Translation wording refinements should land as dedicated i18n follow-up PRs rather
+than piggybacking on unrelated feature changes.
 
 ### Phase 1 Conversion Targets
 

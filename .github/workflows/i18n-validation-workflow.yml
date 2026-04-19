@@ -1,14 +1,14 @@
 # CI Workflow: i18n Validation
 #
-# PURPOSE: Validate i18n key parity and ISO 8859-1 encoding compliance on every PR.
+# PURPOSE: Validate i18n key parity and UTF-8 encoding compliance on every PR.
 #
-# INSTALLATION:
-#   This file has been moved from docs/
+# LOCATION:
+#   This workflow lives in .github/workflows/ and is active in this repository.
 #
 # What this workflow checks:
 #   1. All locale files (es, fr, pl, pt_BR) have all English keys (no missing translations)
 #   2. No locale file has orphaned keys absent from English
-#   3. All .properties files are ISO 8859-1 compliant (no raw non-ASCII bytes) or UTF-8
+#   3. All .properties files are valid UTF-8
 #   4. Any JSP using fmt:message has a fmt:setBundle declaration
 
 name: i18n Validation
@@ -21,6 +21,9 @@ on:
       - 'src/main/webapp/**/*.jspf'
       - 'scripts/check-i18n-properties.sh'
       - 'scripts/audit-i18n-coverage.sh'
+
+permissions:
+  contents: read
 
 jobs:
   i18n-key-parity:
@@ -94,8 +97,7 @@ jobs:
             escaped_key=$(printf '%s' "$key" | sed 's/[.[\^$*+?{}|()/\\]/\\&/g')
             for locale in $LOCALES; do
               locale_file="${RESOURCES}/oscarResources_${locale}.properties"
-              if ! sed -E '/^[[:space:]]*[#!]/d;/^[[:space:]]*$/d;/^[[:space:]]/d;s/[[:space:]]*[=:[:space:]].*$//;s/[[:space:]]*$//' "$locale_file" \
-                 | grep -Fqx "$key"; then
+              if ! grep -qE "^[[:space:]]*${escaped_key}([[:space:]]*[=:]|[[:space:]]|$)" "$locale_file"; then
                 echo "MISSING: key '$key' not found in ${locale_file}"
                 FAILED=true
               fi
@@ -148,6 +150,29 @@ jobs:
 
       - name: Check new/modified JSPs for missing fmt:setBundle
         run: |
+          has_inherited_bundle() {
+            local jsp="$1"
+            local include_path resolved_path
+
+            while IFS= read -r include_path; do
+              if [[ "$include_path" = /* ]]; then
+                resolved_path="src/main/webapp${include_path}"
+              else
+                resolved_path="$(dirname "$jsp")/$include_path"
+              fi
+
+              if [ -f "$resolved_path" ] && grep -q 'fmt:setBundle' "$resolved_path"; then
+                return 0
+              fi
+            done < <(
+              sed -E '/<!--/,/-->/d; /<%--/,/--%>/d' "$jsp" \
+                | grep -oE '<%@[[:space:]]*include[^>]+file[[:space:]]*=[[:space:]]*"[^"]+"|<jsp:include[^>]+page[[:space:]]*=[[:space:]]*"[^"]+"' \
+                | sed -E 's/.*(file|page)[[:space:]]*=[[:space:]]*"([^"]+)"/\2/'
+            )
+
+            return 1
+          }
+
           # Only check JSP files changed in this PR
           CHANGED_JSPS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
             | grep -E '\.jspf?$' | grep -v '^test' || true)
@@ -160,15 +185,13 @@ jobs:
           FAILED=false
           for jsp in $CHANGED_JSPS; do
             [ ! -f "$jsp" ] && continue
-            # If the file uses fmt:message but has no fmt:setBundle, flag it.
-            # Exception: skip files that include a shared taglib header (taglibs.jsp)
-            # which is expected to declare the bundle centrally.
+            # If the file uses fmt:message but has no fmt:setBundle locally or via a direct include, flag it.
             if grep -q 'fmt:message' "$jsp" && \
                ! grep -q 'fmt:setBundle' "$jsp" && \
-               ! grep -qE '<%@[[:space:]]*include[^>]+taglibs\.jsp' "$jsp"; then
+               ! has_inherited_bundle "$jsp"; then
               echo "MISSING fmt:setBundle: $jsp"
               echo "  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations."
-              echo "  Or include a shared taglib header that declares the bundle (e.g. taglibs.jsp)."
+              echo "  Or ensure a directly included header declares the bundle."
               FAILED=true
             fi
           done

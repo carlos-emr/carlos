@@ -527,10 +527,11 @@ if (!confirm(i18n.msgConfirmDelete)) return;
 > - `demographic/demographiceditdemographic.jsp` — full `var i18n = {}` object
 > - `tickler/ticklerAdd.jsp` — individual `const` pattern + `alert()` i18n
 
-#### ISO 8859-1 Encoding
+#### UTF-8 Encoding
 
-Properties files must be ISO 8859-1 encoded. Use `\uXXXX` escapes for all non-ASCII
-characters (e.g., `é` → `\u00e9`). See [I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#iso-8859-1-encoding-requirements).
+Properties files must be saved as valid UTF-8 on Java 21. Direct non-ASCII characters
+are allowed, and existing `\uXXXX` escapes remain valid. See
+[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-21).
 
 #### Legacy Pattern to Avoid
 

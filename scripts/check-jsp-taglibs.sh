@@ -39,6 +39,40 @@ declare -A tag_uris=(
 # Patterns for taglib include files
 TAGLIB_INCLUDES="taglibs\.jsp|taglibs\.jspf|common-taglibs\.jsp|common-tags\.jsp"
 
+# Strip HTML and JSP comment blocks before running structural checks.
+strip_template_comments() {
+    sed -E '/<!--/,/-->/d; /<%--/,/--%>/d' "$1"
+}
+
+resolve_include_path() {
+    local file="$1"
+    local include_path="$2"
+
+    if [[ "$include_path" = /* ]]; then
+        printf '%s\n' "./src/main/webapp${include_path}"
+    else
+        printf '%s\n' "$(dirname "$file")/$include_path"
+    fi
+}
+
+has_inherited_bundle() {
+    local file="$1"
+    local include_path resolved_path
+
+    while IFS= read -r include_path; do
+        resolved_path=$(resolve_include_path "$file" "$include_path")
+        if [ -f "$resolved_path" ] && grep -q 'fmt:setBundle' "$resolved_path"; then
+            return 0
+        fi
+    done < <(
+        strip_template_comments "$file" | \
+            grep -oE '<%@[[:space:]]*include[^>]+file[[:space:]]*=[[:space:]]*"[^"]+"|<jsp:include[^>]+page[[:space:]]*=[[:space:]]*"[^"]+"' 2>/dev/null | \
+            sed -E 's/.*(file|page)[[:space:]]*=[[:space:]]*"([^"]+)"/\2/'
+    )
+
+    return 1
+}
+
 # ── Argument Parsing ──────────────────────────────────────────────────────────
 CHECK_I18N=false
 I18N_ONLY=false
@@ -62,8 +96,8 @@ while IFS= read -r -d '' file; do
     file_i18n_issues=()
 
     # Check for direct includes (both styles)
-    has_direct_include=$(grep -E '<%@\s*include.*'"${TAGLIB_INCLUDES}" "$file")
-    has_jsp_include=$(grep -E '<jsp:include.*'"${TAGLIB_INCLUDES}" "$file")
+    has_direct_include=$(strip_template_comments "$file" | grep -E '<%@\s*include.*'"${TAGLIB_INCLUDES}" || true)
+    has_jsp_include=$(strip_template_comments "$file" | grep -E '<jsp:include.*'"${TAGLIB_INCLUDES}" || true)
     has_taglib_include=""
     [ -n "$has_direct_include" ] || [ -n "$has_jsp_include" ] && has_taglib_include="yes"
 
@@ -81,7 +115,7 @@ while IFS= read -r -d '' file; do
                 fi
 
                 # Check if taglib is declared (and not commented out) — match either URI form
-                if ! grep -v '<!--' "$file" | grep -qE "taglib.*${tags[$prefix]}"; then
+                if ! strip_template_comments "$file" | grep -qE "taglib.*${tags[$prefix]}"; then
                     missing+=("$prefix")
                 fi
             fi
@@ -102,14 +136,10 @@ while IFS= read -r -d '' file; do
     # ── i18n-Specific Checks ─────────────────────────────────────────────────
     if [ "$CHECK_I18N" = true ]; then
 
-        # i18n Check 1: fmt: tag used but no fmt:setBundle declared
-        # Skip only if the file explicitly includes taglibs.jsp (which declares the bundle centrally)
-        # Other taglib includes (CSS/JS fragments) do NOT inherit the bundle declaration
-        if grep -q 'fmt:message' "$file" && ! grep -q 'fmt:setBundle' "$file"; then
-            if ! grep -qE '<%@[[:space:]]*include[^>]+taglibs\.jsp|<jsp:include[^>]+taglibs\.jsp' "$file" 2>/dev/null; then
-                file_i18n_issues+=("MISSING fmt:setBundle: file uses fmt:message but has no fmt:setBundle declaration")
-                file_i18n_issues+=("  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations, before <!DOCTYPE>")
-            fi
+        # i18n Check 1: fmt: tag used but no fmt:setBundle declared locally or via an include
+        if grep -q 'fmt:message' "$file" && ! grep -q 'fmt:setBundle' "$file" && ! has_inherited_bundle "$file"; then
+            file_i18n_issues+=("MISSING fmt:setBundle: file uses fmt:message but has no fmt:setBundle declaration")
+            file_i18n_issues+=("  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations, before <!DOCTYPE>")
         fi
 
         # i18n Check 2: Hardcoded lang="en" on <html> tag (must be dynamic)
@@ -164,6 +194,10 @@ if [ "$found_issues" -gt 0 ] || [ "$i18n_issues" -gt 0 ]; then
 fi
 
 # Optional: Check for unused taglibs (reverse check)
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+    exit 0
+fi
+
 echo
 read -p "Check for unused taglib declarations? (y/n) " -n 1 -r
 echo

@@ -5,7 +5,7 @@
 # Compares keys across all oscarResources_*.properties locale files and reports:
 #   - Keys present in English but missing from other locales
 #   - Keys present in non-English locales but absent from English (orphaned)
-#   - ISO 8859-1 encoding compliance violations (raw non-ASCII bytes)
+#   - Invalid UTF-8 encoding violations
 #
 # This is a pure-bash implementation; it does not require the legacy
 # utils/tasks/src/ResourceCompareTask.java (which depends on a deprecated
@@ -91,13 +91,10 @@ extract_keys() {
     sort -u
 }
 
-# Count raw non-ASCII bytes in a file.
-# Returns 0 when clean; always returns a plain integer (never "0\n0").
-count_non_ascii_lines() {
+# Check whether a .properties file is valid UTF-8.
+is_valid_utf8() {
     local file="$1"
-    local result
-    result=$(LC_ALL=C grep -cP '[\x80-\xFF]' "$file" 2>/dev/null) || true
-    echo "${result:-0}"
+    iconv -f UTF-8 -t UTF-8 "$file" >/dev/null 2>&1
 }
 
 # Locale label from filename: oscarResources_fr.properties → "fr"
@@ -170,7 +167,6 @@ for locale_file in "${LOCALE_FILES[@]}"; do
 
     # Coverage percentage
     if [ "$EN_KEY_COUNT" -gt 0 ]; then
-        covered=$((lc_key_count - missing_count < 0 ? 0 : lc_key_count - missing_count))
         pct=$(( (EN_KEY_COUNT - missing_count) * 100 / EN_KEY_COUNT ))
     else
         pct=100
@@ -213,24 +209,20 @@ rm -f "$TMP_EN"
 # ── Encoding Compliance Check ─────────────────────────────────────────────────
 echo
 echo "════════════════════════════════════════════════════════"
-echo " ISO 8859-1 Encoding Compliance"
+echo " UTF-8 Encoding Compliance"
 echo "════════════════════════════════════════════════════════"
-echo " Java Properties.load() requires ISO 8859-1 encoding."
-echo " Non-ASCII characters must use \\uXXXX unicode escapes."
-echo " Non-ASCII bytes in the file indicate UTF-8 mis-encoding."
+echo " CARLOS EMR loads ResourceBundle properties as UTF-8 on Java 21."
+echo " Properties files must be valid UTF-8."
+echo " Direct non-ASCII characters are allowed; existing \\uXXXX escapes remain valid."
 echo
 
-encoding_clean=true
 all_files=("$ENGLISH_FILE" "${LOCALE_FILES[@]}")
 
 for props_file in "${all_files[@]}"; do
     locale=$(locale_of "$props_file")
-    non_ascii=$(count_non_ascii_lines "$props_file")
-    if [ "$non_ascii" -gt 0 ]; then
-        printf " %-20s  ENCODING VIOLATION: %d line(s) with raw non-ASCII bytes\n" \
-            "${locale}:" "$non_ascii"
-        echo "   Fix: Replace raw chars with \\uXXXX escapes (e.g. é → \\u00e9)"
-        encoding_clean=false
+    if ! is_valid_utf8 "$props_file"; then
+        printf " %-20s  INVALID UTF-8\n" "${locale}:"
+        echo "   Fix: Save the file as UTF-8 and remove malformed byte sequences"
         overall_ok=false
     else
         printf " %-20s  OK\n" "${locale}:"

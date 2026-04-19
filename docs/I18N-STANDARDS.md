@@ -412,21 +412,21 @@ Run the encoding check script before committing any properties file changes:
 ./scripts/check-i18n-properties.sh
 ```
 
-The `Encoding Compliance` section of the report flags files with encoding issues.
-All current locale files are clean as of April 2026 (baseline).
+The `UTF-8 Encoding Compliance` section of the report flags files with encoding issues.
+All current locale files are valid UTF-8 as of April 2026 (baseline).
 
 ---
 
 ## CI Validation
 
-### Workflow Installation
+### Workflow Location
 
-The i18n validation workflow template is at [`docs/i18n-validation-workflow.yml`](i18n-validation-workflow.yml).
-Copy it to `.github/workflows/i18n-validation.yml` to activate CI enforcement.
+The i18n validation workflow lives at
+[.github/workflows/i18n-validation-workflow.yml](../.github/workflows/i18n-validation-workflow.yml)
+and is already active in this repository.
 
-```bash
-cp docs/i18n-validation-workflow.yml .github/workflows/i18n-validation.yml
-```
+If you need the same checks in another repository or fork, copy that workflow file
+into `.github/workflows/`.
 
 ### What the CI Checks Validate
 
@@ -445,7 +445,8 @@ The workflow runs on every PR that touches `.properties` files or JSPs and enfor
 all other locales:
 ```properties
 # Add to oscarResources_es.properties, _fr, _pl, _pt_BR:
-admin.newFeature.btnActivate=Activate    # TODO: translate
+# TODO: translate
+admin.newFeature.btnActivate=Activate
 ```
 
 **Encoding violation** — A `.properties` file is not valid UTF-8:

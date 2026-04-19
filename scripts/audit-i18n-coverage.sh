@@ -171,13 +171,13 @@ while IFS= read -r -d '' file; do
     total=$((total + 1))
 
     # Path relative to project root
-    rel_path="${file#${PROJECT_ROOT}/}"
+    rel_path="${file#"${PROJECT_ROOT}/"}"
     # Normalise Windows-style backslashes if present
     rel_path="${rel_path//\\//}"
 
     # Domain = first subdirectory under the configured webapp dir (e.g. "admin", "demographic")
     # Derived from file path using WEBAPP_DIR variable so --webapp-dir overrides work correctly
-    path_in_webapp="${file#${WEBAPP_DIR}/}"
+    path_in_webapp="${file#"${WEBAPP_DIR}/"}"
     path_in_webapp="${path_in_webapp//\\//}"
     domain="${path_in_webapp%%/*}"
     if [ -z "$domain" ] || [ "$domain" = "$path_in_webapp" ]; then
