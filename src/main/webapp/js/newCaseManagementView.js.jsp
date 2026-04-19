@@ -2730,10 +2730,11 @@ function updateCPPNote() {
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
         var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
+        var safeNoteIdSuffix = safeNewNoteIdx.replace(/[^A-Za-z0-9\-_:.]/g, "");
         var id = "nc" + safeNewNoteIdx;
         var sigId = "sig" + safeNewNoteIdx;
         var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNewNoteIdx + "'>" + reason + "<\/textarea>";
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
@@ -2741,7 +2742,7 @@ function updateCPPNote() {
 
         if (changeToView(caseNote)) {
 
-            caseNote = "caseNote_note" + newNoteIdx;
+            caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
