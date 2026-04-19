@@ -2800,10 +2800,11 @@ function updateCPPNote() {
         var newNoteIdx = "0" + newNoteCounter;
         var id = "nc" + newNoteIdx;
         var sigId = "sig" + newNoteIdx;
+        var safeSigId = sigId.replace(/\s+/g, "");
         var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote)) {
@@ -2813,7 +2814,7 @@ function updateCPPNote() {
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
             document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
-            $(sigId).addClassName("sig");
+            $(safeSigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
             adjustCaseNote();
@@ -2831,8 +2832,8 @@ function updateCPPNote() {
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
-            ajaxUpdateIssues("edit", sigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, sigId);
+            ajaxUpdateIssues("edit", safeSigId);
+            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
             if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
