@@ -2800,7 +2800,7 @@ function updateCPPNote() {
         var newNoteIdx = "0" + newNoteCounter;
         var id = "nc" + newNoteIdx;
         var sigId = "sig" + newNoteIdx;
-        var safeSigId = sigId.replace(/\s+/g, "");
+        var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
         var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
