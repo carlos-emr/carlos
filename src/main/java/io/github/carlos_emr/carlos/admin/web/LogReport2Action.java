@@ -164,9 +164,18 @@ public class LogReport2Action extends ActionSupport {
                 request.setAttribute("dateError", "Invalid date format. Please use YYYY-MM-DD.");
                 return SUCCESS;
             }
-            List<String> siteRestrictedProviderNos = bAll && isSiteAccessPrivacy
+            List<String> siteRestrictedProviderNos = isSiteAccessPrivacy
                     ? providers.stream().map(ProviderData::getId).toList()
                     : null;
+
+            if (isSiteAccessPrivacy && !bAll && (providerNo == null || !siteRestrictedProviderNos.contains(providerNo))) {
+                request.setAttribute("vec", new Vector<Properties>());
+                request.setAttribute("bAll", bAll);
+                request.setAttribute("providerNo", providerNo);
+                request.setAttribute("startDate", sDate);
+                request.setAttribute("endDate", eDate);
+                return SUCCESS;
+            }
 
             Vector<Properties> vec = new Vector<>();
             try {

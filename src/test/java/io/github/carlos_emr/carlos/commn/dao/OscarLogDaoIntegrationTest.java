@@ -60,7 +60,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private OscarLogDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
