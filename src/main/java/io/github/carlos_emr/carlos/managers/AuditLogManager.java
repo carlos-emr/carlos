@@ -119,6 +119,7 @@ public class AuditLogManager {
         try {
             String s = null;
 
+            // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder
             ProcessBuilder pb = new ProcessBuilder(vars); // nosemgrep
             pb.environment().put("MYSQL_PWD", password);
             Process p = pb.start();
