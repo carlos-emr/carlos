@@ -1,0 +1,4 @@
+## 2024-05-24 - [SQL Injection in ORDER BY clause via string concatenation]
+**Vulnerability:** A SQL Injection vulnerability existed in `DemographicDaoImpl.java` where the `orderBy` argument was directly concatenated into a native query via `orderBy = "de." + orderBy` inside the `getOrderField(String orderBy, boolean nativeQuery)` method.
+**Learning:** `ORDER BY` clauses cannot be parameterized with placeholders like standard data values (`?` or `:name`). When dynamically constructing `ORDER BY` statements in JPA/Hibernate or Native SQL queries, string concatenation exposes the system to injection attacks if user inputs are directly passed into the query structure.
+**Prevention:** Always validate dynamic order columns against an explicit and strict allowlist mapping (e.g. mapping "last_name" explicitly to "de.last_name, de.first_name") rather than directly concatenating user input to form the `ORDER BY` clause.
