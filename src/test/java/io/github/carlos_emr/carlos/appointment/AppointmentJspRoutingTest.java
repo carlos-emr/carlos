@@ -51,9 +51,13 @@ class AppointmentJspRoutingTest {
         assertThat(groupRecords).doesNotContain("action=\"appointmentgrouprecords.jsp\"");
 
         assertThat(addRecord).contains("/appointment/printappointment?appointment_no=");
+        assertThat(addRecord).contains("pageContext.request.contextPath");
+        assertThat(addRecord).contains("carlos:forJavaScript(carlos:forUriComponent(apptId))");
         assertThat(addRecord).doesNotContain("printappointment.jsp?appointment_no=");
 
         assertThat(updateRecord).contains("/appointment/printappointment?appointment_no=");
+        assertThat(updateRecord).contains("pageContext.request.contextPath");
+        assertThat(updateRecord).contains("carlos:forJavaScript(carlos:forUriComponent(appointmentNo))");
         assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
 
         assertThat(providerDay).contains("/appointment/addappointment?");
