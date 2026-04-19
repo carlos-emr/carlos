@@ -153,7 +153,10 @@
     java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 
-<html>
+<c:set var="flatpickrLanguage" value="${pageContext.request.locale.language}"/>
+
+<!DOCTYPE html>
+<html lang="${flatpickrLanguage}">
     <head>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
@@ -163,6 +166,13 @@
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
+
+        <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
+        <c:if test="${flatpickrLanguage != 'en'}">
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forHtmlAttribute(flatpickrLanguage)}.js"></script>
+        </c:if>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
         <style>
             /* Comment rows */
@@ -275,6 +285,11 @@
             @media print {
                 .searchBox, .page-header-bar { display: none; }
             }
+
+            @media screen {
+                .yesprint { display: none; }
+            }
+
         </style>
         <script type="application/javascript">
 
@@ -671,7 +686,64 @@
             });
 
         </script>
+        <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            const localeCode = "${carlos:forJavaScript(flatpickrLanguage)}";
+            const fromPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncFrom,
+              onClose: syncFrom
+            };
+            const toPickerOptions = {
+              dateFormat: "Y-m-d",
+              allowInput: true,
+              onChange: syncTo,
+              onClose: syncTo
+            };
 
+            if (localeCode !== "en") {
+              fromPickerOptions.locale = localeCode;
+              toPickerOptions.locale = localeCode;
+            }
+
+            const fromPicker = flatpickr("#xml_vdate", fromPickerOptions);
+            const toPicker = flatpickr("#xml_appointment_date", toPickerOptions);
+        
+            function syncFrom(selectedDates, dateStr, instance) {
+              const fromDate = instance.selectedDates[0];
+              const toDate = toPicker.selectedDates[0];
+        
+              if (fromDate) {
+                toPicker.set("minDate", fromDate);
+        
+                // auto-correct if To < From
+                if (toDate && toDate < fromDate) {
+                  toPicker.setDate(fromDate, true);
+                }
+              } else {
+                toPicker.set("minDate", null);
+              }
+            }
+        
+            function syncTo(selectedDates, dateStr, instance) {
+              const toDate = instance.selectedDates[0];
+              const fromDate = fromPicker.selectedDates[0];
+        
+              if (toDate) {
+                fromPicker.set("maxDate", toDate);
+        
+                // auto-correct if From > To
+                if (fromDate && fromDate > toDate) {
+                  fromPicker.setDate(toDate, true);
+                }
+              } else {
+                fromPicker.set("maxDate", null);
+              }
+            }
+        
+          });
+        </script>
     </head>
 
     <body>
@@ -706,8 +778,9 @@
                 <div class="row mb-2">
                     <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
-                        <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
+                        <input type="text" class="form-control" name="xml_vdate" id="xml_vdate"
                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
+
                     </div>
                 </div>
                 <div class="row mb-2">
@@ -715,6 +788,7 @@
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
                                value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
+
                     </div>
                 </div>
                 <div class="row mb-2">
