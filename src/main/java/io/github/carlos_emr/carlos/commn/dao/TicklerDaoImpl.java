@@ -53,6 +53,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
+    private static final int IN_CLAUSE_BATCH_SIZE = 500;
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -147,6 +148,25 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @SuppressWarnings("unchecked")
     @Override
+    public List<Tickler> findByTicklerNosDemo(List<Integer> ticklerNos, Integer demoNo) {
+        if (ticklerNos == null || ticklerNos.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Tickler> results = new ArrayList<>();
+        for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
+            List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
+            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
+            query.setParameter(1, ticklerBatch);
+            query.setParameter(2, demoNo);
+            results.addAll(query.getResultList());
+        }
+
+        return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
     public List<Tickler> findByTicklerNoAssignedTo(Integer ticklerNo, String assignedTo, Integer demoNo) {
 
         Query query = entityManager.createQuery("select t from Tickler t where t.id = ?1 AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
@@ -155,6 +175,26 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         query.setParameter(3, demoNo);
 
         List<Tickler> results = query.getResultList();
+
+        return results;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Tickler> findByTicklerNosAssignedTo(List<Integer> ticklerNos, String assignedTo, Integer demoNo) {
+        if (ticklerNos == null || ticklerNos.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Tickler> results = new ArrayList<>();
+        for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
+            List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
+            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
+            query.setParameter(1, ticklerBatch);
+            query.setParameter(2, assignedTo);
+            query.setParameter(3, demoNo);
+            results.addAll(query.getResultList());
+        }
 
         return results;
     }
