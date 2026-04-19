@@ -591,9 +591,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // them as constants. The LookupTableDef row (written via parameterised
             // INSERT) still points LoadCodeList at this table by tableId.
             String tableId = nextTableId("NR");
+            String clearNullRowTable = "DELETE FROM nr_null_row_test";
 
             hibernateTemplate.execute(session -> {
                 session.createNativeQuery(CREATE_NULL_ROW_TABLE).executeUpdate();
+                session.createNativeQuery(clearNullRowTable).executeUpdate();
                 session.createNativeQuery(INSERT_NULL_ROW).executeUpdate();
                 return null;
             });
