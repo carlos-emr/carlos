@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -66,9 +66,9 @@ public class RxUtil {
     private static final Pattern[] DUR_UNITS2_PATTERNS;
 
     static {
-        String[] durationUnits = {"[0-9]++\\s+(?i)days\\s", "[0-9]++\\s+(?i)weeks\\s", "[0-9]++\\s+(?i)months\\s", "[0-9]++\\s+(?i)day\\s", "[0-9]++\\s+(?i)week\\s", "[0-9]++\\s+(?i)month\\s", "[0-9]++\\s+(?i)d\\s", "[0-9]++\\s+(?i)w\\s", "[0-9]++\\s+(?i)m\\s", "[0-9]++\\s+(?i)mo\\s", "[0-9]++\\s+(?i)days$", "[0-9]++\\s+(?i)weeks$", "[0-9]++\\s+(?i)months$", "[0-9]++\\s+(?i)day$", "[0-9]++\\s+(?i)week$", "[0-9]++\\s+(?i)month$", "[0-9]++\\s+(?i)d$", "[0-9]++\\s+(?i)w$", "[0-9]++\\s+(?i)m$", "[0-9]++\\s+(?i)mo$",
-                "\\s[0-9]++(?i)days\\s", "\\s[0-9]++(?i)weeks\\s", "\\s[0-9]++(?i)months\\s", "\\s[0-9]++(?i)day\\s", "\\s[0-9]++(?i)week\\s", "\\s[0-9]++(?i)month\\s", "\\s[0-9]++(?i)d\\s", "\\s[0-9]++(?i)w\\s", "\\s[0-9]++(?i)m\\s", "\\s[0-9]++(?i)mo\\s", "\\s[0-9]++(?i)days$", "\\s[0-9]++(?i)weeks$", "\\s[0-9]++(?i)months$", "\\s[0-9]++(?i)day$", "\\s[0-9]++(?i)week$", "\\s[0-9]++(?i)month$", "\\s[0-9]++(?i)d$", "\\s[0-9]++(?i)w$", "\\s[0-9]++(?i)m$", "\\s[0-9]++(?i)mo$", "^[0-9]++(?i)days$", "^[0-9]++(?i)weeks$",
-                "^[0-9]++(?i)months$", "^[0-9]++(?i)day$", "^[0-9]++(?i)week$", "^[0-9]++(?i)month$", "^[0-9]++(?i)d$", "^[0-9]++(?i)w$", "^[0-9]++(?i)m$", "^[0-9]++(?i)mo$", "^[0-9]++\\s+(?i)days$", "^[0-9]++\\s+(?i)weeks$", "^[0-9]++\\s+(?i)months$", "^[0-9]++\\s+(?i)day$", "^[0-9]++\\s+(?i)week$", "^[0-9]++\\s+(?i)month$", "^[0-9]++\\s+(?i)d$", "^[0-9]++\\s+(?i)w$", "^[0-9]++\\s+(?i)m$", "^[0-9]++\\s+(?i)mo$"};
+        String[] durationUnits = {"[0-9]+\\s+(?i)days\\s", "[0-9]+\\s+(?i)weeks\\s", "[0-9]+\\s+(?i)months\\s", "[0-9]+\\s+(?i)day\\s", "[0-9]+\\s+(?i)week\\s", "[0-9]+\\s+(?i)month\\s", "[0-9]+\\s+(?i)d\\s", "[0-9]+\\s+(?i)w\\s", "[0-9]+\\s+(?i)m\\s", "[0-9]+\\s+(?i)mo\\s", "[0-9]+\\s+(?i)days$", "[0-9]+\\s+(?i)weeks$", "[0-9]+\\s+(?i)months$", "[0-9]+\\s+(?i)day$", "[0-9]+\\s+(?i)week$", "[0-9]+\\s+(?i)month$", "[0-9]+\\s+(?i)d$", "[0-9]+\\s+(?i)w$", "[0-9]+\\s+(?i)m$", "[0-9]+\\s+(?i)mo$",
+                "\\s[0-9]+(?i)days\\s", "\\s[0-9]+(?i)weeks\\s", "\\s[0-9]+(?i)months\\s", "\\s[0-9]+(?i)day\\s", "\\s[0-9]+(?i)week\\s", "\\s[0-9]+(?i)month\\s", "\\s[0-9]+(?i)d\\s", "\\s[0-9]+(?i)w\\s", "\\s[0-9]+(?i)m\\s", "\\s[0-9]+(?i)mo\\s", "\\s[0-9]+(?i)days$", "\\s[0-9]+(?i)weeks$", "\\s[0-9]+(?i)months$", "\\s[0-9]+(?i)day$", "\\s[0-9]+(?i)week$", "\\s[0-9]+(?i)month$", "\\s[0-9]+(?i)d$", "\\s[0-9]+(?i)w$", "\\s[0-9]+(?i)m$", "\\s[0-9]+(?i)mo$", "^[0-9]+(?i)days$", "^[0-9]+(?i)weeks$",
+                "^[0-9]+(?i)months$", "^[0-9]+(?i)day$", "^[0-9]+(?i)week$", "^[0-9]+(?i)month$", "^[0-9]+(?i)d$", "^[0-9]+(?i)w$", "^[0-9]+(?i)m$", "^[0-9]+(?i)mo$", "^[0-9]+\\s+(?i)days$", "^[0-9]+\\s+(?i)weeks$", "^[0-9]+\\s+(?i)months$", "^[0-9]+\\s+(?i)day$", "^[0-9]+\\s+(?i)week$", "^[0-9]+\\s+(?i)month$", "^[0-9]+\\s+(?i)d$", "^[0-9]+\\s+(?i)w$", "^[0-9]+\\s+(?i)m$", "^[0-9]+\\s+(?i)mo$"};
         DURATION_UNITS_PATTERNS = new Pattern[durationUnits.length];
         for (int i = 0; i < durationUnits.length; i++) {
             DURATION_UNITS_PATTERNS[i] = Pattern.compile(durationUnits[i]);
