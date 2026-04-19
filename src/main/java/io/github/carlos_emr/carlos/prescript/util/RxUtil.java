@@ -80,7 +80,7 @@ public class RxUtil {
             INSTRUC_DURATION_UNITS_PATTERNS[i] = Pattern.compile(instrucDurationUnits[i]);
         }
 
-        String[] prns = {"\\s(?i)prn$", "^(?i)prn\\s+", "\\s+(?i)prn\\s+"};
+        String[] prns = {"\\s(?i)prn$", "^(?i)prn\\s++", "\\s++(?i)prn\\s++"};
         PRNS_PATTERNS = new Pattern[prns.length];
         for (int i = 0; i < prns.length; i++) {
             PRNS_PATTERNS[i] = Pattern.compile(prns[i]);
