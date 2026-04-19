@@ -31,6 +31,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String user = (String) session.getAttribute("user");
@@ -182,7 +183,6 @@
     <div id="maincontent" class="flex-container">
 
         <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 
         <c:if test="${param.warning eq 'history'}">
             <script type="text/javascript">
