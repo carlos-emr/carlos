@@ -1261,22 +1261,33 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Tag("aggregate")
         @DisplayName("should treat SQL injection payload as literal string via parameterized query")
         void shouldTreatInjectionPayloadAsLiteral_inGetCountOfActiveClient() {
-            // Given - getCountOfActiveClient now uses parameterized queries with
-            // DBPreparedHandlerParam and CONCAT(), so the orgCd value is bound as a
-            // literal parameter. A SQL injection payload should not cause a syntax error.
+            // Given - getCountOfActiveClient now uses a JPA named-parameter native
+            // query via entityManager(), so the orgCd value is bound as a literal
+            // parameter. A SQL injection payload should not cause a syntax error.
 
             // When/Then - The injection payload is safely escaped and treated as a
             // literal LIKE pattern parameter. The query executes without error (though
-            // it may throw SQLException for missing tables in the test schema, the
-            // point is it does NOT throw due to SQL injection syntax breakage).
-            // If the underlying tables don't exist, we accept that as a valid outcome too.
+            // it may throw a persistence exception for missing tables in the test
+            // schema, the point is it does NOT throw due to SQL injection syntax
+            // breakage). If the underlying tables don't exist, we accept that as a
+            // valid outcome too.
             try {
                 int count = lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --");
                 assertThat(count).isGreaterThanOrEqualTo(0);
-            } catch (java.sql.SQLException e) {
+            } catch (java.sql.SQLException | RuntimeException e) {
                 // Acceptable if caused by missing test tables (admission, program_queue),
-                // but NOT by SQL injection. Verify the error is table-related.
-                assertThat(e.getMessage()).containsIgnoringCase("not found");
+                // but NOT by SQL injection. Verify the underlying error is table-related
+                // by walking the cause chain.
+                Throwable cause = e;
+                StringBuilder messages = new StringBuilder();
+                while (cause != null) {
+                    if (cause.getMessage() != null) {
+                        messages.append(cause.getMessage()).append(" | ");
+                    }
+                    cause = cause.getCause();
+                }
+                assertThat(messages.toString().toLowerCase())
+                    .containsAnyOf("not found", "doesn't exist", "no such table");
             }
         }
     }

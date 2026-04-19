@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.daos;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -799,44 +798,27 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         // Parameterized queries eliminate the SQL injection risk from orgCd.
         // CONCAT() is the correct MySQL/MariaDB string concatenation function;
         // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
-        String sql = "select count(*) from admission where admission_status=? and CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like ?)";
+        String sql = "select count(*) from admission where admission_status = :status and CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like :pattern)";
         String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like ?)";
+                + " select code from lst_orgcd where codecsv like :pattern)";
 
         // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
         String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
         String likePattern = "%" + escapedOrgCd + ",%";
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
-            new DBPreparedHandlerParam(KeyConstants.INTAKE_STATUS_ADMITTED),
-            new DBPreparedHandlerParam(likePattern)
-        };
-        DBPreparedHandlerParam[] params1 = new DBPreparedHandlerParam[]{
-            new DBPreparedHandlerParam(likePattern)
-        };
 
-        DBPreparedHandler db = new DBPreparedHandler();
-
-        ResultSet rs = db.queryResults(sql, params);
-        try {
-            int id = 0;
-            if (rs.next())
-                id = rs.getInt(1);
-            if (id > 0)
-                return id;
-        } finally {
-            rs.close();
+        Number count = (Number) entityManager().createNativeQuery(sql)
+                .setParameter("status", KeyConstants.INTAKE_STATUS_ADMITTED)
+                .setParameter("pattern", likePattern)
+                .getSingleResult();
+        if (count != null && count.intValue() > 0) {
+            return count.intValue();
         }
 
-        rs = db.queryResults(sql1, params1);
-        try {
-            int id = 0;
-            if (rs.next())
-                id = rs.getInt(1);
-            return id;
-        } finally {
-            rs.close();
-        }
+        Number count1 = (Number) entityManager().createNativeQuery(sql1)
+                .setParameter("pattern", likePattern)
+                .getSingleResult();
+        return count1 != null ? count1.intValue() : 0;
     }
 
     @Override
