@@ -477,7 +477,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (!note.isIncludeissue()) cform.setIncludeIssue("off");
         else cform.setIncludeIssue("on");
 
-        boolean passwd = caseManagementMgr.getEnabled();
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
@@ -505,11 +504,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String fwd, finalFwd = null;
         if (chain != null && chain.length() > 0) {
-            session.setAttribute("passwordEnabled", passwd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             fwd = chain;
         } else {
-            request.setAttribute("passwordEnabled", passwd);
-
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
                 fwd = "issueList_ajax";

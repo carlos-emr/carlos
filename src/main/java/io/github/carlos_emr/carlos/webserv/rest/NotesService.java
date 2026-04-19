@@ -1314,7 +1314,6 @@ public class NotesService extends AbstractServiceImpl {
 //		if (!note.isIncludeissue()) cform.setIncludeIssue("off");
 //		else cform.setIncludeIssue("on");
 
-//		boolean passwd = caseManagementMgr.getEnabled();
 //		String chain = request.getParameter("chain");
 
 

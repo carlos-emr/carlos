@@ -43,7 +43,6 @@
     var demographicNo;
     var case_program_id;
     var caisiEnabled = false;
-    var passwordEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
     var makeIssue;
@@ -1398,10 +1397,6 @@ function updateCPPNote() {
         clearTimeout(autoSaveTimer);
         deleteAutoSave();
 
-        if ($("notePasswd") != null) {
-            Element.remove("notePasswd");
-        }
-
     jQuery('#' + id).off('keyup', monitorCaseNote);
     jQuery('#' + caseNote).off('paste');
         Element.stopObserving(id, 'click', getActiveText);
@@ -1779,7 +1774,6 @@ function updateCPPNote() {
         if (txt == "") txt = Event.element(e).parentNode.parentNode.id;
 
         payload = $(caseNote).value;
-        Element.remove("notePasswd");
         Element.remove(caseNote);
 
         payload = payload.replace(/^\s+|\s+$/g, "");
@@ -2004,11 +1998,6 @@ function updateCPPNote() {
         enableNotePassthroughScroll(jQuery('#' + caseNote));
         initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
-
-        if (passwordEnabled) {
-            input = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-            $(txt).insertAdjacentHTML('beforeend', input);
-        }
 
         //we check if we are dealing with a new note or not
         if (strNid.charAt(0) == "0") {
@@ -2618,17 +2607,6 @@ function updateCPPNote() {
         return false;
     }
 
-    function toggleNotePasswd() {
-        if (passwordEnabled) {
-            Element.toggle('notePasswd');
-            if ($('notePasswd').style.display != "none")
-                document.forms['caseManagementEntryForm'].elements['caseNote.password'].focus();
-            else
-                document.forms['caseManagementEntryForm'].elements[caseNote].focus();
-        }
-        return false;
-    }
-
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
@@ -2823,14 +2801,9 @@ function updateCPPNote() {
         var id = "nc" + newNoteIdx;
         var sigId = "sig" + newNoteIdx;
         var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
-        var passwd = "";
-        if (passwordEnabled) {
-            passwd = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-        }
-
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div>" + passwd + "<\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote)) {
@@ -3500,10 +3473,6 @@ function autoSave() {
             clearTimeout(autoSaveTimer);
             deleteAutoSave();
 
-            if ($("notePasswd") != null) {
-                Element.remove("notePasswd");
-            }
-
                 jQuery('#' + caseNote).off('keyup', monitorCaseNote);
                 jQuery('#' + caseNote).off('paste');
             Element.stopObserving(caseNote, 'click', getActiveText);
@@ -3768,4 +3737,3 @@ function autoSave() {
             activeCCWindows[x].close();
         }
     });
-

@@ -315,10 +315,6 @@ public interface CaseManagementManager {
 
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
 
-    public boolean getEnabled();
-
-    public void setEnabled(boolean enabled);
-
     public void setHashAuditDao(HashAuditDao dao);
 
     public void setCaseManagementNoteDAO(CaseManagementNoteDAO dao);

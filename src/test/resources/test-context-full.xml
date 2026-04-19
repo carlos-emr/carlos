@@ -65,7 +65,6 @@
                 <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
                 <prop key="hibernate.show_sql">false</prop>
                 <prop key="hibernate.generate_statistics">false</prop>
-                <prop key="casemgmt.note.password.enabled">false</prop>
                 <prop key="pmm.refer.temporaryAdmission.enabled">false</prop>
                 <prop key="pmm.client.search.outside.of.domain.enabled">false</prop>
             </props>
@@ -694,7 +693,6 @@
         <property name="roleProgramAccessDAO" ref="RoleProgramAccessDAO" />
         <property name="rolesManager" ref="rolesManager" />
         <property name="admissionManager" ref="admissionManager" />
-        <property name="enabled" value="${casemgmt.note.password.enabled}" />
         <property name="programManager" ref="programManager" />
         <property name="programProviderDao" ref="programProviderDAO" />
         <property name="programAccessDAO" ref="programAccessDAO" />

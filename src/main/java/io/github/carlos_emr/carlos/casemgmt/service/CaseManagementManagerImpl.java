@@ -110,7 +110,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    private boolean enabled;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -1855,16 +1854,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
          * issue.setIssue_id(newIssueId.longValue()); } }
          * this.caseManagementNoteDAO.saveNote(note); }
          */
-    }
-
-    @Override
-    public boolean getEnabled() {
-        return enabled;
-    }
-
-    @Override
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
     }
 
     @Override
