@@ -875,11 +875,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      */
     private static int parseIntWithZeroPrefix(Object value) {
         String s = value == null ? "" : value.toString();
-        try {
-            return Integer.parseInt("0" + s);
-        } catch (NumberFormatException ex) {
-            return 0;
-        }
+        return Integer.parseInt("0" + s);
     }
 
     /**
