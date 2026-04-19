@@ -2210,14 +2210,15 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
-   <%
+                                            <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
+    <%
                                                 if (thisForm.iseReferral()) {
                                             %>
                                                 <%-- <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
-                                                Manage Attachments
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
                                                                                       <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
@@ -2226,9 +2227,9 @@ if (userAgent != null) {
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
-                                                Manage Attachments
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
                                             <% } %>
@@ -2240,7 +2241,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedEFormsTable">
                                                 <tr>
-                                                    <td><h3>eForms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionEForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedEForms }" var="attachedEForm">
                                                     <tr id="entry_eFormNo${ attachedEForm.id }">
@@ -2260,7 +2261,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedDocumentsTable">
                                                 <tr>
-                                                    <td><h3>Documents</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionDocuments"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedDocuments }" var="attachedDocument">
                                                     <tr id="entry_docNo${ attachedDocument.docId }">
@@ -2280,15 +2281,16 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedLabsTable">
                                                 <tr>
-                                                    <td><h3>Labs</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionLabs"/></h3></td>
                                                 </tr>
+                                                <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
                                                     <tr id="entry_labNo${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
-                                                                                                 value="UNLABELLED"/></c:if>
+                                                                                                 value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
                                                                    id="delegate_labNo${ attachedLab.segmentID }"
@@ -2304,7 +2306,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
-                                                    <td><h3>HRM</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
@@ -2324,7 +2326,7 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedFormsTable">
                                                 <tr>
-                                                    <td><h3>Forms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedForms }" var="attachedForm">
                                                     <tr id="entry_formNo${ attachedForm.formId }"
@@ -2408,7 +2410,9 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <carlos:encode value='<%= thisForm.getPatientAddress().replace("null", "") %>' context="html"/>
+                                                <div style="white-space: pre-line;">
+                                                <carlos:encode value='<%= thisForm.getPatientAddress() == null ? "" : thisForm.getPatientAddress().replace("null", "") %>' context="html"/>
+                                                </div>
                                             </div>
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <carlos:encode value='<%= thisForm.getPatientPhone() %>' context="html"/><br>
@@ -2748,11 +2752,11 @@ if (userAgent != null) {
                                         if (thisForm.getFdid() != null) {
                                     %>
                                     <tr>
-                                        <td class="consult-form-label">EForm
+                                        <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelEForm"/>
                                         </td>
                                         <td class="consult-form-value">
-                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>">Click
-                                                to view</a>
+                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkClick"/>
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkToView"/></a>
                                         </td>
                                     </tr>
                                     <%
@@ -3390,4 +3394,3 @@ if (userAgent != null) {
         return noteStr.toString();
     }
 %>
-
