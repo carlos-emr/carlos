@@ -134,6 +134,8 @@ public class LogReport2Action extends ActionSupport {
             // Fail closed: if we cannot determine the allowed provider set for site-restricted users,
             // use an empty list so no cross-site log rows are returned.
             providers = List.of();
+            propName = new Properties();
+            vecProvider = new Vector<>();
         }
 
         request.setAttribute("vecProvider", vecProvider);
