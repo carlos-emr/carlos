@@ -626,7 +626,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                         consultationManager.getAttachedHRMDocuments(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString());
 
                 // Then
-                assertThat(result).extracting(map -> map.get("id")).containsExactly(128, 5);
+                assertThat(result).extracting(map -> (Integer) map.get("id")).containsExactly(128, 5);
             }
         }
 
