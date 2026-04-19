@@ -168,7 +168,7 @@
         <!-- Flatpickr -->
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
         <c:if test="${flatpickrLanguage != 'en'}">
-        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forHtmlAttribute(flatpickrLanguage)}.js"></script>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forUriComponent(flatpickrLanguage)}.js"></script>
         </c:if>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css">
 
@@ -700,10 +700,15 @@
               onClose: syncTo
             };
 
-            if (localeCode !== "en") {
-              fromPickerOptions.locale = localeCode;
-              toPickerOptions.locale = localeCode;
-            }
+            const hasRequestedLocale = localeCode !== "en"
+              && window.flatpickr
+              && flatpickr.l10ns
+              && flatpickr.l10ns[localeCode];
+
+            if (hasRequestedLocale) {
+               fromPickerOptions.locale = localeCode;
+               toPickerOptions.locale = localeCode;
+             }
 
             const fromPicker = flatpickr("#xml_vdate", fromPickerOptions);
             const toPicker = flatpickr("#xml_appointment_date", toPickerOptions);
