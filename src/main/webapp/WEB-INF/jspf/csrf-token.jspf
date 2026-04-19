@@ -9,14 +9,25 @@
     forms at all) will silently fail every POST. Including this fragment
     populates the token via share/javascript/csrfTokenFetch.js.
 
-    Usage — place the include anywhere inside <body>:
+    Usage — place the include anywhere inside <body>, once per page:
         <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+
+    Notes:
+      * fetchCsrfToken(contextPath) returns a Promise that resolves after
+        the token is populated and rejects on fetch/parse failure. Callers
+        that trigger AJAX POSTs immediately on page load should await
+        resolution or handle rejection rather than relying on the fire-
+        and-forget DOMContentLoaded bootstrap below.
+      * Include this fragment exactly once per page — duplicate includes
+        load csrfTokenFetch.js twice and register two DOMContentLoaded
+        handlers (idempotent, but wasteful).
 --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <script type="text/javascript"
-        src="${pageContext.request.contextPath}/share/javascript/csrfTokenFetch.js"></script>
+        src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/csrfTokenFetch.js"></script>
 <input type="hidden" name="CSRF-TOKEN" value="">
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        fetchCsrfToken('${pageContext.request.contextPath}');
+        fetchCsrfToken('${carlos:forJavaScript(pageContext.request.contextPath)}');
     });
 </script>

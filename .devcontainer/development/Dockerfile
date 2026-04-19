@@ -170,7 +170,7 @@ RUN echo '#!/bin/bash' > /usr/local/bin/gpg-encrypt-wrapper \
     && chmod +x /usr/local/bin/gpg-encrypt-wrapper 
 
 # Convert script files from DOS to Unix format, make executable, and set up PATH
-RUN dos2unix /scripts/* /setup-dir/setup.sh \
+RUN dos2unix /scripts/* /setup-dir/*.sh \
     && chmod +x /scripts/* /setup-dir/*.sh \
     && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"

@@ -22,7 +22,7 @@ The endpoint is consumed by the prescription module for drug search, dosing, ATC
 
 Both Tomcat instances listen on container port 8080 — there is no conflict because they run in separate containers on the `carlos-network` bridge. CARLOS resolves `drugref` via Docker's internal DNS.
 
-The `drugref2` database (separate from CARLOS's `oscar_15` database) is created on the same MariaDB instance by `.devcontainer/db/scripts/populate_db.sh`.
+The `drugref2` database (separate from CARLOS's `oscar` database) is created on the same MariaDB instance by `.devcontainer/db/scripts/populate_db.sh`.
 
 ## Remote Address Restriction & Override
 
@@ -48,36 +48,29 @@ CARLOS ships an external Tomcat context descriptor that overrides the WAR's embe
 
 Files involved:
 
-- **`.devcontainer/drugref/drugref2.xml`** — replacement descriptor using `RemoteCIDRValve` with a permissive but parameterizable default.
-- **`.devcontainer/docker-compose.yml`** — bind-mounts the descriptor into `/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml` and exposes a `DRUGREF_CATALINA_OPTS` pass-through.
+- **`.devcontainer/drugref/drugref2.xml`** — replacement descriptor using `RemoteCIDRValve` with a hardcoded allow list covering the ranges typical container networks draw from.
+- **`.devcontainer/docker-compose.yml`** — bind-mounts the descriptor into `/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml`.
 
-Default allow list (covers loopback + all RFC 1918 ranges + IPv6 ULA):
+Default allow list (covers loopback, RFC 1918, CGNAT, link-local, and IPv6 ULA/link-local ranges):
 
-```
-127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, ::1, fc00::/7
+```text
+127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, ::1, fc00::/7, fe80::/10
 ```
 
 ### Customizing the allow list
 
-The override descriptor uses Tomcat's `${name:default}` substitution syntax:
+The allow list is **hardcoded** in the descriptor. Tomcat's `RemoteCIDRValve` splits the `allow` attribute on commas before system-property substitution runs, so `${name:a,b,c}` style placeholders with comma-separated defaults fail to parse — there is no `CATALINA_OPTS` / `-D...` override for this list.
+
+To change the allow list, edit `.devcontainer/drugref/drugref2.xml` directly (the file is bind-mounted, so changes take effect on the next container restart — no image rebuild needed):
 
 ```xml
-allow="${drugref.allowedRemoteAddresses:127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7}"
-```
-
-Set `drugref.allowedRemoteAddresses` via `CATALINA_OPTS` to override per-deployment. The `docker-compose.yml` exposes this as `DRUGREF_CATALINA_OPTS`:
-
-```bash
-# Lock down to a single internal subnet:
-DRUGREF_CATALINA_OPTS='-Ddrugref.allowedRemoteAddresses=10.20.30.0/24,::1' \
-  docker compose -f .devcontainer/docker-compose.yml up -d --force-recreate drugref
-
-# Add an extra subnet on top of the defaults (full list, comma-separated):
-DRUGREF_CATALINA_OPTS='-Ddrugref.allowedRemoteAddresses=127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1,fc00::/7,203.0.113.0/24' \
-  docker compose -f .devcontainer/docker-compose.yml up -d --force-recreate drugref
+<Valve className="org.apache.catalina.valves.RemoteCIDRValve"
+       allow="127.0.0.0/8,10.0.0.0/8,..." />
 ```
 
 `RemoteCIDRValve` takes CIDR notation (not regex), comma-separated. Both IPv4 and IPv6 entries are supported in the same list.
+
+`DRUGREF_CATALINA_OPTS` is still exposed on the container for unrelated Tomcat tuning (heap sizing, GC flags, etc.) but does **not** influence the allow list.
 
 ### Verifying
 
@@ -91,7 +84,7 @@ A healthy service returns `HTTP/1.1 200` with the WSDL document. `HTTP/1.1 403` 
 
 ## Bare-Metal Deployment
 
-For a single-host install where CARLOS and DrugRef run on the same machine, the upstream localhost-only default already works — no override needed. For split deployments, drop an equivalent `drugref2.xml` under your Tomcat's `conf/Catalina/localhost/` and set `CATALINA_OPTS` per the examples above.
+For a single-host install where CARLOS and DrugRef run on the same machine, the upstream localhost-only default already works — no override needed. For split deployments, drop an equivalent `drugref2.xml` under your Tomcat's `conf/Catalina/localhost/` with the desired CIDR ranges hardcoded in the `allow` attribute.
 
 ## Related Files
 

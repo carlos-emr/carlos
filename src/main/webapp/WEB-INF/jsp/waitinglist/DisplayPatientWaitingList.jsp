@@ -44,15 +44,10 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/share/javascript/csrfTokenFetch.js"></script>
         <title><fmt:message key='oscarwaitinglist.displayPatientWaitingList.waitinglist'/></title>
 
     </head>
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            fetchCsrfToken('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>');
-        });
-
         function appendCsrfToken(form) {
             var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
             if (csrfEl) {
@@ -92,7 +87,7 @@
         }
     </script>
     <body class="BodyStyle" vlink="#0000FF">
-    <input type="hidden" name="CSRF-TOKEN" value="">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">

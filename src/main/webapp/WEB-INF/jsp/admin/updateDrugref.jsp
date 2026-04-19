@@ -157,7 +157,13 @@
             }
 
             document.addEventListener("DOMContentLoaded", function () {
-                fetchCsrfToken("${carlos:forJavaScript(ctx)}").then(getUpdateTime);
+                fetchCsrfToken("${carlos:forJavaScript(ctx)}")
+                    .then(getUpdateTime)
+                    .catch(function (err) {
+                        console.warn('Skipping getUpdateTime — CSRF token not available:', err);
+                        document.getElementById('dbInfo').innerHTML =
+                            'Could not load CSRF token. Refresh the page or contact support.';
+                    });
             });
         </script>
       <style>
