@@ -778,7 +778,7 @@
                 <div class="row mb-2">
                     <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
-                        <input type="text" class="form-control" name="xml_vdate" id="xml_vdate"
+                        <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
 
                     </div>
@@ -786,7 +786,7 @@
                 <div class="row mb-2">
                     <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
-                        <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
+                        <input type="text" class="form-control" name="xml_appointment_date" id="xml_appointment_date" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
 
                     </div>
