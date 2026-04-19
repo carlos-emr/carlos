@@ -329,7 +329,7 @@
                                          </label>
                                          <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="getPdf('EFORM', '${eForm.id}', 'method=renderEFormPDF&eFormId=${eForm.id}')">
-                                             ${carlos:forHtml(previewAction)}
+                                             ${carlos:forHtmlContent(previewAction)}
                                          </button>
                                      </li>
                                  </c:forEach>
@@ -363,7 +363,7 @@
                                         <label for="docNo${document.docId}">${carlos:forHtml(document.description)} ${carlos:forHtml(document.observationDate)}</label>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="getPdf('DOC', '${document.docId}', 'method=renderEDocPDF&eDocId=${document.docId}')">
-                                            ${carlos:forHtml(previewAction)}
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
@@ -403,7 +403,7 @@
                                         </c:if>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="getPdf('LAB', '${lab.segmentID}', 'method=renderLabPDF&segmentId=${lab.segmentID}')">
-                                            ${carlos:forHtml(previewAction)}
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                         <ul class="collapsible-content" style="list-style-type: none;padding:0px;">
                                             <c:forEach items="${ lab.labVersionIds }" var="version"
@@ -427,7 +427,7 @@
                                                     </em>
                                                      <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                              onclick="getPdf('LAB', '${version.key}', 'method=renderLabPDF&segmentId=${version.key}')">
-                                                         ${carlos:forHtml(previewAction)}
+                                                         ${carlos:forHtmlContent(previewAction)}
                                                      </button>
                                                 </li>
                                             </c:forEach>
@@ -464,7 +464,7 @@
                                         </label>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="getPdf('HRM', '${hrm.id}', 'method=renderHrmPDF&hrmId=${hrm.id}')">
-                                            ${carlos:forHtml(previewAction)}
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
@@ -498,7 +498,7 @@
                                         </label>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                 onclick="getPdf('FORM', '${form.formId}', 'method=renderFormPDF&formId=${form.formId}&formName=${form.formName}&demographicNo=${form.getDemoNo()}')">
-                                            ${carlos:forHtml(previewAction)}
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
