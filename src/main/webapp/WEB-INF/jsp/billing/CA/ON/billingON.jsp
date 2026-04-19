@@ -669,12 +669,13 @@
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
     <script>
+        var billingContextPath = "${pageContext.request.contextPath}";
 
         function gotoBillingOB() {
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
-            self.location.href = "/billing" + a;
+            self.location.href = billingContextPath + "/billing" + a;
         }
 
         function findObj(n, d) { //v4.0
@@ -909,7 +910,7 @@
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             //t1 = escape("");
             //alert(('/billing/CA/ON/ViewSearchRefDoc?param='+t0));
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
+            awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -917,7 +918,7 @@
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
             t1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
+            awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1 + '&submit=Search&keyword=' + document.forms[0].elements[name2].value), 1000, 800, 1);
             //awnd.focus();
         }
 
@@ -925,14 +926,14 @@
             ff = eval("document.forms[0].elements['" + name2 + "']");
             f0 = ff.value;
             f1 = escape("document.forms[0].elements[\'" + name2 + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
+            awnd = rs('att', billingContextPath + '/billing/CA/ON/ViewBillingDigSearch?name=' + f0 + '&search=&name2=' + f1, 800, 800, 1);
             //awnd.focus();
         }
 
         function scScriptAttach(nameF) {
             f0 = escape(nameF.value);
             f1 = escape("document.forms[0].elements[\'" + nameF.name + "\'].value");
-            awnd = rs('att', '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
+            awnd = rs('att', billingContextPath + '/billing/CA/ON/ViewBillingCodeSearch?name=' + f0 + '&search=&name1=&name2=&nameF=' + f1, 600, 600, 1);
             //awnd.focus();
         }
 
@@ -1037,7 +1038,7 @@
             <c:set var="__enc_6"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
             <c:set var="__enc_7"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_2}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_4}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_5}' context="javaScript"/>&status=<carlos:encode value='${__enc_6}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_7}' context="javaScript"/>&bNewForm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=<%="PRI"%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_2}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_4}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_5}' context="javaScript"/>&status=<carlos:encode value='${__enc_6}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_7}' context="javaScript"/>&bNewForm=1";
             } else if (val.substring(0, 3) == "BON") {
                 <c:set var="__enc_8"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_9"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
@@ -1046,10 +1047,10 @@
                 <c:set var="__enc_12"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_13"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_14"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewForm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                self.location.href = "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_15}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_16}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_17}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_18}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_19}' context="javaScript"/>&status=<carlos:encode value='${__enc_20}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_21}' context="javaScript"/>&bNewForm=1";
+                self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_15}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_16}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_17}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_18}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_19}' context="javaScript"/>&status=<carlos:encode value='${__enc_20}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_21}' context="javaScript"/>&bNewForm=1";
                 <% } %>
             }
         }
@@ -1075,7 +1076,7 @@
                 <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-  popupPage("800", "1000", "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='<%= demo_no %>' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+  popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='<%= demo_no %>' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -1141,7 +1142,7 @@
         }
 
         function changeCodeDesc() {
-            var url = "/billing/CA/ON/ViewBillingONDxDesc";
+            var url = billingContextPath + "/billing/CA/ON/ViewBillingONDxDesc";
             var pars = "diagnostic_code=" + document.forms[0].dxCode.value;
 
             //prototype
@@ -1337,7 +1338,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="prepareBack();changeCodeDesc();getDays();toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
@@ -1465,7 +1466,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 </div>
 
 <form method="post" id="titlesearch" name="titlesearch"
-      action="/billing/CA/ON/ViewBillingONReview" onsubmit="return onNext();">
+      action="${ pageContext.request.contextPath }/billing/CA/ON/ViewBillingONReview" onsubmit="return onNext();">
     <%
         String checkFlag = request.getParameter("checkFlag");
         if (checkFlag == null) checkFlag = "0";
@@ -1481,7 +1482,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             <td><H4><i class="fa-solid fa-money-bill" style="margin-left:10px;"></i>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.headerTitle"/></H4></td>
             <td style="text-align: right"><i class="fa-solid fa-circle-question"></i>&nbsp;
                 <i class="fa-solid fa-pen-to-square"></i><a href="javascript:void(0);"
-                                              onclick="popupPage(800,700,'/billing/CA/ON/ViewBillingONFavourite'); return false;">
+                                              onclick="popupPage(800,700,billingContextPath + '/billing/CA/ON/ViewBillingONFavourite'); return false;">
                     <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
                     <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
