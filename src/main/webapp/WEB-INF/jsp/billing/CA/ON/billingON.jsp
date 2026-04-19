@@ -669,9 +669,10 @@
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
     <script>
-        var billingContextPath = "${pageContext.request.contextPath}";
+        var billingContextPath = "<carlos:encode value='${pageContext.request.contextPath}' context='javaScriptBlock'/>";
 
         function gotoBillingOB() {
+            var a = "";
             if (self.location.href.lastIndexOf("?") > 0) {
                 a = self.location.href.substring(self.location.href.lastIndexOf("?"));
             }
@@ -1466,7 +1467,7 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
 </div>
 
 <form method="post" id="titlesearch" name="titlesearch"
-      action="${ pageContext.request.contextPath }/billing/CA/ON/ViewBillingONReview" onsubmit="return onNext();">
+      action="<carlos:encode value='${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONReview' context='htmlAttribute'/>" onsubmit="return onNext();">
     <%
         String checkFlag = request.getParameter("checkFlag");
         if (checkFlag == null) checkFlag = "0";
