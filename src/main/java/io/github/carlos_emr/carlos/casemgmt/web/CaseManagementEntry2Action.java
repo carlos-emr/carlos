@@ -479,8 +479,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // Note password protection has been discontinued. Explicitly discard any
         // request-bound password value so a crafted caseNote.password parameter
-        // cannot (re)lock the note through request tampering.
+        // cannot (re)lock the note through request tampering. Clear both the
+        // persisted note state and the request-bound action model so downstream
+        // save logic cannot restore password-based locking from tampered input.
         note.setPassword(null);
+        note.setLocked(false);
+        if (this.getCaseNote() != null) {
+            this.getCaseNote().setPassword(null);
+            this.getCaseNote().setLocked(false);
+        }
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
