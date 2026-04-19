@@ -164,11 +164,13 @@ public class LogReport2Action extends ActionSupport {
                 request.setAttribute("dateError", "Invalid date format. Please use YYYY-MM-DD.");
                 return SUCCESS;
             }
+            // Build the allowed provider set for all site-restricted requests so both the
+            // all-providers and specific-provider report paths enforce the same privacy boundary.
             List<String> siteRestrictedProviderNos = isSiteAccessPrivacy
                     ? providers.stream().map(ProviderData::getId).toList()
                     : null;
 
-            if (isSiteAccessPrivacy && !bAll && (providerNo == null || !siteRestrictedProviderNos.contains(providerNo))) {
+            if (isUnauthorizedSiteRestrictedProviderRequest(isSiteAccessPrivacy, bAll, providerNo, siteRestrictedProviderNos)) {
                 request.setAttribute("vec", new Vector<Properties>());
                 request.setAttribute("bAll", bAll);
                 request.setAttribute("providerNo", providerNo);
@@ -221,6 +223,11 @@ public class LogReport2Action extends ActionSupport {
 
     private String defaultString(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean isUnauthorizedSiteRestrictedProviderRequest(boolean isSiteAccessPrivacy, boolean bAll,
+                                                                String providerNo, List<String> siteRestrictedProviderNos) {
+        return isSiteAccessPrivacy && !bAll && (providerNo == null || !siteRestrictedProviderNos.contains(providerNo));
     }
 
     private String formatTimestamp(java.util.Date value) {

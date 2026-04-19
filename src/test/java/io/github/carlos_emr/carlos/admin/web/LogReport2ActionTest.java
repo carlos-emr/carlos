@@ -77,6 +77,14 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
 
+    private ProviderData createProvider(String providerNo, String firstName, String lastName) {
+        ProviderData provider = new ProviderData();
+        provider.set(providerNo);
+        provider.setFirstName(firstName);
+        provider.setLastName(lastName);
+        return provider;
+    }
+
     @AfterEach
     void tearDown() {
         if (loggedInInfoMock != null) {
@@ -101,10 +109,7 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         request.setParameter("endDate", "2026-04-19");
         request.getSession().setAttribute("user", "site-user");
 
-        ProviderData allowedProvider = new ProviderData();
-        allowedProvider.set("prov-allowed");
-        allowedProvider.setFirstName("Alice");
-        allowedProvider.setLastName("Smith");
+        ProviderData allowedProvider = createProvider("prov-allowed", "Alice", "Smith");
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ProviderDataDao.class, providerDataDao);
