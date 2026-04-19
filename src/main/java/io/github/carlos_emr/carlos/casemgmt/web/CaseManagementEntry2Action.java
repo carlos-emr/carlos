@@ -81,7 +81,8 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import org.owasp.encoder.Encode;
 
@@ -101,6 +102,40 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * Thread-safe date formatters for fixed patterns used in this action. Locale-specific
+     * derivatives are created on demand via {@link DateTimeFormatter#withLocale(Locale)}
+     * which is cheap (no pattern re-parsing) because {@code DateTimeFormatter} is immutable.
+     */
+    private static final DateTimeFormatter DD_MMM_YYYY_HMM_FORMATTER_BASE =
+            DateTimeFormatter.ofPattern("dd-MMM-yyyy H:mm");
+    private static final DateTimeFormatter DD_MMM_YYYY_FORMATTER_BASE =
+            DateTimeFormatter.ofPattern("dd-MMM-yyyy");
+    private static final DateTimeFormatter HEADER_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd.hh.mm.ss");
+    private static final DateTimeFormatter YYYY_MM_DD_FORMATTER_BASE =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter YYYY_MM_DD_HHMM_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private static String formatZoned(DateTimeFormatter formatter, Date date) {
+        return formatter.format(date.toInstant().atZone(ZoneId.systemDefault()));
+    }
+
+    private static Date parseAsDate(String text, DateTimeFormatter formatter) throws ParseException {
+        try {
+            return Date.from(java.time.LocalDateTime.parse(text, formatter)
+                    .atZone(ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException e) {
+            try {
+                return Date.from(java.time.LocalDate.parse(text, formatter)
+                        .atStartOfDay(ZoneId.systemDefault()).toInstant());
+            } catch (java.time.format.DateTimeParseException e2) {
+                throw (ParseException) new ParseException(e2.getMessage(), e2.getErrorIndex()).initCause(e2);
+            }
+        }
+    }
 
     static {
         SimpleModule module = new SimpleModule();
@@ -812,14 +847,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setSigning_provider_no(providerNo);
             note.setSigned(true);
             if (request.getParameter("appendSignText") != null && request.getParameter("appendSignText").equalsIgnoreCase("true")) {
-                SimpleDateFormat dt = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
                 Date now = new Date();
                 ResourceBundle props = ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
 
                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                 String providerName = providerDao.getProviderName(providerNo);
 
-                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
+                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + formatZoned(DD_MMM_YYYY_HMM_FORMATTER_BASE.withLocale(Locale.ENGLISH), now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
 
@@ -1069,7 +1103,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote += "\n" + formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1094,7 +1128,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote += "\n" + formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
                 note.setNote(strNote);
             }
 
@@ -1464,8 +1498,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = this.getObservation_date();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = parseAsDate(observationDate, DD_MMM_YYYY_HMM_FORMATTER_BASE.withLocale(Locale.ENGLISH));
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -1720,8 +1753,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", request.getLocale());
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = parseAsDate(observationDate, DD_MMM_YYYY_HMM_FORMATTER_BASE.withLocale(request.getLocale()));
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -2777,9 +2809,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String print() throws Exception {
-        SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
         Date now = new Date();
-        String headerDate = headerFormat.format(now);
+        String headerDate = formatZoned(HEADER_FORMATTER, now);
 
         response.setContentType("application/pdf"); // octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"Encounter-" + headerDate + ".pdf\"");
@@ -2799,16 +2830,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
-
         if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = formatter.parse(pStartDate);
+            Date startDate = parseAsDate(pStartDate, DD_MMM_YYYY_FORMATTER_BASE);
             cStartDate = Calendar.getInstance();
             cStartDate.setTime(startDate);
         }
 
         if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = formatter.parse(pEndDate);
+            Date endDate = parseAsDate(pEndDate, DD_MMM_YYYY_FORMATTER_BASE);
             cEndDate = Calendar.getInstance();
             cEndDate.setTime(endDate);
         }
@@ -2914,11 +2943,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     protected String convertDateFmt(String strOldDate, HttpServletRequest request) {
         String strNewDate = new String();
         if (strOldDate != null && strOldDate.length() > 0) {
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
             try {
 
-                Date tempDate = fmt.parse(strOldDate);
-                strNewDate = new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(tempDate);
+                Date tempDate = parseAsDate(strOldDate, YYYY_MM_DD_FORMATTER_BASE.withLocale(request.getLocale()));
+                strNewDate = formatZoned(DD_MMM_YYYY_FORMATTER_BASE.withLocale(request.getLocale()), tempDate);
 
             } catch (ParseException ex) {
                 MiscUtils.getLogger().error("Error", ex);
@@ -3165,13 +3193,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementNote note = this.caseManagementNoteDao.getNote(noteId);
 
             if (note != null) {
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-
                 Map<String, Serializable> hashMap = new HashMap<String, Serializable>();
                 hashMap.put("noteId", note.getId().toString());
                 hashMap.put("note", note.getNote());
                 hashMap.put("revision", note.getRevision());
-                hashMap.put("obsDate", formatter.format(note.getObservation_date()));
+                hashMap.put("obsDate", formatZoned(YYYY_MM_DD_HHMM_FORMATTER, note.getObservation_date()));
                 hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
                 json = objectMapper.valueToTree(hashMap);
             }

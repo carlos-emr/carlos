@@ -118,6 +118,9 @@ public class NotesService extends AbstractServiceImpl {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     /**
      * In-memory concurrent editing tracker for clinical notes.
      *
@@ -164,7 +167,9 @@ public class NotesService extends AbstractServiceImpl {
     public NoteSelectionTo1 getNotesWithFilter(@PathParam("demographicNo") Integer demographicNo, @DefaultValue("20") @QueryParam("numToReturn") Integer numToReturn, @DefaultValue("0") @QueryParam("offset") Integer offset, ObjectNode jsonobject) {
         NoteSelectionTo1 returnResult = new NoteSelectionTo1();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        logger.debug("The config " + jsonobject.toString());
+        if (logger.isDebugEnabled()) {
+            logger.debug("The config {}", jsonobject);
+        }
 
         // Get user role and username - support both session-based and OAuth authentication
         String userRole = "";
@@ -233,15 +238,18 @@ public class NotesService extends AbstractServiceImpl {
         processJsonArray(jsonobject, "filterIssues", criteria.getIssues());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", criteria);
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: " + result);
+            logger.debug("FOUND: {}", result);
             for (NoteDisplay nd : result.getNotes()) {
-                logger.debug("   " + nd.getClass().getSimpleName() + " " + nd.getNoteId() + " " + nd.getNote());
+                // PHI: do not log note content; log only type, id, and length
+                String noteText = nd.getNote();
+                logger.debug("   {} id={} length={}", nd.getClass().getSimpleName(), nd.getNoteId(),
+                        noteText != null ? noteText.length() : 0);
             }
         }
 
@@ -284,7 +292,7 @@ public class NotesService extends AbstractServiceImpl {
 
             noteList.add(note);
         }
-        logger.debug("returning note list size " + noteList.size() + "  numToReturn was " + numToReturn + " offset " + offset);
+        logger.debug("returning note list size {}  numToReturn was {} offset {}", noteList.size(), numToReturn, offset);
 
         return returnResult;
     }
@@ -295,7 +303,8 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 tmpSaveNote(@PathParam("demographicNo") Integer demographicNo, NoteTo1 note) {
-        logger.debug("autosave " + note);
+        // PHI: note may contain clinical content; log only identifier
+        logger.debug("autosave noteId={}", note != null ? note.getNoteId() : null);
 
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
@@ -362,7 +371,7 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 saveNote(@PathParam("demographicNo") Integer demographicNo, ObjectNode jsonNote) throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = OBJECT_MAPPER;
         NoteTo1 note = null;
         if (jsonNote != null) {
             if (jsonNote.has("encounterNote")) {
@@ -372,7 +381,8 @@ public class NotesService extends AbstractServiceImpl {
             }
         }
 
-        logger.debug("saveNote " + note);
+        // PHI: note may contain clinical content; log only identifier
+        logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -401,11 +411,11 @@ public class NotesService extends AbstractServiceImpl {
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        logger.debug("enc TYPE " + note.getEncounterType());
+        logger.debug("enc TYPE {}", note.getEncounterType());
         caseMangementNote.setEncounter_type(note.getEncounterType());
 
         //caseMangementNote.setHourOfEncounterTime(note.getEncounterTime());
-        logger.debug("this is what the encounter time was " + note.getEncounterTime());
+        logger.debug("this is what the encounter time was {}", note.getEncounterTime());
 		/*String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
 		if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
 			note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
@@ -416,7 +426,7 @@ public class NotesService extends AbstractServiceImpl {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
-        logger.debug("this is what the encounter time was " + note.getEncounterTransportationTime());
+        logger.debug("this is what the encounter time was {}", note.getEncounterTransportationTime());
 		/*
 		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
 		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
@@ -953,16 +963,21 @@ public class NotesService extends AbstractServiceImpl {
         note.setUuid(caseMangementNote.getUuid());
         note.setUpdateDate(caseMangementNote.getUpdate_date());
         note.setObservationDate(caseMangementNote.getObservation_date());
-        logger.debug("note should return like this " + note.getNote());
+        // PHI: do not log note content; log only id and length
+        if (logger.isDebugEnabled()) {
+            String noteText = note.getNote();
+            logger.debug("note should return like this id={} length={}", note.getNoteId(),
+                    noteText != null ? noteText.length() : 0);
+        }
 
 
         long newNoteId = Long.valueOf(note.getNoteId());
 
-        logger.debug("ISSUES LIST START for note " + newNoteId);
+        logger.debug("ISSUES LIST START for note {}", newNoteId);
         CaseManagementIssueNotesDao cmeIssueNotesDao = (CaseManagementIssueNotesDao) SpringUtils.getBean(CaseManagementIssueNotesDao.class);
         List<CaseManagementIssue> issuesList = cmeIssueNotesDao.getNoteIssues(note.getNoteId());
         for (CaseManagementIssue issueItem : issuesList) {
-            logger.debug("ISSUES LIST " + issueItem + " for note " + newNoteId);
+            logger.debug("ISSUES LIST {} for note {}", issueItem, newNoteId);
         }
 
         if (note.getNoteId() != 0) {
@@ -1140,7 +1155,9 @@ public class NotesService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public NoteTo1 getCurrentNote(@PathParam("demographicNo") Integer demographicNo, ObjectNode jsonobject) {
-        logger.debug("getCurrentNote " + jsonobject);
+        if (logger.isDebugEnabled()) {
+            logger.debug("getCurrentNote {}", jsonobject);
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1188,7 +1205,7 @@ public class NotesService extends AbstractServiceImpl {
         String forceNote = getString(jsonobject, "forceNote"); //request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
-        logger.debug("NoteId " + nId);
+        logger.debug("NoteId {}", nId);
 
         CaseManagementTmpSave tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, "" + demographicNo, programIdString);
 
@@ -1197,7 +1214,7 @@ public class NotesService extends AbstractServiceImpl {
         EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute("EctSessionBean") : null;
         String encType = getString(jsonobject, "encType");
 
-        logger.debug("Encounter Type : " + encType);
+        logger.debug("Encounter Type : {}", encType);
 
 
         // create a new note
@@ -1235,11 +1252,11 @@ public class NotesService extends AbstractServiceImpl {
         }
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
-            logger.debug("tempsavenote is NOT NULL == noteId :" + tmpsavenote.getNoteId());
+            logger.debug("tempsavenote is NOT NULL == noteId :{}", tmpsavenote.getNoteId());
             if (tmpsavenote.getNoteId() > 0) {
 //				session.setAttribute("newNote", "false");
                 note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
-                logger.debug("Restoring " + String.valueOf(note.getId()));
+                logger.debug("Restoring {}", note.getId());
             } else {
                 logger.debug("creating new note");
 //				session.setAttribute("newNote", "true");
@@ -1253,12 +1270,16 @@ public class NotesService extends AbstractServiceImpl {
             }
 
             note.setNote(tmpsavenote.getNote());
-            logger.debug("Setting note to " + note.getNote());
+            // PHI: do not log note content; log only length
+            if (logger.isDebugEnabled()) {
+                String nText = note.getNote();
+                logger.debug("Setting note length={}", nText != null ? nText.length() : 0);
+            }
 
         }
         // get an existing non-temp note?
         else if (nId != null && Integer.parseInt(nId) > 0) {
-            logger.debug("Using nId " + nId + " to fetch note");
+            logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
 
@@ -1296,9 +1317,10 @@ public class NotesService extends AbstractServiceImpl {
         /*
          * do the restore if (restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, demono, programId); if (tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        logger.debug("note ?" + note);
-        logger.debug("Set Encounter Type: " + note.getEncounter_type());
-        logger.debug("Fetched Note " + String.valueOf(note.getId()));
+        // PHI: do not log full note object; log id only
+        logger.debug("note id={}", note != null ? note.getId() : null);
+        logger.debug("Set Encounter Type: {}", note.getEncounter_type());
+        logger.debug("Fetched Note {}", note.getId());
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -1444,7 +1466,7 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(Long.valueOf(noteId));
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:" + l.getKeyVal() + l.getValue());
+            logger.debug("NOTE EXT KEY:{}{}", l.getKeyVal(), l.getValue());
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getDateValueStr());
@@ -1508,7 +1530,7 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(noteId);
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:" + l.getKeyVal() + l.getValue());
+            logger.debug("NOTE EXT KEY:{}{}", l.getKeyVal(), l.getValue());
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getValue());

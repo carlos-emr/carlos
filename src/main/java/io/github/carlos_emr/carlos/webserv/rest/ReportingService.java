@@ -73,6 +73,9 @@ import org.springframework.stereotype.Component;
 public class ReportingService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
 
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     //private static final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -218,7 +221,7 @@ public class ReportingService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
         //Next thing to do is to save the JSON object to the database
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
             String jsonStr = mapper.writeValueAsString(preventionSearch);
             PreventionReport pr = new PreventionReport();
@@ -266,7 +269,7 @@ public class ReportingService extends AbstractServiceImpl {
         }
 
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
             logger.info("pr: " + pr.getJson());
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
@@ -297,7 +300,7 @@ public class ReportingService extends AbstractServiceImpl {
 
 
         PreventionReport pr = preventionReportDao.find(id);
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = OBJECT_MAPPER;
         try {
             logger.info("pr: " + pr.getJson());
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);

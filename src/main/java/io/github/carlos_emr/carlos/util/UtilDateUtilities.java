@@ -30,10 +30,15 @@
 
 package io.github.carlos_emr.carlos.util;
 
-import java.text.DateFormat;
-import java.text.Format;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -45,6 +50,20 @@ import java.util.ResourceBundle;
  */
 @Deprecated
 public class UtilDateUtilities {
+
+    /**
+     * Cached, thread-safe formatters for fixed patterns used inside this class.
+     * Caller-provided patterns use {@link DateTimeFormatter#ofPattern(String, Locale)} directly;
+     * that is still far cheaper than {@code new SimpleDateFormat(pattern, locale)} because
+     * {@link DateTimeFormatter} is immutable and thread-safe (no per-call Calendar state).
+     */
+    private static final DateTimeFormatter YEAR_FORMATTER = DateTimeFormatter.ofPattern("yyyy");
+    private static final DateTimeFormatter MONTH_FORMATTER = DateTimeFormatter.ofPattern("MM");
+    private static final DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ofPattern("dd");
+
+    private static ZonedDateTime toZoned(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault());
+    }
 
     public static Date StringToDate(String s) {
         return StringToDate(s, defaultPattern, defaultLocale);
@@ -60,8 +79,7 @@ public class UtilDateUtilities {
 
     public static Date StringToDate(String s, String spattern, Locale locale) {
         try {
-            SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
-            return simpledateformat.parse(s);
+            return parseToDate(s, spattern, locale);
         } catch (Exception exception) {
             return null;
         }
@@ -81,8 +99,7 @@ public class UtilDateUtilities {
 
     public static String DateToString(Date date, String spattern, Locale locale) {
         if (date != null) {
-            SimpleDateFormat simpledateformat = new SimpleDateFormat(spattern, locale);
-            return simpledateformat.format(date);
+            return DateTimeFormatter.ofPattern(spattern, locale).format(toZoned(date));
         } else {
             return "";
         }
@@ -90,18 +107,15 @@ public class UtilDateUtilities {
 
     //"yyyy-MM-dd";
     public static String justYear(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyy");
-        return simpledateformat.format(date);
+        return YEAR_FORMATTER.format(toZoned(date));
     }
 
     public static String justMonth(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("MM");
-        return simpledateformat.format(date);
+        return MONTH_FORMATTER.format(toZoned(date));
     }
 
     public static String justDay(Date date) {
-        SimpleDateFormat simpledateformat = new SimpleDateFormat("dd");
-        return simpledateformat.format(date);
+        return DAY_FORMATTER.format(toZoned(date));
     }
 
     public static Date Tomorrow() {
@@ -209,8 +223,7 @@ public class UtilDateUtilities {
     private static Locale defaultLocale = Locale.CANADA;
 
     public static String getToday(String datePattern) {
-        Format formatter = new SimpleDateFormat(datePattern);
-        return formatter.format(new Date());
+        return DateTimeFormatter.ofPattern(datePattern).format(toZoned(new Date()));
     }
 
     /**
@@ -221,16 +234,34 @@ public class UtilDateUtilities {
      * @return Date object. If date was unable to be parsed the object will be null
      */
     public static Date getDateFromString(String dateStr, String datePattern) {
-        Date date = null;
         try {
-            // Some examples
-            DateFormat formatter = new SimpleDateFormat(datePattern);
-            date = formatter.parse(dateStr);
-        } catch (ParseException e) {
+            return parseToDate(dateStr, datePattern, defaultLocale);
+        } catch (DateTimeParseException e) {
             //no point logging this..returns null
-            //MiscUtils.getLogger().error("Looks bad, too bad original author didn't document how bad", e);
+            return null;
         }
-        return date;
+    }
+
+    /**
+     * Thread-safe parse helper. Parses {@code s} using {@code pattern}+{@code locale} and
+     * returns a {@link Date} representing the equivalent instant in the system default zone.
+     * Handles patterns with time-of-day components and date-only patterns transparently.
+     */
+    private static Date parseToDate(String s, String pattern, Locale locale) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern, locale);
+        TemporalAccessor parsed = formatter.parse(s);
+        ZoneId zone = ZoneId.systemDefault();
+        Instant instant;
+        try {
+            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
+        } catch (DateTimeException e) {
+            try {
+                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
+            } catch (DateTimeException e2) {
+                instant = Instant.from(parsed);
+            }
+        }
+        return Date.from(instant);
     }
 
 

@@ -32,7 +32,15 @@ package io.github.carlos_emr.carlos.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -54,6 +62,34 @@ public final class DateUtils {
 
     private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
     private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
+
+    private static ZonedDateTime toZoned(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault());
+    }
+
+    /**
+     * Thread-safe parse helper using {@link DateTimeFormatter}. Accepts either a date or
+     * date-time pattern and returns a {@link Date} for the resulting instant in the
+     * system default zone.
+     */
+    private static Date parseWithFormatter(String s, String pattern, Locale locale) {
+        DateTimeFormatter formatter = (locale == null)
+                ? DateTimeFormatter.ofPattern(pattern)
+                : DateTimeFormatter.ofPattern(pattern, locale);
+        TemporalAccessor parsed = formatter.parse(s);
+        ZoneId zone = ZoneId.systemDefault();
+        Instant instant;
+        try {
+            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
+        } catch (DateTimeException e) {
+            try {
+                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
+            } catch (DateTimeException e2) {
+                instant = Instant.from(parsed);
+            }
+        }
+        return Date.from(instant);
+    }
 
     /**
      * @param locale can be null
@@ -85,12 +121,11 @@ public final class DateUtils {
             return null;
         }
 
-        SimpleDateFormat dateFormatter = null;
-
-        if (locale == null) dateFormatter = new SimpleDateFormat(dateFormatString);
-        else dateFormatter = new SimpleDateFormat(dateFormatString, locale);
-
-        return (dateFormatter.parse(s));
+        try {
+            return parseWithFormatter(s, dateFormatString, locale);
+        } catch (DateTimeParseException e) {
+            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
+        }
     }
 
     /**
@@ -101,12 +136,11 @@ public final class DateUtils {
     public static Date parseDateTime(String s, Locale locale) throws ParseException {
         if (s == null) return (null);
 
-        SimpleDateFormat dateTimeFormatter = null;
-
-        if (locale == null) dateTimeFormatter = new SimpleDateFormat(dateFormatString + " " + timeFormatString);
-        else dateTimeFormatter = new SimpleDateFormat(dateFormatString + " " + timeFormatString, locale);
-
-        return (dateTimeFormatter.parse(s));
+        try {
+            return parseWithFormatter(s, dateFormatString + " " + timeFormatString, locale);
+        } catch (DateTimeParseException e) {
+            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
+        }
     }
 
     /**
@@ -174,19 +208,12 @@ public final class DateUtils {
     public static String format(String format, Date date, Locale locale) {
         if (date == null) return ("");
 
-        SimpleDateFormat dateFormatter = null;
+        DateTimeFormatter formatter = (locale == null)
+                ? DateTimeFormatter.ofPattern(format)
+                : DateTimeFormatter.ofPattern(format, locale);
 
-        if (locale == null) dateFormatter = new SimpleDateFormat(format);
-        else dateFormatter = new SimpleDateFormat(format, locale);
-
-        return (dateFormatter.format(date));
+        return formatter.format(toZoned(date));
     }
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    private static SimpleDateFormat sdf;
 
     /**
      * @deprecated use formatDate() parseDate() instead
@@ -196,28 +223,6 @@ public final class DateUtils {
 
     public static String getISODateTimeFormatNoT(Calendar cal) {
         return (DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' '));
-    }
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    public static SimpleDateFormat getDateFormatter() {
-
-        if (sdf == null) {
-
-            sdf = new SimpleDateFormat(formatDate);
-
-        }
-
-        return sdf;
-
-    }
-
-    public static void setDateFormatter(String pattern) {
-
-        sdf = new SimpleDateFormat(pattern);
-
     }
 
     public static String getDate() {
@@ -230,24 +235,22 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        SimpleDateFormat sdf = new SimpleDateFormat();
-
-        return sdf.format(date);
+        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(date);
 
     }
 
     public static String getDate(Date date, String format, Locale locale) {
         if (date == null) return "";
 
-        SimpleDateFormat sdf = new SimpleDateFormat(format, locale);
+        DateTimeFormatter formatter = (locale == null)
+                ? DateTimeFormatter.ofPattern(format)
+                : DateTimeFormatter.ofPattern(format, locale);
 
-        return sdf.format(date);
+        return formatter.format(toZoned(date));
     }
 
     public static String getDate(Date date, String format) {
-        SimpleDateFormat sdf = new SimpleDateFormat(format);
-
-        return sdf.format(date);
+        return DateTimeFormatter.ofPattern(format).format(toZoned(date));
     }
 
     public static String getDateTime() {
@@ -268,19 +271,16 @@ public final class DateUtils {
 
         try {
 
-            setDateFormatter(formatAtual);
+            Date data = parseWithFormatter(date, formatAtual, null);
 
-            Date data = getDateFormatter().parse(date);
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DateUtils] - formatDate: data formatada: {}",
+                        DateTimeFormatter.ofPattern(formatAtual).format(toZoned(data)));
+            }
 
-            logger.debug("[DateUtils] - formatDate: data formatada: " +
+            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
-                    getDateFormatter().format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
-
-        } catch (ParseException e) {
+        } catch (DateTimeParseException e) {
 
             logger.error("[DateUtils] - formatDate: ", e);
 
@@ -298,17 +298,16 @@ public final class DateUtils {
 
         try {
 
-            SimpleDateFormat sdf = new SimpleDateFormat();
+            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
+            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
             Date data = sdf.parse(date);
 
-            logger.debug("[DateUtils] - formatDate: data formatada: " +
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DateUtils] - formatDate: data formatada: {}", sdf.format(data));
+            }
 
-                    sdf.format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
         } catch (ParseException e) {
 
@@ -336,7 +335,7 @@ public final class DateUtils {
 
         int iSum = Integer.valueOf(pSum).intValue();
 
-        logger.debug("[DateUtils] - sumDate: iSum = " + iSum);
+        logger.debug("[DateUtils] - sumDate: iSum = {}", iSum);
 
         Calendar calendar = new GregorianCalendar();
 
@@ -348,9 +347,7 @@ public final class DateUtils {
 
         Date data = calendar.getTime();
 
-        setDateFormatter(format);
-
-        return getDateFormatter().format(data);
+        return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
     }
 
@@ -636,6 +633,10 @@ public final class DateUtils {
         return (timeInMillis / org.apache.commons.lang3.time.DateUtils.MILLIS_PER_DAY);
     }
 
+    /** Static, thread-safe formatters for fixed patterns used internally. */
+    private static final DateTimeFormatter ISO_LOCAL_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter BASIC_ISO_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+
     /**
      * Converts a String date with the form 'yyyy-MM-dd' to a String date with the form 'yyyyMMdd'
      *
@@ -643,14 +644,13 @@ public final class DateUtils {
      * @return String - The formatted date String
      */
     public static String convertDate8Char(String oldDateString) {
-        SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
         String sdate = "00000000";
         try {
             if (oldDateString != null) {
-                Date tempDate = fmt.parse(oldDateString);
-                sdate = new SimpleDateFormat("yyyyMMdd").format(tempDate);
+                LocalDate tempDate = LocalDate.parse(oldDateString, ISO_LOCAL_DATE_FORMATTER);
+                sdate = BASIC_ISO_DATE_FORMATTER.format(tempDate);
             }
-        } catch (ParseException ex) {
+        } catch (DateTimeParseException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
         return sdate;

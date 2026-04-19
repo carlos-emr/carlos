@@ -14,13 +14,14 @@
 
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 
 import javax.xml.datatype.XMLGregorianCalendar;
 
@@ -36,6 +37,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 public class HRMReport {
+
+    /**
+     * Static, thread-safe formatter matching the legacy {@code SimpleDateFormat} output
+     * (e.g. {@code "Mon Jan 02 10:30:00 EST 2023"}). Locale is pinned to {@link Locale#ENGLISH}
+     * so that weekday/month abbreviations stay stable regardless of the request locale.
+     */
+    private static final DateTimeFormatter HRM_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH);
 
     private OmdCds hrmReport;
     private Demographics demographics;
@@ -348,11 +357,9 @@ public class HRMReport {
 
                 if (o.getObservationDateTime() != null) {
                     GregorianCalendar calendar = dateFP(o.getObservationDateTime()).toGregorianCalendar();
-                    SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy");
-                    sdf.setTimeZone(calendar.getTimeZone());
 
                     Date date = calendar.getTime();
-                    String formattedDate = sdf.format(calendar.getTime());
+                    String formattedDate = HRM_DATE_FORMATTER.format(calendar.toZonedDateTime());
 
                     obrContentList.add(date);
                     obrContentList.add(formattedDate);
@@ -372,10 +379,8 @@ public class HRMReport {
                 hrmReport.getPatientRecord().getReportsReceived().get(0).getOBRContent().get(0).getObservationDateTime() != null) {
 
             GregorianCalendar calendar = dateFP(hrmReport.getPatientRecord().getReportsReceived().get(0).getOBRContent().get(0).getObservationDateTime()).toGregorianCalendar();
-            SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy");
-            sdf.setTimeZone(calendar.getTimeZone());
 
-            return sdf.format(calendar.getTime());
+            return HRM_DATE_FORMATTER.format(calendar.toZonedDateTime());
         }
 
         return "";

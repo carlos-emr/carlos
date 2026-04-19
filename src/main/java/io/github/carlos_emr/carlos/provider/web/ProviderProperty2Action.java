@@ -119,6 +119,9 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
 
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -2594,7 +2597,7 @@ public class ProviderProperty2Action extends ActionSupport {
             try {
                 // Attempt to parse JSON. If successful, structure is valid.
                 // If parsing fails, the exception is caught below.
-                new ObjectMapper().readTree(prefs);
+                OBJECT_MAPPER.readTree(prefs);
             } catch (IOException e) {
                 // JSON parsing failed. Log warning (admin visibility) but
                 // do not persist. Show user-friendly error message on JSP.
@@ -2697,7 +2700,7 @@ public class ProviderProperty2Action extends ActionSupport {
         response.setCharacterEncoding("UTF-8");
 
        try {
-          ObjectMapper mapper = new ObjectMapper();
+          ObjectMapper mapper = OBJECT_MAPPER;
           mapper.writeValue(response.getWriter(), json);
         } catch (Exception e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);

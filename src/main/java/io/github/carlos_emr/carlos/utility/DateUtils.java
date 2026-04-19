@@ -29,7 +29,15 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -58,14 +66,50 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
  * </ul>
  * 
- * <p><strong>Thread Safety:</strong> This class is not thread-safe when using SimpleDateFormat.
- * Consider using java.time package (Java 8+) for thread-safe date/time operations.</p>
+ * <p><strong>Thread Safety:</strong> This class uses {@link DateTimeFormatter} internally,
+ * which is immutable and thread-safe. Caller-provided patterns are still parsed per call
+ * but do not share mutable state between threads.</p>
  * 
  * @see java.time For modern, thread-safe date/time handling (Java 8+)
  */
 public final class DateUtils {
     /** JavaScript-compatible ISO date format pattern */
     public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
+
+    /** Cached, thread-safe formatters for fixed patterns used internally. */
+    private static final DateTimeFormatter ISO_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
+    private static final DateTimeFormatter ISO_DATETIME_FORMATTER =
+            DateTimeFormatter.ofPattern(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
+    private static final DateTimeFormatter JS_DATETIME_NO_SEC_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private static ZonedDateTime toZoned(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault());
+    }
+
+    /**
+     * Thread-safe parse helper using a pre-built {@link DateTimeFormatter}.
+     */
+    private static Date parseWithFormatter(String s, DateTimeFormatter formatter) throws ParseException {
+        try {
+            TemporalAccessor parsed = formatter.parse(s);
+            ZoneId zone = ZoneId.systemDefault();
+            Instant instant;
+            try {
+                instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
+            } catch (DateTimeException e) {
+                try {
+                    instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
+                } catch (DateTimeException e2) {
+                    instant = Instant.from(parsed);
+                }
+            }
+            return Date.from(instant);
+        } catch (DateTimeParseException e) {
+            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
+        }
+    }
 
     /**
      * Constructs a new DateUtils instance.
@@ -126,14 +170,11 @@ public final class DateUtils {
             return "";
         }
 
-        SimpleDateFormat dateFormatter;
-        if (locale == null) {
-            dateFormatter = new SimpleDateFormat(format);
-        } else {
-            dateFormatter = new SimpleDateFormat(format, locale);
-        }
+        DateTimeFormatter dateFormatter = (locale == null)
+                ? DateTimeFormatter.ofPattern(format)
+                : DateTimeFormatter.ofPattern(format, locale);
 
-        return dateFormatter.format(date);
+        return dateFormatter.format(toZoned(date));
     }
 
     public static String getIsoDateTimeNoTNoSeconds(Calendar cal) {
@@ -162,9 +203,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
-            Date date = dateFormat.parse(s);
-            return date;
+            return parseWithFormatter(s, ISO_DATE_FORMATTER);
         }
     }
 
@@ -185,9 +224,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
-            Date date = dateFormat.parse(s);
-            return date;
+            return parseWithFormatter(s, ISO_DATETIME_FORMATTER);
         }
     }
 
@@ -234,9 +271,7 @@ public final class DateUtils {
         if (s == null) {
             return null;
         } else {
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-            Date date = dateFormat.parse(s);
-            return date;
+            return parseWithFormatter(s, JS_DATETIME_NO_SEC_FORMATTER);
         }
     }
 }

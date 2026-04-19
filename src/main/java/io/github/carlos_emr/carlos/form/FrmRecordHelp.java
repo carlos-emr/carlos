@@ -33,8 +33,6 @@ package io.github.carlos_emr.carlos.form;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -51,9 +49,22 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
 public class FrmRecordHelp {
     private String _dateFormat = "yyyy/MM/dd";
     private String _newDateFormat = "yyyy-MM-dd"; //handles both date formats, but yyyy/MM/dd is displayed to avoid deprecation
+
+    /**
+     * Cached, thread-safe formatters derived from {@link #_dateFormat} / {@link #_newDateFormat}.
+     * They are rebuilt inside {@link #setDateFormat(String)} so that per-call formatter construction
+     * is avoided in the hot path of {@link #getDateFieldOrNull} / {@link #parseDateFieldOrNull}.
+     */
+    private DateTimeFormatter _dateFormatter = DateTimeFormatter.ofPattern(_dateFormat);
+    private DateTimeFormatter _newDateFormatter = DateTimeFormatter.ofPattern(_newDateFormat);
 
     private static final HashSet VALID_ACTION_VALUES = new HashSet<String>() {
         {
@@ -77,6 +88,7 @@ public class FrmRecordHelp {
 
     public void setDateFormat(String s) {
         _dateFormat = s;
+        _dateFormatter = DateTimeFormatter.ofPattern(s);
     }
 
     /**
@@ -462,12 +474,14 @@ public class FrmRecordHelp {
         Date result = null;
         if (value != null) {
             try {
+                LocalDate ld;
                 if (value.contains("/")) {
-                    result = new SimpleDateFormat(_dateFormat).parse(value);
+                    ld = LocalDate.parse(value, _dateFormatter);
                 } else {
-                    result = new SimpleDateFormat(_newDateFormat).parse(value);
+                    ld = LocalDate.parse(value, _newDateFormatter);
                 }
-            } catch (ParseException e) {
+                result = Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            } catch (DateTimeParseException e) {
                 MiscUtils.getLogger().debug("Unparseable date for field {}: {}", fieldName, value);
             }
         }
@@ -477,7 +491,7 @@ public class FrmRecordHelp {
     public String parseDateFieldOrNull(Date date) {
         String result = null;
         if (date != null) {
-            result = new SimpleDateFormat(_dateFormat).format(date);
+            result = _dateFormatter.format(date.toInstant().atZone(ZoneId.systemDefault()));
         }
         return result;
     }

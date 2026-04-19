@@ -29,7 +29,15 @@ package io.github.carlos_emr.carlos.PMmodule.utility;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -46,31 +54,33 @@ public class DateUtils {
 
     private static Logger cat = MiscUtils.getLogger();
 
-    private static SimpleDateFormat sdf;
-
     private static String formatDate = "dd/MM/yyyy";
     public final static String intakeADelimiter = "/";
 
-//##########################################################################
+    private static ZonedDateTime toZoned(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault());
+    }
 
-    public static SimpleDateFormat getDateFormatter() {
-
-        if (sdf == null) {
-
-            sdf = new SimpleDateFormat(formatDate);
-
+    /**
+     * Thread-safe parse helper using {@link DateTimeFormatter}.
+     */
+    private static Date parseWithFormatter(String s, String pattern) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        TemporalAccessor parsed = formatter.parse(s);
+        ZoneId zone = ZoneId.systemDefault();
+        Instant instant;
+        try {
+            instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
+        } catch (DateTimeException e) {
+            try {
+                instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
+            } catch (DateTimeException e2) {
+                instant = Instant.from(parsed);
+            }
         }
-
-        return sdf;
-
+        return Date.from(instant);
     }
-//##########################################################################
 
-    public static void setDateFormatter(String pattern) {
-
-        sdf = new SimpleDateFormat(pattern);
-
-    }
 //##########################################################################
 
     public static String getDate()//e.g. Sept 23, 2005
@@ -85,9 +95,8 @@ public class DateUtils {
 
     public static String getDate(Date date) {
 
-        SimpleDateFormat sdf = new SimpleDateFormat();
-
-        return sdf.format(date);
+        // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
+        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(date);
 
     }
 
@@ -169,19 +178,16 @@ public class DateUtils {
 
         try {
 
-            setDateFormatter(formatAtual);
+            Date data = parseWithFormatter(date, formatAtual);
 
-            Date data = getDateFormatter().parse(date);
+            if (cat.isDebugEnabled()) {
+                cat.debug("[DateUtils] - formatDate: data formatada: {}",
+                        DateTimeFormatter.ofPattern(formatAtual).format(toZoned(data)));
+            }
 
-            cat.debug("[DateUtils] - formatDate: data formatada: " +
+            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
-                    getDateFormatter().format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
-
-        } catch (ParseException e) {
+        } catch (DateTimeParseException e) {
 
             cat.error("[DateUtils] - formatDate: ", e);
 
@@ -196,17 +202,16 @@ public class DateUtils {
 
         try {
 
-            SimpleDateFormat sdf = new SimpleDateFormat();
+            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
+            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
             Date data = sdf.parse(date);
 
-            cat.debug("[DateUtils] - formatDate: data formatada: " +
+            if (cat.isDebugEnabled()) {
+                cat.debug("[DateUtils] - formatDate: data formatada: {}", sdf.format(data));
+            }
 
-                    sdf.format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
         } catch (ParseException e) {
 
@@ -223,7 +228,7 @@ public class DateUtils {
 
         int iSum = Integer.valueOf(pSum).intValue();
 
-        cat.debug("[DateUtils] - sumDate: iSum = " + iSum);
+        cat.debug("[DateUtils] - sumDate: iSum = {}", iSum);
 
         Calendar calendar = new GregorianCalendar();
 
@@ -235,9 +240,7 @@ public class DateUtils {
 
         Date data = calendar.getTime();
 
-        setDateFormatter(format);
-
-        return getDateFormatter().format(data);
+        return DateTimeFormatter.ofPattern(format).format(toZoned(data));
 
     }
 //##########################################################################
