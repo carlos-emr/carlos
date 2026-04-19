@@ -79,6 +79,7 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
 
     private ProviderData createProvider(String providerNo, String firstName, String lastName) {
         ProviderData provider = new ProviderData();
+        // ProviderData uses the legacy set(String) mutator for provider_no.
         provider.set(providerNo);
         provider.setFirstName(firstName);
         provider.setLastName(lastName);

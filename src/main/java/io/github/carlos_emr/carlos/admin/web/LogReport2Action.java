@@ -227,7 +227,8 @@ public class LogReport2Action extends ActionSupport {
 
     private boolean isUnauthorizedSiteRestrictedProviderRequest(boolean isSiteAccessPrivacy, boolean bAll,
                                                                 String providerNo, List<String> siteRestrictedProviderNos) {
-        return isSiteAccessPrivacy && !bAll && (providerNo == null || !siteRestrictedProviderNos.contains(providerNo));
+        return isSiteAccessPrivacy && !bAll
+                && (providerNo == null || siteRestrictedProviderNos == null || !siteRestrictedProviderNos.contains(providerNo));
     }
 
     private String formatTimestamp(java.util.Date value) {
