@@ -187,6 +187,19 @@
     </style>
 
     <script>
+        function appendCsrfToken(form) {
+            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (csrfEl) {
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+            } else {
+                console.warn('CSRF token not found on page; form submission may be rejected by server.');
+            }
+        }
+
         //?segmentID=1&providerNo=999998&searchProviderNo=999998&status=A&demoName=
         function checkDelete(docId, docDescription) {
             // revision Apr 05 2004 - we now allow anyone to delete documents
@@ -199,6 +212,7 @@
                 input.name = 'delDocumentNo';
                 input.value = docId;
                 form.appendChild(input);
+                appendCsrfToken(form);
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -218,6 +232,7 @@
     </script>
 </head>
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <div id="labdoc_<%=docId%>">
     <table class="docTable">
         <tr>

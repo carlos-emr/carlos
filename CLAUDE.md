@@ -125,6 +125,29 @@ Unit tests: `src/test/java/io/github/carlos_emr/carlos/utility/SafeEncodeUnitTes
 
 A migration codemod script is kept at `scripts/migrate-to-carlos-encode.py` for rewriting any future `<e:...>` / `${e:...}` / `Encode.*` drift.
 
+### CSRF Token Bootstrapping on AJAX JSPs
+
+CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` into a `<form>` whose `action` attribute is a real URL and whose method is non-GET. Pages that read the token via `document.querySelector('input[name="CSRF-TOKEN"]')` from AJAX (fetch/XHR) POSTs **will silently fail** if the page has no such form — the token comes out empty, the request is rejected with an HTML error page, and `response.json()` throws into a catch block the user never sees.
+
+**Rule:** any JSP that does AJAX POSTs reading `input[name="CSRF-TOKEN"]` must satisfy ONE of:
+- **(a)** contain at least one `<form action="<real URL>" method="post">` on the rendered page, OR
+- **(b)** include the canonical bootstrap fragment:
+
+  ```jsp
+  <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+  ```
+
+  Place the include inside `<body>`. It pulls in `share/javascript/csrfTokenFetch.js`, adds a hidden CSRF-TOKEN input, and calls `fetchCsrfToken(contextPath)` on DOMContentLoaded.
+
+Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
+
+- **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+- **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
+
+Header validation takes precedence over body-parameter validation when both are present.
+
+Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
+
 ### PathValidationUtils - File Path Security
 
 **ALWAYS use PathValidationUtils** (`io.github.carlos_emr.carlos.utility.PathValidationUtils`) for file operations involving user input. It prevents path traversal attacks consistently across the codebase.
