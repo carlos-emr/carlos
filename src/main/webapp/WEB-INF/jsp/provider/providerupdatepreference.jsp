@@ -129,7 +129,7 @@
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                             "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}",
                             correlationId,
-                            org.owasp.encoder.SafeEncode.forJava(ticklerforproviderno)
+                            io.github.carlos_emr.carlos.utility.SafeEncode.forJava(ticklerforproviderno)
                         );
                         errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
                     }

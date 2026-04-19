@@ -295,15 +295,15 @@
                 <b><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? "&nbsp;" : SafeEncode.forHtml(Misc.check(hl7_obx.getAbnormalFlags(), "", "&nbsp;")))%>
                 </b></td>
             <td class="Text"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? SafeEncode.forHtml(hl7_obx.getObservationResults()) : "<b>" + SafeEncode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\.br\\\\", " ")%>
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><%=((hl7_obx.getAbnormalFlags().toUpperCase().equals("N")) ? SafeEncode.forHtml(hl7_obx.getObservationResults()) : "<b>" + SafeEncode.forHtml(hl7_obx.getObservationResults()) + "</b>").replaceAll("\\\\\\\\\\.br\\\\\\\\", " ")%>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getReferenceRange() %>' context="html"/>
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getUnits() %>' context="html"/>
             </td>
             <td class="Text" nowrap
-                title="<carlos:encode value='<%= hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ") %>' context="htmlAttribute"/>"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= ((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " ") %>' context="html"/>
+                title="<carlos:encode value='<%= hl7_obx.getNote().replaceAll(\"\\\\\\\\\\\\.br\\\\\\\\\", \" \") %>' context="htmlAttribute"/>"
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= ((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll(\"\\\\\\\\\\\\.br\\\\\\\\\", \" \") %>' context="html"/>
             </td>
         </tr>
         <%

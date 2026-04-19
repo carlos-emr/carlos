@@ -144,7 +144,7 @@
                        datasrc='#xml_list'>
                     <tr>
                         <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>
-                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= subject.substring(2).replaceAll("\\|", " ") %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= subject.substring(2).replaceAll("\\\\|", " ") %>' context="html"/><br>
                             <b><fmt:message key="provider.providerencounterprint.content"/>:</b>
                             <div datafld='xml_content'>
                         </td>
