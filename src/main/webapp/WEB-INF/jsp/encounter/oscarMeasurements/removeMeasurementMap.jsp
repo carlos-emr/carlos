@@ -30,14 +30,14 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
 %>
@@ -59,7 +59,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemoveMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemoveMeasurementMap';
             return true;
         }
 
@@ -75,7 +75,7 @@
         }
 
         function remap(id, identifier, name, type) {
-            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do?id=' + encodeURIComponent(id) + '&identifier=' + encodeURIComponent(identifier) + '&name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type), 'Remap Measurement')
+            popupStart(300, 1000, '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap?id=' + encodeURIComponent(id) + '&identifier=' + encodeURIComponent(identifier) + '&name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type), 'Remap Measurement')
         }
 
         <%String outcome = request.getParameter("outcome");
@@ -96,7 +96,7 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="RemoveMeasurementMap.do">
+<form method="post" name="CONFIG" action="RemoveMeasurementMap">
     <input type="hidden" name="id" value=""> <input type="hidden"
                                                     name="identifier" value=""> <input type="hidden" name="name"
                                                                                        value=""> <input type="hidden"
@@ -113,8 +113,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -136,7 +136,7 @@
                                         searchstring = "";
                                 %> Search
                                 table for name: <input type="text" size="30" name="searchstring"
-                                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
+                                                       value="<carlos:encode value='<%= searchstring %>' context="htmlAttribute"/>"/> <input type="submit" value="Search"
                                                                                             onclick="return reloadPage()"/>
                             </td>
                         <tr>
@@ -161,7 +161,7 @@
                             <td class="ButtonCell"><input type="submit" value="DELETE"
                                                           onclick="deleteMapping(<%= mapping.getId() %>)"></td>
                             <td class="ButtonCell"><input type="button" value="REMAP"
-                                                          onclick="remap('<%= Encode.forJavaScriptAttribute(String.valueOf(mapping.getId())) %>','<%= Encode.forJavaScriptAttribute(mapping.getIdentCode()) %>','<%= Encode.forJavaScriptAttribute(mapping.getName()) %>','<%= Encode.forJavaScriptAttribute(mapping.getLabType()) %>')">
+                                                          onclick="remap('<carlos:encode value='<%= String.valueOf(mapping.getId()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getIdentCode() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= mapping.getLabType() %>' context="javaScriptAttribute"/>')">
                             </td>
                             <td class="TableCell"><%= mapping.getIdentCode() %>
                             </td>

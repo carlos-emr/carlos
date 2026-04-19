@@ -30,11 +30,12 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + ","
             + (String) session.getAttribute("user");
@@ -42,7 +43,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -176,10 +177,12 @@
                                 <%
                                     if (message != null) {
                                         if (error.equals("false")) {
-                                            out.print(Encode.forHtml(message));
+                                %>
+                                        <carlos:encode value='<%= message %>' context="forHtml"/>
+                                <%
                                         } else {
-                                %><font color="red"><%= Encode.forHtml(message) %>
-                            </font>
+                                %>
+                                    <font color="red"><carlos:encode value='<%= message %>' context="html"/></font>
                                 <%
                                         }
                                     }

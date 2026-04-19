@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -52,8 +52,9 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -103,7 +104,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
+                        <carlos:encode value='<%= last_name %>' context="html"/>, <carlos:encode value='<%= first_name %>' context="html"/> <carlos:encode value='<%= sex %>' context="html"/> <carlos:encode value='<%= age %>' context="html"/>
                     </td>
                     <td>
                     </td>
@@ -128,8 +129,8 @@
             Vector cfgSet = new EctImmConfigData().getImmunizationConfigName();
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
-            <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+            <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig" method="post">
+                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
                 <%
@@ -139,7 +140,7 @@
                 %>
                 <div style="font-weight: bold"><input type="checkbox"
                                                       name="chkSet<%--=i--%>"
-                                                      value="<%=Encode.forHtmlAttribute(String.valueOf(cfgId.get(i)))%>"/> <%=Encode.forHtml((String) cfgSet.get(i))%>;
+                                                      value="<carlos:encode value='<%= String.valueOf(cfgId.get(i)) %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= (String) cfgSet.get(i) %>' context="html"/>;
                 </div>
                 <%
                     }
@@ -150,13 +151,14 @@
                         <td>
                             <input type="submit" name="submit"
                                     value="<fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
-                            <input type="button" value='<fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demoNo))%>';"/>
+                                         <c:set var="__enc_1"><carlos:encode value='<%= demoNo %>' context="uriComponent"/></c:set>
+                      <input type="button" value='<fmt:message key="global.btnCancel"/>'
+                                   onclick="javascript:location.href='loadSchedule?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>';"/>
                         </td>
                         <td align="right">
                             <input type="button"
                                    value='<fmt:message key="encounter.immunization.ScheduleConfig.createTemplate"/>'
-                                   onclick="javascript:location.href='config/initConfig.do';"/>
+                                   onclick="javascript:location.href='config/initConfig';"/>
                         </td>
                     </tr>
                 </table>

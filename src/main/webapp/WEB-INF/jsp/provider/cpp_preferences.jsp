@@ -31,10 +31,13 @@
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String curUser_no;
     curUser_no = (String) session.getAttribute("user");
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
     boolean bFirstLoad = request.getAttribute("status") == null;
 
@@ -45,12 +48,12 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="provider.cppPrefs"/></title>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+        <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
         <script type="text/javascript">
 
@@ -99,68 +102,68 @@
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
                 <!-- form starts here -->
-                <form action="<c:out value="${ctx}"/>/provider/CppPreferences.do?method=save" method="post"
+                <form action="${carlos:forHtmlAttribute(ctx)}/provider/CppPreferences?method=save" method="post"
                       onSubmit="return validate();">
                     <table width="100%" border="1">
                         <tr>
                             <td colspan="2">
-                                <%=CppPreferencesUIBean.getCheckbox("Enable Custom EChart", CppPreferencesUIBean.ENABLE, bean.getEnable()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.enableCustomEChart"), CppPreferencesUIBean.ENABLE, bean.getEnable()) %>
                             </td>
 
                         </tr>
                         <tr>
-                            <td>Social History</td>
+                            <td><fmt:message key="encounter.socHistory.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.SOCIAL_HISTORY_POS%>">
                                     <%=CppPreferencesUIBean.getPositionSelect(bean.getSocialHxPosition()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.SOC_HX_START_DATE, bean.getSocialHxStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.SOC_HX_RES_DATE, bean.getSocialHxResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.SOC_HX_START_DATE, bean.getSocialHxStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.SOC_HX_RES_DATE, bean.getSocialHxResDate()) %>
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Medical History</td>
+                            <td><fmt:message key="encounter.medHistory.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.MEDICAL_HISTORY_POS%>">
                                     <%=CppPreferencesUIBean.getPositionSelect(bean.getMedicalHxPosition()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.MED_HX_START_DATE, bean.getMedHxStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.MED_HX_RES_DATE, bean.getMedHxResDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Treatment", CppPreferencesUIBean.MED_HX_TREATMENT, bean.getMedHxTreatment()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Procedure Date", CppPreferencesUIBean.MED_HX_PROCEDURE_DATE, bean.getMedHxProcedureDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.MED_HX_START_DATE, bean.getMedHxStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.MED_HX_RES_DATE, bean.getMedHxResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showTreatment"), CppPreferencesUIBean.MED_HX_TREATMENT, bean.getMedHxTreatment()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showProcedureDate"), CppPreferencesUIBean.MED_HX_PROCEDURE_DATE, bean.getMedHxProcedureDate()) %>
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Ongoing Concerns</td>
+                            <td><fmt:message key="encounter.onGoing.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.ONGOING_CONCERNS_POS%>">
                                     <%=CppPreferencesUIBean.getPositionSelect(bean.getOngoingConcernsPosition()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.ONGOING_START_DATE, bean.getOngoingConcernsStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.ONGOING_RES_DATE, bean.getOngoingConcernsResDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Problem Status", CppPreferencesUIBean.ONGOING_PROBLEM_STATUS, bean.getOngoingConcernsProblemStatus()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.ONGOING_START_DATE, bean.getOngoingConcernsStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.ONGOING_RES_DATE, bean.getOngoingConcernsResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showProblemStatus"), CppPreferencesUIBean.ONGOING_PROBLEM_STATUS, bean.getOngoingConcernsProblemStatus()) %>
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Reminders</td>
+                            <td><fmt:message key="encounter.reminders.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.REMINDERS_POS%>">
                                     <%=CppPreferencesUIBean.getPositionSelect(bean.getRemindersPosition()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.REMINDERS_START_DATE, bean.getRemindersStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.REMINDERS_RES_DATE, bean.getRemindersResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.REMINDERS_START_DATE, bean.getRemindersStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.REMINDERS_RES_DATE, bean.getRemindersResDate()) %>
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Preventions</td>
+                            <td><fmt:message key="encounter.Preventions.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.PREVENTIONS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getPreventionsDisplay()) %>
@@ -169,7 +172,7 @@
                         </tr>
 
                         <tr>
-                            <td>Disease Registry</td>
+                            <td><fmt:message key="provider.cppPrefs.diseaseRegistry"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.DX_REGISTRY_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getDxRegistryDisplay()) %>
@@ -178,7 +181,7 @@
                         </tr>
 
                         <tr>
-                            <td>Forms</td>
+                            <td><fmt:message key="encounter.Index.msgForms"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.FORMS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getFormsDisplay()) %>
@@ -187,7 +190,7 @@
                         </tr>
 
                         <tr>
-                            <td>eForms</td>
+                            <td><fmt:message key="global.eForms"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.EFORMS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getEformsDisplay()) %>
@@ -196,7 +199,7 @@
                         </tr>
 
                         <tr>
-                            <td>Documents</td>
+                            <td><fmt:message key="encounter.Index.msgDocuments"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.DOCUMENTS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getDocumentsDisplay()) %>
@@ -205,7 +208,7 @@
                         </tr>
 
                         <tr>
-                            <td>Lab Result</td>
+                            <td><fmt:message key="encounter.LeftNavBar.Labs"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.LABS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getLabsDisplay()) %>
@@ -214,7 +217,7 @@
                         </tr>
 
                         <tr>
-                            <td>Measurements</td>
+                            <td><fmt:message key="encounter.Index.measurements"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.MEASUREMENTS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getMeasurementsDisplay()) %>
@@ -223,7 +226,7 @@
                         </tr>
 
                         <tr>
-                            <td>Consultations</td>
+                            <td><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.msgTitle"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.CONSULTATIONS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getConsultationsDisplay()) %>
@@ -232,7 +235,7 @@
                         </tr>
 
                         <tr>
-                            <td>HRM Documents</td>
+                            <td><fmt:message key="encounter.Index.msgHRMDocuments"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.HRM_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getHrmDisplay()) %>
@@ -241,75 +244,75 @@
                         </tr>
 
                         <tr>
-                            <td>Allergies</td>
+                            <td><fmt:message key="encounter.NavBar.Allergy"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.ALLERGIES_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getAllergiesDisplay()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.ALLERGY_START_DATE, bean.getAllergyStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Severity", CppPreferencesUIBean.ALLERGY_SEVERITY, bean.getAllergySeverity()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.ALLERGY_START_DATE, bean.getAllergyStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showSeverity"), CppPreferencesUIBean.ALLERGY_SEVERITY, bean.getAllergySeverity()) %>
 
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Medications</td>
+                            <td><fmt:message key="encounter.NavBar.Medications"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.MEDICATIONS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getMedicationsDisplay()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.MEDICATION_START_DATE, bean.getMedicationStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show End Date", CppPreferencesUIBean.MEDICATION_END_DATE, bean.getMedicationEndDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Qty", CppPreferencesUIBean.MEDICATION_QTY, bean.getMedicationQty()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Repeats", CppPreferencesUIBean.MEDICATION_REPEATS, bean.getMedicationRepeats()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.MEDICATION_START_DATE, bean.getMedicationStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showEndDate"), CppPreferencesUIBean.MEDICATION_END_DATE, bean.getMedicationEndDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showQty"), CppPreferencesUIBean.MEDICATION_QTY, bean.getMedicationQty()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showRepeats"), CppPreferencesUIBean.MEDICATION_REPEATS, bean.getMedicationRepeats()) %>
 
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Other Meds</td>
+                            <td><fmt:message key="encounter.NavBar.OtherMeds"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.OTHER_MEDS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getOtherMedsDisplay()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.OTHER_MEDS_START_DATE, bean.getOtherMedsStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.OTHER_MEDS_RES_DATE, bean.getOtherMedsResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.OTHER_MEDS_START_DATE, bean.getOtherMedsStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.OTHER_MEDS_RES_DATE, bean.getOtherMedsResDate()) %>
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Risk Factors</td>
+                            <td><fmt:message key="encounter.riskFactors.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.RISK_FACTORS_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getRiskFactorsDisplay()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.RISK_FACTORS_START_DATE, bean.getRiskFactorsStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.RISK_FACTORS_RES_DATE, bean.getRiskFactorsResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.RISK_FACTORS_START_DATE, bean.getRiskFactorsStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.RISK_FACTORS_RES_DATE, bean.getRiskFactorsResDate()) %>
                             </td>
 
                         </tr>
 
                         <tr>
-                            <td>Family History</td>
+                            <td><fmt:message key="encounter.famHistory.title"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.FAMILY_HISTORY_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getFamilyHxDisplay()) %>
                                 </select>
                                 <br/>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Start Date", CppPreferencesUIBean.FAMILY_HISTORY_START_DATE, bean.getFamilyHistoryStartDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Resolution Date", CppPreferencesUIBean.FAMILY_HISTORY_RES_DATE, bean.getFamilyHistoryResDate()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Treatment", CppPreferencesUIBean.FAMILY_HISTORY_TREATMENT, bean.getFamilyHistoryTreatment()) %>
-                                <%=CppPreferencesUIBean.getCheckbox("Show Relationship", CppPreferencesUIBean.FAMILY_HISTORY_RELATIONSHIP, bean.getFamilyHistoryRelationship()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showStartDate"), CppPreferencesUIBean.FAMILY_HISTORY_START_DATE, bean.getFamilyHistoryStartDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showResolutionDate"), CppPreferencesUIBean.FAMILY_HISTORY_RES_DATE, bean.getFamilyHistoryResDate()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showTreatment"), CppPreferencesUIBean.FAMILY_HISTORY_TREATMENT, bean.getFamilyHistoryTreatment()) %>
+                                <%=CppPreferencesUIBean.getCheckbox(bundle.getString("provider.cppPrefs.showRelationship"), CppPreferencesUIBean.FAMILY_HISTORY_RELATIONSHIP, bean.getFamilyHistoryRelationship()) %>
 
                             </td>
                         </tr>
 
                         <tr>
-                            <td>Unresolved Issues</td>
+                            <td><fmt:message key="encounter.NavBar.unresolvedIssues"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.UNRESOLVED_ISSUES_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getUnresolvedIssuesDisplay()) %>
@@ -318,7 +321,7 @@
                         </tr>
 
                         <tr>
-                            <td>Resolved Issues</td>
+                            <td><fmt:message key="encounter.NavBar.resolvedIssues"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.RESOLVED_ISSUES_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getResolvedIssuesDisplay()) %>
@@ -327,7 +330,7 @@
                         </tr>
 
                         <tr>
-                            <td>Episodes</td>
+                            <td><fmt:message key="global.episode"/></td>
                             <td>
                                 <select name="<%=CppPreferencesUIBean.EPISODES_DSP%>">
                                     <%=CppPreferencesUIBean.getDisplaySelect(bean.getEpisodesDisplay()) %>
@@ -335,7 +338,7 @@
                             </td>
                         </tr>
                     </table>
-                    <input type="submit" value="Save Changes"/>
+                    <input type="submit" value="<fmt:message key='provider.pref.btnSave'/>"/>
                 </form>
                 <!-- end of form -->
             </td>

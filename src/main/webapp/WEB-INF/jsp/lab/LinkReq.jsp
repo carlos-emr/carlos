@@ -41,13 +41,15 @@
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.LabRequestReportLinkDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -207,7 +209,6 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <title>Link to Lab Requisition</title>
@@ -220,13 +221,13 @@
 </head>
 <body <%=(close) ? "onLoad=\"closeItUp()\" " : "" %>>
 
-<form action="<%=request.getContextPath()%>/lab/ViewLinkReq.do" method="post">
-    <input type="hidden" name="table" value="<%=Encode.forHtmlAttribute(table != null ? table : "")%>"/>
-    <input type="hidden" name="rptid" value="<%=Encode.forHtmlAttribute(rptId != null ? rptId : "")%>"/>
-    <input type="hidden" name="reqid" value="<%=Encode.forHtmlAttribute(reqId != null ? reqId : "")%>"/>
+<form action="<%=request.getContextPath()%>/lab/ViewLinkReq" method="post">
+    <input type="hidden" name="table" value="<carlos:encode value='<%= table != null ? table : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="rptid" value="<carlos:encode value='<%= rptId != null ? rptId : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="reqid" value="<carlos:encode value='<%= reqId != null ? reqId : "" %>' context="htmlAttribute"/>"/>
 
     <p>&nbsp;</p>
-    Requisition Date: <%=Encode.forHtml(reqDateLink)%>
+    Requisition Date: <carlos:encode value='<%= reqDateLink %>' context="html"/>
     <p>
         Link to Lab Requisition:
         <select name="linkReqId">
@@ -245,8 +246,8 @@
 
                 for (int i = 0; i < req_id.size(); i++) {
             %>
-            <option value="<%=Encode.forHtmlAttribute(req_id.get(i))%>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><%=Encode.forHtml(formDisplayName.get(i))%>
-                : <%=Encode.forHtml(formCreated.get(i))%> : <%=Encode.forHtml(patientName.get(i))%>
+            <option value="<carlos:encode value='<%= req_id.get(i) %>' context="htmlAttribute"/>" <%=req_id.get(i).equals(matchingId) ? "selected" : ""%>><carlos:encode value='<%= formDisplayName.get(i) %>' context="html"/>
+                : <carlos:encode value='<%= formCreated.get(i) %>' context="html"/> : <carlos:encode value='<%= patientName.get(i) %>' context="html"/>
             </option>
             <% } %>
         </select>

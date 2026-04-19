@@ -41,8 +41,9 @@
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseLookup" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String din = StringUtils.noNull(request.getParameter("din"));
@@ -60,11 +61,11 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<%=Encode.forJavaScriptAttribute(randomId)%>','<%=Encode.forJavaScriptAttribute(limitedUseCode.getUseId())%>')"
-                   href="javascript: return void();"><%=Encode.forHtml(limitedUseCode.getUseId())%>
+                <a onclick="javascript:addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
+                   href="javascript: return void();"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
                 </a>&nbsp;
             </td>
-            <td><%=Encode.forHtml(limitedUseCode.getTxt())%>
+            <td><carlos:encode value='<%= limitedUseCode.getTxt() %>' context="html"/>
             </td>
         </tr>
         <%}%>

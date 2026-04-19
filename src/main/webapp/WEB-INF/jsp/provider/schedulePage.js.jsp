@@ -31,7 +31,8 @@
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
@@ -54,7 +55,7 @@
     }
 %>
 function storeApptNo(apptNo) {
-var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession.do";
+var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession";
 var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 var csrfToken = csrfEl ? csrfEl.value : '';
 fetch(url, {
@@ -213,7 +214,7 @@ function getLocation(id, multiplier) {
     multiplier = parseInt(multiplier, 10);
     if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
         <fmt:message var="multiplierErrorMsg" key="provider.appointmentProviderAdminDay.multiplierError"/>
-        alert('${e:forJavaScript(multiplierErrorMsg)}');
+        alert('${carlos:forJavaScript(multiplierErrorMsg)}');
         return;
     }
 
@@ -252,7 +253,7 @@ function getLocation(id, multiplier) {
 
     var dateDestination = DateAdd(itemType, dateSelected, valueToAdd);
 
-    var destination = '<%= request.getContextPath() %>/provider/providercontrol.do?year=' + dateDestination.getFullYear()
+    var destination = '<%= request.getContextPath() %>/provider/providercontrol?year=' + dateDestination.getFullYear()
         + '&month=' + getMonthNumber(dateDestination.getMonth())
         + '&day=' + dateDestination.getDate()
         + '&view=' + encodeURIComponent(qsParm['view'] || '0')
@@ -395,7 +396,7 @@ popupPage2(queryString, 'appointment', height, width);
 else if( doConfirm == "Onc" ) {
 if( allowDay == "No" ) {
 <fmt:message var="confirmOnCallMsg" key="provider.appointmentProviderAdminDay.confirmOnCall"/>
-if( confirm('${e:forJavaScript(confirmOnCallMsg)}') ) {
+if( confirm('${carlos:forJavaScript(confirmOnCallMsg)}') ) {
 popupPage(height, width, queryString);
 }
 }
@@ -452,7 +453,7 @@ function popupPageOfChangePassword(){
         //javascript
 %>
 
-window.open("<%= request.getContextPath() %>/provider/ViewChangePassword.do","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
+window.open("<%= request.getContextPath() %>/provider/ViewChangePassword","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
 changePassword.moveTo(0,0);
 <%}%>
 }
@@ -570,9 +571,9 @@ alert(cbi);
 if ("<%=newticklerwarningwindow%>"=="enabled") {
 if (IsPopupBlocker()) {
 <fmt:message var="popupBlockerMsg" key="provider.appointmentProviderAdminDay.popupBlockerAlert"/>
-alert('${e:forJavaScript(popupBlockerMsg)}');
+alert('${carlos:forJavaScript(popupBlockerMsg)}');
 } else{
-var pu=window.open("<%=request.getContextPath()%>/UnreadTickler.do",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
+var pu=window.open("<%=request.getContextPath()%>/UnreadTickler",'viewUnreadTickler',"height=120,width=250,location=no,scrollbars=no,menubars=no,toolbars=no,resizable=yes,top=500,left=700");
 if(window.focus)
 pu.focus();
 }
@@ -606,7 +607,7 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
-var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh.do";
+var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
 var pars = "id=" + id;
 jQuery.ajax({
 url: url,

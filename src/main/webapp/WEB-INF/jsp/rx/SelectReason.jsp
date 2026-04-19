@@ -40,18 +40,19 @@
         import="io.github.carlos_emr.carlos.commn.dao.DxresearchDAO,io.github.carlos_emr.carlos.commn.model.Dxresearch,io.github.carlos_emr.carlos.commn.dao.Icd9Dao,io.github.carlos_emr.carlos.commn.model.Icd9" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     CodingSystemManager codingSystemManager = SpringUtils.getBean(CodingSystemManager.class);
 %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -178,8 +179,8 @@
                         <tr>
                             <td>
                                 <a href="javascript:void(0);"
-                                   onclick="assignPatientDxLink('<%=Encode.forJavaScriptAttribute(dx.getDxresearchCode())%>', '<%=Encode.forJavaScriptAttribute(idc9Desc)%>')"
-                                   title="<%=Encode.forHtmlAttribute(dx.getDxresearchCode())%> - <%=Encode.forHtmlAttribute(idc9Desc)%>">
+                                   onclick="assignPatientDxLink('<carlos:encode value='<%= dx.getDxresearchCode() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= idc9Desc %>' context="javaScriptAttribute"/>')"
+                                   title="<carlos:encode value='<%= dx.getDxresearchCode() %>' context="htmlAttribute"/> - <carlos:encode value='<%= idc9Desc %>' context="htmlAttribute"/>">
                                     <%=dx.getDxresearchCode()%>
                                     - <%=StringUtils.maxLenString(idc9Desc, 10, 6, StringUtils.ELLIPSIS)%>
                                 </a>
@@ -195,7 +196,7 @@
                             <c:if test="${showQuicklist}">
                             <tr>
                                 <td>
-                                <jsp:include page="dxQuickList.jsp" >
+                                <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxQuickList.jsp" >
                                     <jsp:param value="false" name="disable"/>
                                     <jsp:param value="${ param.quickList }" name="quickList" />
                                     <jsp:param value="${ demographicNo }" name="demographicNo"/>
@@ -216,17 +217,17 @@
                 <span style="color:red;"><%=request.getAttribute("message") %></span>
                 <%} %>
 
-                <form action="${pageContext.request.contextPath}/rx/RxReason.do" method="post" id="rxReasonForm">
+                <form action="${pageContext.request.contextPath}/rx/RxReason" method="post" id="rxReasonForm">
 
                     <fieldset>
                         <input type="hidden" name="method" value="addDrugReason"/>
-                        <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demoStr) %>"/>
-                        <input type="hidden" name="drugId" value="<%= Encode.forHtmlAttribute(drugIdStr) %>"/>
+                        <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demoStr %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="drugId" value="<carlos:encode value='<%= drugIdStr %>' context="htmlAttribute"/>"/>
 
                         <legend>Assign Indication</legend>
 
                         <input type="hidden" name="code" id="codeTxt"/>
-                        <jsp:include page="/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
+                        <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
                             <jsp:param value="true" name="enableCodeSystemSelect"/>
                         </jsp:include>
 
@@ -289,7 +290,7 @@
                                                 String descr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
                                                 descr = org.apache.commons.lang3.StringUtils.trimToEmpty(descr);
                                             %>
-                                            <%=Encode.forHtml(descr) %>
+                                            <carlos:encode value='<%= descr %>' context="html"/>
                                         </td>
                                         <td><%=drugReason.getComments() %>
                                         </td>
@@ -311,7 +312,7 @@
                                         <td colspan="7">
                                             <div>
 
-                                                <form action="${pageContext.request.contextPath}/rx/RxReason.do" method="post">
+                                                <form action="${pageContext.request.contextPath}/rx/RxReason" method="post">
                                                     <fieldset>
                                                         <legend>Archive Coding
                                                             System: <%=drugReason.getCodingSystem() %>

@@ -82,6 +82,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private ClientRestrictionManager clientRestrictionManager = SpringUtils.getBean(ClientRestrictionManager.class);
     private FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
+    private VacancyDao vacancyDao = SpringUtils.getBean(VacancyDao.class);
     private CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
     private AdmissionManager admissionManager = SpringUtils.getBean(AdmissionManager.class);
     private ClientManager clientManager = SpringUtils.getBean(ClientManager.class);
@@ -92,6 +93,10 @@ public class ProgramManagerView2Action extends ActionSupport {
 
     public void setFacilityDao(FacilityDao facilityDao) {
         this.facilityDao = facilityDao;
+    }
+
+    public void setVacancyDao(VacancyDao vacancyDao) {
+        this.vacancyDao = vacancyDao;
     }
 
     public String execute() {
@@ -139,8 +144,10 @@ public class ProgramManagerView2Action extends ActionSupport {
             addActionError("Invalid or missing required parameter");
             return ERROR;
         }
+        Integer programIdInt;
         try {
-            programId = String.valueOf(Integer.parseInt(programId));
+            programIdInt = Integer.valueOf(programId);
+            programId = String.valueOf(programIdInt);
         } catch (NumberFormatException e) {
             logger.error("Invalid programId format: {}", LogSanitizer.sanitize(String.valueOf(programId)));
             addActionError("Invalid or missing required parameter");
@@ -206,6 +213,7 @@ public class ProgramManagerView2Action extends ActionSupport {
                 this.setTab("General");
             }
         }
+        request.setAttribute("tab", this.getTab());
 
         Program program = programManager.getProgram(programId);
         request.setAttribute("program", program);
@@ -213,7 +221,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         if (facility != null) request.setAttribute("facilityName", facility.getName());
 
         if (this.getTab().equals("Service Restrictions")) {
-            request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(Integer.valueOf(programId), new Date()));
+            request.setAttribute("service_restrictions", clientRestrictionManager.getActiveRestrictionsForProgram(programIdInt, new Date()));
         }
         if (this.getTab().equals("Staff")) {
             request.setAttribute("providers", programManager.getProgramProviders(programId));
@@ -227,15 +235,15 @@ public class ProgramManagerView2Action extends ActionSupport {
             List<ProgramTeam> teams = programManager.getProgramTeams(programId);
 
             for (ProgramTeam team : teams) {
-                team.setProviders(programManager.getAllProvidersInTeam(Integer.valueOf(programId), team.getId()));
-                team.setAdmissions(programManager.getAllClientsInTeam(Integer.valueOf(programId), team.getId()));
+                team.setProviders(programManager.getAllProvidersInTeam(programIdInt, team.getId()));
+                team.setAdmissions(programManager.getAllClientsInTeam(programIdInt, team.getId()));
             }
 
             request.setAttribute("teams", teams);
         }
 
         if (this.getTab().equals("Clients")) {
-            request.setAttribute("client_statuses", programManager.getProgramClientStatuses(Integer.valueOf(programId)));
+            request.setAttribute("client_statuses", programManager.getProgramClientStatuses(programIdInt));
 
             // request.setAttribute("admissions", admissionManager.getCurrentAdmissionsByProgramId(programId));
             // clients should be active
@@ -258,8 +266,8 @@ public class ProgramManagerView2Action extends ActionSupport {
             List<ProgramTeam> teams = programManager.getProgramTeams(programId);
 
             for (ProgramTeam team : teams) {
-                team.setProviders(programManager.getAllProvidersInTeam(Integer.valueOf(programId), team.getId()));
-                team.setAdmissions(programManager.getAllClientsInTeam(Integer.valueOf(programId), team.getId()));
+                team.setProviders(programManager.getAllProvidersInTeam(programIdInt, team.getId()));
+                team.setAdmissions(programManager.getAllClientsInTeam(programIdInt, team.getId()));
             }
 
             request.setAttribute("teams", teams);
@@ -279,6 +287,9 @@ public class ProgramManagerView2Action extends ActionSupport {
             request.setAttribute("allowBatchDischarge", program.isAllowBatchDischarge());
             request.setAttribute("servicePrograms", batchAdmissionServicePrograms);
         }
+        if (this.getTab().equals("Vacancies")) {
+            request.setAttribute("vacancies", vacancyDao.getVacanciesByWlProgramId(programIdInt));
+        }
 
         if (this.getTab().equals("Access")) {
             request.setAttribute("accesses", programManager.getProgramAccesses(programId));
@@ -286,7 +297,7 @@ public class ProgramManagerView2Action extends ActionSupport {
 
 
         if (this.getTab().equals("Client Status")) {
-            request.setAttribute("client_statuses", programManager.getProgramClientStatuses(Integer.valueOf(programId)));
+            request.setAttribute("client_statuses", programManager.getProgramClientStatuses(programIdInt));
         }
 
         LogAction.log("view", "program", programId, request);

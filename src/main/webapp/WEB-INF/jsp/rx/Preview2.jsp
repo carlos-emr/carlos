@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData, io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
 <%@ page import="io.github.carlos_emr.*,
@@ -70,15 +71,17 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -307,7 +310,7 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" id="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>
@@ -351,7 +354,7 @@
                                     }
                                 %>
                                 <input type="hidden" name="doctorName"
-                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
+                                       value="<carlos:encode value='<%= doctorName %>' context="htmlAttribute"/>"/>
                                 <c:choose>
                                     <c:when test="${empty infirmaryView_programAddress}">
                                         <%
@@ -365,9 +368,9 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<%= Encode.forHtmlAttribute(clinicTitle.replaceAll("(<br>)","\\\n")) %>"/>
+                                               value="<carlos:encode value='<%= clinicTitle.replaceAll("(<br>)","\\\n") %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="clinicPhone"
-                                               value="<%= Encode.forHtmlAttribute(finalPhone) %>"/>
+                                               value="<carlos:encode value='<%= finalPhone %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:when>
                                     <c:otherwise>
@@ -388,22 +391,22 @@
                                             request.setAttribute("phone", finalPhone);
                                         %>
                                         <input type="hidden" name="clinicName"
-                                               value="<c:out value="${infirmaryView_programAddress}"/>"/>
+                                               value="${carlos:forHtmlAttribute(infirmaryView_programAddress)}"/>
                                         <input type="hidden" name="clinicPhone" value="<%=finalPhone%>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
                                     </c:otherwise>
                                 </c:choose>
                                 <input type="hidden" name="patientName"
-                                       value="<%= Encode.forHtmlAttribute(patient.getFirstName())+ " " +Encode.forHtmlAttribute(patient.getSurname()) %>"/>
+                                       value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
-                                       value="<%= Encode.forHtmlAttribute(patientDOBStr) %>"/>
+                                       value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
                                 <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
-                                <input type="hidden" name="pracNo" value="<%= Encode.forHtmlAttribute(pracNo) %>"/>
+                                <input type="hidden" name="pracNo" value="<carlos:encode value='<%= pracNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
                                 <input type="hidden" name="patientAddress"
-                                       value="<%= Encode.forHtmlAttribute(patientAddress) %>"/>
+                                       value="<carlos:encode value='<%= patientAddress %>' context="htmlAttribute"/>"/>
                                 <%
                                     int check = (patientCity.trim().length() > 0 ? 1 : 0) | (patientProvince.trim().length() > 0 ? 2 : 0);
                                     String patientCityPostal = String.format("%s%s%s %s",
@@ -418,18 +421,18 @@
                                     }
                                 %>
                                 <input type="hidden" name="patientCityPostal"
-                                       value="<%= Encode.forHtmlAttribute(patientCityPostal)%>"/>
+                                       value="<carlos:encode value='<%= patientCityPostal %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="patientHIN"
-                                       value="<%= Encode.forHtmlAttribute(patientHin) %>"/>
+                                       value="<carlos:encode value='<%= patientHin %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="patientChartNo"
-                                       value="<%=Encode.forHtmlAttribute(ptChartNo)%>"/>
+                                       value="<carlos:encode value='<%= ptChartNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="bandNumber" value="${ bandNumber }"/>
                                 <input type="hidden" name="patientPhone"
-                                       value="<fmt:message key="RxPreview.msgTel"/>: <%=Encode.forHtmlAttribute(patientPhone) %>"/>
+                                       value="<fmt:message key="RxPreview.msgTel"/>: <carlos:encode value='<%= patientPhone %>' context="html"/>"/>
                                 <input type="hidden" name="rxDate"
-                                       value="<%= Encode.forHtmlAttribute(RxUtil.DateToString(rxDate, "MMMM d, yyyy")) %>"/>
+                                       value="<carlos:encode value='<%= RxUtil.DateToString(rxDate, "MMMM d, yyyy") %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="sigDoctorName"
-                                       value="<%= Encode.forHtmlAttribute(doctorName) %>"/>
+                                       value="<carlos:encode value='<%= doctorName %>' context="htmlAttribute"/>"/>
                                 <!--img src="img/prescript.gif" border="0"-->
                             </th>
                             <th valign=top height="100px" id="clinicAddress">
@@ -492,7 +495,7 @@
                                             request.setAttribute("phone", finalPhone);
 
                                         %>
-                                        <c:out value="${infirmaryView_programAddress}" escapeXml="false"/><br>
+                                        ${infirmaryView_programAddress}<br>
                                         <fmt:message key="RxPreview.msgTel"/>: <%=finalPhone %><br>
                                         <oscar:oscarPropertiesCheck property="RXFAX" value="yes">
                                             <fmt:message key="RxPreview.msgFax"/>: <%=finalFax %>
@@ -504,20 +507,20 @@
                         <tr>
                             <th colspan=2 valign=top height="75px">
 								<span style="float: left">
-									<%= Encode.forHtmlContent(patient.getFirstName()) %> <%= Encode.forHtmlContent(patient.getSurname()) %> <%if (showPatientDOB) {%><br>DOB:<%= Encode.forHtmlContent(patientDOBStr) %> <%}%><br>
-										<%= Encode.forHtmlContent(patientAddress) %><br>
-										<%= Encode.forHtmlContent(patientCityPostal) %><br>
-										<%= Encode.forHtmlContent(patientPhone) %><br>
+									<carlos:encode value='<%= patient.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient.getSurname() %>' context="html"/> <%if (showPatientDOB) {%><br>DOB:<carlos:encode value='<%= patientDOBStr %>' context="html"/> <%}%><br>
+										<carlos:encode value='<%= patientAddress %>' context="html"/><br>
+										<carlos:encode value='<%= patientCityPostal %>' context="html"/><br>
+										<carlos:encode value='<%= patientPhone %>' context="html"/><br>
 										<oscar:oscarPropertiesCheck value="true" property="showRxBandNumber">
                                             <c:if test="${ not empty bandNumber }">
                                                 <br/>
                                                 <b><fmt:message key="io.github.carlos_emr.carlos.rx.bandNumber"/></b>
-                                                <c:out value="${ bandNumber }"/>
+                                                ${carlos:forHtml(bandNumber)}
                                             </c:if>
                                         </oscar:oscarPropertiesCheck>
 										<b>
 											<% if (!props.getProperty("showRxHin", "").equals("false")) { %>
-												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><%= Encode.forHtmlContent(patientHin) %>
+												<fmt:message key="io.github.carlos_emr.carlos.rx.hin"/><carlos:encode value='<%= patientHin %>' context="html"/>
 											<% } %>
 										</b><br>
 										<% if (props.getProperty("showRxChartNo", "").equalsIgnoreCase("true")) { %>
@@ -558,7 +561,7 @@
                                     } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
                                         // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
                                         // Note: this displays the live stamp file, not an immutable DigitalSignature copy (unlike consultations).
-                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
+                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage";
                                     }
                                 %>
 
@@ -609,7 +612,7 @@
                                 <%-- Topaz signature pad support removed - HTML5 signature capture is now standard --%>
                             </td>
                             <td height=25px>
-                                &nbsp; <%= Encode.forHtmlContent(doctorName) %>
+                                &nbsp; <carlos:encode value='<%= doctorName %>' context="html"/>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
                                 &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
@@ -625,7 +628,7 @@
                         <tr valign=bottom>
                             <td height=55px colspan="2">
 										<span style="float:right; font-size:10px;">
-											<fmt:message key="RxPreview.msgReprintBy"/> <%=Encode.forHtmlContent(ProviderData.getProviderName(strUser))%> <br>
+											<fmt:message key="RxPreview.msgReprintBy"/> <carlos:encode value='<%= ProviderData.getProviderName(strUser) %>' context="html"/> <br>
 											<fmt:message key="RxPreview.msgOrigPrinted"/>:&nbsp;<%=rx.getPrintDate()%> <br>
 											<fmt:message key="RxPreview.msgTimesPrinted"/>:&nbsp;<%=String.valueOf(rx.getNumPrints())%>
 										</span>
@@ -685,7 +688,7 @@
                         </tr>
 
                         <input type="hidden" name="rx"
-                               value="<%= Encode.forHtmlAttribute(strRx.replaceAll(";","\\\n")) %>"/>
+                               value="<carlos:encode value='<%= strRx.replaceAll(";","\\\n") %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>

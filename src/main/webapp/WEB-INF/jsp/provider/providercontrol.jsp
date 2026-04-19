@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
-         errorPage="/errorpage.jsp" buffer="64kb" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDict" %>
 
@@ -53,18 +53,18 @@
 <%
     if (session.getAttribute("userrole") == null) {
         MiscUtils.getLogger().error("userrole is null? logging user out");
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
     if (roleName$.indexOf(UserRoleUtils.Roles.er_clerk.name()) != -1) {
-        response.sendRedirect(request.getContextPath() + "/provider/ViewErClerk.do");
+        response.sendRedirect(request.getContextPath() + "/provider/ViewErClerk");
         return;
     }
 
     if (roleName$.indexOf("Vaccine Provider") != -1) {
-        response.sendRedirect(request.getContextPath() + "/provider/ViewVaccineProvider.do");
+        response.sendRedirect(request.getContextPath() + "/provider/ViewVaccineProvider");
         return;
     }
 %>
@@ -73,7 +73,7 @@
     <%
         if (true) {
             MiscUtils.getLogger().error("wrong role? logging user out");
-            response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            response.sendRedirect(request.getContextPath() + "/logoutPage");
             return;
         }
     %>
@@ -82,7 +82,7 @@
 <%
     if (session.getAttribute("user") == null) {
         MiscUtils.getLogger().error("missing session user? logging user out");
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
 
@@ -122,19 +122,19 @@
 
         if (caisiView != null && "true".equals(caisiView)) {
             if (viewAll_bool) {
-                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1");
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1");
                 return;
             } else {
-                response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0");
+                response.sendRedirect(request.getContextPath() + "/provider/providercontrol?GoToCaisiViewFromOscarView=true&year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0");
                 return;
             }
         }
         if (viewAll_bool) {
 
-            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1" + router);
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1" + router);
             return;
         } else {
-            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.do?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0" + router);
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol?year=" + nowYear + "&month=" + (nowMonth) + "&day=" + (nowDay) + "&view=0&displaymode=day&dboperation=searchappointmentday&viewall=0" + router);
             return;
         }
 
@@ -144,23 +144,23 @@
     // RequestDispatcher.include() below takes paths relative to the servlet
     // context root — do NOT prepend request.getContextPath() here.
     String[][] opToFile = new String[][]{
-            {"day", "/provider/ViewAppointmentAdminDay.do"},
-            {"month", "/provider/ViewAppointmentAdminMonth.do"},
-            {"addstatus", "/provider/AddStatus.do"},
-            {"updatepreference", "/provider/ViewProviderUpdatePreference.do"},
-            {"displaymygroup", "/provider/ViewProviderDisplayMyGroup.do"},
+            {"day", "/provider/ViewAppointmentAdminDay"},
+            {"month", "/provider/ViewAppointmentAdminMonth"},
+            {"addstatus", "/provider/AddStatus"},
+            {"updatepreference", "/provider/ViewProviderUpdatePreference"},
+            {"displaymygroup", "/provider/ViewProviderDisplayMyGroup"},
             {"encounter", "providerencounter.jsp"},
-            {"encountersingle", "/provider/ViewProviderEncounterSingle.do"},
+            {"encountersingle", "/provider/ViewProviderEncounterSingle"},
             {"vary", request.getParameter("displaymodevariable") == null ? "" : URLDecoder.decode(request.getParameter("displaymodevariable"))},
             {"saveencounter", "providersaveencounter.jsp"},
             {"savebill", "providersavebill.jsp"},
-            {"savedemographicaccessory", "/provider/SaveDemographicAccessory.do"},
-            {"encounterhistory", "/provider/ViewProviderEncounterHistory.do"},
+            {"savedemographicaccessory", "/provider/SaveDemographicAccessory"},
+            {"encounterhistory", "/provider/ViewProviderEncounterHistory"},
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
-            {"newgroup", "/provider/ViewProviderNewGroup.do"},
-            {"savemygroup", "/provider/SaveMyGroup.do"}
+            {"newgroup", "/provider/ViewProviderNewGroup"},
+            {"savemygroup", "/provider/SaveMyGroup"}
 
     };
 
@@ -175,9 +175,13 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // Use jsp:include instead of pageContext.forward() because Tomcat 11's
-    // response buffer handling prevents forward() from working when response
-    // wrapper filters (CSRFGuard, LogoutBroadcast) are in the filter chain.
+    // Include the target (Struts action or relative JSP). Struts filters are mapped
+    // to REQUEST, FORWARD, and INCLUDE dispatchers in web.xml so Struts action paths
+    // (like /provider/ViewAppointmentAdminDay) route through Struts on the include,
+    // and JSP file paths are resolved by the JSP servlet (`.jsp` is in
+    // struts.action.excludePattern). This keeps the browser URL as the section-root
+    // /provider/providercontrol router so bookmarks and back-stack behavior are
+    // preserved across display modes.
     out.clearBuffer();
     String includeTarget = opToFileDict.getDef(operation, "");
     request.getRequestDispatcher(includeTarget).include(request, response);

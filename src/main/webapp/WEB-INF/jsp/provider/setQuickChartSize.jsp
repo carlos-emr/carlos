@@ -33,6 +33,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -51,7 +52,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title><%=bundle.getString(providertitle)%></title>
-        <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"></script>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
     </head>
@@ -72,14 +73,14 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <form id="providerForm" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <p id="errorMessage" class="alert alert-danger" style="display: none; color: red;">
-                        Invalid input.
+                        <fmt:message key="provider.quickChartSize.msgInvalidInput"/>
                     </p>
-                    Number of Notes : <input type="text" id="numericFormField" name="quickChartSize.value" value="<c:out value='${size.value}'/>" size="5"/>
+                    <fmt:message key="provider.quickChartSize.msgProvider"/> <input type="text" id="numericFormField" name="quickChartSize.value" value="${carlos:forHtmlAttribute(size.value)}" size="5"/>
                     <br/>
-                    <input type="submit" name="submit" value="Apply"class="btn btn-primary" />
+                    <input type="submit" name="submit" value="<fmt:message key='provider.quickChartSize.btnSubmit'/>" class="btn btn-primary" />
                 </form>
 
                 <%} else {%>

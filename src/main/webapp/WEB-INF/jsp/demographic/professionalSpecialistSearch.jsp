@@ -54,13 +54,16 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";
@@ -93,7 +96,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Search Professional Contacts</title>
+        <title><fmt:message key="demographic.contactSearch.titleProfessional"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script language="JavaScript">
 
@@ -111,11 +114,11 @@
 
             function selectResult(data1, data2) {
                 opener.document
-            ['<%= Encode.forJavaScript(form) %>'].
-                elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
+            ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                elements['<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>'].value = data1;
                 opener.document
-            ['<%= Encode.forJavaScript(form) %>'].
-                elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
+            ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                elements['<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>'].value = data2;
                 self.close();
             }
 
@@ -125,14 +128,14 @@
     </head>
     <body bgcolor="white" onload="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
 
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch" onSubmit="return check();">
         <table border="0" cellpadding="1" cellspacing="0" width="100%" bgcolor="#CCCCFF">
             <tr>
-                <td class="searchTitle" colspan="4">Search Professional Contacts</td>
+                <td class="searchTitle" colspan="4"><fmt:message key="demographic.contactSearch.titleProfessional"/></td>
             </tr>
             <tr>
                 <td class="blueText" width="10%" nowrap>
-                    <input type="radio" name="search_mode" value="search_name" checked="checked"> Name
+                    <input type="radio" name="search_mode" value="search_name" checked="checked"> <fmt:message key="demographic.contactSearch.searchByName"/>
                 </td>
                 <td valign="middle" rowspan="2" align="left">
                     <input type="text" name="keyword" value="" size="17" maxlength="100">
@@ -140,28 +143,28 @@
                     <input type="hidden" name="limit1" value="0">
                     <input type="hidden" name="limit2" value="10">
                     <input type="hidden" name="submit" value='Search'>
-                    <input type="submit" value='Search'>
+                    <input type="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
                 </td>
             </tr>
         </table>
         <table width="95%" border="0">
             <tr>
-                <td align="left">Results based on keyword(s): <%= Encode.forHtml(keyword == null ? "" : keyword) %>
+                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
                 </td>
             </tr>
         </table>
-        <input type='hidden' name='form' value="<%=Encode.forHtmlAttribute(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=Encode.forHtmlAttribute(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=Encode.forHtmlAttribute(elementId)%>"/>
+        <input type='hidden' name='form' value="<carlos:encode value='<%= form %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementName' value="<carlos:encode value='<%= elementName %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementId' value="<carlos:encode value='<%= elementId %>' context="htmlAttribute"/>"/>
     </form>
 
     <center>
         <table width="100%" border="0" cellpadding="0" cellspacing="2"
                bgcolor="#C0C0C0">
             <tr class="title">
-                <th width="25%"><b>Last Name</b></th>
-                <th width="20%"><b>First Name</b></th>
-                <th width="20%"><b>Phone</b></th>
+                <th width="25%"><b><fmt:message key="demographic.contactSearch.lastName"/></b></th>
+                <th width="20%"><b><fmt:message key="demographic.contactSearch.firstName"/></b></th>
+                <th width="20%"><b><fmt:message key="demographic.contactSearch.phone"/></b></th>
             </tr>
 
             <c:forEach var="contact" items="${contacts}" varStatus="i">
@@ -171,15 +174,15 @@
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
-                    strOnClick = "selectResult('" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                    strOnClick = "selectResult('" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
-                    <td><c:out value="${contact.lastName}"/></td>
-                    <td><c:out value="${contact.firstName}"/></td>
-                    <td><c:out value="${contact.phoneNumber}"/></td>
+                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                    <td>${carlos:forHtml(contact.lastName)}</td>
+                    <td>${carlos:forHtml(contact.firstName)}</td>
+                    <td>${carlos:forHtml(contact.phoneNumber)}</td>
                 </tr>
             </c:forEach>
 
@@ -190,20 +193,35 @@
             int nLastPage = 0, nNextPage = 0;
             nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
             nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
-        %> <%
+        %>
+        <%
         if (nItems == 0 && nLastPage <= 0) {
-    %> <fmt:message key="demographic.search.noResultsWereFound"/> <%
+        %>
+        <fmt:message key="demographic.search.noResultsWereFound"/>
+        <%
         }
     %>
         <script language="JavaScript">
             <!--
             function last() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                <c:set var="__enc_1"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_3"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<carlos:encode value='${__enc_1}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_2}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_3}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_4}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_5}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_6}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 
             function next() {
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+                <c:set var="__enc_7"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_8"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_9"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<carlos:encode value='${__enc_7}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_8}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_9}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_10}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 
@@ -225,7 +243,7 @@
         %>
         </form>
         <br>
-        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewShowAllServices.do">Add/Edit
+        <a href="<%=request.getContextPath() %>/encounter/oscarConsultationRequest/config/ViewShowAllServices">Add/Edit
             Professional Specialist</a></center>
     </body>
 </html>

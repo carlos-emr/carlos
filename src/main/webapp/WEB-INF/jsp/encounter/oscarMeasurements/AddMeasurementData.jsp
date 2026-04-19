@@ -35,7 +35,6 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization,io.github.carlos_emr.carlos.commn.model.Validations" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
@@ -50,8 +49,10 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String demographic_no = request.getParameter("demographic_no");
     String id = request.getParameter("id");
     String measurement = request.getParameter("measurement");
@@ -365,17 +366,17 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%=Encode.forHtml(error)%></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
 <% } %>
                 <% String val = "";
-                    String saveAction = "encounter/Measurements2.do";
+                    String saveAction = "encounter/Measurements2";
                     String comment = "";
                     Hashtable h = null;
                     if (id != null) {
-                        saveAction = "encounter/oscarMeasurements/DeleteData2.do";
+                        saveAction = "encounter/oscarMeasurements/DeleteData2";
                         h = EctMeasurementsDataBeanHandler.getMeasurementDataById(id);
                         prevDate = (String) h.get("dateObserved");
                         val = (String) h.get("value");
@@ -395,7 +396,7 @@
                     <div style="float:left;margin-left:30px;">
                         <label for="prevDate<%=iDate%>" class="fields">Obs Date/Time: </label>
 
-                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<%=Encode.forHtmlAttribute(prevDate)%>"
+                        <input type="text" name="date-<%=iDate%>" id="prevDate<%=iDate%>" value="<carlos:encode value='<%= prevDate %>' context="htmlAttribute"/>"
                                size="17" onchange="javascript:masterDateFill(this.value);">
                         <% if (id == null) { %>
                         <a id="date<%=iDate%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -418,9 +419,9 @@
                     <input type="hidden" name="numType" value="<%= (int) measurements.length %>"/> <%-- measurements.length is a server-side int — no XSS risk --%>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
-                    <input type="hidden" name="demographicNo" value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="inputFrom" value="AddMeasurementData"/>
-                    <input type="hidden" name="template" value="<%= Encode.forHtmlAttribute(temp) %>"/>
+                    <input type="hidden" name="template" value="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"/>
 
                     <%
                         int ctr = 0;
@@ -449,32 +450,32 @@
                     %>
 
 
-                    <input type="hidden" name="measurement" value="<%= Encode.forHtmlAttribute(measurement) %>"/>
+                    <input type="hidden" name="measurement" value="<carlos:encode value='<%= measurement %>' context="htmlAttribute"/>"/>
 
-                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<%=Encode.forHtmlAttribute(mtypeBean.getType())%>"/>
+                    <input type="hidden" name="<%= "inputType-" + ctr %>" value="<carlos:encode value='<%= mtypeBean.getType() %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="<%= "inputTypeDisplayName-" + ctr %>"
-                           value="<%=Encode.forHtmlAttribute(mtypeBean.getTypeDisplayName())%>"/>
+                           value="<carlos:encode value='<%= mtypeBean.getTypeDisplayName() %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="<%= "validation-" + ctr %>"
-                           value="<%=Encode.forHtmlAttribute(mtypeBean.getValidation())%>"/>
+                           value="<carlos:encode value='<%= mtypeBean.getValidation() %>' context="htmlAttribute"/>"/>
 
                     <% if (id != null) { %>
-                    <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"/>
-                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<%= Encode.forHtmlAttribute(id) %>"/>
+                    <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="deleteCheckbox" id="deleteCheck" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
                     <% } %>
 
                     <div class="prevention">
                         <fieldset>
-                            <legend>Measurement : <%=Encode.forHtml(mtypeBean.getTypeDisplayName())%>
+                            <legend>Measurement : <carlos:encode value='<%= mtypeBean.getTypeDisplayName() %>' context="html"/>
                             </legend>
                             <div style="float:left;display:none;">
                                 <input type="radio" name="<%= "inputMInstrc-" + ctr %>"
-                                       value="<%=Encode.forHtmlAttribute(mtypeBean.getMeasuringInstrc())%>" checked/>
+                                       value="<carlos:encode value='<%= mtypeBean.getMeasuringInstrc() %>' context="htmlAttribute"/>" checked/>
                             </div>
                             <div style="float:left;margin-left:30px;">
                                 <label for="prevDate<%=ctr%>" class="fields">Obs Date/Time:</label>
 
                                 <input type="text" name="<%= "date-" + ctr %>" id="prevDate<%=ctr%>"
-                                       value="<%=Encode.forHtmlAttribute(prevDate)%>" size="17">
+                                       value="<carlos:encode value='<%= prevDate %>' context="htmlAttribute"/>" size="17">
 
                                 <% if (id == null) { %>
                                 <a id="date<%=ctr%>"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar"
@@ -483,14 +484,14 @@
                                 <br/>
 
                                 <label for="<%="inputValue-"+ctr%>"
-                                       class="fields"><%=Encode.forHtmlContent(h2.get("value_name"))%>:</label>
+                                       class="fields"><carlos:encode value='<%= h2.get("value_name") %>' context="html"/>:</label>
                                 <% if (validations != null && validations.getRegularExp() != null && (validations.getRegularExp().contains("|") || validations.getRegularExp().equals("Yes"))) { %>
                                 <select id="<%="inputValue-"+ctr%>"
                                         name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
                                     <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
                                         for (String opt : opts) {%>
-                                    <option value="<%=Encode.forHtmlAttribute(opt)%>"  <%=sel(opt, val)%>><%=Encode.forHtml(opt)%>
+                                    <option value="<carlos:encode value='<%= opt %>' context="htmlAttribute"/>"  <%=sel(opt, val)%>><carlos:encode value='<%= opt %>' context="html"/>
                                     </option>
                                     <% }%>
                                 </select>
@@ -505,7 +506,7 @@
                                 </select>
                                 <%} else {%>
                                 <input type="text" id="<%= "inputValue-" + ctr %>"
-                                       name="<%= "inputValue-" + ctr %>" size="5" value="<%=Encode.forHtmlAttribute(val)%>"/> <br/>
+                                       name="<%= "inputValue-" + ctr %>" size="5" value="<carlos:encode value='<%= val %>' context="htmlAttribute"/>"/> <br/>
                                 <%}%>
                             </div>
                             <br/>
@@ -517,7 +518,7 @@
                             </div>
                             <fieldset>
                                 <legend>Comments</legend>
-                                <textarea name="<%= "comments-" + ctr %>"><%=Encode.forHtmlContent(comment)%></textarea>
+                                <textarea name="<%= "comments-" + ctr %>"><carlos:encode value='<%= comment %>' context="html"/></textarea>
                             </fieldset>
                         </fieldset>
 

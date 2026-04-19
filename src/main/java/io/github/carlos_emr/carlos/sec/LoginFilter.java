@@ -133,7 +133,7 @@ public class LoginFilter implements Filter {
      * <p>Requests to these URLs bypass session validation and are allowed
      * without an authenticated session. This includes:
      * <ul>
-     *   <li>Login/logout pages (index.jsp, logout.jsp, login.do)</li>
+     *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /login})</li>
      *   <li>Public static resources (images, CSS, JavaScript, fonts)</li>
      *   <li>Lab upload endpoints (for external lab system integration)</li>
      *   <li>PDF generation servlets (for external document generation)</li>
@@ -150,14 +150,13 @@ public class LoginFilter implements Filter {
             "/images/Logo.png",
             "/images/cloud-bg.svg",
             "/signature_pad/",
-            "/lab/CMLlabUpload.do",
-            "/lab/newLabUpload.do",
-            "/login.do",
-            "/logout.jsp",
-            "/index.jsp",
-            "/forcepasswordreset.jsp",
-            "/loginfailed.jsp",
-            "/index.html",
+            "/lab/CMLlabUpload",
+            "/lab/newLabUpload",
+            "/login",
+            "/logoutPage",
+            "/index",
+            "/forcepasswordreset",
+            "/loginfailed",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
@@ -174,7 +173,7 @@ public class LoginFilter implements Filter {
 		"/mfa/",
 		// Heartbeat endpoint must be reachable without an active session so windows
 		// can detect server-side logout/timeout even after the session has been destroyed
-		"/status/sessionHeartbeat.jsp"
+		"/status/SessionHeartbeat"
     };
 
     /**
@@ -184,7 +183,7 @@ public class LoginFilter implements Filter {
      * attribute, preventing them from extending the user's session. This is
      * important for:
      * <ul>
-     *   <li>AJAX polling endpoints (SystemMessage.do, FacilityMessage.do, tabAlertsRefresh.jsp)</li>
+     *   <li>AJAX polling endpoints (SystemMessage, FacilityMessage, tabAlertsRefresh.jsp)</li>
      *   <li>Static resources that shouldn't reset activity timer (JS, CSS, fonts)</li>
      *   <li>Provider control page refresh (providercontrol.jsp)</li>
      * </ul>
@@ -195,11 +194,10 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT = {
             "/images/Oscar.ico",
             "/images/Logo.png",
-            "/login.do",
-            "/logout.jsp",
-            "/index.jsp",
-            "/loginfailed.jsp",
-            "/index.html",
+            "/login",
+            "/logoutPage",
+            "/index",
+            "/loginfailed",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
@@ -207,11 +205,11 @@ public class LoginFilter implements Filter {
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/provider/providercontrol.do",
+            "/provider/providercontrol",
             "/js",
-            "/provider/ViewTabAlertsRefresh.do",
-            "/SystemMessage.do",
-            "/FacilityMessage.do",
+            "/provider/ViewTabAlertsRefresh",
+            "/SystemMessage",
+            "/FacilityMessage",
             "/js/bootstrap",
             "/css/bootstrap",
             "/css/Roboto.css",
@@ -219,21 +217,20 @@ public class LoginFilter implements Filter {
             "/css/font/Roboto",
             // Heartbeat polling must not extend the inactivity timer, otherwise
             // background heartbeats would prevent legitimate session timeouts
-            "/status/sessionHeartbeat.jsp"
+            "/status/SessionHeartbeat"
     };
 
     /**
      * URLs exempt from inactivity timeout redirect.
      *
      * <p>If inactivity timeout is exceeded, users are normally redirected to
-     * logout.jsp. However, if the user is already on one of these pages,
+     * {@code /logoutPage}. However, if the user is already on one of these pages,
      * the redirect is skipped to avoid infinite redirect loops.
      */
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
-            "/logout.jsp",
-            "/index.jsp",
-            "/loginfailed.jsp",
-            "/index.html"
+            "/logoutPage",
+            "/index",
+            "/loginfailed"
     };
 
     /**
@@ -275,14 +272,15 @@ public class LoginFilter implements Filter {
      *
      * <p>Session validation:
      * <ul>
-     *   <li>If no session or no "user" attribute → redirect to logout.jsp (unless URL is exempt)</li>
+     *   <li>If no session or no "user" attribute → redirect to {@code /logoutPage}
+     *       (unless URL is exempt)</li>
      *   <li>If session exists → check inactivity timeout</li>
      * </ul>
      *
      * <p>Inactivity timeout:
      * <ul>
      *   <li>Compares current time to "last_request_time" session attribute</li>
-     *   <li>If exceeded INACTIVITY_LIMIT_MINS → redirect to logout.jsp</li>
+     *   <li>If exceeded INACTIVITY_LIMIT_MINS → redirect to {@code /logoutPage}</li>
      *   <li>Updates "last_request_time" unless URL is in EXEMPT_URLS_FOR_REQUEST_TIMEOUT</li>
      * </ul>
      *
@@ -333,7 +331,7 @@ public class LoginFilter implements Filter {
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
             if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
-                httpResponse.sendRedirect(contextPath + "/logout.jsp");
+                httpResponse.sendRedirect(contextPath + "/logoutPage");
                 return;
             }
         }
@@ -354,7 +352,7 @@ public class LoginFilter implements Filter {
                     logger.debug("lastRequestDate.getTime() " + lastRequestDate.getTime() + " thisRequestDate.getTime() " + thisRequestDate.getTime() + " -- " + timeSinceLastRequest);
                     // Redirect to logout if inactivity limit exceeded (unless already on logout/login page)
                     if (timeSinceLastRequest > timeBeforeExpire && !inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT)) {
-                        httpResponse.sendRedirect(contextPath + "/logout.jsp");
+                        httpResponse.sendRedirect(contextPath + "/logoutPage");
                         return;
                     }
                 }
@@ -391,7 +389,7 @@ public class LoginFilter implements Filter {
      *   <li>All other exempt URLs require either an exact match or that the
      *       next character in the URI is "/" (e.g., "/css/bootstrap" matches
      *       "/css/bootstrap" and "/css/bootstrap/file.css" but NOT
-     *       "/css/bootstrapEvil.do").</li>
+     *       "/css/bootstrapEvil").</li>
      * </ul>
      *
      * @param requestURI String the full request URI including context path
@@ -403,9 +401,9 @@ public class LoginFilter implements Filter {
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
         requestURI = normalizeUri(requestURI);
 
-        // Treat context root (e.g. /carlos/) as equivalent to /index.jsp (welcome file)
-        if (requestURI.equals(contextPath) || requestURI.equals(contextPath + "/")) {
-            requestURI = contextPath + "/index.jsp";
+        // Treat context root (e.g. /carlos/) as equivalent to /index (welcome file)
+        if (isContextRootRequest(requestURI, contextPath)) {
+            requestURI = contextPath + "/index";
         }
         for (String exemptUrl : EXEMPT_URLS) {
             String fullExempt = contextPath + exemptUrl;
@@ -426,9 +424,9 @@ public class LoginFilter implements Filter {
      * <p>This prevents bypass attempts where an attacker uses path tricks
      * to match (or avoid matching) exempt URL patterns:
      * <ul>
-     *   <li>{@code /login.do;jsessionid=abc} → {@code /login.do}</li>
+     *   <li>{@code /login;jsessionid=abc} → {@code /login}</li>
      *   <li>{@code //ws///service} → {@code /ws/service}</li>
-     *   <li>{@code /ws/../admin/secret.do} → {@code /admin/secret.do}</li>
+     *   <li>{@code /ws/../admin/secret} → {@code /admin/secret}</li>
      * </ul>
      *
      * @param uri the raw request URI
@@ -480,6 +478,14 @@ public class LoginFilter implements Filter {
         }
 
         return normalized.toString();
+    }
+
+    private static boolean isContextRootRequest(String requestURI, String contextPath) {
+        if (contextPath == null || contextPath.isEmpty()) {
+            return "/".equals(requestURI);
+        }
+
+        return requestURI.equals(contextPath) || requestURI.equals(contextPath + "/");
     }
 
     /**

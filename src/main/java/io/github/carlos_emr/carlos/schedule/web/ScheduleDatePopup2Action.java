@@ -32,7 +32,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Gate action for the individual schedule date popup editor.
- * Launched from both the schedule admin flow (CreateDate.do, requires _admin.schedule w)
+ * Launched from both the schedule admin flow (CreateDate, requires _admin.schedule w)
  * and the appointment flow, so either _admin.schedule w or _appointment w is accepted
  * to avoid breaking schedule admins who lack direct appointment privileges.
  *

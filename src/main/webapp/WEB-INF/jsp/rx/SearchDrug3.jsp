@@ -59,7 +59,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
@@ -75,9 +76,6 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <%
 String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
 RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
@@ -98,7 +96,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
 	if(!authed) {
@@ -261,29 +259,29 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
-                handlerNotRemoved: '${e:forJavaScript(msg_handlerNotRemoved)}',
-                confirmMedRecComplete: '${e:forJavaScript(msg_confirmMedRecComplete)}',
-                medRecCompleted: '${e:forJavaScript(msg_medRecCompleted)}',
-                confirmChangeDrugName: '${e:forJavaScript(msg_confirmChangeDrugName)}',
-                confirmDeletePrescriptions: '${e:forJavaScript(msg_confirmDeletePrescriptions)}',
-                confirmCustomNote: '${e:forJavaScript(msg_confirmCustomNote)}',
-                confirmCustomDrug: '${e:forJavaScript(msg_confirmCustomDrug)}',
-                startDateWrongFormat: '${e:forJavaScript(msg_startDateWrongFormat)}',
-                startDateInvalidYear: '${e:forJavaScript(msg_startDateInvalidYear)}',
-                startDateInvalidMonth: '${e:forJavaScript(msg_startDateInvalidMonth)}',
-                startDateInvalidDay: '${e:forJavaScript(msg_startDateInvalidDay)}',
-                startDateFuture: '${e:forJavaScript(msg_startDateFuture)}',
-                writtenDateWrongFormat: '${e:forJavaScript(msg_writtenDateWrongFormat)}',
-                writtenDateInvalidYear: '${e:forJavaScript(msg_writtenDateInvalidYear)}',
-                writtenDateInvalidMonth: '${e:forJavaScript(msg_writtenDateInvalidMonth)}',
-                writtenDateInvalidDay: '${e:forJavaScript(msg_writtenDateInvalidDay)}',
-                writtenDateFuture: '${e:forJavaScript(msg_writtenDateFuture)}',
-                pleaseAddDrugFirst: '${e:forJavaScript(msg_pleaseAddDrugFirst)}',
-                reviewDrugSpecifyTerm: '${e:forJavaScript(msg_reviewDrugSpecifyTerm)}',
-                unstagedReRxSingle: '${e:forJavaScript(msg_unstagedReRxSingle)}',
-                unstagedReRxMultiple: '${e:forJavaScript(msg_unstagedReRxMultiple)}',
-                saveWarning: '${e:forJavaScript(msg_saveWarning)}',
-                savePrompt: '${e:forJavaScript(msg_savePrompt)}'
+                handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
+                confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
+                medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
+                confirmChangeDrugName: '${carlos:forJavaScript(msg_confirmChangeDrugName)}',
+                confirmDeletePrescriptions: '${carlos:forJavaScript(msg_confirmDeletePrescriptions)}',
+                confirmCustomNote: '${carlos:forJavaScript(msg_confirmCustomNote)}',
+                confirmCustomDrug: '${carlos:forJavaScript(msg_confirmCustomDrug)}',
+                startDateWrongFormat: '${carlos:forJavaScript(msg_startDateWrongFormat)}',
+                startDateInvalidYear: '${carlos:forJavaScript(msg_startDateInvalidYear)}',
+                startDateInvalidMonth: '${carlos:forJavaScript(msg_startDateInvalidMonth)}',
+                startDateInvalidDay: '${carlos:forJavaScript(msg_startDateInvalidDay)}',
+                startDateFuture: '${carlos:forJavaScript(msg_startDateFuture)}',
+                writtenDateWrongFormat: '${carlos:forJavaScript(msg_writtenDateWrongFormat)}',
+                writtenDateInvalidYear: '${carlos:forJavaScript(msg_writtenDateInvalidYear)}',
+                writtenDateInvalidMonth: '${carlos:forJavaScript(msg_writtenDateInvalidMonth)}',
+                writtenDateInvalidDay: '${carlos:forJavaScript(msg_writtenDateInvalidDay)}',
+                writtenDateFuture: '${carlos:forJavaScript(msg_writtenDateFuture)}',
+                pleaseAddDrugFirst: '${carlos:forJavaScript(msg_pleaseAddDrugFirst)}',
+                reviewDrugSpecifyTerm: '${carlos:forJavaScript(msg_reviewDrugSpecifyTerm)}',
+                unstagedReRxSingle: '${carlos:forJavaScript(msg_unstagedReRxSingle)}',
+                unstagedReRxMultiple: '${carlos:forJavaScript(msg_unstagedReRxMultiple)}',
+                saveWarning: '${carlos:forJavaScript(msg_saveWarning)}',
+                savePrompt: '${carlos:forJavaScript(msg_savePrompt)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -324,7 +322,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
 			function resetReRxDrugList() {
 				var rand = Math.floor(Math.random() * 10001);
-				var url = ctx + "/rx/deleteRx.do?parameterValue=clearReRxDrugList";
+				var url = ctx + "/rx/deleteRx?parameterValue=clearReRxDrugList";
 				var data = "rand=" + rand;
 				CarlosAjax.request(url, {
 					method: 'post', parameters: data, onSuccess: function (transport) {
@@ -355,7 +353,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
                var top = winY+70;
                var left = winX+110;
-                var url = ctx + "/rx/searchDrug.do?rx2=true&searchString=" + encodeURIComponent(document.getElementById('searchString').value);
+                var url = ctx + "/rx/searchDrug?rx2=true&searchString=" + encodeURIComponent(document.getElementById('searchString').value);
                popup2(600, 800, top, left, url, 'windowNameRxSearch<%=demoNo%>');
 
            }
@@ -367,7 +365,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
                var top = winY+70;
                var left = winX+110;
-                var url = ctx + "/rx/RxReason.do?demographicNo=" + demographic + "&drugId=" + encodeURIComponent(id);
+                var url = ctx + "/rx/RxReason?demographicNo=" + demographic + "&drugId=" + encodeURIComponent(id);
                popup2(575, 650, top, left, url, 'windowNameRxReason<%=demoNo%>');
 
            }
@@ -643,8 +641,8 @@ function addEvent(elm, evType, fn, useCapture)
 }
 function checkFav(){
     //oscarLog("****** in checkFav");
-    var usefav='<%= Encode.forJavaScript(usefav) %>';
-    var favid='<%= Encode.forJavaScript(favid) %>';
+    var usefav='<carlos:encode value='<%= usefav %>' context="javaScriptBlock"/>';
+    var favid='<carlos:encode value='<%= favid %>' context="javaScriptBlock"/>';
     if(usefav=="true" && favid!=null && favid!='null'){
         //oscarLog("****** favid "+favid);
         useFav2(favid);
@@ -659,7 +657,7 @@ function renderRxStage() {
      //not used , represcribe a drug
     function represcribeOnLoad(drugId){
         var data="method=saveReRxDrugIdToStash&drugId="+encodeURIComponent(drugId) + "&rand=" + Math.floor(Math.random()*10001);
-        var url= ctx + "/rx/rePrescribe2.do";
+        var url= ctx + "/rx/rePrescribe2";
         CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,insertion: 'bottom',
@@ -672,11 +670,11 @@ function renderRxStage() {
 
 
     function moveDrugDown(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('<c:out value="${ctx}"/>/rx/reorderDrug.do', {
+    	CarlosAjax.request('${carlos:forJavaScript(ctx)}/rx/reorderDrug', {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
-  			callReplacementWebService("/rx/ViewListDrugs.do",'drugProfile');
+  			callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
             resetReRxDrugList();
             resetStash();
   		  }
@@ -684,11 +682,11 @@ function renderRxStage() {
     }
 
     function moveDrugUp(drugId,swapDrugId,demographicNo) {
-    	CarlosAjax.request('<c:out value="${ctx}"/>/rx/reorderDrug.do', {
+    	CarlosAjax.request('${carlos:forJavaScript(ctx)}/rx/reorderDrug', {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
-    			  callReplacementWebService("/rx/ViewListDrugs.do",'drugProfile');
+    			  callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                   resetReRxDrugList();
                   resetStash();
     		  }
@@ -696,7 +694,7 @@ function renderRxStage() {
     }
 
 	function showPreviousPrints(scriptNo) {
-                popupWindow(720, 700, ctx + '/rx/ViewShowPreviousPrints.do?scriptNo=' + scriptNo, 'ShowPreviousPrints')
+                popupWindow(720, 700, ctx + '/rx/ViewShowPreviousPrints?scriptNo=' + scriptNo, 'ShowPreviousPrints')
 	}
 
     var Lst;
@@ -728,7 +726,7 @@ function renderRxStage() {
     function completeMedRec() {
    	 var ok = confirm(jsMsg.confirmMedRecComplete);
    	 if(ok) {
-					var url = ctx + "/rx/ViewCompleteMedRec.do";
+					var url = ctx + "/rx/ViewCompleteMedRec";
    		 var data="demographicNo=<%=rxSessionBean.getDemographicNo()%>";
    		 CarlosAjax.request(url,{method: 'post',parameters:data,onSuccess:function(transport){
                 alert(jsMsg.medRecCompleted)
@@ -745,9 +743,9 @@ function renderRxStage() {
     		}
     	});
     	if(ids.length>0) {
-                    popupWindow(720, 700, ctx + '/rx/ViewPrintDrugProfile2.do?ids=' + ids.join(','), 'PrintDrugProfile');
+                    popupWindow(720, 700, ctx + '/rx/ViewPrintDrugProfile2?ids=' + ids.join(','), 'PrintDrugProfile');
     	} else {
-                    popupWindow(720, 700, ctx + '/rx/ViewPrintDrugProfile2.do', 'PrintDrugProfile');
+                    popupWindow(720, 700, ctx + '/rx/ViewPrintDrugProfile2', 'PrintDrugProfile');
     	}
     }
     
@@ -805,7 +803,7 @@ function renderRxStage() {
                        float:left;
                    }
         </style>
-      <title>Rx-<%= Encode.forHtml(patient.getSurname()) %></title>
+      <title>Rx-<carlos:encode value='<%= patient.getSurname() %>' context="html"/></title>
     </head>
 
     <%
@@ -842,7 +840,7 @@ function renderRxStage() {
                         <tr id="medicationManagementRow">
                             <td>
 							<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
-                                <form action="${pageContext.request.contextPath}/rx/searchDrug.do"  onsubmit="return checkEnterSendRx();" style="display: inline; margin-bottom:0;" id="drugForm" name="drugForm" method="post">
+                                <form action="${pageContext.request.contextPath}/rx/searchDrug"  onsubmit="return checkEnterSendRx();" style="display: inline; margin-bottom:0;" id="drugForm" name="drugForm" method="post">
                                     <input type="hidden" property="demographicNo" value="<%=Integer.toString(patient.getDemographicNo())%>" />
                                     <table>
                                         <tr id="prescriptionStageRow">
@@ -946,7 +944,7 @@ function renderRxStage() {
                                                     <a href="javascript:void(0);" id="cmdRePrescribe" onclick="RePrescribeLongTerm();" style="width: 200px" ><fmt:message key="SearchDrug.msgReprescribeLongTermMed"/></a>
                                                     &nbsp;
 													<% } %>
-                                                    <a href="javascript:popupWindow(720,920, ctx + '/rx/ViewChartDrugProfile.do?demographic_no=<%=demoNo%>','PrintDrugProfile2')"><fmt:message key="SearchDrug.timelineDrugProfile"/></a>
+                                                    <a href="javascript:popupWindow(720,920, ctx + '/rx/ViewChartDrugProfile?demographic_no=<%=demoNo%>','PrintDrugProfile2')"><fmt:message key="SearchDrug.timelineDrugProfile"/></a>
                                                     &nbsp;
                                                     &nbsp;&nbsp;
                                                 </div>
@@ -1013,7 +1011,7 @@ function renderRxStage() {
                                                                     <tr>
                                                                         <td style="text-align: left; width:100px;">
                                                                             <a href="#"  title="<fmt:message key="provider.rxChangeProfileViewMessage"/>"
-                                                                            	onclick="popupPage(230,860,'../setProviderStaleDate.do?method=viewRxProfileView');" style="color:red;text-decoration:none" >
+                                                                            	onclick="popupPage(230,860,'../setProviderStaleDate?method=viewRxProfileView');" style="color:red;text-decoration:none" >
                                                                             	<fmt:message key="provider.rxChangeProfileView"/>
                                                                             </a>
                                                                         </td>
@@ -1024,7 +1022,7 @@ function renderRxStage() {
 																			<tr>
 																				<%if(show_current){%>
 																				<td >
-		                                                                            <a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do','drugProfile');CngClass(this);" 
+		                                                                            <a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs','drugProfile');CngClass(this);" 
 		                                                                            	id="selected_default" style="color:#000000; text-decoration: none;"
 		                                                                            	TITLE="<fmt:message key='SearchDrug.msgShowCurrentDesc'/>">
 		                                                                            	<fmt:message key="SearchDrug.msgShowCurrent"/>
@@ -1032,21 +1030,21 @@ function renderRxStage() {
 	                                                                            </td>
 																				<%}if(show_all){%>
 	                                                                            <td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do?show=all','drugProfile');CngClass(this);" 
+																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?show=all','drugProfile');CngClass(this);" 
 																						Title="<fmt:message key='SearchDrug.msgShowAllDesc'/>">
 																						<fmt:message key="SearchDrug.msgShowAll"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(active){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do?status=active','drugProfile');CngClass(this);" 
+																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=active','drugProfile');CngClass(this);" 
 																						TITLE="<fmt:message key='SearchDrug.msgActiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgActive"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(inactive){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do?status=inactive','drugProfile');CngClass(this);" 
+																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=inactive','drugProfile');CngClass(this);" 
 																						TITLE="<fmt:message key='SearchDrug.msgInactiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgInactive"/>
 																					</a>
@@ -1055,14 +1053,14 @@ function renderRxStage() {
 
 																				if(longterm_acute){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs.do?longTermOnly=acute&heading=Acute','drugProfile');CngClass(this);" 
+																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute','drugProfile');CngClass(this);" 
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcute"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(longterm_acute_inactive_external){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs.do?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs.do?longTermOnly=acute&heading=Acute&status=active','drugProfile');callAdditionWebService('/rx/ViewListDrugs.do?longTermOnly=acute&heading=Inactive&status=inactive','drugProfile');callAdditionWebService('/rx/ViewListDrugs.do?heading=External&drugLocation=external','drugProfile');CngClass(this);" 
+																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute&status=active','drugProfile');callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Inactive&status=inactive','drugProfile');callAdditionWebService('/rx/ViewListDrugs?heading=External&drugLocation=external','drugProfile');CngClass(this);" 
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteInactiveExternalDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcuteInactiveExternal"/>
 																					</a>
@@ -1092,11 +1090,11 @@ function renderRxStage() {
                                                                 <a href="javascript:void(0);" class="external"><fmt:message key="SearchDrug.legend.external"/></a>
                                                             </div>
 
-                                                            <form action="${pageContext.request.contextPath}/rx/rePrescribe.do">
+                                                            <form action="${pageContext.request.contextPath}/rx/rePrescribe">
                                                                 <input type="hidden" property="drugList" />
                                                                 <input type="hidden" name="method">
                                                         </form> <br>
-                                                        <form action="${pageContext.request.contextPath}/rx/deleteRx.do" method="post">
+                                                        <form action="${pageContext.request.contextPath}/rx/deleteRx" method="post">
                                                             <input type="hidden" name="drugList" id="drugList"/>
                                                         </form></td>
 
@@ -1129,7 +1127,7 @@ function renderRxStage() {
                             					%>
                             						<tr>
                             							<td><%=formatter.format(note.getCreate_date()) %></td>
-                                                    <td><%=Encode.forHtml(str)%>
+                                                    <td><carlos:encode value='<%= str %>' context="html"/>
                                                     </td>
                             						</tr>
                             					<% 
@@ -1198,7 +1196,7 @@ function renderRxStage() {
     <table class="hiddenLayer">
         <tr>
             <td>&nbsp;</td>
-            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='<c:out value="${ctx}/images/close.png"/>' border="0"></a></td>
+            <td align="right"><a href="javascript: function myFunction() {return false; }" onclick="hidepic('Layer1');" style="text-decoration: none;"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a></td>
         </tr>
 
         <tr>
@@ -1271,7 +1269,7 @@ function renderRxStage() {
         function changeLt(element, drugId) {
             if (confirm('<fmt:message key="oscarRx.Prescription.changeDrugLongTermConfirm"/>') === true) {
             const data = "ltDrugId=" + encodeURIComponent(drugId) + "&isLongTerm=" + element.checked + "&rand=" + Math.floor(Math.random() * 10001);
-            const url = ctx + "/rx/WriteScript.do?parameterValue=updateLongTermStatus";
+            const url = ctx + "/rx/WriteScript?parameterValue=updateLongTermStatus";
             CarlosAjax.request(url, {
                 method: 'post',
                 parameters: data,
@@ -1279,7 +1277,7 @@ function renderRxStage() {
                     var json = null;
                     try { json = JSON.parse(transport.responseText); } catch(e) { checkboxRevertStatus(element); return; }
                     if (json != null && (json.success === 'true' || json.success === true)) {
-                        callReplacementWebService('/rx/ViewListDrugs.do','drugProfile');
+                        callReplacementWebService('/rx/ViewListDrugs','drugProfile');
                     } else {
                         checkboxRevertStatus(element);
                     }
@@ -1336,7 +1334,7 @@ function renderRxStage() {
                var divFram=document.createElement('iframe');
                divFram.setAttribute("id","xmaskframe");
                divFram.setAttribute("name","xmaskframe");
-               //divFram.setAttribute("src","/rx/ViewDisplayMedHistory.do?randomId="+randomId);
+               //divFram.setAttribute("src","/rx/ViewDisplayMedHistory?randomId="+randomId);
                divFram.setAttribute("allowtransparency","false");
                document.body.appendChild(divFram);
                var divSty=document.getElementById("xmaskframe").style;
@@ -1369,9 +1367,9 @@ function renderRxStage() {
     var mb=new modalBox();
     function displayMedHistory(randomId){
            var data="randomId="+randomId;
-           CarlosAjax.request(ctx + "/rx/WriteScript.do?parameterValue=listPreviousInstructions",
+           CarlosAjax.request(ctx + "/rx/WriteScript?parameterValue=listPreviousInstructions",
            {method: 'post',parameters:data,synchronous:true,onSuccess:function(transport){
-                 mb.show(randomId, ctx + '/rx/ViewDisplayMedHistory.do', '200px');
+                 mb.show(randomId, ctx + '/rx/ViewDisplayMedHistory', '200px');
                 }});
     }
 
@@ -1384,7 +1382,7 @@ function renderRxStage() {
     function updateProperty(elementId){
          var randomId=elementId.split("_")[1];
          if(randomId!=null){
-             var url=ctx + "/rx/WriteScript.do?parameterValue=updateProperty";
+             var url=ctx + "/rx/WriteScript?parameterValue=updateProperty";
              var el=document.getElementById(elementId);
              var data="";
              if(elementId.match("prnVal_")!=null)
@@ -1427,7 +1425,7 @@ function renderRxStage() {
 
      function updateSpecialInstruction(elementId){
          var randomId=elementId.split("_")[1];
-         var url=ctx+ "/rx/WriteScript.do?parameterValue=updateSpecialInstruction";
+         var url=ctx+ "/rx/WriteScript?parameterValue=updateSpecialInstruction";
          var data="randomId="+randomId+"&specialInstruction="+encodeURIComponent(document.getElementById(elementId).value);
          data = data + "&rand="+Math.floor(Math.random()*10001);
          CarlosAjax.request(url, {method: 'post',parameters:data});
@@ -1456,7 +1454,7 @@ function renderRxStage() {
             if (confirm(jsMsg.confirmChangeDrugName)) {
 
             //call another function to bring up prescribe.jsp
-            var url=ctx+ "/rx/WriteScript.do";
+            var url=ctx+ "/rx/WriteScript";
             var customDrugName=document.getElementById("drugName_"+randomId).value;
             var data="parameterValue=normalDrugSetCustom&randomId="+randomId+"&customDrugName="+encodeURIComponent(customDrugName);
             CarlosAjax.updater('rxText',url,{method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
@@ -1470,7 +1468,7 @@ function renderRxStage() {
         }
     }
     function resetStash(){
-               var url=ctx + "/rx/deleteRx.do?parameterValue=clearStash";
+               var url=ctx + "/rx/deleteRx?parameterValue=clearStash";
                var data = "rand=" + Math.floor(Math.random()*10001);
                CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                             // updateCurrentInteractions();
@@ -1485,7 +1483,7 @@ function renderRxStage() {
 			 * and action class. A portion of this code also persists parts of the medication in a local stack.
 			 */
     function iterateStash(){
-        var url=ctx + "/rx/WriteScript.do";
+        var url=ctx + "/rx/WriteScript";
         var data="parameterValue=iterateStash&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.updater('rxText',url, {method:'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
@@ -1505,14 +1503,14 @@ function renderRxStage() {
 
     function rxPageSizeSelect(){
                var ran_number=Math.round(Math.random()*1000000);
-               var url=ctx + "/rx/GetRxPageSizeInfo.do?method=view";
+               var url=ctx + "/rx/GetRxPageSizeInfo?method=view";
                var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
                CarlosAjax.request(url, {method: 'post',parameters:params});
     }
 
     function reprint2(scriptNo){
         var data="scriptNo="+scriptNo + "&rand=" + Math.floor(Math.random()*10001);
-        var url= ctx + "/rx/rePrescribe2.do?method=reprint2";
+        var url= ctx + "/rx/rePrescribe2?method=reprint2";
        CarlosAjax.request(url,
         {method: 'post',postBody:data,
             onSuccess:function(transport){
@@ -1525,7 +1523,7 @@ function renderRxStage() {
 
     function deletePrescribe(randomId){
         var data="randomId="+randomId;
-        var url=ctx + "/rx/rxStashDelete.do";
+        var url=ctx + "/rx/rxStashDelete";
         data += "&parameterValue=deletePrescribe";
         CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                 // updateCurrentInteractions();
@@ -1543,7 +1541,7 @@ function renderRxStage() {
     function deleteRxOnCloseRxBox(randomId){
 
             var data="randomId="+randomId;
-            var url=ctx + "/rx/deleteRx.do";
+            var url=ctx + "/rx/deleteRx";
             data += "&parameterValue=DeleteRxOnCloseRxBox";
             CarlosAjax.request(url, {method: 'post',parameters:data,onSuccess:function(transport){
                      var json = null;
@@ -1570,7 +1568,7 @@ function renderRxStage() {
     function useFav2(favoriteId){
         var randomId=Math.round(Math.random()*1000000);
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
-        var url= ctx + "/rx/useFavorite.do";
+        var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
         CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onSuccess: function(transport) {
@@ -1600,7 +1598,7 @@ function renderRxStage() {
              var discont="discont_"+ id;
              var prescrip="prescrip_"+id;
 
-             var url=ctx + "/rx/deleteRx.do?parameterValue=Delete2"  ;
+             var url=ctx + "/rx/deleteRx?parameterValue=Delete2"  ;
              var data="deleteRxId="+element.id + "&rand=" +  Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
                   document.getElementById(rxDate).style.textDecoration='line-through';
@@ -1618,7 +1616,7 @@ function renderRxStage() {
     }
 
    function checkAllergy(id,atcCode){
-        const url = ctx + "/rx/showAllergy.do"
+        const url = ctx + "/rx/showAllergy"
         const data="method=allergyData&atcCode="+encodeURIComponent(atcCode)+"&id="+ encodeURIComponent(id) +"&rand="+ Math.floor(Math.random()*10001);
      CarlosAjax.request(url,{method: 'post',postBody:data,
        requestHeaders: { 'Accept': 'application/json' },
@@ -1649,7 +1647,7 @@ function renderRxStage() {
      });
    }
    function checkIfInactive(id,dinNumber){
-        var url=ctx + "/rx/searchDrug.do";
+        var url=ctx + "/rx/searchDrug";
          var data="method=inactiveDate&din="+dinNumber+"&id="+id +"&rand=" +  Math.floor(Math.random()*10001);
          CarlosAjax.request(url,{method: 'post',postBody:data,
            onSuccess:function(transport){
@@ -1707,7 +1705,7 @@ function renderRxStage() {
     }
 
     function Discontinue2(id,reason,comment,drugSpecial){
-        var url=ctx + "/rx/deleteRx.do?parameterValue=Discontinue"  ;
+        var url=ctx + "/rx/deleteRx?parameterValue=Discontinue"  ;
         var demoNo='<%=patient.getDemographicNo()%>';
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
@@ -1728,14 +1726,14 @@ function renderRxStage() {
 			 * @Deprecated avoid future use of prototype.
 	 */
     function updateCurrentInteractions(){
-        CarlosAjax.request(ctx + "/rx/GetmyDrugrefInfo.do", {method:'post',parameters:"method=findInteractingDrugList&rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
-                            CarlosAjax.request(ctx + "/rx/ViewUpdateInteractingDrugs.do", {method:'post',parameters:"rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
+        CarlosAjax.request(ctx + "/rx/GetmyDrugrefInfo", {method:'post',parameters:"method=findInteractingDrugList&rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
+                            CarlosAjax.request(ctx + "/rx/ViewUpdateInteractingDrugs", {method:'post',parameters:"rand="+ Math.floor(Math.random()*10001),onSuccess:function(transport){
                                             var str=transport.responseText;
                                             str=str.replace('<script type="text/javascript">','');
                                             str=str.replace(/<\/script>/,'');
                                             eval(str);
 <%--                                            <oscar:oscarPropertiesCheck property="MYDRUGREF_DS" value="yes">--%>
-<%--                                              callReplacementWebService("GetmyDrugrefInfo.do?method=view&rand="+  Math.floor(Math.random()*10001),'interactionsRxMyD');--%>
+<%--                                              callReplacementWebService("GetmyDrugrefInfo?method=view&rand="+  Math.floor(Math.random()*10001),'interactionsRxMyD');--%>
 <%--                                             </oscar:oscarPropertiesCheck>--%>
 							}
 						});
@@ -1747,7 +1745,7 @@ function renderRxStage() {
     function RePrescribeLongTerm(){
        var demoNo='<%=patient.getDemographicNo()%>';
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
-        var url= ctx + "/rx/rePrescribe2.do";
+        var url= ctx + "/rx/rePrescribe2";
         data += "&method=repcbAllLongTerm";
         CarlosAjax.updater('rxText',url, {method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
 		        renderRxStage();
@@ -1759,7 +1757,7 @@ function renderRxStage() {
 function customNoteWarning(){
     if (confirm(jsMsg.confirmCustomNote)) {
         var randomId=Math.round(Math.random()*1000000);
-        var url=ctx+ "/rx/WriteScript.do";
+        var url=ctx+ "/rx/WriteScript";
         var data="parameterValue=newCustomNote&randomId="+randomId;
 					CarlosAjax.updater('rxText', url, {
 						method: 'post',
@@ -1778,7 +1776,7 @@ function customWarning2(){
 	//call another function to bring up prescribe.jsp
         var randomId=Math.round(Math.random()*1000000);
 		var searchString = document.getElementById("searchString").value;
-        var url=ctx+ "/rx/WriteScript.do";
+        var url=ctx+ "/rx/WriteScript";
         var data="parameterValue=newCustomDrug&name=" + encodeURIComponent(searchString) + "&randomId="+randomId;
         CarlosAjax.updater('rxText',url,{method:'post',parameters:data,evalScripts:true,
             insertion: 'bottom', onComplete:function(transport){
@@ -1794,7 +1792,7 @@ function saveCustomName(element){
     var elemId=element.id;
     var ar=elemId.split("_");
     var rand=ar[1];
-    var url=ctx+"/rx/WriteScript.do";
+    var url=ctx+"/rx/WriteScript";
     var data="parameterValue=saveCustomName&customName="+encodeURIComponent(element.value)+"&randomId="+rand;
     var instruction="instructions_"+rand;
     var quantity="quantity_"+rand;
@@ -1808,13 +1806,13 @@ function updateDeleteOnCloseRxBox(){
 }
 function popForm2(scriptId){
         try{
-            var url = ctx + "/rx/viewScript.do?scriptId="+scriptId;
+            var url = ctx + "/rx/viewScript?scriptId="+scriptId;
             var calcs = jQuery("#Calcs").val();
             if( calcs != null && calcs != "" ) {
                 try {
                     var pharmacy = JSON.parse(calcs);
                     if( pharmacy != null && pharmacy.id != null ) {
-                        url= ctx + "/rx/viewScript.do?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id);
+                        url= ctx + "/rx/viewScript?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id);
                     }
                 } catch (e) {
                     oscarLog(e);
@@ -1828,7 +1826,7 @@ function popForm2(scriptId){
             modalBody.appendChild(iframe);
             var modalDialog = document.querySelector('#carlosModal .modal-dialog');
             modalDialog.style.maxWidth = '980px';
-            var editRxMsg = '${e:forJavaScript(msg_editRx)}';
+            var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';
             var closeBtn = document.getElementById('carlosModalCloseBtn');
             closeBtn.textContent = editRxMsg;
             closeBtn.onclick = updateDeleteOnCloseRxBox;
@@ -1852,9 +1850,11 @@ function popForm2(scriptId){
      }
 
      function callAdditionWebService(url,id){
-         var contextPath = '<c:out value="${ctx}"/>';
+         var contextPath = '${carlos:forJavaScript(ctx)}';
          if (url.indexOf(contextPath) !== 0) {
-             url = contextPath + "/rx/" + url;
+             // url typically begins with '/rx/...' (already context-relative).
+             // Only prepend contextPath; don't double-stack '/rx/'.
+             url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
          }
          var ran_number=Math.round(Math.random()*1000000);
          var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
@@ -1862,9 +1862,11 @@ function popForm2(scriptId){
      }
 
 			function callReplacementWebService(url, id) {
-            var contextPath = '<c:out value="${ctx}"/>';
+            var contextPath = '${carlos:forJavaScript(ctx)}';
             if (url.indexOf(contextPath) !== 0) {
-                url = contextPath + "/rx/" + url;
+                // url typically begins with '/rx/...' (already context-relative).
+                // Only prepend contextPath; don't double-stack '/rx/'.
+                url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
             }
 				var ran_number = Math.round(Math.random() * 1000000);
 				// alert(url + "  " + id + "  " + ran_number);
@@ -1872,13 +1874,13 @@ function popForm2(scriptId){
             var updater = CarlosAjax.updater(id, url, {method: 'get', parameters: params, evalScripts: true});
 			}
 
-			//callReplacementWebService("/rx/ViewInteractionDisplay.do",'interactionsRx');
-			callReplacementWebService("/rx/ViewListDrugs.do", 'drugProfile');
+			//callReplacementWebService("/rx/ViewInteractionDisplay",'interactionsRx');
+			callReplacementWebService("/rx/ViewListDrugs", 'drugProfile');
 
 
 			function searchResultsHandler(type, args) {
 
-				var url = ctx + "/rx/WriteScript.do";
+				var url = ctx + "/rx/WriteScript";
 				var ran_number = Math.round(Math.random() * 1000000);
 				var params = "parameterValue=createNewRx"
 					+ "&demographicNo="
@@ -1955,7 +1957,7 @@ function popForm2(scriptId){
 							+ "&query="
 							+ request.term.toUpperCase();
 						jQuery.ajax({
-							url: "${ctx}/rx/searchDrug.do",
+							url: "${ctx}/rx/searchDrug",
 							type: 'POST',
 							data: param,
 							dataType: "json",
@@ -2019,10 +2021,10 @@ function addFav(randomId,brandName){
     }
     favoriteName=encodeURIComponent(favoriteName);
    if (favoriteName.length > 0){
-        var url= ctx + "/rx/addFavorite2.do";
+        var url= ctx + "/rx/addFavorite2";
         var data="parameterValue=addFav2&randomId="+randomId+"&favoriteName="+favoriteName;
         CarlosAjax.request(url, {method: 'post',parameters:data, onSuccess:function(transport){
-              window.location.href = ctx + "/rx/searchDrug.do";
+              window.location.href = ctx + "/rx/searchDrug";
    }
 					})
 }
@@ -2035,7 +2037,7 @@ function addFav(randomId,brandName){
           list.forEach(function(el) { el.style.display = ''; });
           resHidden2 = 1;
           document.getElementById('showHiddenResWord').textContent='hide';
-          var url = ctx + "/rx/ViewUpdateHiddenResources.do";
+          var url = ctx + "/rx/ViewUpdateHiddenResources";
           var params="hiddenResources=&rand="+ Math.floor(Math.random()*10001);
           CarlosAjax.request(url, {method: 'post',parameters:params});
         }else{
@@ -2109,7 +2111,7 @@ function addFav(randomId,brandName){
     function ShowW(id,resourceId,updated){
 
 				var params = "method=setWarningToShow&resId=" + resourceId + "&updatedat=" + updated;
-				var url = ctx + '/rx/GetmyDrugrefInfo.do';
+				var url = ctx + '/rx/GetmyDrugrefInfo';
 				CarlosAjax.updater('showHideTotal', url, {
 					method: 'post',
 					parameters: params,
@@ -2124,7 +2126,7 @@ function addFav(randomId,brandName){
 			}
 
 			function HideW(id, resourceId, updated) {
-				var url = ctx + '/rx/GetmyDrugrefInfo.do';
+				var url = ctx + '/rx/GetmyDrugrefInfo';
 				var ran_number = Math.round(Math.random() * 1000000);
 				var params = "method=setWarningToHide&resId=" + resourceId + "&updatedat=" + updated;
 				//totalHiddenResources++;
@@ -2144,7 +2146,7 @@ function addFav(randomId,brandName){
 
 			function setSearchedDrug(drugId, name) {
 
-				var url = ctx + "/rx/WriteScript.do";
+				var url = ctx + "/rx/WriteScript";
 				var ran_number = Math.round(Math.random() * 1000000);
 				var params = "parameterValue=createNewRx"
           + "&demographicNo=" + <%=demoNo%>
@@ -2173,11 +2175,11 @@ function addFav(randomId,brandName){
 				var drugId = ar[1];
 				if (drugId != null && document.getElementById(elementId).checked == true) {
 					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
-					var url = ctx + "/rx/WriteScript.do";
+					var url = ctx + "/rx/WriteScript";
 					CarlosAjax.request(url, {method: 'post', parameters: data});
 				} else if (drugId != null) {
 					var data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
-					var url = ctx + "/rx/WriteScript.do";
+					var url = ctx + "/rx/WriteScript";
 					CarlosAjax.request(url, {method: 'post', parameters: data});
 				}
 			}
@@ -2186,7 +2188,7 @@ function addFav(randomId,brandName){
 function removeReRxDrugId(drugId) {
     if (drugId != null) {
         const data = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=removeFromReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + Math.floor(Math.random() * 10001);
-        const url = ctx + "/rx/WriteScript.do";
+        const url = ctx + "/rx/WriteScript";
         CarlosAjax.request(url, {method: 'post', parameters: data});
     }
 }
@@ -2200,7 +2202,7 @@ function represcribe(element, toArchive){
     var drugId=ar[1];
     if(drugId!=null && document.getElementById("reRxCheckBox_"+drugId).checked === true){
 
-        var url= ctx + "/rx/rePrescribe2.do";
+        var url= ctx + "/rx/rePrescribe2";
         var data = "method=represcribeMultiple&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater('rxText',url, {method:'post',parameters:data,synchronous:true,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
@@ -2209,11 +2211,11 @@ function represcribe(element, toArchive){
         });
     } else if(drugId!=null) {
         var dataUpdateId="reRxDrugId="+encodeURIComponent(toArchive)+"&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand="+Math.floor(Math.random()*10001);
-        var urlUpdateId= ctx + "/rx/WriteScript.do";
+        var urlUpdateId= ctx + "/rx/WriteScript";
         CarlosAjax.request(urlUpdateId, {method: 'post',parameters:dataUpdateId});
 
         var data="drugId="+encodeURIComponent(drugId);
-        var url= ctx + "/rx/rePrescribe2.do";
+        var url= ctx + "/rx/rePrescribe2";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater('rxText',url, {method:'post',parameters:data,evalScripts:true,
             insertion: 'bottom',onSuccess:function(transport){
@@ -2289,7 +2291,7 @@ function addDrugToReRxList(uiRefId, drugId) {
  */
 function rePrescribe2(uiRefId, drugId) {
     const data = "drugId=" + encodeURIComponent(drugId) + "&method=represcribe2&rand=" + uiRefId;
-    const url = ctx + "/rx/rePrescribe2.do";
+    const url = ctx + "/rx/rePrescribe2";
         CarlosAjax.updater('rxText', url, {
             method: 'post', parameters: data, evalScripts: true,
             insertion: 'bottom', onSuccess: function (transport) {
@@ -2299,7 +2301,7 @@ function rePrescribe2(uiRefId, drugId) {
     }
 
     function rePrescribeMulti(drugIds) {
-        const url = ctx + "/rx/rePrescribe2.do";
+        const url = ctx + "/rx/rePrescribe2";
         let rePrescribeMultiData = "method=represcribeMultiple&rand=" + Math.floor(Math.random() * 10001);
         // Pass drug IDs directly to avoid race condition with async session update
         if (drugIds && drugIds.length > 0) {
@@ -2321,7 +2323,7 @@ function rePrescribe2(uiRefId, drugId) {
  */
 function addDrugToReRxListInSession(uiRefId, drugId) {
     const dataUpdateId = "reRxDrugId=" + encodeURIComponent(drugId) + "&action=addToReRxDrugIdList&parameterValue=updateReRxDrug&rand=" + uiRefId;
-    const urlUpdateId = ctx + "/rx/WriteScript.do";
+    const urlUpdateId = ctx + "/rx/WriteScript";
     CarlosAjax.request(urlUpdateId, {method: 'post', parameters: dataUpdateId});
 }
 
@@ -2401,7 +2403,7 @@ function updateQty(element){
         var ar=elemId.split("_");
         var rand=ar[1];
         var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
-        var url= ctx + "/rx/WriteScript.do";
+        var url= ctx + "/rx/WriteScript";
 
         var rxMethod="rxMethod_"+rand;
         var rxRoute="rxRoute_"+rand;
@@ -2460,7 +2462,7 @@ function updateQty(element){
         var ar=elemId.split("_");
         var rand=ar[1];
         var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
-        var url= ctx + "/rx/UpdateScript.do";
+        var url= ctx + "/rx/UpdateScript";
         var quantity="quantity_"+rand;
         var str;
        var methodStr="method_"+rand;
@@ -2532,19 +2534,19 @@ function updateQty(element){
     }
 
          function getRenalDosingInformation(divId,atcCode){
-               var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing.do";
+               var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
                var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
                CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
          }
          function getLUC(divId,randomId,din){
-             var url = ctx + "/rx/ViewLimitedUseCode.do";
+             var url = ctx + "/rx/ViewLimitedUseCode";
              var params="randomId="+randomId+"&din="+encodeURIComponent(din);
              CarlosAjax.updater(divId,url,{method:'get',parameters:params,insertion: 'bottom'});
          }
 
          function getCost(divId, randomId, din, qty) {
-            var url = ctx + "/rx/ViewDrugPrice.do";
+            var url = ctx + "/rx/ViewDrugPrice";
             var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
             new CarlosAjax.Updater(divId, url, {
                 method: 'get',
@@ -2721,13 +2723,13 @@ function updateQty(element){
 		<%}%>
 		setPharmacyId();
         var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
-        var url= ctx + "/rx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
+        var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
 
-                callReplacementWebService("/rx/ViewListDrugs.do",'drugProfile');
+                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     popForm2(null);
@@ -2754,11 +2756,11 @@ function updateQty(element){
 		<%}%>		
 		setPharmacyId();
         var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
-        var url= ctx + "/rx/WriteScript.do?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
+        var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
             onSuccess:function(transport){
-                callReplacementWebService("/rx/ViewListDrugs.do",'drugProfile');
+                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                 resetReRxDrugList();
                 resetStash();
             }});

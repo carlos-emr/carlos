@@ -1,5 +1,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:forEach items="${ emailStatusResults }" var="emailStatusResult" varStatus="loop">
 <!-- Email Card -->
 <div class="card email-status-card mt-1">
@@ -7,22 +9,22 @@
         <table class="email-info-table table table-borderless">
             <tr>
                 <th>Subject</th>
-                <td><c:out value="${ emailStatusResult.subject }"/></td>                      
+                <td>${carlos:forHtml(emailStatusResult.subject)}</td>                      
             </tr>
             <tr>
                 <th>From</th>
-                <td><c:out value="${ emailStatusResult.senderFullName }"/> &lt;<c:out value="${ emailStatusResult.senderEmail }"/>&gt;</td>
+                <td>${carlos:forHtml(emailStatusResult.senderFullName)} &lt;${carlos:forHtml(emailStatusResult.senderEmail)}&gt;</td>
             </tr>
             <tr>
                 <th>To</th>
-                <td><c:out value="${ emailStatusResult.recipientFullName }"/> &lt;<c:out value="${ emailStatusResult.recipientEmail }"/>&gt;</td>
+                <td>${carlos:forHtml(emailStatusResult.recipientFullName)} &lt;${carlos:forHtml(emailStatusResult.recipientEmail)}&gt;</td>
             </tr>
             <tr>
                 <th>Encryption</th>
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="fa-solid fa-lock"></i> Encrypted with password <b><c:out value="${ emailStatusResult.password }"/></b>
+                        <i class="fa-solid fa-lock"></i> Encrypted with password <b>${carlos:forHtml(emailStatusResult.password)}</b>
                     </c:when>
                     <c:otherwise>
                         <i class="fa-solid fa-unlock"></i> Unencrypted
@@ -37,12 +39,12 @@
                 <td class="status-and-date">
                     <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}" 
                         ${ empty emailStatusResult.errorMessage ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${emailStatusResult.errorMessage}">
-                        <c:out value="${ emailStatusResult.status }"/>
+                        ${carlos:forHtml(emailStatusResult.status)}
                     </div>
                     <div class="date-time text-muted">
-                        <c:out value="${ emailStatusResult.createdDate }"/> &#x2022; <c:out value="${ emailStatusResult.createdTime }"/> 
+                        ${carlos:forHtml(emailStatusResult.createdDate)} &#x2022; ${carlos:forHtml(emailStatusResult.createdTime)} 
                         <c:if test="${not empty emailStatusResult.providerFullName}">
-							<c:out value="by ${ emailStatusResult.providerFullName }"/>
+							by ${carlos:forHtml(emailStatusResult.providerFullName)}
 						</c:if>
                     </div>
                 </td>
@@ -58,4 +60,3 @@
 </div>
 <!-- End Email Card -->
 </c:forEach>
-

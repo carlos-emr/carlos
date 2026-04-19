@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="java.util.List, org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -80,6 +81,7 @@
         <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
         <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
         <!DOCTYPE html>
         <html>
@@ -104,7 +106,7 @@
             if (data != null) {
 
                 jQuery('#searchHealthCareTeamInput').attr('value', null);
-                var path = "<c:out value="${ oscar_context_path }" />/demographic/Contact.do";
+                var path = "${carlos:forJavaScript(oscar_context_path)}/demographic/Contact";
                 var target = '#listHealthCareTeam';
                 var json = JSON.parse(data);
 
@@ -227,7 +229,7 @@
         //--> reset all list input fields
         jQuery.fn.resetFields = function () {
             // clean search fields and re-focus
-            jQuery('#searchHealthCareTeamInput').val("Last Name, First Name").css('color', 'grey');
+            jQuery('#searchHealthCareTeamInput').val("<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>").css('color', 'grey');
         }
 
         //--> Remove/Edit contact action. Wrapped in a function to re-bind after postback
@@ -259,7 +261,7 @@
             var windowspecs = "width=500,height=600,left=100,top=100, scrollbars=yes, resizable=yes";
 
             popupWindow = window.open(
-                '<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=updatedelete' +
+                '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=updatedelete' +
                 '&elementName=contactName' +
                 '&elementId=contactId' +
                 '&keyword=' + searchfield +
@@ -308,15 +310,15 @@
                 }
             });
 
-            jQuery('#searchHealthCareTeamInput').val("Last Name, First Name").css('color', 'grey')
+            jQuery('#searchHealthCareTeamInput').val("<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>").css('color', 'grey')
                 .focus(function () {
-                    if (this.value == "Last Name, First Name") {
+                    if (this.value == "<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>") {
                         this.value = "";
                         jQuery('#searchHealthCareTeamInput').css('color', 'black')
                     }
                 }).blur(function () {
                 if (this.value == "") {
-                    this.value = "Last Name, First Name";
+                    this.value = "<fmt:message key='demographic.manageHealthCareTeam.searchPlaceholder'/>";
                     jQuery('#searchHealthCareTeamInput').css('color', 'grey')
                 }
             });
@@ -355,15 +357,15 @@
         <table class="MainTable" >
 
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="20%">Manage Health Care Team</td>
+            <td class="MainTableTopRowLeftColumn" width="20%"><fmt:message key="demographic.manageHealthCareTeam.title"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
                         <td>&nbsp;</td>
                         <td>
-                            <c:out value="${ demographic.lastName }"/>,&nbsp;
-                            <c:out value="${ demographic.firstName }"/>&nbsp;
-                            <c:out value="${ demographic.age }"/>&nbsp;years
+                            ${carlos:forHtml(demographic.lastName)},&nbsp;
+                            ${carlos:forHtml(demographic.firstName)}&nbsp;
+                            ${carlos:forHtml(demographic.age)}&nbsp;years
                         </td>
                         <td style="text-align: right">
 
@@ -389,15 +391,15 @@
                     <c:set value="${ demographicContacts }" var="demographicContactList" scope="page"/>
 
                     <tr id="tableTitle" class="category_table_heading">
-                        <th colspan="6" class="alignLeft">Health Care Team</th>
+                        <th colspan="6" class="alignLeft"><fmt:message key="demographic.manageHealthCareTeam.heading"/></th>
                     </tr>
 
                     <c:if test="${ not empty demographicContactList }">
                         <tr id="healthCareTeamSubHeading">
                             <td></td>
-                            <td>Name</td>
-                            <td>Phone</td>
-                            <td>Fax</td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colName"/></td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colPhone"/></td>
+                            <td><fmt:message key="demographic.manageHealthCareTeam.colFax"/></td>
                             <td></td>
                             <td></td>
                         </tr>
@@ -408,31 +410,31 @@
 
                         <tr>
                             <td class="alignRight">
-                                <c:out value="${ demographicContact.role }"/>
+                                ${carlos:forHtml(demographicContact.role)}
                             </td>
                             <td class="alignLeft">
-                                <c:out value="${ demographicContact.contactName }"/>
+                                ${carlos:forHtml(demographicContact.contactName)}
                             </td>
 
                             <c:if test="${ workPhone eq internal }">
-                                <td>&#40;<c:out value="${ internal }"/>&#41;</td>
+                                <td>&#40;${carlos:forHtml(internal)}&#41;</td>
                                 <td>&nbsp;</td>
                             </c:if>
 
                             <c:if test="${ workPhone ne internal }">
-                                <td><c:out value="${ workPhone }"/></td>
-                                <td><c:out value="${ demographicContact.details.fax }"/></td>
+                                <td>${carlos:forHtml(workPhone)}</td>
+                                <td>${carlos:forHtml(demographicContact.details.fax)}</td>
                             </c:if>
 
                             <td class="alignRight">
                                 <input type="button"
-                                       id="remove<c:out value="${ demographicContact.type }" />_<c:out value="${ demographicContact.id }" />"
+                                       id="remove${carlos:forHtmlAttribute(demographicContact.type)}_${carlos:forHtml(demographicContact.id)}"
                                        class="actionlink" value="remove"/>
                             </td>
                             <td class="alignLeft">
                                 <c:if test="${ demographicContact.type gt 0 }">
                                     <input type="button"
-                                           id="edit<c:out value="${ demographicContact.type }" />_<c:out value="${ demographicContact.id }" />"
+                                           id="edit${carlos:forHtmlAttribute(demographicContact.type)}_${carlos:forHtml(demographicContact.id)}"
                                            class="actionlink" value="edit"/>
                                 </c:if>
                             </td>
@@ -446,14 +448,14 @@
                 <table id="addEditHealthCareTeam" class="${ param.view }View">
                         <%-- ADD NEW MEMBER TO HEALTH CARE TEAM --%>
 
-                    <tr>
-                        <td class="alignLeft"><strong>add a provider:</strong></td>
-                        <td class="alignLeft">
-                            <select name="searchInternalExternal" id="searchInternalExternal">
-                                <option value="${ providerType }">internal</option>
-                                <option value="${ professionalContactType }">external</option>
-                            </select>
-                        </td>
+                        <tr>
+                            <td class="alignLeft"><strong><fmt:message key="demographic.manageHealthCareTeam.addProvider"/></strong></td>
+                            <td class="alignLeft">
+                                <select name="searchInternalExternal" id="searchInternalExternal">
+                                    <option value="${ providerType }"><fmt:message key="demographic.manageHealthCareTeam.internal"/></option>
+                                    <option value="${ professionalContactType }"><fmt:message key="demographic.manageHealthCareTeam.external"/></option>
+                                </select>
+                            </td>
 
                         <!-- If Internal list, then display the Internal Demographic options
                          External, then display the external search options -->
@@ -462,8 +464,8 @@
                             <select name="internalProviderList" id="internalProviderList">
                                 <c:forEach items="${ providerList }" var="providerDetail">
                                     <option value="${ providerDetail.providerNo }">
-                                        <c:out value="${ providerDetail.formattedName }"/>
-                                        &#40;<c:out value="${ providerDetail.specialty }"/>&#41;
+                                        ${carlos:forHtml(providerDetail.formattedName)}
+                                        &#40;${carlos:forHtml(providerDetail.specialty)}&#41;
                                     </option>
                                 </c:forEach>
                             </select>
@@ -471,14 +473,14 @@
 
                         <td class="internal">
                             <input type="button" name="addHealthCareTeamButton"
-                                   id="addHealthCareTeamButton" value="Add"/>
+                                   id="addHealthCareTeamButton" value="<fmt:message key='global.btnAdd'/>"/>
                         </td>
 
                         <td class="external">
                             <select id="selectHealthCareTeamRoleType" name="selectHealthCareTeamRoleType">
                                 <c:forEach items="${ specialty }" var="specialtyType">
                                     <option value="${ specialtyType.id }" ${ specialtyType.specialty eq 'UNKNOWN' ? 'selected' : '' } >
-                                        <c:out value="${ specialtyType.specialty }"/>
+                                        ${carlos:forHtml(specialtyType.specialty)}
                                     </option>
                                 </c:forEach>
                             </select>
@@ -492,7 +494,7 @@
 
                         <td class="external">
                             <input type="button" name="searchHealthCareTeamButton" id="searchHealthCareTeamButton"
-                                   value="Search"/>
+                                   value="<fmt:message key='oscarMDS.search.btnSearch'/>"/>
                         </td>
 
                     </tr>

@@ -36,18 +36,18 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
@@ -61,7 +61,7 @@
         pageContext.setAttribute("serviceDesc", serviceDesc);
     %>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.title"/></title>
     </head>
 
@@ -80,7 +80,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -101,7 +101,7 @@
                     </fmt:message>
                 </p>
 
-                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/UpdateServiceSpecialists" method="post">
                     <input type="hidden" name="serviceId" value="<%=serviceId %>">
                     <input type="submit" class="btn btn-primary mb-3"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.btnUpdateServices"/>">
@@ -131,10 +131,10 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=specId%>" <%=isChecked ? "checked" : ""%>></td>
-                                <td><%= Encode.forHtmlContent(lName + " " + fName + (proLetters == null ? "" : " " + proLetters)) %></td>
-                                <td><%= Encode.forHtmlContent(address) %></td>
-                                <td><%= Encode.forHtmlContent(phone) %></td>
-                                <td><%= Encode.forHtmlContent(fax) %></td>
+                                <td><carlos:encode value='<%= lName + " " + fName + (proLetters == null ? "" : " " + proLetters) %>' context="html"/></td>
+                                <td><carlos:encode value='<%= address %>' context="html"/></td>
+                                <td><carlos:encode value='<%= phone %>' context="html"/></td>
+                                <td><carlos:encode value='<%= fax %>' context="html"/></td>
                             </tr>
                             <% } %>
                         </tbody>

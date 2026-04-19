@@ -54,7 +54,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -64,8 +64,11 @@
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -76,7 +79,7 @@
                  class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServicesUtil"/>
 
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.ShowAllServices.title"/></title>
     </head>
 
@@ -95,7 +98,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -121,10 +124,10 @@
                         for (int i = 0; i < showAllServicesUtil.serviceIdVec.size(); i++) {
                             String id = (String) showAllServicesUtil.serviceIdVec.elementAt(i);
                             String desc = (String) showAllServicesUtil.serviceDescVec.elementAt(i);
-                            String url = contextPath + "/encounter/ShowAllServices.do?serviceId="
-                                + Encode.forUriComponent(id) + "&serviceDesc=" + Encode.forUriComponent(desc);
+                            String url = contextPath + "/encounter/ShowAllServices?serviceId="
+                                + SafeEncode.forUriComponent(id) + "&serviceDesc=" + SafeEncode.forUriComponent(desc);
                     %>
-                    <a href="<%= url %>" class="list-group-item list-group-item-action"><%= Encode.forHtml(desc) %></a>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><carlos:encode value='<%= desc %>' context="html"/></a>
                     <% } %>
                 </div>
             </div>

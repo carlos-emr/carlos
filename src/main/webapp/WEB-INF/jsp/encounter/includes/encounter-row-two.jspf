@@ -1,10 +1,12 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%-- Row Two: Ongoing Concerns, Reminders --%>
 <div class="encounter-card card mb-1" id="rowTwo">
     <div class="card-header d-flex align-items-center">
         <div class="flex-grow-1 d-flex gap-3">
             <span>
                 <c:choose>
-                    <c:when test="${fn:length(ongoingConcernsLabel) > 1}"><c:out value="${ongoingConcernsLabel}"/>:</c:when>
+                    <c:when test="${fn:length(ongoingConcernsLabel) > 1}">${carlos:forHtml(ongoingConcernsLabel)}:</c:when>
                     <c:otherwise><fmt:message key="encounter.Index.msgConcerns"/>:</c:otherwise>
                 </c:choose>
             </span>
@@ -24,11 +26,11 @@
         <div class="row g-0">
             <div class="col-6" style="border-right: 2px solid #ccccff">
                 <textarea name="ocTextarea" tabindex="4" wrap="hard" cols="44"
-                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.ongoingConcerns}"/></textarea>
+                          style="height:<carlos:encode value='${rowTwoSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.ongoingConcerns)}</textarea>
             </div>
             <div class="col-6">
                 <textarea name="reTextarea" tabindex="5" wrap="hard" cols="44"
-                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.reminders}"/></textarea>
+                          style="height:<carlos:encode value='${rowTwoSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.reminders)}</textarea>
             </div>
         </div>
     </div>

@@ -59,6 +59,10 @@ public class dxResearch2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
@@ -155,8 +159,8 @@ public class dxResearch2Action extends ActionSupport {
         }
 
         if (!valid) {
-            response.sendRedirect(request.getContextPath() + "/oscarResearch/oscarDxResearch/dxResearch.jsp");
-            return NONE;
+            request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+            return "failure";
         }
 
         String forwardTo = "success";
@@ -166,11 +170,11 @@ public class dxResearch2Action extends ActionSupport {
 
         StringBuilder actionforward = new StringBuilder();
         if ("success".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
         } else if ("codeSearch".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch.do");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch");
         } else if ("codeList".equals(forwardTo)) {
-            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/quickCodeList.jsp");
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList");
         }
         actionforward.append("?demographicNo=").append(demographicNo);
         actionforward.append("&providerNo=").append(providerNo);

@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -43,7 +43,7 @@
     }
 %>
 
-<%@ include file="/common/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="java.util.*" %>
@@ -52,6 +52,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css"
       href='${request.contextPath}/css/tigris.css'/>
 <link rel="stylesheet" type="text/css"
@@ -115,7 +116,7 @@
         alert('not yet implemented... will show term definitions');
     }
 </script>
-<form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2.do" method="post">
+<form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
     <input type="hidden" name="method" value="attachSearch"/>
     <input type="hidden" name="method" value="attachSearch"/>
 
@@ -197,7 +198,7 @@
                         <option value="">Any</option>
                         <c:forEach var="gen" items="${genders}">
                             <option value="${gen.code}">
-                                <c:out value="${gen.description}"/>
+                                ${carlos:forHtml(gen.description)}
                             </option>
                         </c:forEach>
                     </select></td>
@@ -215,35 +216,31 @@
 </form>
 <br/>
 <c:if test="${requestScope.clients != null}">
-    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords.do">
+    <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="client" name="clients" export="false" pagesize="10"
-                       requestURI="/PMmodule/ClientSearch2.do">
+                       requestURI="/PMmodule/ClientSearch2">
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="basic.msg.empty_list"
                                  value="No clients found."/>
             <display:setProperty name="sort.amount" value="list"/>
 
-            <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
+                <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="<%=request.getContextPath() %><%=request.getContextPath() %>/encounter/IncomingEncounter.do?selectId=<c:out value="${client.demographicNo}"/>&demographicNo=<c:out value="${client.demographicNo}"/>&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>"><c:out
-                        value="${client.demographicNo}"/></a>
+                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${carlos:forUriComponent(client.demographicNo)}&demographicNo=${carlos:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${carlos:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="javascript:popupPage(600,800,'client','<%=request.getContextPath() %>/PMmodule/ClientManager.do?id=<c:out value="${client.currentRecord}"/>&consent=<c:out value="${consent}"/>')"><c:out
-                        value="${client.formattedName}"/></a>
+                        href="javascript:popupPage(600,800,'client','${carlos:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${carlos:forUriComponent(client.currentRecord)}&amp;consent=${carlos:forUriComponent(consent)}')">${carlos:forHtml(client.formattedName)}</a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">
-                <c:out value="${client.yearOfBirth}"/>/<c:out
-                    value="${client.monthOfBirth}"/>/<c:out
-                    value="${client.dateOfBirth}"/>
+                ${carlos:forHtml(client.yearOfBirth)}/${carlos:forHtml(client.monthOfBirth)}/${carlos:forHtml(client.dateOfBirth)}
             </display:column>
             <display:column sortable="true" title="Gender" sortProperty="sexDesc">
-                <c:out value="${client.sexDesc}"/>
+                ${carlos:forHtml(client.sexDesc)}
             </display:column>
             <display:column sortable="true" title="Chart No" sortProperty="chartNo">
-                <c:out value="${client.chartNo}"/>
+                ${carlos:forHtml(client.chartNo)}
             </display:column>
             <display:column sortable="true" title="Admitted to Program">
                 <c:choose>
@@ -266,7 +263,7 @@
 
                         <c:when test="${client.headRecord == null}">
                             <input type="radio" name="head"
-                                   value="<c:out value="${client.demographicNo}" />">
+                                   value="${carlos:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;
@@ -278,7 +275,7 @@
                     <c:choose>
                         <c:when test="${client.headRecord == null}">
                             <input type="checkbox" name="records"
-                                   value="<c:out value="${client.demographicNo}" />">
+                                   value="${carlos:forHtmlAttribute(client.demographicNo)}">
                         </c:when>
                         <c:otherwise>
                             &nbsp;

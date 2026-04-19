@@ -58,8 +58,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="org.owasp.encoder.Encode" %>
-
 <%
     boolean fromMessenger = request.getParameter("fromMessenger") == null ? false : (request.getParameter("fromMessenger")).equalsIgnoreCase("true") ? true : false;
     String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -69,6 +67,8 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <script type="application/javascript">
     /**
@@ -276,7 +276,7 @@
             </h4>
         </div>
     </div>
-    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch.do"
+    <form method="get" name="titlesearch" action="<%=request.getContextPath()%>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
 
         <% String searchMode = request.getParameter("search_mode");
@@ -322,7 +322,7 @@
                    placeholder="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                    NAME="keyword" ID="keyword"
                    aria-label="<fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
-                   VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
+                   VALUE="<carlos:encode value='<%= keyWord %>' context="html"/>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
 
@@ -368,7 +368,7 @@
 
             <caisi:isModuleLoad moduleName="caisi">
                 <input type="button" value="cancel"
-                       onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo.do'">
+                       onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo'">
             </caisi:isModuleLoad>
         </div>
 

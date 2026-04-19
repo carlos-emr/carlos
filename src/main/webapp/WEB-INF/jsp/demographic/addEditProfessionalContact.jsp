@@ -36,11 +36,12 @@
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Add/Edit Professional Contact</title>
+        <title><fmt:message key="demographic.profContactForm.title"/></title>
         <script type="text/javascript">
 
             //<!--
@@ -190,16 +191,19 @@
         </tr>
     </table>
 
-    <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
-        <tr BGCOLOR="#CCFFFF">
-            <th style="text-align:center;">
-                <c:out value="${ pcontact.id gt 0 ? 'Edit' : 'Add' }"/>
-                Professional Contact
+        <table BORDER="1" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
+            <tr BGCOLOR="#CCFFFF">
+                <th style="text-align:center;">
+                    <c:choose>
+                        <c:when test="${ pcontact.id gt 0 }"><fmt:message key="demographic.profContactForm.edit"/></c:when>
+                        <c:otherwise><fmt:message key="demographic.profContactForm.add"/></c:otherwise>
+                    </c:choose>
+                    <fmt:message key="demographic.profContactForm.titleSuffix"/>
             </th>
         </tr>
     </table>
 
-    <form action="<%= request.getContextPath() %>/demographic/Contact.do" method="post" id="addEditProfessionalForm" name="contactForm">
+    <form action="<%= request.getContextPath() %>/demographic/Contact" method="post" id="addEditProfessionalForm" name="contactForm">
 
         <c:if test="${ pcontact.id gt 0 }">
             <input type="hidden" name="pcontact.id" value="${ pcontact.id }"/>
@@ -216,42 +220,42 @@
                 <td>&nbsp;</td>
             </tr>
             <tr>
-                <td align="right"><b>Last Name</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.lastName"/></b></td>
                 <td>
                     <input type="text" name="pcontact.lastName" id="pcontact.lastName"
                            value="${ pcontact.lastName }" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>First Name</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.firstName"/></b></td>
                 <td>
                     <input type="text" name="pcontact.firstName" id="pcontact.firstName"
-                           value="<c:out value="${pcontact.firstName}"/>" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Address</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
                 <td>
                     <input type="text" name="pcontact.address" id="pcontact.address"
-                           value="<c:out value="${pcontact.address}"/>" size="50">
+                           value="${carlos:forHtmlAttribute(pcontact.address)}" size="50">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Address2</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.address2"/></b></td>
                 <td>
                     <input type="text" name="pcontact.address2" id="pcontact.address2"
-                           value="<c:out value="${pcontact.address2}"/>" size="50">
+                           value="${carlos:forHtmlAttribute(pcontact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>City</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.city"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.city" id="pcontact.city" value="<c:out value="${pcontact.city}"/>"
+                    <input type="text" name="pcontact.city" id="pcontact.city" value="${carlos:forHtmlAttribute(pcontact.city)}"
                            size="30">
                 </td>
             </tr>
             <tr bgcolor="#EEEEFF">
-                <td align="right"><b>Province</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.province"/></b></td>
                 <td>
 
                     <c:set var="select" value="${ region }" scope="page"/>
@@ -260,76 +264,73 @@
                     </c:if>
 
                     <select name="pcontact.province" id="pcontact.province">
-                        <option value="AB" ${ pageScope.select eq 'AB' ? 'selected' : '' }>AB-Alberta</option>
-                        <option value="BC" ${ pageScope.select eq 'BC' ? 'selected' : '' }>BC-British Columbia</option>
-                        <option value="MB" ${ pageScope.select eq 'MB' ? 'selected' : '' }>MB-Manitoba</option>
-                        <option value="NB" ${ pageScope.select eq 'NB' ? 'selected' : '' }>NB-New Brunswick</option>
-                        <option value="NL" ${ pageScope.select eq 'NL' ? 'selected' : '' }>NL-Newfoundland & Labrador
-                        </option>
-                        <option value="NT" ${ pageScope.select eq 'NT' ? 'selected' : '' }>NT-Northwest Territory
-                        </option>
-                        <option value="NS" ${ pageScope.select eq 'NS' ? 'selected' : '' }>NS-Nova Scotia</option>
-                        <option value="NU" ${ pageScope.select eq 'NU' ? 'selected' : '' }>NU-Nunavut</option>
-                        <option value="ON" ${ pageScope.select eq 'ON' ? 'selected' : '' }>ON-Ontario</option>
-                        <option value="PE" ${ pageScope.select eq 'PE' ? 'selected' : '' }>PE-Prince Edward Island
-                        </option>
-                        <option value="QC" ${ pageScope.select eq 'QC' ? 'selected' : '' }>QC-Quebec</option>
-                        <option value="SK" ${ pageScope.select eq 'SK' ? 'selected' : '' }>SK-Saskatchewan</option>
-                        <option value="YT" ${ pageScope.select eq 'YT' ? 'selected' : '' }>YT-Yukon</option>
-                        <option value="US" ${ pageScope.select eq 'US' ? 'selected' : '' }>US resident</option>
+                        <option value="AB" ${ pageScope.select eq 'AB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
+                        <option value="BC" ${ pageScope.select eq 'BC' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
+                        <option value="MB" ${ pageScope.select eq 'MB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.MB"/></option>
+                        <option value="NB" ${ pageScope.select eq 'NB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.NB"/></option>
+                        <option value="NL" ${ pageScope.select eq 'NL' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.NL"/></option>
+                        <option value="NT" ${ pageScope.select eq 'NT' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.NT"/></option>
+                        <option value="NS" ${ pageScope.select eq 'NS' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.NS"/></option>
+                        <option value="NU" ${ pageScope.select eq 'NU' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.NU"/></option>
+                        <option value="ON" ${ pageScope.select eq 'ON' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.ON"/></option>
+                        <option value="PE" ${ pageScope.select eq 'PE' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.PE"/></option>
+                        <option value="QC" ${ pageScope.select eq 'QC' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.QC"/></option>
+                        <option value="SK" ${ pageScope.select eq 'SK' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.SK"/></option>
+                        <option value="YT" ${ pageScope.select eq 'YT' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.YT"/></option>
+                        <option value="US" ${ pageScope.select eq 'US' ? 'selected' : '' }><fmt:message key="demographic.contactForm.usResident"/></option>
                     </select>
 
-                    <label for="pcontact.country">Country </label>
+                    <label for="pcontact.country"><fmt:message key="demographic.contactForm.country"/> </label>
                     <input type="text" name="pcontact.country" id="pcontact.country"
-                           value="<c:out value="${pcontact.country}"/>" size="2" maxlength="2">
+                           value="${carlos:forHtmlAttribute(pcontact.country)}" size="2" maxlength="2">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Postal</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.postal"/></b></td>
                 <td>
                     <input type="text" name="pcontact.postal" id="pcontact.postal"
-                           value="<c:out value="${pcontact.postal}"/>" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Res. Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.resPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.residencePhone" id="pcontact.residencePhone"
-                           value="<c:out value="${pcontact.residencePhone}"/>" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.residencePhone)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Cell Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.cellPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.cellPhone" id="pcontact.cellPhone"
-                           value="<c:out value="${pcontact.cellPhone}"/>" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Work Phone</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.workPhone"/></b></td>
                 <td>
                     <input type="text" name="pcontact.workPhone" id="pcontact.workPhone"
-                           value="<c:out value="${pcontact.workPhone}"/>" size="15"/>
-                    Ext: <input type="text" name="pcontact.workPhoneExtension"
-                                value="<c:out value="${pcontact.workPhoneExtension}"/>" size="10"/>
+                           value="${carlos:forHtmlAttribute(pcontact.workPhone)}" size="15"/>
+                    <fmt:message key="demographic.contactForm.ext"/> <input type="text" name="pcontact.workPhoneExtension"
+                                value="${carlos:forHtmlAttribute(pcontact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Fax</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.fax"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="<c:out value="${pcontact.fax}"/>"
+                    <input type="text" name="pcontact.fax" id="pcontact.fax" value="${carlos:forHtmlAttribute(pcontact.fax)}"
                            size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Email</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.email"/></b></td>
                 <td>
                     <input type="text" name="pcontact.email" id="pcontact.email"
-                           value="<c:out value="${pcontact.email}"/>" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.email)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Specialty</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.specialty"/></b></td>
                 <td>
                     <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="true">
                         <%-- Determine which specialty value to use for selection: contactRole (from DemographicContact) or pcontact.specialty --%>
@@ -337,34 +338,34 @@
                         <select id="pcontact.specialty" name="pcontact.specialty">
                             <c:forEach items="${ specialties }" var="specialtyType">
                                 <option value="${ specialtyType.id }" ${ specialtyType.id == selectedSpecialty ? 'selected' : '' } >
-                                    <c:out value="${ specialtyType.specialty }"/>
+                                    ${carlos:forHtml(specialtyType.specialty)}
                                 </option>
                             </c:forEach>
                         </select>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM" value="false">
-                        <input type="text" name="pcontact.specialty" value="<c:out value="${ pcontact.specialty }"/>"
+                        <input type="text" name="pcontact.specialty" value="${carlos:forHtmlAttribute(pcontact.specialty)}"
                                size="30">
                     </oscar:oscarPropertiesCheck>
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>CPSO#</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.cpso"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.cpso" value="<c:out value="${pcontact.cpso}"/>" size="30">
+                    <input type="text" name="pcontact.cpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>System Id</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.systemId"/></b></td>
                 <td>
                     <input type="text" readonly="readonly"
-                           name="pcontact.systemId" value="<c:out value="${pcontact.systemId}"/>" size="30">
+                           name="pcontact.systemId" value="${carlos:forHtmlAttribute(pcontact.systemId)}" size="30">
                 </td>
             </tr>
             <tr>
-                <td align="right"><b>Note</b></td>
+                <td align="right"><b><fmt:message key="demographic.contactForm.note"/></b></td>
                 <td>
-                    <input type="text" name="pcontact.note" value="<c:out value="${pcontact.note}"/>" size="30">
+                    <input type="text" name="pcontact.note" value="${carlos:forHtmlAttribute(pcontact.note)}" size="30">
                 </td>
             </tr>
             <tr>

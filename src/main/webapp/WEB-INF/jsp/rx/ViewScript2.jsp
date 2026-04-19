@@ -32,11 +32,12 @@
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
@@ -63,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
@@ -75,7 +77,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -129,7 +131,7 @@
             String createAnewRx;
             if (reprint.equalsIgnoreCase("true")) {
                 bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
-                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug.do'";
+                createAnewRx = "window.location.href = '" + request.getContextPath() + "/rx/searchDrug'";
             } else {
                 createAnewRx = "javascript:clearPending('')";
             }
@@ -210,7 +212,7 @@
 
                 for (int i = 0; i < temp0.length; i++) {
                     vecAddressName.add(temp0[i]);
-                    vecAddress.add("<b>" + Encode.forHtml(doctorName) + "</b><br>" + Encode.forHtml(temp0[i]) + "<br>" + Encode.forHtml(temp1[i]) + "<br>" + temp2[i] + ", " + temp3[i] + " " + temp4[i] + "<br>" + rb.getString("RxPreview.msgTel") + ": " + temp5[i] + "<br>" + rb.getString("RxPreview.msgFax") + ": " + temp6[i]);
+                    vecAddress.add("<b>" + SafeEncode.forHtml(doctorName) + "</b><br>" + SafeEncode.forHtml(temp0[i]) + "<br>" + SafeEncode.forHtml(temp1[i]) + "<br>" + temp2[i] + ", " + temp3[i] + " " + temp4[i] + "<br>" + rb.getString("RxPreview.msgTel") + ": " + temp5[i] + "<br>" + rb.getString("RxPreview.msgFax") + ": " + temp6[i]);
                 }
             }
             String comment = request.getSession().getAttribute("comment") != null ? request.getSession().getAttribute("comment").toString() : "";
@@ -259,7 +261,7 @@
             var csrfToken = csrfEl ? csrfEl.value : '';
 
             function resetStash() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx.do?parameterValue=clearStash";
+                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -272,7 +274,7 @@
             }
 
             function resetReRxDrugList() {
-                var url = "<c:out value="${ctx}"/>" + "/rx/deleteRx.do?parameterValue=clearReRxDrugList";
+                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
                 fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -292,7 +294,7 @@
                 useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
-                    scAddress = "<%=Encode.forUriComponent(StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)))%>";
+                    scAddress = "<carlos:encode value='<%= StringEscapeUtils.unescapeHtml4((String)vecAddress.get(i)) %>' context="uriComponent"/>";
                 }
                 <%}
             }%>
@@ -307,12 +309,12 @@
             }
 
             function setComment() {
-                frames['preview'].document.getElementById('additNotes').innerHTML = '<%=Encode.forJavaScript(comment.replaceAll("\n", "<br>"))%>';
+                frames['preview'].document.getElementById('additNotes').innerHTML = '<carlos:encode value='<%= comment.replaceAll("\n", "<br>") %>' context="javaScriptBlock"/>';
                 frames['preview'].document.getElementsByName('additNotes')[0].value = frames['preview'].document.getElementById('additNotes').innerHTML;
             }
 
             function setDefaultAddr() {
-                var url = '<c:out value="${ctx}"/>/rx/ViewSetDefaultAddr.do';
+                var url = '${carlos:forJavaScript(ctx)}/rx/ViewSetDefaultAddr';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var addr = encodeURIComponent(document.getElementById('addressSel').value);
                 var params = "addr=" + addr + "&rand=" + ran_number;
@@ -328,7 +330,7 @@
 
             function addNotes() {
 
-                var url = '<c:out value="${ctx}"/>/rx/ViewAddRxComment.do';
+                var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
                 var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
                 var params = "scriptNo=<%=request.getAttribute("scriptId")%>&comment=" + comment + "&rand=" + ran_number;  //]
@@ -348,7 +350,7 @@
             function printIframe() {
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
-                    alert('${e:forJavaScript(msg_msieNotPermitted)}')
+                    alert('${carlos:forJavaScript(msg_msieNotPermitted)}')
                 } else {
                     if ('function' === typeof window.onbeforeunload) {
                         window.onbeforeunload = null;
@@ -376,15 +378,15 @@
                     <% } %>
 
                     if (print) {
-                        text += "Prescribed and printed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>\n";
+                        text += "Prescribed and printed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>\n";
                     } else if (fax) {
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?Encode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
-                        text += " prescribed by <%= Encode.forJavaScript(loggedInInfo.getLoggedInProvider().getFormattedName())%>";
+                        text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
                         <%--    	 <% } %>--%>
                         text += ", <%= timeStamp %>]\n";
                         <%--   		 <%--%>
@@ -405,9 +407,9 @@
                     }
                     <% if (props.isPropertyActive("rx_paste_asterisk")) {
                             if(prefPharmacy!=null && prefPharmacy.trim()!=""){ %>
-                    text += "<%=Encode.forJavaScript(prefPharmacy)%>\n"
+                    text += "<carlos:encode value='<%= prefPharmacy %>' context="javaScript"/>\n"
                     <% } %>
-                    text += "****<%=Encode.forJavaScript(ProviderData.getProviderName(bean.getProviderNo()))%>********************************************************************************\n";
+                    text += "****<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="javaScript"/>********************************************************************************\n";
                     <% } %>
 
                     //we support pasting into orig encounter and new casemanagement
@@ -451,8 +453,8 @@
 
 	function writeToEncounter(print, text) {
     	try {
-			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter.do";
-			var prefPharmacy = "<%=prefPharmacy != null ? Encode.forJavaScriptBlock(prefPharmacy) : ""%>";
+			var url = "<%=request.getContextPath() %>/rx/WriteToEncounter";
+			var prefPharmacy = "<%=prefPharmacy != null ? SafeEncode.forJavaScriptBlock(prefPharmacy) : ""%>";
 			fetch(url, {
 				method: 'POST',
 				headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
@@ -480,7 +482,7 @@
             function openEncounter() {
                 var windowprops = "height=710,width=1024,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var currentDate = new Date().toISOString().substring(0, 10);
-                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter.do?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<%=Encode.forUriComponent(ProviderData.getProviderName(bean.getProviderNo()))%>&curDate=" + currentDate;
+                var url = "<%= request.getContextPath() %>/encounter/IncomingEncounter?providerNo=<%= bean.getProviderNo() %>&demographicNo=<%= bean.getDemographicNo() %>&curProviderNo=<%= bean.getProviderNo() %>&userName=<carlos:encode value='<%= ProviderData.getProviderName(bean.getProviderNo()) %>' context="uriComponent"/>&curDate=" + currentDate;
 
                 if (window.parent.opener && window.parent.opener.document.forms["caseManagementEntryForm"] != undefined) {
                     // redirect if encounter window open
@@ -560,14 +562,14 @@
                 let faxNumber = document.getElementById('faxNumber');
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
                 frames['preview'].document.getElementById('pdfId').value = '<%=signatureRequestId%>';
-                onPrint2('oscarRxFax', "<%=Encode.forJavaScript(StringUtils.noNull(request.getParameter("scriptId")))%>");
+                onPrint2('oscarRxFax', "<carlos:encode value='<%= StringUtils.noNull(request.getParameter("scriptId")) %>' context="javaScriptBlock"/>");
 
             }
 
             function unloadMess() {
-                mess = '${e:forJavaScript(msg_signatureSent)}';
+                mess = '${carlos:forJavaScript(msg_signatureSent)}';
                 if (isSignatureDirty) {
-                    mess = '${e:forJavaScript(msg_signatureDirty)}';
+                    mess = '${carlos:forJavaScript(msg_signatureDirty)}';
                 }
                 return mess;
             }
@@ -608,7 +610,7 @@
             }
 
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature.do', {
+	fetch('<%=request.getContextPath() %>/rx/saveDigitalSignature', {
 		method: 'POST',
 		headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
 		credentials: 'same-origin',
@@ -684,12 +686,12 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2.do?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("pharmacyId"))) %>"
+							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>
 
-                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending.do" method="post">
+                                <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
@@ -712,7 +714,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         }
 
                                         function ShowDrugInfo(drug) {
-                                            window.open('<c:out value="${ctx}"/>/rx/drugInfo.do?GN=' + encodeURIComponent(drug), "_blank",
+                                            window.open('${carlos:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 
@@ -723,7 +725,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 	                                if(! id) {
 										return;
 	                                }
-                                    var url="<c:out value="${ctx}"/>"+"/rx/managePharmacy2.do?method=getPharmacyInfo&pharmacyId="+id;
+                                    var url="${carlos:forJavaScript(ctx)}"+"/rx/managePharmacy2?method=getPharmacyInfo&pharmacyId="+id;
                                     fetch(url, {
                                         method: 'GET',
                                         headers: {'X-Requested-With': 'XMLHttpRequest'},
@@ -735,7 +737,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                         var text = json.name + "<br>" + json.address + "<br>" + json.city + ", " + json.province + ", "
                                                             + json.postalCode + "<br>Tel:" + json.phone1 + " " + json.phone2 + "<br>Fax:" + json.fax + "<br>Email:" + json.email + "<br>Note:" + json.notes;
 
-                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${e:forJavaScript(msg_removePharmacyInfo)}</a>';
+                                                        text += '<br><br><a class="noprint" style="text-align:center;" onclick="parent.reducePreview();" href="javascript:void(0);">${carlos:forJavaScript(msg_removePharmacyInfo)}</a>';
                                                         text += "<input type='hidden' name='pharmacyInfo' value=" + id + " />"
                                                         expandPreview(text);
                                                     }
@@ -903,7 +905,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 									<input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>"
 										   value="<%=signatureRequestId%>"/>
 									<iframe style="width:500px; height:132px;" id="signatureFrame"
-											src="<%= request.getContextPath() %>/signature_pad/tabletSignature.jsp?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&saveToDB=true&demographicNo=<%=bean.getDemographicNo()%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.PRESCRIPTION%>"></iframe>
+											src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&saveToDB=true&demographicNo=<%=bean.getDemographicNo()%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.PRESCRIPTION%>"></iframe>
                                             </td>
                                         </tr>
 						<% } %>

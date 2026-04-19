@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -43,12 +44,13 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     EctSessionBean bean = null;
     if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError.do");
+        response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
     }
 
@@ -60,6 +62,10 @@
     // this is accessed in the newEncounterLayout after this header is included.
     String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
+    String popupPatientSex = bean == null || bean.patientSex == null ? "" : bean.patientSex;
+    String popupPatientAge = demographic == null ? "" : String.valueOf(demographic.getAge());
+    pageContext.setAttribute("popupPatientSex", popupPatientSex);
+    pageContext.setAttribute("popupPatientAge", popupPatientAge);
 
 %>
 
@@ -108,9 +114,8 @@ function fallbackCopy(text) {
 
 <div id="header-bottom-row">
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
-    <div>
-        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','<c:out
-                value="${ctx}"/>/commons/omdDiseaseList.jsp?sex=<%=bean.patientSex%>&age=<%=demographic.getAge()%>'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
+        <div>
+        <a href="javascript:void(0);" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScript(ctx)}/commons/omdDiseaseList.jsp?sex=${carlos:forUriComponent(popupPatientSex)}&age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></a>
     </div>
     <%}%>
 

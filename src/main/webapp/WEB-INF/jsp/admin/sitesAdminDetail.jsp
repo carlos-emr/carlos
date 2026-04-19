@@ -26,6 +26,8 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin site detail page --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -34,7 +36,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_admin.misc" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.misc");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.misc");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,7 +49,7 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Clinic</title>
+        <title><fmt:message key="admin.admin.sitesAdmin"/></title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
@@ -61,14 +63,14 @@
     </head>
 
     <body vlink="#0000FF" class="BodyStyle" onload="document.getElementById('colorField').style.backgroundColor = document.getElementById('colorField').value;">
-    <form action="<%= request.getContextPath() %>/admin/ManageSites.do" method="post">
+    <form action="<%= request.getContextPath() %>/admin/ManageSites" method="post">
         <table class="MainTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn">admin</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="global.admin"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar" style="width: 100%;">
                         <tr>
-                            <td>Add New Satellite Site</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.heading"/></td>
                         </tr>
                     </table>
                 </td>
@@ -86,68 +88,68 @@
 
                     <table>
                         <tr>
-                            <td>Site Name:<sup style="color:red">*</sup></td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.siteName"/>:<sup style="color:red">*</sup></td>
                             <td><input type="text" name="site.name" maxlength="30" /></td>
                         </tr>
                         <tr>
-                            <td>Short Name:<sup style="color:red">*</sup></td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.shortName"/>:<sup style="color:red">*</sup></td>
                             <td><input type="text" name="site.shortName" maxlength="10" /></td>
                         </tr>
                         <tr>
-                            <td>Theme Color:<sup style="color:red">*</sup></td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.themeColor"/>:<sup style="color:red">*</sup></td>
                             <td><input type="text" id="colorField" name="site.bgColor" type="color"
                                              onchange="this.style.backgroundColor = this.value;" />
                             </td>
                         </tr>
                         <tr>
-                            <td>Active:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.active"/>:</td>
                             <td><input type="checkbox" name="site.status" value="1" /></td>
                         </tr>
                         <tr>
-                            <td>Telephone:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.telephone"/>:</td>
                             <td><input type="text" name="site.phone" /></td>
                         </tr>
                         <tr>
-                            <td>FAX:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.fax"/>:</td>
                             <td><input type="text" name="site.fax" /></td>
                         </tr>
                         <tr>
-                            <td>Address:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.address"/>:</td>
                             <td><input type="text" name="site.address" /></td>
                         </tr>
                         <tr>
-                            <td>City:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.city"/>:</td>
                             <td><input type="text" name="site.city" /></td>
                         </tr>
                         <tr>
-                            <td>Province:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.province"/>:</td>
                             <td><select name="site.province">
-                                <option value="AB">AB-Alberta</option>
-                                <option value="BC">BC-British Columbia</option>
-                                <option value="MB">MB-Manitoba</option>
-                                <option value="NB">NB-New Brunswick</option>
-                                <option value="NL">NL-Newfoundland & Labrador</option>
-                                <option value="NT">NT-Northwest Territory</option>
-                                <option value="NS">NS-Nova Scotia</option>
-                                <option value="NU">NU-Nunavut</option>
-                                <option value="ON">ON-Ontario</option>
-                                <option value="PE">PE-Prince Edward Island</option>
-                                <option value="QC">QC-Quebec</option>
-                                <option value="SK">SK-Saskatchewan</option>
-                                <option value="YT">YT-Yukon</option>
+                                <option value="AB"><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
+                                <option value="BC"><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
+                                <option value="MB"><fmt:message key="admin.sitesAdminDetail.province.MB"/></option>
+                                <option value="NB"><fmt:message key="admin.sitesAdminDetail.province.NB"/></option>
+                                <option value="NL"><fmt:message key="admin.sitesAdminDetail.province.NL"/></option>
+                                <option value="NT"><fmt:message key="admin.sitesAdminDetail.province.NT"/></option>
+                                <option value="NS"><fmt:message key="admin.sitesAdminDetail.province.NS"/></option>
+                                <option value="NU"><fmt:message key="admin.sitesAdminDetail.province.NU"/></option>
+                                <option value="ON"><fmt:message key="admin.sitesAdminDetail.province.ON"/></option>
+                                <option value="PE"><fmt:message key="admin.sitesAdminDetail.province.PE"/></option>
+                                <option value="QC"><fmt:message key="admin.sitesAdminDetail.province.QC"/></option>
+                                <option value="SK"><fmt:message key="admin.sitesAdminDetail.province.SK"/></option>
+                                <option value="YT"><fmt:message key="admin.sitesAdminDetail.province.YT"/></option>
                             </select></td>
                         </tr>
                         <tr>
-                            <td>Postal Code:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.postalCode"/>:</td>
                             <td><input type="text" name="site.postal" /></td>
                         </tr>
                         <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
                         <tr>
-                            <td>ProviderID From:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.providerIdFrom"/>:</td>
                             <td><input type="text" name="site.providerIdFrom" /></td>
                         </tr>
                         <tr>
-                            <td>ProviderID To:</td>
+                            <td><fmt:message key="admin.sitesAdminDetail.label.providerIdTo"/>:</td>
                             <td><input type="text" name="site.providerIdTo" /></td>
                         </tr>
                         <% } %>
@@ -155,8 +157,8 @@
 
                     <input type="hidden" name="site.siteId" />
                     <input type="hidden" name="method" value="save" />
-                    <input type="submit" class="button" value="Save" /> <input type="submit" class="button"
-                                                                                           onclick="this.form.method.value='view'" value="Cancel" />
+                    <input type="submit" class="button" value="<fmt:message key='global.btnSave'/>" /> <input type="submit" class="button"
+                                                                                           onclick="this.form.method.value='view'" value="<fmt:message key='global.btnCancel'/>" />
 
                 </td>
             </tr>

@@ -32,7 +32,8 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -69,12 +70,12 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="${e:forHtmlAttribute(method)}">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <input type="checkbox" name="dashboardShareProperty.checked" <c:if test="${dashboardShareProperty.checked}">checked</c:if> />
                         <fmt:message key="provider.pref.dashboardShare"/>
                     <br/><br/>
-                    <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>
+                    <input type="submit" value="<%=bundle.getString("provider.setShowPatientDOB.btnApply")%>"/>
                     <input type="button" value="<%=bundle.getString(providerbtnCancel)%>"
                            onclick="window.close();"/>
                 </form>

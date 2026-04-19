@@ -38,7 +38,7 @@ public final class ViewTicklerSuggestedText2Action extends ActionSupport {
      * @return {@code SUCCESS} when the caller holds {@code _tickler w};
      *         the package-level {@code global-exception-mappings} in
      *         {@code struts-scheduling.xml} routes the {@link SecurityException}
-     *         thrown on denial to {@code /securityError.jsp}.
+     *         thrown on denial to {@code /securityError}.
      * @throws SecurityException when the caller lacks {@code _tickler w}
      * @throws Exception if the underlying {@code ActionSupport.execute} contract
      *         declares one (not thrown by this implementation)

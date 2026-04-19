@@ -1,0 +1,222 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+<%
+    String curUser_no = (String) session.getAttribute("user");
+
+    String strLimit1 = "0";
+    String strLimit2 = "1500";
+    if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
+    if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
+
+    String startDate = null, endDate = null;
+    if (request.getParameter("startDate") != null) startDate = request.getParameter("startDate");
+    if (request.getParameter("endDate") != null) endDate = request.getParameter("endDate");
+%>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
+<jsp:useBean id="providerNameBean" class="io.github.carlos_emr.Dict" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportTemp" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportTempDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+<%
+    ReportTempDao reportTempDao = SpringUtils.getBean(ReportTempDao.class);
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    FormDao formDao = SpringUtils.getBean(FormDao.class);
+%>
+
+<html>
+<head>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <title><%= bundle.getString("report.reportedblist.title") %></title>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/css/receptionistapptstyle.css">
+    <script language="JavaScript">
+        <!--
+        function setfocus() {
+//  document.titlesearch.keyword.focus();
+//  document.titlesearch.keyword.select();
+        }
+
+        //-->
+    </SCRIPT>
+    <!--base target="pt_srch_main"-->
+</head>
+<body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+
+<table border="0" cellspacing="0" cellpadding="0" width="100%">
+    <tr bgcolor="#486ebd">
+        <th align=CENTER><font face="Helvetica" color="#FFFFFF"><%= bundle.getString("report.reportedblist.header.list") %></font></th>
+        <th align="right" width="10%" NOWRAP><input type="button"
+                                                    name="Button" value="<%= bundle.getString("global.btnPrint") %>" onClick="window.print()"> <input
+                type="button" name="Button" value="<%= bundle.getString("global.btnCancel") %>" onClick="window.close()">
+        </th>
+    </tr>
+</table>
+
+<CENTER>
+    <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
+           cellpadding="1">
+        <tr bgcolor="silver">
+            <TH>&nbsp;</TH>
+            <TH align="center"><b>#</b></TH>
+            <TH align="center" width="10%" nowrap><b><%= bundle.getString("report.reportedblist.header.edb") %></b></TH>
+            <TH align="center" width="30%"><b><%= bundle.getString("report.reportedblist.header.patientName") %></b></TH>
+            <!--TH align="center" width="20%"><b>Demog' No </b></TH-->
+            <TH align="center" width="5%"><b><%= bundle.getString("report.reportedblist.header.age") %></b></TH>
+            <TH align="center" width="5%"><b><%= bundle.getString("report.reportedblist.header.gravida") %></b></TH>
+            <TH align="center" width="10%"><b><%= bundle.getString("report.reportedblist.header.term") %></b></TH>
+            <TH align="center" width="30%"><b><%= bundle.getString("report.reportedblist.header.phone") %></b></TH>
+            <TH align="center"><b><%= bundle.getString("report.reportedblist.header.provider") %></b></TH>
+        </tr>
+        <%
+            GregorianCalendar now = new GregorianCalendar();
+            int curYear = now.get(Calendar.YEAR);
+            int curMonth = (now.get(Calendar.MONTH) + 1);
+            int curDay = now.get(Calendar.DAY_OF_MONTH);
+            int age = 0;
+            for (Provider p : providerDao.getActiveProviders()) {
+                providerNameBean.setDef(p.getProviderNo(), new String(p.getFormattedName()));
+            }
+
+            List<ReportTemp> temps = reportTempDao.findAll();
+            for (ReportTemp temp : temps) {
+                reportTempDao.remove(temp.getId());
+            }
+
+            for (Form f : formDao.findAllGroupByDemographicNo()) {
+
+
+                Form f1 = formDao.search_form_no(f.getDemographicNo(), "ar%");
+
+                if (f1 != null) {
+                    int[] itemp = new int[]{f1.getDemographicNo()};
+                    String[] param2 = new String[5];
+                    param2[0] = f1.getContent() != null ? (SxmlMisc.getXmlContent(f1.getContent(), "xml_fedb") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_fedb") : "0001-01-01") : "0001-01-01";
+                    param2[1] = f1.getContent() != null ? (SxmlMisc.getXmlContent(f1.getContent(), "xml_name") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_name") : "") : "";
+                    param2[2] = f1.getProviderNo();
+                    param2[3] = "<age>" + (SxmlMisc.getXmlContent(f1.getContent(), "xml_age") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_age") : "") + "</age>" + "<gravida>" + (SxmlMisc.getXmlContent(f1.getContent(), "xml_gra") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_gra") : "") + "</gravida>" + "<term>" + (SxmlMisc.getXmlContent(f1.getContent(), "xml_term") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_term") : "") + "</term>" + "<phone>" + (SxmlMisc.getXmlContent(f1.getContent(), "xml_hp") != null ? SxmlMisc.getXmlContent(f1.getContent(), "xml_hp") : "") + "</phone>";
+                    param2[4] = curUser_no;
+
+                    ReportTemp temp = new ReportTemp();
+                    temp.setId(new io.github.carlos_emr.carlos.commn.model.ReportTempPK());
+                    temp.getId().setDemographicNo(f1.getDemographicNo());
+                    temp.getId().setEdb(MyDateFormat.getSysDate(param2[0]));
+                    temp.setDemoName(param2[1]);
+                    temp.setProviderNo(param2[2]);
+                    temp.setAddress(param2[3]);
+                    reportTempDao.persist(temp);
+
+                }
+            }
+
+
+            boolean bodd = false;
+            int nItems = 0;
+
+            for (ReportTemp rt : reportTempDao.findGreateThanEdb(ConversionUtils.fromDateString(startDate), Integer.parseInt(strLimit1), Integer.parseInt(strLimit2))) {
+
+                bodd = bodd ? false : true; //for the color of rows
+                nItems++;
+        %>
+        <tr bgcolor="<%=bodd?"ivory":"white"%>">
+            <td align="center"><%=nItems%>
+            </td>
+            <td align="center"
+                nowrap><carlos:encode value="<%= ConversionUtils.toDateString(rt.getId().getEdb()).replace('-', '/') %>" context="html"/>
+            </td>
+            <td><carlos:encode value='<%= rt.getDemoName() %>' context="html"/>
+            </td>
+            <!--td align="center" ><%=rt.getId().getDemographicNo()%> </td-->
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "age") %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "gravida") %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "term") %>' context="html"/>
+            </td>
+            <td nowrap><carlos:encode value='<%= SxmlMisc.getXmlContent(rt.getAddress(), "phone") %>' context="html"/>
+            </td>
+            <td><carlos:encode value='<%= providerNameBean.getShortDef(rt.getProviderNo(), "", 11) %>' context="html"/>
+            </td>
+        </tr>
+        <%
+            }
+
+
+        %>
+
+    </table>
+    <CENTER><br>
+            <%
+    int nLastPage=0,nNextPage=0;
+    int intLimit2=Integer.parseInt(strLimit2);
+    nNextPage=intLimit2+Integer.parseInt(strLimit1);
+    nLastPage=Integer.parseInt(strLimit1)-intLimit2;
+    String encodedStartDate = SafeEncode.forUriComponent(startDate != null ? startDate : "");
+    String encodedEndDate = SafeEncode.forUriComponent(endDate != null ? endDate : "");
+    if(nLastPage>=0) {
+%> <a
+                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nLastPage%>&limit2=<%=intLimit2%>"><%= bundle.getString("report.reportedblist.lastPage") %></a> | <%
+  }
+  if(nItems==intLimit2) {
+%> <a
+                href="<%= request.getContextPath() %>/report/ViewReportedblist?startDate=<%=encodedStartDate%>&endDate=<%=encodedEndDate%>&limit1=<%=nNextPage%>&limit2=<%=intLimit2%>">
+            <%= bundle.getString("report.reportedblist.nextPage") %></a> <%}%>
+
+</body>
+</html>

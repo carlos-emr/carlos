@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,6 +46,7 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -62,7 +63,7 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
-        <title>CARLOS Products</title>
+        <title><fmt:message key="admin.eformReportTool.title"/></title>
         <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
 
@@ -101,9 +102,9 @@
                                     width: 800,
                                     modal: true,
                                     buttons: {
-                                        "Add": {
+                                        "<fmt:message key="admin.eformReportTool.save"/>": {
                                             class: "btn btn-primary",
-                                            text: "Save",
+                                            text: "<fmt:message key="admin.eformReportTool.save"/>",
                                             click: function () {
                                                 var e = {
                                                     name: $(
@@ -145,9 +146,9 @@
 
                                             }
                                         },
-                                        Cancel: {
+                                        "<fmt:message key="admin.eformReportTool.cancel"/>": {
                                             class: "btn",
-                                            text: "Cancel",
+                                            text: "<fmt:message key="admin.eformReportTool.cancel"/>",
                                             click: function () {
 
                                                 $(this).dialog("close");
@@ -216,7 +217,7 @@
             }
 
             function removeItem(eftId) {
-                if (confirm("Are you sure? This will delete your temporary table")) {
+                if (confirm("<fmt:message key="admin.eformReportTool.confirmDelete"/>")) {
                     var e = {
                         id: eftId
                     };
@@ -265,11 +266,11 @@
                                         .append(
                                             "<tr> <td><a onClick=\"removeItem('"
                                             + e.id
-                                            + "')\">(Remove)</a>&nbsp;<a onClick=\"populate('"
+                                            + "')\">(<fmt:message key="admin.eformReportTool.remove"/>)</a>&nbsp;<a onClick=\"populate('"
                                             + e.id
-                                            + "')\">(Populate)</a> &nbsp;<a onClick=\"markLatest('"
+                                            + "')\">(<fmt:message key="admin.eformReportTool.populate"/>)</a> &nbsp;<a onClick=\"markLatest('"
                                             + e.id
-                                            + "')\">(MarkLatest)</a></td> <td>"
+                                            + "')\">(<fmt:message key="admin.eformReportTool.markLatest"/>)</a></td> <td>"
                                             + e.name
                                             + "</td> <td>"
                                             + e.tableName
@@ -308,31 +309,31 @@
     </head>
 
     <body class="BodyStyle">
-    <h4>EForm Reporting Tool</h4>
+    <h4><fmt:message key="admin.eformReportTool.title"/></h4>
 
 
     <!--  display list of existing tables made, with ability to delete any one of them -->
     <table id="listTable" class="table table-striped table-hover table-sm" style="width: 100%;">
         <thead>
         <th>&nbsp;</th>
-        <th>Name</th>
-        <th>Table Name</th>
-        <th>Eform Name</th>
-        <th>Created</th>
-        <th>Expires</th>
-        <th>Last Populated</th>
-        <th>Latest Marked</th>
-        <th># of Records</th>
+        <th><fmt:message key="admin.eformReportTool.name"/></th>
+        <th><fmt:message key="admin.eformReportTool.tableName"/></th>
+        <th><fmt:message key="admin.eformReportTool.eformName"/></th>
+        <th><fmt:message key="admin.eformReportTool.created"/></th>
+        <th><fmt:message key="admin.eformReportTool.expires"/></th>
+        <th><fmt:message key="admin.eformReportTool.lastPopulated"/></th>
+        <th><fmt:message key="admin.eformReportTool.latestMarked"/></th>
+        <th><fmt:message key="admin.eformReportTool.records"/></th>
         </thead>
         <tbody></tbody>
     </table>
 
     <!-- button to add new  -->
-    <button id="btnAdd" class="btn btn-secondary">Add New</button>
+    <button id="btnAdd" class="btn btn-secondary"><fmt:message key="admin.eformReportTool.addNew"/></button>
 
     <!-- add new should show form with name, eform name, and expiry date -->
 
-    <div id="new-report" title="Create new OSCAR EForm Report table">
+    <div id="new-report" title="<fmt:message key="admin.eformReportTool.createTitle"/>">
         <p class="validateTips"></p>
 
         <form id="reportForm">
@@ -340,8 +341,7 @@
             <div>
                 <div class="d-flex gap-2">
                     <div class="mb-3 col-md-8" id="group1">
-                        <label class="form-label" for="eformReportToolEformId">Choose
-                            EForm:</label>
+                        <label class="form-label" for="eformReportToolEformId"><fmt:message key="admin.eformReportTool.chooseEForm"/></label>
                         <div>
                             <select id="eformReportToolEformId"
                                     name="eformReportTool.eformId">
@@ -352,7 +352,7 @@
                 </div>
                 <div class="d-flex gap-2">
                     <div class="mb-3 col-md-8" id="group2">
-                        <label class="form-label" for="eformReportToolName">Name:</label>
+                        <label class="form-label" for="eformReportToolName"><fmt:message key="admin.eformReportTool.name"/></label>
                         <div>
                             <input type="text" name="eformReportTool.name"
                                    id="eformReportToolName"/>
@@ -364,8 +364,7 @@
                 <div class="d-flex gap-2">
 
                     <div class="mb-3 col-md-8" id="group3">
-                        <label class="form-label" for="eformExpiryDate">Expiry
-                            Date:</label>
+                        <label class="form-label" for="eformExpiryDate"><fmt:message key="admin.eformReportTool.expiryDate"/></label>
                         <div>
                             <input type="text" name="eformReportTool.expiryDate"
                                    id="eformExpiryDate" value=""/>

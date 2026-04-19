@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,9 +47,9 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 Prescriptions
 <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
     <tr class="title">
@@ -77,21 +77,21 @@ Prescriptions
             </c:if>
             <td bgcolor="white">
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
-                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
-                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'>
+                                          providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                          demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
+                                          programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}">
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<c:out value="${prescription.regionalIdentifier}"/>&cn=<c:out value="${prescription.customName}"/>">
-                        <c:out value="${prescription.special}"/>
+                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&cn=${carlos:forUriComponent(prescription.customName)}">
+                        ${carlos:forHtml(prescription.special)}
                     </a>
                 </caisirole:SecurityAccess>
 
                 <caisirole:SecurityAccess accessName="prescription Write" accessType="access"
-                                          providerNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("providerNo"))) %>'
-                                          demoNo='<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("demographicNo"))) %>'
-                                          programId='<%= Encode.forHtmlAttribute(StringUtils.noNull((String)session.getAttribute("case_program_id"))) %>'
+                                          providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                          demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
+                                          programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}"
                                           reverse="true">
-                    <span <%= styleColor%> ><c:out value="${prescription.special}"/></span>
+                    <span <%= styleColor%> >${carlos:forHtml(prescription.special)}</span>
                 </caisirole:SecurityAccess>
             </td>
 

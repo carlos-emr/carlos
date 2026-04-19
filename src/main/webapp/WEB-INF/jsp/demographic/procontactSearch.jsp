@@ -55,13 +55,16 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalContact" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
     if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String strLimit1 = "0";
     String strLimit2 = "10";
@@ -103,14 +106,14 @@
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title>Search Professional Contacts</title>
+        <title><fmt:message key="demographic.contactSearch.titleProfessional"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript">
 
             //<!--
             function setfocus() {
-                var toggleSearchTool = "<c:out value="${ toggleSearchTool }" />";
+                var toggleSearchTool = "${carlos:forJavaScript(toggleSearchTool)}";
                 if (toggleSearchTool) {
                     document.getElementById("procontactSearch_searchTools").style.display = "none";
                 }
@@ -133,11 +136,11 @@
                     // split contact type [0] from contact id [1]
                     data1 = data1.split("_")[1].trim();
                     opener.document
-                ['<%= Encode.forJavaScript(form) %>'].
-                    elements['<%= Encode.forJavaScript(elementId) %>'].value = data1;
+                ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>'].value = data1;
                     opener.document
-                ['<%= Encode.forJavaScript(form) %>'].
-                    elements['<%= Encode.forJavaScript(elementName) %>'].value = data2;
+                ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                    elements['<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>'].value = data2;
                     self.close();
                 }
 
@@ -145,8 +148,8 @@
 
             function serializePopupData(data1, data2) {
 
-                var id1 = '<%= Encode.forJavaScript(elementId) %>';
-                var id2 = '<%= Encode.forJavaScript(elementName) %>';
+                var id1 = '<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>';
+                var id2 = '<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>';
                 var contactType = data1.split("_")[0].trim();
                 var contactId = data1.split("_")[1].trim();
 
@@ -168,12 +171,12 @@
     </head>
     <body onload="setfocus()" class="BodyStyle">
 
-    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProContactSearch.do" onSubmit="return check();">
+    <form method="post" name="titlesearch" action="<%= request.getContextPath() %>/demographic/ViewProContactSearch" onSubmit="return check();">
 
         <table class="MainTable">
 
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn" width="20%">Search Professional Contacts</td>
+                <td class="MainTableTopRowLeftColumn" width="20%"><fmt:message key="demographic.contactSearch.titleProfessional"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
@@ -188,12 +191,12 @@
             </tr>
 
             <!--  tr>
-                <td class="searchTitle" colspan="4">Search Professional Contacts</td>
+                <td class="searchTitle" colspan="4"><fmt:message key="demographic.contactSearch.titleProfessional"/></td>
             </tr-->
             <tr id="procontactSearch_searchTools">
                 <td class="blueText">
                     <input type="radio" name="search_mode" value="search_name" checked="checked"> <label
-                        for="search_mode">Name</label>
+                        for="search_mode"><fmt:message key="demographic.contactSearch.searchByName"/></label>
                 </td>
                 <td valign="middle" rowspan="2" align="left">
                     <input type="text" name="keyword" value="" size="17" maxlength="100">
@@ -201,20 +204,20 @@
                     <input type="hidden" name="limit1" value="0">
                     <input type="hidden" name="limit2" value="10">
                     <input type="hidden" name="submit" value='Search'>
-                    <input type="submit" value='Search'>
+                    <input type="submit" value='<fmt:message key="demographic.contactSearch.search"/>'>
                 </td>
             </tr>
         </table>
 
         <!-- table width="95%" border="0">
 	<tr>
-		<td align="left">Results based on keyword(s): <%=Encode.forHtml(keyword == null ? "" : keyword)%></td>
+		<td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/></td>
 	</tr>
 </table  -->
 
-        <input type='hidden' name='form' value="<%=Encode.forHtmlAttribute(form)%>"/>
-        <input type='hidden' name='elementName' value="<%=Encode.forHtmlAttribute(elementName)%>"/>
-        <input type='hidden' name='elementId' value="<%=Encode.forHtmlAttribute(elementId)%>"/>
+        <input type='hidden' name='form' value="<carlos:encode value='<%= form %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementName' value="<carlos:encode value='<%= elementName %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementId' value="<carlos:encode value='<%= elementId %>' context="htmlAttribute"/>"/>
 
     </form>
 
@@ -224,14 +227,14 @@
 
         <tr style="background-color:white;border:white;">
             <td colspan="3">
-                <strong>Results based on keyword(s):</strong> <%= Encode.forHtml(keyword == null ? "" : keyword) %>
+                <strong><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/></strong> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
             </td>
         </tr>
 
         <tr class="title">
-            <th><strong>Last Name</strong></th>
-            <th><strong>First Name</strong></th>
-            <th><strong>Phone</strong></th>
+            <th><strong><fmt:message key="demographic.contactSearch.lastName"/></strong></th>
+            <th><strong><fmt:message key="demographic.contactSearch.firstName"/></strong></th>
+            <th><strong><fmt:message key="demographic.contactSearch.phone"/></strong></th>
         </tr>
 
         <c:forEach var="contact" items="${contacts}" varStatus="i">
@@ -240,15 +243,15 @@
                 jakarta.servlet.jsp.jstl.core.LoopTagStatus i = (jakarta.servlet.jsp.jstl.core.LoopTagStatus) pageContext.getAttribute("i");
                 String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
                 String strOnClick;
-                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                strOnClick = "selectResult('" + contact.getSystemId() + "_" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
             %>
             <tr bgcolor="<%=bgColor%>"
                 onMouseOver="this.style.cursor='pointer';this.style.backgroundColor='pink';"
-                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<%=Encode.forHtmlAttribute(strOnClick)%>">
-                <td><c:out value="${contact.lastName}"/></td>
-                <td><c:out value="${contact.firstName}"/></td>
-                <td><c:out value="${contact.residencePhone}"/></td>
+                onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                <td>${carlos:forHtml(contact.lastName)}</td>
+                <td>${carlos:forHtml(contact.firstName)}</td>
+                <td>${carlos:forHtml(contact.residencePhone)}</td>
             </tr>
         </c:forEach>
 
@@ -291,10 +294,16 @@
 
         <tr>
             <td>
-                <a href="<%= request.getContextPath() %>/demographic/Contact.do?method=addProContact&keyword=<%= Encode.forUriComponent(StringUtils.noNull(keyword)) %>&contactRole=<%= Encode.forUriComponent(contactRole) %>&contactType=3"
+                <a href="<%= request.getContextPath() %>/demographic/Contact?method=addProContact&keyword=<carlos:encode value='<%= StringUtils.noNull(keyword) %>' context="uriComponent"/>&contactRole=<carlos:encode value='<%= contactRole %>' context="uriComponent"/>&contactType=3"
                    style="font:inherit;display:block;margin:10px;">
                     Add/Edit Professional Contact
-                </a>
+             <c:set var="__enc_1"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_2"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_3"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+               </a>
             </td>
         </tr>
     </table>
@@ -303,12 +312,24 @@
     <script type="text/javascript">
         //<!--
         function last() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nLastPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            <c:set var="__enc_1"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_2"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_3"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_1}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_2}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_3}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_4}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_5}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_6}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
             document.nextform.submit();
         }
 
         function next() {
-            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch.do?form=<%=Encode.forJavaScript(Encode.forUriComponent(form))%>&elementName=<%=Encode.forJavaScript(Encode.forUriComponent(elementName))%>&elementId=<%=Encode.forJavaScript(Encode.forUriComponent(elementId))%>&keyword=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")))) %>&search_mode=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")))) %>&orderby=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("orderby")))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forJavaScript(strLimit2)%>";
+            <c:set var="__enc_7"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_8"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_9"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+            <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+            document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=<carlos:encode value='${__enc_7}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_8}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_9}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_10}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
             document.nextform.submit();
         }
 

@@ -72,28 +72,28 @@ public class EctConTitlebar {
         // Links point at the Struts view-gate actions, not the raw .jsp paths;
         // the underlying JSPs were relocated to /WEB-INF/jsp/ and are no longer
         // directly GET-accessible. Active-tab detection in estBar() compares
-        // last-URL-segment equality, which continues to work with the .do names.
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewEnableRequestResponse.do");
+        // last-URL-segment equality, which continues to work with the action names.
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewEnableRequestResponse");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnEnableRequestResponse"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddSpecialist.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddSpecialist");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnAddSpecialist"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddService.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddService");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnAddService"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditSpecialists.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditSpecialists");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnEditSpecialists"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewShowAllServices.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewShowAllServices");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnShowAllServices"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewDeleteServices.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewDeleteServices");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnDeleteServices"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddInstitution.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddInstitution");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnAddInstitution"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditInstitutions.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditInstitutions");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnEditInstitutions"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddDepartment.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewAddDepartment");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnAddDepartment"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditDepartments.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewEditDepartments");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnEditDepartments"));
-        jspVect.add("encounter/oscarConsultationRequest/config/ViewShowAllInstitutions.do");
+        jspVect.add("encounter/oscarConsultationRequest/config/ViewShowAllInstitutions");
         displayNameVect.add(oscarR.getString("encounter.oscarConsultationRequest.config.btnShowAllInstitutions"));
     }
 

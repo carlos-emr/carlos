@@ -36,8 +36,10 @@
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -51,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@ page import="static io.github.carlos_emr.carlos.prescript.util.RxUtil.DateToString" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     RxPatientData.Patient patient = null;
     RxSessionBean bean = null;
@@ -77,7 +80,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -187,10 +190,10 @@
 
     if (heading != null) {
 %>
-<h4 style="margin-bottom:1px;margin-top:3px;"><%=Encode.forHtmlContent(heading)%></h4>
+<h4 style="margin-bottom:1px;margin-top:3px;"><carlos:encode value='<%= heading %>' context="html"/></h4>
 <%}%>
 <div class="drugProfileText" style="">
-    <table class="list-drugs sortable" id="Drug_table<%=Encode.forHtmlContent(heading)%>">
+    <table class="list-drugs sortable" id="Drug_table<carlos:encode value='<%= heading %>' context="htmlAttribute"/>">
         <tr>
 
         	<th ><b>Entered Date</b></th>
@@ -272,7 +275,7 @@
         %>
         <tr>
 
-        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
+        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
             <td>
             	<% if(startDateUnknown) { %>
             		
@@ -281,7 +284,7 @@
                     startDate = partialDateDao.getDatePartial(startDate, PartialDate.DRUGS, prescriptDrug.getId(), PartialDate.DRUGS_STARTDATE);
                 %>
                 <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%>
-                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>"><%=startDate%>
+                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>"><%=startDate%>
                 </a>
                 <% } %>
             </td>
@@ -310,11 +313,11 @@
 			String xComment=prescriptDrug.getComment();
 			String tComment="";
 			if(xComment!=null ){
-				tComment="TITLE='" + Encode.forHtmlAttribute(xComment) + " '";
+				tComment="TITLE='" + SafeEncode.forHtmlAttribute(xComment) + " '";
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&amp;cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&amp;bn=<%=Encode.forUriComponent(bn)%>&amp;atc=<%=Encode.forUriComponent(prescriptDrug.getAtc())%>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>
@@ -425,7 +428,7 @@
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                         var csrfToken = csrfEl ? csrfEl.value : '';
                         var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('<c:out value="${ctx}"/>/rx/hideCpp.do', {
+                        fetch('${carlos:forJavaScript(ctx)}/rx/hideCpp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
                             credentials: 'same-origin',
@@ -520,7 +523,7 @@
                 codeDescr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
             }
             if (codeDescr != null) {
-                sb.append(Encode.forHtml(codeDescr));
+                sb.append(SafeEncode.forHtml(codeDescr));
             } else {
                 sb.append(drugReason.getCode());
             }

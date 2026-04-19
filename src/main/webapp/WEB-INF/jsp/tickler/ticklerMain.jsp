@@ -45,11 +45,14 @@
 <%@ page import="java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -57,7 +60,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -154,7 +157,7 @@
     <head>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
@@ -283,12 +286,12 @@
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
-            const i18nAllLabs = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgAllLabs"))%>';
-            const i18nErrorLoadFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorLoadFailed"))%>';
-            const i18nErrorSaveViewFailed = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgErrorSaveViewFailed"))%>';
-            const i18nEditTickler = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipEdit"))%>';
-            const i18nAddNote = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipAddNote"))%>';
-            const i18nViewAttachment = '<%=org.owasp.encoder.Encode.forJavaScript((String) pageContext.getAttribute("msgTooltipViewAttachment"))%>';
+            const i18nAllLabs = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAllLabs") %>' context="javaScriptBlock"/>';
+            const i18nErrorLoadFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorLoadFailed") %>' context="javaScriptBlock"/>';
+            const i18nErrorSaveViewFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorSaveViewFailed") %>' context="javaScriptBlock"/>';
+            const i18nEditTickler = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipEdit") %>' context="javaScriptBlock"/>';
+            const i18nAddNote = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipAddNote") %>' context="javaScriptBlock"/>';
+            const i18nViewAttachment = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipViewAttachment") %>' context="javaScriptBlock"/>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -316,7 +319,7 @@
                         url: '${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json'
                         },
                     ajax: {
-                        url: ctx + '/tickler/ListTicklers.do',
+                        url: ctx + '/tickler/ListTicklers',
                         type: 'GET',
                         error: function(xhr, error, thrown) {
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
@@ -364,7 +367,7 @@
                             orderable: false,
                             render: function(data) {
                                 var name = escapeHtml(data.demographicName || 'N/A');
-                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/DemographicEdit.do?demographic_no=' + encodeURIComponent(data.demographicNo) + '\')">' + name + '</a>';
+                                return '<a class="nav-link" href="javascript:void(0)" onClick="popupPage(600,800,\'' + ctx + '/demographic/DemographicEdit?demographic_no=' + encodeURIComponent(data.demographicNo) + '\')">' + name + '</a>';
                             }
                         },
                         {
@@ -480,7 +483,7 @@
              * checkmark so the user has a visual cue that this tickler has been opened.
              */
             function openTicklerEdit(link, ticklerNo) {
-                window.open(ctx + '/tickler/ViewTicklerEdit.do?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
                 var icon = link.querySelector('span');
                 if (icon) {
                     icon.classList.remove('fa-pencil-alt');
@@ -502,15 +505,15 @@
                 if (tableName === 'MDS') {
                     url = 'javascript:reportWindow(\'SegmentDisplay.jsp?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'CML') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ALL/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'DOC' || tableName === 'document') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
-                    url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display.do?id=' + encodedId + '&segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display?id=' + encodedId + '&segmentID=' + encodedId + '\')';
                 } else {
-                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay.do?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }
                 return ' <a title="' + i18nViewAttachment + '" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }
@@ -527,7 +530,7 @@
                 document.getElementById('tickler_note_obsDate').innerHTML = '';
 
                 jQuery.ajax({
-                    method: "POST", url: ctx + '/CaseManagementEntry.do',
+                    method: "POST", url: ctx + '/CaseManagementEntry',
                     data: {method: "ticklerGetNote", ticklerNo: document.getElementById('tickler_note_ticklerNo').value},
                     async: false,
                     dataType: 'json',
@@ -536,7 +539,7 @@
                             document.getElementById('tickler_note_noteId').value = data.noteId;
                             document.getElementById('tickler_note').value = data.note;
                             document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry.do?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
+                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
                             document.getElementById('tickler_note_editor').textContent = data.editor;
                             document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
                         }
@@ -544,7 +547,7 @@
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error('[ticklerMain] Failed to load note for dialog (HTTP ' + jqXHR.status + '):', errorThrown);
-                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerMain.errorNoteLoadFailed"))%>');
+                        alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.errorNoteLoadFailed") %>' context="javaScriptBlock"/>');
                     }
                 });
             }
@@ -555,7 +558,7 @@
 
             function saveNoteDialog() {
                 jQuery.ajax({
-                    url: ctx + '/CaseManagementEntry.do',
+                    url: ctx + '/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
                         noteId: document.getElementById('tickler_note_noteId').value,
@@ -569,7 +572,7 @@
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.error('[ticklerMain] Failed to save note (HTTP ' + jqXHR.status + '):', errorThrown);
-                        alert('<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerMain.errorNoteSaveFailed"))%>');
+                        alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.errorNoteSaveFailed") %>' context="javaScriptBlock"/>');
                     }
                 });
             }
@@ -622,12 +625,12 @@
             }
 
             function saveView() {
-                let url = ctx + "/saveWorkView.do";
+                let url = ctx + "/saveWorkView";
                 let params = {
                     method: 'save',
                     view_name: 'tickler',
-                    userrole: '<%= Encode.forJavaScript(userRole) %>',
-                    providerno: '<%= Encode.forJavaScript(user_no) %>',
+                    userrole: '<carlos:encode value='<%= userRole %>' context="javaScriptBlock"/>',
+                    providerno: '<carlos:encode value='<%= user_no %>' context="javaScriptBlock"/>',
                     ticklerview: document.getElementById('ticklerview').value,
                     providerview: document.getElementById('providerview').value,
                     assignedTo: document.getElementById('assignedTo').value,
@@ -646,7 +649,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<%=Encode.forJavaScript(demographic_no)%>');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= demographic_no %>' context="javaScript"/>');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data && (data === 'refresh' || data.action === 'refresh')) {
@@ -685,9 +688,9 @@
                 </h4>
             </div>
 
-        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain.do">
+        <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain">
             <input type="hidden" name="Submit" value="">
-            <input type="hidden" name="demoview" value="<%=org.owasp.encoder.Encode.forHtmlAttribute(isDemoView ? demographic_no : "")%>">
+            <input type="hidden" name="demoview" value="<carlos:encode value='<%= isDemoView ? demographic_no : "" %>' context="htmlAttribute"/>">
 
             <c:if test="${not hasDemoView}">
                 <div class="row mb-2">
@@ -704,14 +707,14 @@
                     <label for="xml_vdate" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formFrom"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
+                               value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                 <div class="row mb-2">
                     <label for="xml_appointment_date" class="col-sm-3 col-form-label"><fmt:message key="tickler.ticklerMain.formTo"/></label>
                     <div class="col-sm-9">
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
+                               value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                 <div class="row mb-2">
@@ -724,7 +727,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><carlos:encode value='<%= p.getLastName() %>' context="html"/>,<carlos:encode value='<%= p.getFirstName() %>' context="html"/></option>
                             <%
                                 }
                             %>
@@ -741,7 +744,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>,<%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><carlos:encode value='<%= p.getLastName() %>' context="html"/>,<carlos:encode value='<%= p.getFirstName() %>' context="html"/></option>
                             <%
                                 }
                             %>
@@ -761,10 +764,10 @@
                         <script>
                             let _providers = {};
                             <%for (int i=0; i<sites.size(); i++) {%>
-                            _providers["<%=Encode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
+                            _providers["<%=SafeEncode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
                                 Provider p=iter.next();
-                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo()))%>'><%=Encode.forJavaScript(Encode.forHtml(p.getLastName()))%>, <%=Encode.forJavaScript(Encode.forHtml(p.getFirstName()))%></option><%}%>";
+                                if ("1".equals(p.getStatus())) {%><option value='<%=SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo()))%>'><%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName()))%>, <%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName()))%></option><%}%>";
                             <%}}%>
 
                             function changeSite(sel) {
@@ -776,7 +779,7 @@
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(sites.get(i).getSiteId().toString())%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(sites.get(i).getName())%></option>
+                            <option value="<carlos:encode value='<%= sites.get(i).getSiteId().toString() %>' context="htmlAttribute"/>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/></option>
                             <%
                                 }
                             %>
@@ -787,7 +790,7 @@
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=org.owasp.encoder.Encode.forJavaScript(StringUtils.noNull(request.getParameter("assignedTo")))%>';
+                            document.getElementById("assignedTo").value = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("assignedTo")) %>' context="javaScriptBlock"/>';
                         </script>
                         <%
                             }
@@ -807,7 +810,7 @@
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=org.owasp.encoder.Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=org.owasp.encoder.Encode.forHtml(p.getLastName())%>, <%=org.owasp.encoder.Encode.forHtml(p.getFirstName())%></option>
+                            <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><carlos:encode value='<%= p.getLastName() %>' context="html"/>, <carlos:encode value='<%= p.getFirstName() %>' context="html"/></option>
                             <%
                                 }
                             %>
@@ -851,8 +854,8 @@
             </c:if>
         </form>
 
-        <form name="ticklerform" method="post" action="DbTicklerMain.do">
-            <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
+        <form name="ticklerform" method="post" action="DbTicklerMain">
+            <input type="hidden" name="parentAjaxId" value="${carlos:forHtmlAttribute(param.parentAjaxId)}"/>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>
@@ -900,7 +903,7 @@
                         %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
-                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler.do?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                               onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">
                         <%-- Back: tries opener reload (if opened as popup), then history back,
                              then window close as last resort. Matches search.jsp pattern. --%>
                         <input type="button" name="button" class="btn btn-secondary"
@@ -912,10 +915,6 @@
             </table>
             </div>
         </form>
-
-        <p class="yesprint">
-            <%=CarlosProperties.getConfidentialityStatement()%>
-        </p>
 
         <div id="note-form" title="<fmt:message key='tickler.ticklerMain.noteDialogTitle'/>" style="display:none;">
             <form>

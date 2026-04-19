@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -77,7 +77,7 @@
     </div>
 <% } %>
     <table>
-        <form action="encounter/oscarMeasurements/SetupAddMeasurementGroup.do">
+        <form action="encounter/oscarMeasurements/SetupAddMeasurementGroup">
             <tr>
                 <input type="hidden" name="groupName" value="<%= groupName %>"/>
                 <td>Processing...</td>

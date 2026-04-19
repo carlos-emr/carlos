@@ -98,15 +98,14 @@
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String userrole = (String) session.getAttribute("userrole");
@@ -117,7 +116,7 @@
 <%-- Security tag: Verify user has write permissions for messaging module --%>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit page execution if user is not authorized
@@ -129,12 +128,12 @@
 
 <%-- Session validation: Ensure message session bean exists and is valid --%>
 <c:if test="${empty sessionScope.msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty sessionScope.msgSessionBean}">
     <c:set var="bean" value="${sessionScope.msgSessionBean}" scope="page"/>
     <c:if test="${bean.valid == false}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 
@@ -242,12 +241,12 @@
 
 // Encoded i18n strings for use in JavaScript — single quotes in French translations
 // (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
-var msgEmptyMessage     = '${e:forJavaScript(msg_EmptyMessage)}';
-var msgNoProvider       = '${e:forJavaScript(msg_NoProvider)}';
-var msgArchiveFailed    = '${e:forJavaScript(msg_ArchiveFailed)}';
-var msgArchiveError     = '${e:forJavaScript(msg_ArchiveError)}';
-var msgArchiveTimeout   = '${e:forJavaScript(msg_ArchiveTimeout)}';
-var msgSelectDemographic = '${e:forJavaScript(msg_SelectDemographic)}';
+var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
+var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
+var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
+var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
+var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
+var msgSelectDemographic = '${carlos:forJavaScript(msg_SelectDemographic)}';
 
 // Displays a dismissable Bootstrap alert in the fixed alert container at the top of the page.
 // type: Bootstrap contextual class ('warning', 'danger', 'info', 'success')
@@ -346,7 +345,7 @@ function validateFields() {
 			return;
 		}
 
-		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
+		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages';
 
 		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -375,7 +374,7 @@ function validateFields() {
 	    var vheight = 700;
 	    var vwidth = 900;
 	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
+	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' +demographic;
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
 	        showAlert(msgSelectDemographic, 'warning');
@@ -400,7 +399,7 @@ function validateFields() {
 			String createMsgError = (String) request.getAttribute("createMessageError");
 			if (createMsgError == null) { createMsgError = ""; }
 		%>
-		var submissionerror = '<%= Encode.forJavaScript(createMsgError) %>';
+		var submissionerror = '<carlos:encode value='<%= createMsgError %>' context="javaScriptBlock"/>';
 		if(submissionerror)
 		{
 			showAlert(submissionerror, 'danger');
@@ -414,9 +413,9 @@ function validateFields() {
 
         // Pre-populate the selected demographic display field if a patient is linked.
         // Done here (after DOM is ready) so the selectedDemo input exists before access.
-        if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
-            document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-            document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
+        if ('<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>' && '<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>' !== 'null') {
+            document.forms[0].selectedDemo.value = "<carlos:encode value='<%= demoName %>' context="javaScriptBlock"/>";
+            document.forms[0].demographic_no.value = "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>";
         }
 
         // Initialize keyword autocomplete for inline demographic search
@@ -457,10 +456,10 @@ function validateFields() {
 			<tr>
 
 						<td><div style="display:flex; padding-left:10px;">
-						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.do">
+						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
                             <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
@@ -474,7 +473,7 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
+				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -492,8 +491,8 @@ function validateFields() {
 								<td style="padding: 10px 5px; min-width:fit-content;"  class="d-flex flex-wrap align-items-center gap-2"><!--list of the providers cell Start-->
 									<%if(recall){ %>
 										<div>
-											<input name="provider" value="<%=Encode.forHtmlAttribute(delegate)%>" type="checkbox" checked>
-											<strong><a title="default recall delegate: <%=Encode.forHtmlAttribute(delegateName)%>">default: <%=Encode.forHtml(delegateName)%></a></strong>
+											<input name="provider" value="<carlos:encode value='<%= delegate %>' context="htmlAttribute"/>" type="checkbox" checked>
+											<strong><a title="default recall delegate: <carlos:encode value='<%= delegateName %>' context="htmlAttribute"/>">default: <carlos:encode value='<%= delegateName %>' context="html"/></a></strong>
 										</div>
 									<%} %>
 
@@ -507,7 +506,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
 															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" >${carlos:forHtml(group.key.groupDesc)}</label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -516,7 +515,7 @@ function validateFields() {
 															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+															${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 														</label>
 													</div>
 												</c:forEach>
@@ -548,7 +547,7 @@ function validateFields() {
 													<input type="checkbox" name="provider" id="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }"
 														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
 													<label for="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
-														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
+														${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 													</label>
 												</div>
 
@@ -565,9 +564,9 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="<c:out value="${messageSubject}"/>"> </div>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
-					<textarea name="message" rows="15" style="min-width: 100%"><c:out value="${messageBody}"/></textarea>
+					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>
 							<table>
 								<tr>
 									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
@@ -602,7 +601,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td style="width: 40%;">
-                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
+                      <input type="text" name="keyword" id="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo('${pageContext.request.contextPath}', document.forms[0].keyword.value)" >

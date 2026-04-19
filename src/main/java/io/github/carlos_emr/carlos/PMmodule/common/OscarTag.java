@@ -72,7 +72,7 @@ public class OscarTag implements Tag {
             } else if (p.equals("")) {
                 pc.getOut().print("");
             } else {
-                p = p.substring(0, p.lastIndexOf("/") + 1) + "providercontrol.do?" + q;
+                p = p.substring(0, p.lastIndexOf("/") + 1) + "providercontrol?" + q;
                 String temps = "<a href='" + p + "'>CARLOS Medical</a>";
                 pc.getOut().print(temps);
             }

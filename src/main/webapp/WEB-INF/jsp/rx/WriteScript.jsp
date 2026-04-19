@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -45,18 +46,17 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptForm" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%long start = System.currentTimeMillis();%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -86,7 +86,7 @@
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="/rx/searchDrug.do"/>
+                <c:redirect url="/rx/searchDrug"/>
             </c:if>
         </c:if>
 
@@ -830,12 +830,12 @@
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
-    <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript.do" style="display:none">
+    <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript" style="display:none">
         <input type="hidden" name="stashId" value=""/>
         <input type="hidden" name="favoriteName" value=""/>
     </form>
 
-    <form action="${pageContext.request.contextPath}/rx/writeScript.do" method="post" id="frm" name="frm">
+    <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
     <input type="hidden" name="action" id="action"/>
 
@@ -1012,7 +1012,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug.do"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1265,7 +1265,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
                                             function setQuantity() {
-                                                var path = "<c:out value="${ctx}"/>";
+                                                var path = "${carlos:forJavaScript(ctx)}";
                                                 oscarLog("here1");
                                                 oscarLog("path in setQuantity" + path);
                                                 var sugQtyLbl = document.getElementById('lblSugQty');
@@ -1465,7 +1465,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </div>-->
                             <script language=javascript>
                                 function submitPending(stashId, action) { //calls stash action
-                                    var path = "<c:out value="${ctx}"/>";
+                                    var path = "${carlos:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
                                     var frm = document.getElementsByName("RxStashForm");
                                     frm[0].elements["stashId"].value = stashId;
@@ -1473,7 +1473,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     frm[0].submit();
                                 }
                             </script>
-                            <form action="${pageContext.request.contextPath}/rx/stash.do" method="post">
+                            <form action="${pageContext.request.contextPath}/rx/stash" method="post">
                                 <input type="hidden" name="action" value="">
                                 <input type="hidden" name="stashId"/>
                             </form>
@@ -1491,7 +1491,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                         <td>
                             <script type="text/javascript">
                                 function ShowDrugInfo(GN) {
-                                    window.open("<%= request.getContextPath() %>/rx/drugInfo.do?GN=" + encodeURIComponent(GN), "_blank",
+                                    window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(GN), "_blank",
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
 
@@ -1534,7 +1534,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
-                                                        <c:out value="${rx.rxDisplay}"/>
+                                                        ${carlos:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>
@@ -1544,7 +1544,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<%=Encode.forJavaScript((String)pageContext.getAttribute("drugNameForFavorite"))%>');">
+                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>
@@ -1606,7 +1606,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
                 function getRenalDosingInformation(origRequest) {
                     var dummie = "";
-                    var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing.do";
+                    var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
@@ -1624,7 +1624,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     CarlosAjax.updater(id, url, {method: 'GET', parameters: params});
                 }
 
-                // callReplacementWebService("/rx/ViewInteractionDisplay.do",'interactionsRx');
+                // callReplacementWebService("/rx/ViewInteractionDisplay",'interactionsRx');
 
             </script>
         </td>

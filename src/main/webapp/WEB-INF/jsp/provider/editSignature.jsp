@@ -34,12 +34,13 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!-- add by caisi end<style>* {border:1px solid black;}</style> -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 
 <%
@@ -52,7 +53,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css"
@@ -69,7 +70,7 @@
         <iframe id="hiddenFrame" src="javascript:void(0)" style="display: none"></iframe>
         <script>
             function toggleSig(n) {
-                // Function disabled - infirm.do action no longer exists
+                // Function disabled - infirm action no longer exists
             }
         </script>
 
@@ -92,13 +93,13 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/EnterSignature.do" method="post">
+            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/EnterSignature" method="post">
                 <%
                     if (sig.hasSignature(curUser_no)) {
                 %>
                 <label for="signature"><fmt:message key="provider.editSignature.msgEdit"/></label>
                 <br>
-                <input type="text" name="signature" id="signature" size="40" value="<%= Encode.forHtmlAttribute(sig.getSignature(curUser_no)) %>" />
+                <input type="text" name="signature" id="signature" size="40" value="<carlos:encode value='<%= sig.getSignature(curUser_no) %>' context="htmlAttribute"/>" />
                 <br>
 
                 <!-- add by caisi -->

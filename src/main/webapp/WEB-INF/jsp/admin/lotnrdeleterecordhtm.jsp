@@ -41,6 +41,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String curProvider_no, userfirstname, userlastname;
     curProvider_no = (String) session.getAttribute("user");
@@ -57,7 +58,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -107,14 +108,14 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.admin.delete_lot_nr.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrDeleteRecord.do" name="deletelotnr"
+        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrDeleteRecord" name="deletelotnr"
               onsubmit="return onsub();">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>
                     <td width="50%" align="right"><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <input type="text" name="prevention" size=30 maxlength="30"
-                               value="<%=request.getParameter("prevention")==null?"":Encode.forHtmlAttribute(request.getParameter("prevention"))%>">
+                               value="<%=request.getParameter("prevention")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("prevention"))%>">
                     </td>
                 </tr>
 
@@ -123,7 +124,7 @@
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"
-                               value="<%=request.getParameter("lotnr")==null?"":Encode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
+                               value="<%=request.getParameter("lotnr")==null?"":SafeEncode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
                 </tr>
 
                 <tr>

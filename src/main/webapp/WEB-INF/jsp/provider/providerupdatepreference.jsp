@@ -52,9 +52,11 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -65,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="java.util.UUID" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
     <head>
@@ -89,7 +92,7 @@
         <%
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             if (loggedInInfo == null) {
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
                 return;
             }
 
@@ -126,7 +129,7 @@
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                             "Invalid provider number for tickler warning. Correlation ID: {}. Provider: {}",
                             correlationId,
-                            org.owasp.encoder.Encode.forJava(ticklerforproviderno)
+                            org.owasp.encoder.SafeEncode.forJava(ticklerforproviderno)
                         );
                         errorDetails = "Invalid provider number. Please contact support with ID: " + correlationId;
                     }
@@ -186,7 +189,7 @@
         <div style="color: red; font-weight: bold; padding: 20px; text-align: center;">
             <p><fmt:message key="provider.providerupdatepreference.error"/></p>
             <% if (errorDetails != null && !errorDetails.isEmpty()) { %>
-            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <%= org.owasp.encoder.Encode.forHtml(errorDetails) %></p>
+            <p style="font-size: 0.9em; color: #666;"><fmt:message key="provider.providerupdatepreference.error.details"/>: <carlos:encode value='<%= errorDetails %>' context="html"/></p>
             <% } %>
             <p><fmt:message key="provider.providerupdatepreference.error.retry"/></p>
         </div>

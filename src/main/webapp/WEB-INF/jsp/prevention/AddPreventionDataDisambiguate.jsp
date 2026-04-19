@@ -50,20 +50,20 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_prevention" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_prevention");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_prevention");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -303,7 +303,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention.do?snomedId=<%=Encode.forUriComponent(String.valueOf(mapping.getCvcSnomedId()))%>&prevention=<%= Encode.forUriComponent(prevention) %>&demographic_no=<%=Encode.forUriComponent(demographicNo)%>&prevResultDesc=<%=Encode.forUriComponent(prevResultDesc)%>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><%=i.getPicklistName()%>
                         </a></li>
                     <% }
                     } %>

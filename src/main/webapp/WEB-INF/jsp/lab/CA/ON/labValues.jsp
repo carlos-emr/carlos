@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,13 +50,14 @@
 <%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String labType = request.getParameter("labType");
@@ -155,7 +156,7 @@
 
 <%} else {%>
 <div class="container">
-    <form name="acknowledgeForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus.do">
+    <form name="acknowledgeForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/UpdateStatus">
 
         <table>
             <tr>
@@ -180,22 +181,22 @@
                                                             <tr>
                                                                 <td>
                                                                     <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
-                                                                        <%=Encode.forHtml(demographic.getFormattedName())%>
+                                                                        <carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
                                                                     </div>
 
                                                                 </td>
                                                                 <td>
-                                                                    <div class="" nowrap><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><%=Encode.forHtml(demographic.getSex())%>
+                                                                    <div class="" nowrap><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><carlos:encode value='<%= demographic.getSex() %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <%=Encode.forHtml(DemographicData.getDob(demographic, "-"))%>
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <carlos:encode value='<%= DemographicData.getDob(demographic, "-") %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><%=Encode.forHtml(String.valueOf(demographic.getAge()))%>
+                                                                    <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><carlos:encode value='<%= String.valueOf(demographic.getAge()) %>' context="html"/>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -248,17 +249,17 @@
                         %>
 
                         <tr class="<%=lineClass%>">
-                            <td><%=Encode.forHtml(String.valueOf(h.get("testName"))) %>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("testName")) %>' context="html"/>
                             </td>
-                            <td><%=Encode.forHtml(String.valueOf(h.get("result"))) %>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("result")) %>' context="html"/>
                             </td>
-                            <td><%=Encode.forHtml(String.valueOf(h.get("abn"))) %>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("abn")) %>' context="html"/>
                             </td>
-                            <td><%=Encode.forHtml(String.valueOf(h.get("range")))%>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("range")) %>' context="html"/>
                             </td>
-                            <td><%=Encode.forHtml(String.valueOf(h.get("units"))) %>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
                             </td>
-                            <td><%=Encode.forHtml(String.valueOf(h.get("collDate")))%>
+                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
                             </td>
                         </tr>
 
@@ -278,7 +279,7 @@
                                                                                      value=" <fmt:message key="global.btnPrint"/> "
                                                                                      onClick="window.print()">
                                 <input type="button" value="Plot" class="btn btn-primary DoNotPrint"
-                                       onclick="window.location = '<%= Encode.forJavaScript(request.getContextPath()) %>/lab/CA/ON/ViewLabValuesGraph.do?demographic_no=<%= Encode.forUriComponent(String.valueOf(demographicNo)) %>&labType=<%= Encode.forUriComponent(labType) %>&identifier=<%= Encode.forUriComponent(identifier) %>&testName=<%= Encode.forUriComponent(testName) %>';"/>
+                                       onclick="window.location = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/lab/CA/ON/ViewLabValuesGraph?demographic_no=<carlos:encode value='<%= String.valueOf(demographicNo) %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/>';"/>
 
                             </td>
                         </tr>

@@ -47,7 +47,7 @@ import java.util.Enumeration;
  * <p>Replaces {@code billing/dbManageBillingform_premium_delete.jsp}. Iterates over all
  * request parameter names that contain the word {@code "service"} and removes every
  * {@link CtlBillingServicePremium} entry whose service code matches the parameter value.
- * Redirects to {@code manageBillingform.jsp} on completion.
+ * Redirects to {@code ManageBillingform} on completion.
  *
  * @since 2026-04-05
  */
@@ -98,7 +98,7 @@ public class DbManageBillingformPremiumDelete2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/manageBillingform.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingform");
         return NONE;
     }
 }

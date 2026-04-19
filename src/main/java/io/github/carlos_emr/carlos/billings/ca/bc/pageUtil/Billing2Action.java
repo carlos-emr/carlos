@@ -46,8 +46,12 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class Billing2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -57,14 +61,15 @@ public final class Billing2Action extends ActionSupport {
     public String execute() throws IOException,
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingSessionBean bean = null;
         String region = request.getParameter("billRegion") != null ? request.getParameter("billRegion") : CarlosProperties.getProperties().getProperty("billregion");
 
         if ("ON".equals(region)) {
-            String newURL = request.getContextPath() + "/billing/CA/ON/billingOB.jsp";
-            newURL = newURL + "?" + request.getQueryString();
-            response.sendRedirect(newURL);
-            return NONE;
+            return "ON";
         } else {
             if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {

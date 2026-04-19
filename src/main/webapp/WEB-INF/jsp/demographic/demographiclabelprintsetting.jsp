@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,7 +45,7 @@
 %>
 
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -57,14 +57,17 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String curProvider_no = (String) session.getAttribute("user");
 
     java.util.Properties oscarVariables = CarlosProperties.getInstance();
@@ -160,30 +163,30 @@
         String phone2Raw = (phone2 == null ? "" : phone2);
         String phone2Display = phone2Raw.isEmpty()
             ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
-            : (Encode.forHtml(phone2Raw) + "&nbsp;");
+            : (SafeEncode.forHtml(phone2Raw) + "&nbsp;");
     %>
 
-    <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic.do">
+    <form method="post" class="" name="labelprint" action="<%= request.getContextPath() %>/demographic/ViewDemographicPrintDemographic">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgLabel"/></th>
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgNumeberOfLabel"/></th>
                     <th><fmt:message key="demographic.demographiclabelprintsetting.msgLocation"/>
-                        <input type="hidden" name="address" value="<%=Encode.forHtmlAttribute(address)%>">
-                        <input type="hidden" name="chart_no" value="<%=Encode.forHtmlAttribute(chart_no)%>">
-                        <input type="hidden" name="city" value="<%=Encode.forHtmlAttribute(city)%>">
-                        <input type="hidden" name="dob" value="<%=Encode.forHtmlAttribute(dob)%>">
-                        <input type="hidden" name="first_name" value="<%=Encode.forHtmlAttribute(first_name)%>">
-                        <input type="hidden" name="hin" value="<%=Encode.forHtmlAttribute(hin)%>">
-                        <input type="hidden" name="last_name" value="<%=Encode.forHtmlAttribute(last_name)%>">
-                        <input type="hidden" name="phone" value="<%=Encode.forHtmlAttribute(phone)%>">
-                        <input type="hidden" name="phone2" value="<%=Encode.forHtmlAttribute(phone2Raw)%>">
-                        <input type="hidden" name="postal" value="<%=Encode.forHtmlAttribute(postal)%>">
-                        <input type="hidden" name="providername" value="<%=Encode.forHtmlAttribute(providername)%>">
-                        <input type="hidden" name="province" value="<%=Encode.forHtmlAttribute(province)%>">
-                        <input type="hidden" name="sex" value="<%=Encode.forHtmlAttribute(sex)%>">
-                        <input type="hidden" name="age" value="<%=Encode.forHtmlAttribute(String.valueOf(age))%>">
+                        <input type="hidden" name="address" value="<carlos:encode value='<%= address %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="chart_no" value="<carlos:encode value='<%= chart_no %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="city" value="<carlos:encode value='<%= city %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="dob" value="<carlos:encode value='<%= dob %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="first_name" value="<carlos:encode value='<%= first_name %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="hin" value="<carlos:encode value='<%= hin %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="last_name" value="<carlos:encode value='<%= last_name %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="phone" value="<carlos:encode value='<%= phone %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="phone2" value="<carlos:encode value='<%= phone2Raw %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="postal" value="<carlos:encode value='<%= postal %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="providername" value="<carlos:encode value='<%= providername %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="province" value="<carlos:encode value='<%= province %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="sex" value="<carlos:encode value='<%= sex %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="age" value="<carlos:encode value='<%= String.valueOf(age) %>' context="htmlAttribute"/>">
                     </th>
                 </tr>
                 <tr>
@@ -191,13 +194,13 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext1" class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
+				<span id="copytext1" class="copytext"> <b><carlos:encode value='<%= last_name %>' context="html"/>,&nbsp;<carlos:encode value='<%= first_name %>' context="html"/></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<carlos:encode value='<%= hin %>' context="html"/><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<carlos:encode value='<%= dob %>' context="html"/>&nbsp;<carlos:encode value='<%= sex %>' context="html"/><br>
 				<br>
-				<b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%></b><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(hin)%><br>
-				&nbsp;&nbsp;&nbsp;&nbsp;<%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br>
+				<b><carlos:encode value='<%= last_name %>' context="html"/>,&nbsp;<carlos:encode value='<%= first_name %>' context="html"/></b><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<carlos:encode value='<%= hin %>' context="html"/><br>
+				&nbsp;&nbsp;&nbsp;&nbsp;<carlos:encode value='<%= dob %>' context="html"/>&nbsp;<carlos:encode value='<%= sex %>' context="html"/><br>
 				</span></td>
                             </tr>
                         </table>
@@ -253,10 +256,10 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext2"
-                      class="copytext"> <b><%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(chart_no)%></b><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
-				<fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<%=Encode.forHtml(phone)%><br><%=Encode.forHtml(dob)%>&nbsp;<%=Encode.forHtml(sex)%><br><%=Encode.forHtml(hin)%><br>
+                      class="copytext"> <b><carlos:encode value='<%= last_name %>' context="html"/>,&nbsp;<carlos:encode value='<%= first_name %>' context="html"/>&nbsp;<carlos:encode value='<%= chart_no %>' context="html"/></b><br><carlos:encode value='<%= address %>' context="html"/><br><carlos:encode value='<%= city %>' context="html"/>,&nbsp;<carlos:encode value='<%= province %>' context="html"/>,&nbsp;<carlos:encode value='<%= postal %>' context="html"/><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgHome"/>:&nbsp;<carlos:encode value='<%= phone %>' context="html"/><br><carlos:encode value='<%= dob %>' context="html"/>&nbsp;<carlos:encode value='<%= sex %>' context="html"/><br><carlos:encode value='<%= hin %>' context="html"/><br>
 				<fmt:message key="demographic.demographiclabelprintsetting.msgBus"/>:<%=phone2Display%>&nbsp;
-				<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<%=Encode.forHtml(providername)%><br>
+				<fmt:message key="demographic.demographiclabelprintsetting.msgDr"/>&nbsp;<carlos:encode value='<%= providername %>' context="html"/><br>
 				</span></td>
                             </tr>
                         </table>
@@ -271,7 +274,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext3" class="copytext"> <%=Encode.forHtml(last_name)%>,&nbsp;<%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
+				<span id="copytext3" class="copytext"> <carlos:encode value='<%= last_name %>' context="html"/>,&nbsp;<carlos:encode value='<%= first_name %>' context="html"/><br><carlos:encode value='<%= address %>' context="html"/><br><carlos:encode value='<%= city %>' context="html"/>,&nbsp;<carlos:encode value='<%= province %>' context="html"/>,&nbsp;<carlos:encode value='<%= postal %>' context="html"/><br>
 				</span></td>
                             </tr>
                         </table>
@@ -286,7 +289,7 @@
                         <table style="width:90%">
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
-				<span id="copytext4" class="copytext"> <%=Encode.forHtml(first_name)%>&nbsp;<%=Encode.forHtml(last_name)%><br><%=Encode.forHtml(address)%><br><%=Encode.forHtml(city)%>,&nbsp;<%=Encode.forHtml(province)%>,&nbsp;<%=Encode.forHtml(postal)%><br>
+				<span id="copytext4" class="copytext"> <carlos:encode value='<%= first_name %>' context="html"/>&nbsp;<carlos:encode value='<%= last_name %>' context="html"/><br><carlos:encode value='<%= address %>' context="html"/><br><carlos:encode value='<%= city %>' context="html"/>,&nbsp;<carlos:encode value='<%= province %>' context="html"/>,&nbsp;<carlos:encode value='<%= postal %>' context="html"/><br>
 				</span></td>
                             </tr>
                         </table>
@@ -303,8 +306,8 @@
                             <tr>
                                 <td style="border: solid 1px; background-color: white;">
 				<span id="copytext5"
-                      class="copytext"> <%=Encode.forHtml(chart_no)%> &nbsp;&nbsp;<%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%><br><%=Encode.forHtml(address)%>, <%=Encode.forHtml(city)%>, <%=Encode.forHtml(province)%>, <%=Encode.forHtml(postal)%>
-				<br><%=Encode.forHtml(dob)%> &nbsp;&nbsp;&nbsp;<%=Encode.forHtml(String.valueOf(age))%> <%=Encode.forHtml(sex)%> &nbsp;<%=Encode.forHtml(hin)%><br><%=Encode.forHtml(phone)%>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><%=Encode.forHtml(refDoc)%>
+                      class="copytext"> <carlos:encode value='<%= chart_no %>' context="html"/> &nbsp;&nbsp;<carlos:encode value='<%= last_name %>' context="html"/>, <carlos:encode value='<%= first_name %>' context="html"/><br><carlos:encode value='<%= address %>' context="html"/>, <carlos:encode value='<%= city %>' context="html"/>, <carlos:encode value='<%= province %>' context="html"/>, <carlos:encode value='<%= postal %>' context="html"/>
+				<br><carlos:encode value='<%= dob %>' context="html"/> &nbsp;&nbsp;&nbsp;<carlos:encode value='<%= String.valueOf(age) %>' context="html"/> <carlos:encode value='<%= sex %>' context="html"/> &nbsp;<carlos:encode value='<%= hin %>' context="html"/><br><carlos:encode value='<%= phone %>' context="html"/>&nbsp;&nbsp;&nbsp;<%=phone2Display%><br><carlos:encode value='<%= refDoc %>' context="html"/>
 				</span></td>
                             </tr>
                         </table>

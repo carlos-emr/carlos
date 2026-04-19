@@ -81,7 +81,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -89,9 +89,8 @@
     }
 %>
 
-<%@ page import="java.lang.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     String demographic_no = request.getParameter("demographic_no");
     boolean firstSearch = request.getParameter("firstSearch") == null ? false : (request.getParameter("firstSearch")).equalsIgnoreCase("true") ? true : false;
@@ -105,6 +104,8 @@
 <body
         onload="<% if ( firstSearch) { %> document.forms[0].submit() <% } %>">
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -154,7 +155,7 @@
 <table BORDER="0" CELLPADDING="0" CELLSPACING="2" WIDTH="100%"
        bgcolor="#CCCCFF">
     <form method="post" name="titlesearch"
-          action="<%= request.getContextPath() %>/demographic/DemographicSearch.do"
+          action="<%= request.getContextPath() %>/demographic/DemographicSearch"
           onsubmit="return checkTypeIn()">
         <tr>
             <td colspan="6" class="RowTop"><b><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/></b></td>
@@ -174,7 +175,7 @@
                         <td nowrap></td>
                         <td nowrap></td>
                         <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
-                                                                            NAME="keyword" VALUE="<%=Encode.forHtmlAttribute(keyword)%>"
+                                                                            NAME="keyword" VALUE="<carlos:encode value='<%= keyword %>' context="htmlAttribute"/>"
                                                                             SIZE="17" MAXLENGTH="100">
                             <%
                                 String searchMode = request.getParameter("search_mode");
@@ -183,7 +184,7 @@
                                 }
                             %>
                             <input type="hidden" name="outofdomain" value="">
-                            <input type="hidden" name="search_mode" value="<%= Encode.forHtmlAttribute(searchMode) %>">
+                            <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
                             <INPUT TYPE="hidden" NAME="orderby" VALUE="last_name, first_name">
                             <INPUT TYPE="hidden" NAME="dboperation" VALUE="search_titlename">
                             <INPUT TYPE="hidden" NAME="limit1" VALUE="0"> <INPUT
@@ -214,8 +215,8 @@
 </table>
 <script>
     // Auto-close window and write selection back to parent if demographic was selected
-    if ("<%=Encode.forJavaScript(demographic_no)%>" != "null") {
-        write2Parent("<%=Encode.forJavaScript(keyword)%>", "<%=Encode.forJavaScript(demographic_no)%>");
+    if ("<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>" != "null") {
+        write2Parent("<carlos:encode value='<%= keyword %>' context="javaScriptBlock"/>", "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>");
         self.window.close();
     }
 </script>

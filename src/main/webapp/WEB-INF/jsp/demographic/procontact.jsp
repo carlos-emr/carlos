@@ -30,63 +30,67 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="demographic.procontact.title.consentToContact" var="procontactConsentTitle"/>
+<fmt:message key="demographic.procontact.title.active" var="procontactActiveTitle"/>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String id = request.getParameter("id");
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     request.setAttribute("providers", providerDao.getActiveProviders());
 %>
 
-<div id="procontact_<%= Encode.forHtmlAttribute(id) %>">
-    <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.id" id="procontact_<%= Encode.forHtmlAttribute(id) %>.id" value=""/>
+<div id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>">
+    <input type="hidden" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.id" value=""/>
 
-    <a href="#" onclick="deleteProContact(<%= Encode.forJavaScriptAttribute(id) %>);">[Delete]</a>
+    <a href="#" onclick="deleteProContact(<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>);">[<fmt:message key="global.btnDelete"/>]</a>
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.role" id="procontact_<%= Encode.forHtmlAttribute(id) %>.role">
-        <option value="Referring Doctor">Referring Doctor</option>
-        <option value="Family Doctor">Family Doctor</option>
-        <option value="Specialist">Specialist</option>
-        <option value="Dietician">Dietician</option>
+    <select name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.role">
+        <option value="Referring Doctor"><fmt:message key="demographic.procontact.role.referringDoctor"/></option>
+        <option value="Family Doctor"><fmt:message key="demographic.procontact.role.familyDoctor"/></option>
+        <option value="Specialist"><fmt:message key="demographic.procontact.role.specialist"/></option>
+        <option value="Dietician"><fmt:message key="demographic.procontact.role.dietician"/></option>
     </select>
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.consentToContact" id="procontact_<%= Encode.forHtmlAttribute(id) %>.consentToContact"
-            title="Consent to Contact">
-        <option value="1">Consent</option>
-        <option value="0">No Consent</option>
+    <select name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.consentToContact"
+            title="${procontactConsentTitle}">
+        <option value="1"><fmt:message key="demographic.procontact.consent"/></option>
+        <option value="0"><fmt:message key="demographic.procontact.noConsent"/></option>
     </select>
 
     &nbsp;
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.active" id="procontact_<%= Encode.forHtmlAttribute(id) %>.active" title="Active">
-        <option value="1">Active</option>
-        <option value="0">Inactive</option>
+    <select name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.active" title="${procontactActiveTitle}">
+        <option value="1"><fmt:message key="demographic.procontact.active"/></option>
+        <option value="0"><fmt:message key="demographic.procontact.inactive"/></option>
     </select>
 
     &nbsp;
 
     <!--  they can be an internal (Demographic) or external (Contact) contact -->
 
-    <select name="procontact_<%= Encode.forHtmlAttribute(id) %>.type" id="procontact_<%= Encode.forHtmlAttribute(id) %>.type">
-        <option value="<%=DemographicContact.TYPE_PROVIDER%>">Internal</option>
+    <select name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.type">
+        <option value="<%=DemographicContact.TYPE_PROVIDER%>"><fmt:message key="demographic.procontact.internal"/></option>
         <%if (CarlosProperties.getInstance().getProperty("NEW_CONTACTS_UI_EXTERNAL_CONTACT", "true").equals("true")) { %>
-        <option value="<%=DemographicContact.TYPE_CONTACT%>">External</option>
+        <option value="<%=DemographicContact.TYPE_CONTACT%>"><fmt:message key="demographic.procontact.external"/></option>
         <% } %>
         <option value="<%=DemographicContact.TYPE_PROFESSIONALSPECIALIST%>"
-        ">Professional Specialist</option>
+        "><fmt:message key="demographic.procontact.professionalSpecialist"/></option>
     </select>
 
     &nbsp;
 
-    <input type="hidden" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactId" value="0"/>
-    <input type="text" name="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" id="procontact_<%= Encode.forHtmlAttribute(id) %>.contactName" size="20"
+    <input type="hidden" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactId" value="0"/>
+    <input type="text" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doProfessionalSearch('<%= Encode.forJavaScriptAttribute(id) %>');return false;"><%= Encode.forHtml(request.getParameter("search") != null ? request.getParameter("search") : "") %></a>
+    <a href="#" onclick="doProfessionalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a>
 </div>

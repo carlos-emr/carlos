@@ -36,7 +36,7 @@
 
 <core:set var="ctx" value="${ pageContext.servletContext.contextPath }"/>
 <core:set var="url"
-       value="${ ctx }/demographic/DemographicEdit.do?demographic_no=${ param.demographicNo }&appointment="/>
+       value="${ ctx }/demographic/DemographicEdit?demographic_no=${ param.demographicNo }&appointment="/>
 
 <table id="${ not empty param.tableId ? param.tableId : 'topLink' }">
     <tr>
@@ -95,7 +95,7 @@
         <td id="topLinkRightColumn">
 	 		<span class="HelpAboutLogout" style="color:white;">
 
-                 <a style="color:white;" href="${ ctx }/encounter/ViewAbout.do" target="_new">About</a>
+                 <a style="color:white;" href="${ ctx }/encounter/ViewAbout" target="_new">About</a>
              </span>
         </td>
     </tr>

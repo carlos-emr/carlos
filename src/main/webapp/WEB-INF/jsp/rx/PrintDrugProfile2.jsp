@@ -35,7 +35,6 @@
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
@@ -63,6 +62,8 @@
 </c:if>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -70,7 +71,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -176,9 +177,9 @@
                                     <td align="right" class="noPrint">
                                         <div class="DivContentSectionHead">
                                             <% if (showall) { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2.do">Show Current</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
                                             <% } else { %>
-                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2.do?show=all">Show All</a>
+                                            <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
                                             <% } %>
                                             | <a href="javascript:void(0);window.print();">Print</a>
                                         </div>
@@ -214,12 +215,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%=Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2.do?regionalIdentifier=<%= Encode.forUriComponent(drug.getRegionalIdentifier())%>&cn=<%= Encode.forUriComponent(drug.getCustomName())%>&bn=<%=Encode.forUriComponent(drug.getBrandName())%>"><%= Encode.forHtml(drug.getFullOutLine().replaceAll(";", " "))%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -241,9 +242,9 @@
                             <div class="DivContentSectionHead">
 
                                 <% if (showall) { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2.do">Show Current</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2">Show Current</a>
                                 <% } else { %>
-                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2.do?show=all">Show All</a>
+                                <a href="<%= request.getContextPath() %>/rx/ViewPrintDrugProfile2?show=all">Show All</a>
                                 <% } %>
                                 | <a href="javascript:void(0);window.print();">Print</a>
                             </div>

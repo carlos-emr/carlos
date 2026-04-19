@@ -30,8 +30,11 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -40,7 +43,7 @@
 %>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
     <%authed = false; %>
 </security:oscarSec>
 <%
@@ -50,7 +53,7 @@
 %>
 <html>
     <head>
-        <title>Edit Facility</title>
+        <title><fmt:message key="admin.facility.edit.title"/></title>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/tigris.css'/>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/displaytag.css'/>
 
@@ -62,8 +65,8 @@
                 if (bCancel) return bCancel;
 
                 var isOk = false;
-                isOk = validateRequiredField('facilityName', 'Facility Name', 32);
-                if (isOk) isOk = validateRequiredField('facilityDesc', 'Facility Description', 70);
+                isOk = validateRequiredField('facilityName', '<fmt:message key="admin.facility.edit.validation.name"/>', 32);
+                if (isOk) isOk = validateRequiredField('facilityDesc', '<fmt:message key="admin.facility.edit.validation.description"/>', 70);
                 return isOk;
             }
         </script>
@@ -71,48 +74,48 @@
 
     </head>
     <body>
-    <h1>Edit Facility</h1>
-    <form action="${pageContext.request.contextPath}/FacilityManager.do" method="post"
+    <h1><fmt:message key="admin.facility.edit.heading"/></h1>
+    <form action="${pageContext.request.contextPath}/FacilityManager" method="post"
                onsubmit="return validateForm();">
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="orgId" id="orgId"/>
         <input type="hidden" name="sectorId" id="sectorId"/>
         <table width="100%" border="1" cellspacing="2" cellpadding="3">
             <tr class="b">
-                <td>Facility Id:</td>
-                <td>${e:forHtml(requestScope.id)}</td>
+                <td><fmt:message key="admin.facility.edit.label.id"/>:</td>
+                <td>${carlos:forHtml(requestScope.id)}</td>
             </tr>
             <tr class="b">
-                <td>Name: *</td>
+                <td><fmt:message key="admin.facility.edit.label.name"/>: *</td>
                 <td><input type="text" name="facility.name" size="32" maxlength="32" id="facilityName"/></td>
             </tr>
             <tr class="b">
-                <td>Description: *</td>
+                <td><fmt:message key="admin.facility.edit.label.description"/>: *</td>
                 <td><input type="text" name="facility.description" size="60" maxlength="70" id="facilityDesc"/></td>
             </tr>
             <tr class="b">
-                <td width="20%">Enable Digital Signatures:</td>
+                <td width="20%"><fmt:message key="admin.facility.edit.label.digitalSignatures"/>:</td>
                 <td><input type="checkbox" name="facility.enableDigitalSignatures"/></td>
             </tr>
 
             <tr class="b">
-                <td>Rx Interaction Warning Level:</td>
+                <td><fmt:message key="admin.facility.edit.label.rxWarningLevel"/>:</td>
                 <td>
                     <select name="rxInteractionWarningLevel">
-                        <option value="0">Not Specified</option>
-                        <option value="1">Low</option>
-                        <option value="2">Medium</option>
-                        <option value="3">High</option>
-                        <option value="4">None</option>
+                        <option value="0"><fmt:message key="admin.facility.edit.option.notSpecified"/></option>
+                        <option value="1"><fmt:message key="admin.facility.edit.option.low"/></option>
+                        <option value="2"><fmt:message key="admin.facility.edit.option.medium"/></option>
+                        <option value="3"><fmt:message key="admin.facility.edit.option.high"/></option>
+                        <option value="4"><fmt:message key="admin.facility.edit.option.none"/></option>
                     </select>
                 </td>
             </tr>
             <tr>
-                <td colspan="2">* Mandatory fields</td>
+                <td colspan="2"><fmt:message key="admin.facility.edit.msgMandatory"/></td>
             <tr>
                 <td colspan="2">
-                    <input type="submit" name="submit" value="Save" onclick="bCancel=false;" />
-                    <button type="button" onclick="window.history.back();">Cancel</button></td>
+                    <input type="submit" name="submit" value="<fmt:message key='global.btnSave'/>" onclick="bCancel=false;" />
+                    <button type="button" onclick="window.history.back();"><fmt:message key="global.btnCancel"/></button></td>
             </tr>
         </table>
     </form>

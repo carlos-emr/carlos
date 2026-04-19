@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%
@@ -37,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -64,7 +65,7 @@
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
                 <p>
-                <c:out value="${note.note}" escapeXml="false" />
+                ${note.note}
                 </p>
             </div>
             <div style="color: #0000FF;">
@@ -79,12 +80,12 @@
     
                 <c:if test="${note.signed == true}">
                     Signed by
-                    <c:out value="${pMgr.getProvider(note.signing_provider_no).formattedName}" />
+                    ${carlos:forHtml(pMgr.getProvider(note.signing_provider_no).formattedName)}
                 </c:if>
     
                 <c:if test="${note.signed != true}">
                     Saved by
-                    <c:out value="${note.provider.formattedName}" />:
+                    ${carlos:forHtml(note.provider.formattedName)}:
                 </c:if>
     
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />

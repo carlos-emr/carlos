@@ -33,6 +33,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao, io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.List, java.util.Collections" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -41,12 +44,16 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.fax" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.fax");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.fax");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
+%>
+
+<%
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 
 
@@ -55,7 +62,7 @@
 <html>
 <head>
 
-    <title>Manage Faxes</title>
+    <title><fmt:message key="admin.manageFaxes.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" type="text/css"/>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css"/>
@@ -69,11 +76,21 @@
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
     <script type="text/javascript">
-
+        const manageFaxesResendPrompt = "<fmt:message key='admin.manageFaxes.resendPrompt'/>";
+        const manageFaxesResendFailed = "<fmt:message key='admin.manageFaxes.resendFailed'/>";
+        const manageFaxesFaxNumbersInvalid = "<fmt:message key='admin.manageFaxes.faxNumbersInvalid'/>";
+        const manageFaxesCancelConfirm = "<fmt:message key='admin.manageFaxes.cancelConfirm'/>";
+        const manageFaxesCancelFailed = "<fmt:message key='admin.manageFaxes.cancelFailed'/>";
+        const manageFaxesCompleteConfirm = "<fmt:message key='admin.manageFaxes.completeConfirm'/>";
+        const manageFaxesResentLabel = "<fmt:message key='admin.manageFaxes.resentLabel'/>";
+        const manageFaxesErrorLabel = "<fmt:message key='admin.manageFaxes.errorLabel'/>";
+        const manageFaxesResentStatusLabel = "<fmt:message key='admin.manageFaxes.status.RESENT'/>";
+        const manageFaxesCancelledStatusLabel = "<fmt:message key='admin.manageFaxes.status.CANCELLED'/>";
+        const manageFaxesResolvedStatusLabel = "<fmt:message key='admin.manageFaxes.status.RESOLVED'/>";
 
         $(document).ready(function () {
 
-            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic.do";
+            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
             $("#autocompletedemo").autocomplete({
                 source: function (req, res) {
@@ -116,7 +133,7 @@
         });
 
         function getPageCount(id, callback) {
-            var url = "<%=request.getContextPath()%>/admin/ManageFaxes.do?method=getPageCount&jobId=" + id;
+            var url = "<%=request.getContextPath()%>/admin/ManageFaxes?method=getPageCount&jobId=" + id;
             var post = $.post(url, function (resultdata) {
                 if (id == resultdata.jobId && typeof callback == "function") {
                     callback(resultdata.pageCount);
@@ -128,7 +145,7 @@
 
             getPageCount(id, function (pageCount) {
 
-                var url = "<%=request.getContextPath()%>/admin/ManageFaxes.do?method=viewFax&showAs=image&jobId=" + id;
+                var url = "<%=request.getContextPath()%>/admin/ManageFaxes?method=viewFax&showAs=image&jobId=" + id;
                 var imageContainer = $("<ul />")
                     .css("list-style-type", "none")
                     .css("padding", "0px")
@@ -169,7 +186,7 @@
 
         function resend(id, faxNumber, status) {
 
-            var answer = prompt("Is this the correct fax number?", faxNumber);
+            var answer = prompt(manageFaxesResendPrompt, faxNumber);
 
             if (answer == null) {
                 return false;
@@ -191,18 +208,18 @@
                     success: function (data) {
                         $(".btn-link").prop("disabled", false);
                         if (data.success) {
-                            $("#resend_" + id).prop("disabled", true).css("color", "green").css("font-weight", "bold").text("re-sent");
+                            $("#resend_" + id).prop("disabled", true).css("color", "green").css("font-weight", "bold").text(manageFaxesResentLabel);
                             $("#cancel_" + id).remove();
                             $("#complete_" + id).remove();
-                            $('#' + status).text("RESENT");
+                            $('#' + status).text(manageFaxesResentStatusLabel);
                         } else {
-                            $("#resend_" + id).prop("disabled", true).css("color", "red").css("font-weight", "bold").text("error");
-                            alert("An error occurred trying to resend your fax.  Please contact your system administrator");
+                            $("#resend_" + id).prop("disabled", true).css("color", "red").css("font-weight", "bold").text(manageFaxesErrorLabel);
+                            alert(manageFaxesResendFailed);
                         }
                     }
                 });
             } else {
-                alert("Fax numbers must not contain punctuation");
+                alert(manageFaxesFaxNumbersInvalid);
 
             }
 
@@ -212,7 +229,7 @@
 
         function cancel(jobId, status) {
 
-            var answer = confirm("Are you sure you want to remove this fax from the queue?");
+            var answer = confirm(manageFaxesCancelConfirm);
 
             if (answer == null || !answer) {
                 return false;
@@ -233,10 +250,10 @@
                     $(".btn-link").prop("disabled", false);
                     if (data.success) {
                         $("#cancel_" + jobId).remove();
-                        $('#' + status).text("CANCELLED");
+                        $('#' + status).text(manageFaxesCancelledStatusLabel);
                     } else {
-                        $("#cancel_" + jobId).prop("disabled", true).css("color", "red").css("font-weight", "bold").text("error");
-                        alert("CARLOS WAS UNABLE TO CANCEL THE FAX");
+                        $("#cancel_" + jobId).prop("disabled", true).css("color", "red").css("font-weight", "bold").text(manageFaxesErrorLabel);
+                        alert(manageFaxesCancelFailed);
                     }
                 }
             });
@@ -246,7 +263,7 @@
 
         function complete(id, status) {
 
-            var answer = confirm("Are you sure you want to resolve this fax status?");
+            var answer = confirm(manageFaxesCompleteConfirm);
 
             if (answer == null || !answer) {
                 return false;
@@ -265,7 +282,7 @@
                 success: function (data) {
                     $(".btn-link").prop("disabled", false);
                     $("#complete_" + id).remove();
-                    $('#' + status).text("RESOLVED");
+                    $('#' + status).text(manageFaxesResolvedStatusLabel);
                 }
             });
         }
@@ -294,16 +311,16 @@
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn">
 
-        <form id="reportForm" action="<%=request.getContextPath()%>/admin/ManageFaxes.do" onsubmit="ShowSpin(true);">
+        <form id="reportForm" action="<%=request.getContextPath()%>/admin/ManageFaxes" onsubmit="ShowSpin(true);">
 
             <input type="hidden" name="method" value="fetchFaxStatus"/>
 
             <div class="row">
-                <legend>Search Faxes</legend>
+                <legend><fmt:message key="admin.manageFaxes.searchLegend"/></legend>
                 <div class="input-group col-md-3">
 
                     <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
-                           placeholder="From" id="dateBegin" name="dateBegin" required/>
+                           placeholder="<fmt:message key='admin.manageFaxes.from'/>" id="dateBegin" name="dateBegin" required/>
                     <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
@@ -312,13 +329,13 @@
                 <div class="input-group col-md-3">
 
                     <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
-                           placeholder="To" id="dateEnd" name="dateEnd" required/>
+                           placeholder="<fmt:message key='admin.manageFaxes.to'/>" id="dateEnd" name="dateEnd" required/>
                     <span class="input-group-text">
                 		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
                 <div class="col-md-6">
-                    <input class="form-control" type="text" placeholder="Pt. Name (last, first)" id="autocompletedemo"/>
+                    <input class="form-control" type="text" placeholder="<fmt:message key='admin.manageFaxes.patientPlaceholder'/>" id="autocompletedemo"/>
                     <input type="hidden" id="demographic_no" name="demographic_no" value="">
                 </div>
 
@@ -327,7 +344,7 @@
             <div class="row">
                 <div class="col-md-5">
                     <select class="form-select" name="oscarUser">
-                        <option value="-1">Provider</option>
+                        <option value="-1"><fmt:message key="admin.manageFaxes.provider"/></option>
 
                         <%
                             ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
@@ -346,7 +363,7 @@
                 </div>
                 <div class="col-md-5">
                     <select class="form-select" name="team">
-                        <option value="-1">Team</option>
+                        <option value="-1"><fmt:message key="admin.manageFaxes.team"/></option>
                         <%
                             FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
                             List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
@@ -362,12 +379,13 @@
                 </div>
                 <div class="col-md-2">
                     <select class="form-select" name="status">
-                        <option value="-1">Status</option>
+                        <option value="-1"><fmt:message key="admin.manageFaxes.statusLabel"/></option>
 
                         <%
                             for (FaxJob.STATUS status : FaxJob.STATUS.values()) {
+                                String statusLabel = bundle.getString("admin.manageFaxes.status." + status.name());
                         %>
-                        <option value="<%=status%>"><%=status%>
+                        <option value="<%=status%>"><%=statusLabel%>
                         </option>
                         <%
                             }
@@ -378,8 +396,8 @@
 
             <div class="row">
                 <div class="col-md-12">
-                    <input class="btn btn-secondary" type="submit" value="Fetch Faxes"/>
-                    <input class="btn btn-secondary" type="button" value="Reset" onclick="return resetForm();"/>
+                    <input class="btn btn-secondary" type="submit" value="<fmt:message key='admin.manageFaxes.fetch'/>"/>
+                    <input class="btn btn-secondary" type="button" value="<fmt:message key='global.reset'/>" onclick="return resetForm();"/>
                 </div>
             </div>
 
@@ -393,40 +411,26 @@
             </div>
         </div>
         <div>
-            <p>Fax status definitions:</p>
+            <p><fmt:message key="admin.manageFaxes.statusDefinitions"/></p>
             <dl class="row">
-                <dt>RECEIVED</dt>
-                <dd>is the status of a fax that was successfully RECEIVED from the fax gateway service. Click on View in
-                    the Action column for a preview of the fax.
-                </dd>
-                <dt>CANCELLED</dt>
-                <dd>fax that was cancelled by the EMR user while the fax had a SENT or WAITING status - or - the fax was
-                    cancelled by the user from the fax gateway web interface
-                </dd>
-                <dt>UNKNOWN</dt>
-                <dd>on an extremely rare occasion when the status of a fax job is unidentifiable</dd>
-                <dt>WAITING</dt>
-                <dd>fax that is waiting to be sent to the fax gateway.</dd>
-                <dt>SENT</dt>
-                <dd>fax that has been successfully sent to the fax gateway.</dd>
-                <dt>COMPLETE</dt>
-                <dd>fax that was successfully sent to, and fully processed by, the fax gateway service. Click on View in
-                    the Action column for a preview of the fax. The ability to Resend the fax is available during this
-                    status.
-                </dd>
-                <dt>ERROR</dt>
-                <dd>fax failure. Fax job failed sending to the fax gateway - OR - the fax gateway failed to send the fax
-                    after n attempts. Hover the mouse pointer over the ERROR status to display the reason for the error.
-                    Click on Resend in the Action column to send the fax again. Re-send will not work for errors such as
-                    &quot;destination not a fax&quot;, &quot;no answer&quot;, &quot;invalid fax number&quot; etc...
-                    Re-sending the fax will allow input of a different phone number if needed.
-                </dd>
-                <dt>RE-SENT</dt>
-                <dd>a previously failed or completed fax job that was re-sent to the fax gateway</dd>
-                <dt>RESOLVED</dt>
-                <dd>a fax ERROR that was dismissed by selecting &quot;Mark Complete&quot; in the Action column. &quot;Mark
-                    Complete&quot; is useful to hide ERRORs that have been resolved by other means.
-                </dd>
+                <dt><fmt:message key="admin.manageFaxes.status.RECEIVED"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.RECEIVED"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.CANCELLED"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.CANCELLED"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.UNKNOWN"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.UNKNOWN"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.WAITING"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.WAITING"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.SENT"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.SENT"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.COMPLETE"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.COMPLETE"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.ERROR"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.ERROR"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.RESENT"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.RESENT"/></dd>
+                <dt><fmt:message key="admin.manageFaxes.status.RESOLVED"/></dt>
+                <dd><fmt:message key="admin.manageFaxes.statusDescription.RESOLVED"/></dd>
             </dl>
         </div>
 

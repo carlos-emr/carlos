@@ -32,6 +32,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%
@@ -64,21 +65,21 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <!-- main calendar program -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
             function setup() {
                 Calendar.setup({
@@ -116,10 +117,10 @@
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <c:forEach var="viewChoice" items="${viewChoices}">
-                        <input type="checkbox" name="valueArray" value="<c:out value="${viewChoice.value}"/>"/> <c:out value="${viewChoice.label}"/>
+                        <input type="checkbox" name="valueArray" value="${carlos:forHtmlAttribute(viewChoice.value)}"/> ${carlos:forHtml(viewChoice.label)}
                     </c:forEach>
                     <br/>
                     <input type="submit" value="<%=bundle.getString(providerbtnSubmit)%>"/>

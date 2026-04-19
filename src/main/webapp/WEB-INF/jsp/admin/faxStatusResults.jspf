@@ -3,16 +3,17 @@
 <%@ page import="java.util.List" %>
 <%@ page import="org.apache.commons.lang3.time.DateFormatUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib prefix = "c" uri = "jakarta.tags.core" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
       String roleName2$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 	boolean authed=true;
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_admin.fax" rights="r" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.fax");%>
+	<%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.fax");%>
 </security:oscarSec>
 <%
 if(!authed) {
@@ -102,12 +103,12 @@ if(!authed) {
 %>
 		<tr>
 			<td id="faxType_<%=faxJob.getId()%>" class="small"><%=type%></td>
-			<td class="small"><%=Encode.forHtmlContent(providerName)%>(<%=faxJob.getUser()%>)</td>
-			<td id="patientName_<%=faxJob.getId()%>" class="small"><%=Encode.forHtmlContent(demographicName)%></td>
-			<td class="small"><c:out value="<%=faxJob.getRecipient()%>" /></td>
-			<td id="status<%=count%>" class="small" ><c:out value="<%=faxJob.getStatus()%>" /></td>
-			<td class="small" title="<%=Encode.forHtmlAttribute(faxJob.getStatusString())%>" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
-			<c:out value="<%=faxJob.getStatusString()%>" /></td>
+			<td class="small"><carlos:encode value='<%= providerName %>' context="html"/>(<carlos:encode value='<%= faxJob.getUser() %>' context="html"/>)</td>
+			<td id="patientName_<%=faxJob.getId()%>" class="small"><carlos:encode value='<%= demographicName %>' context="html"/></td>
+			<td class="small"><carlos:encode value='<%= faxJob.getRecipient() %>' context="html"/></td>
+			<td id="status<%=count%>" class="small" ><carlos:encode value='<%= faxJob.getStatus() %>' context="html"/></td>
+			<td class="small" title="<carlos:encode value='<%= faxJob.getStatusString() %>' context="htmlAttribute"/>" style="max-width: 150px; width: 100px; text-overflow: ellipsis; overflow: hidden;">
+			<carlos:encode value='<%= faxJob.getStatusString() %>' context="html"/></td>
 			<td class="small"><%=DateFormatUtils.format(faxJob.getStamp(), "yyyy-MM-dd HH:mm:ss")%></td>
 			<td class="small">
 <div class="btn-group">

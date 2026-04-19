@@ -31,11 +31,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 
     String errormsg = "";
     if (request.getParameter("errormsg") != null) {
@@ -53,11 +52,13 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
         import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%!
     CarlosProperties op = CarlosProperties.getInstance();
@@ -65,7 +66,7 @@
 
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
         <title><fmt:message key="provider.providerchangepassword.title"/></title>
         <script language="javascript">
@@ -147,14 +148,14 @@
 
     <body onLoad="setfocus('oldpassword')" topmargin="0" leftmargin="0" rightmargin="0">
     <FORM NAME="updatepassword" METHOD="post"
-          ACTION="<%= request.getContextPath() %>/provider/ViewProviderUpdatePassword.do" onSubmit="return(checkPwdPolicy())">
+          ACTION="<%= request.getContextPath() %>/provider/ViewProviderUpdatePassword" onSubmit="return(checkPwdPolicy())">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:message key="provider.providerchangepassword.description"/></font></th>
             </tr>
         </table>
 
-        <p><b><font color='red'><%= Encode.forHtml(StringUtils.noNull(errormsg)) %>
+        <p><b><font color='red'><carlos:encode value='<%= StringUtils.noNull(errormsg) %>' context="html"/>
         </font></b>
 
         <table width="100%" border="0" cellpadding="2" bgcolor="#eeeeee">

@@ -33,6 +33,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -41,16 +43,14 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%
     // Delete logic is handled by SecurityDelete2Action; this JSP only displays results.
     String msg = (String) request.getAttribute("msg");
@@ -70,7 +70,7 @@
             </tr>
         </table>
         <p>
-        <h2><%= Encode.forHtml(msg) %></h2>
+        <h2><carlos:encode value='<%= msg %>' context="html"/></h2>
         <p></p>
 
     </center>

@@ -32,7 +32,7 @@
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 <%! String[] bgColors; %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
@@ -41,6 +41,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -52,6 +54,10 @@
     String day = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("day")));
 
     String available = "checked", strHour = "", strReason = "value=''", strCreator = "Me";
+    ResourceBundle scheduleBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+    String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
+    String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
+    strCreator = scheduleBundle.getString("schedule.scheduledatepopup.me");
     HScheduleDate aHScheduleDate = (HScheduleDate) scheduleDateBean.get(year + "-" + month + "-" + day);
     if (aHScheduleDate != null) {
         available = aHScheduleDate.available.compareTo("1") == 0 ? "checked" : "";
@@ -67,6 +73,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -90,7 +97,7 @@
     </head>
     <body bgcolor="ivory" bgproperties="fixed" onLoad="setfocus()"
           topmargin="0" leftmargin="0" rightmargin="0">
-    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateSave.do">
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/DateSave">
 
         <table border="0" width="100%">
             <tr>
@@ -101,10 +108,10 @@
                             <td bgcolor="#CCFFCC">
                                 <p align="right"><fmt:message key="schedule.scheduledatepopup.formDate"/>:</p>
                             </td>
-                            <td bgcolor="#CCFFCC"><%=Encode.forHtml(year)%>-<%=Encode.forHtml(month)%>-<%=Encode.forHtml(day)%>
+                            <td bgcolor="#CCFFCC"><carlos:encode value='<%= year %>' context="html"/>-<carlos:encode value='<%= month %>' context="html"/>-<carlos:encode value='<%= day %>' context="html"/>
                             </td>
                             <input type="hidden" name="date"
-                                   value="<%= Encode.forHtmlAttribute(year) %>-<%=Encode.forHtmlAttribute(month)%>-<%=Encode.forHtmlAttribute(day)%>">
+                                   value="<carlos:encode value='<%= year %>' context="htmlAttribute"/>-<carlos:encode value='<%= month %>' context="htmlAttribute"/>-<carlos:encode value='<%= day %>' context="htmlAttribute"/>">
                         </tr>
                         <tr>
                             <td>
@@ -128,15 +135,15 @@
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"
-                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><%=Encode.forHtml(st.getId().getName() + " |" + st.getSummary())%>
+                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
+                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% }
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"
-                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><%=Encode.forHtml(st.getId().getName() + " |" + st.getSummary())%>
+                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
+                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select></td>
@@ -168,13 +175,13 @@
                         %>
                         <tr>
                             <td>
-                                <div align="right">Location:</div>
+                                <div align="right"><fmt:message key="schedule.scheduledatepopup.formLocation"/>:</div>
                             </td>
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
-                                <option value="<%=Encode.forHtmlAttribute(siteList[i])%>" <%=(bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "")%>
-                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><%=Encode.forHtml(siteList[i])%>
+                                <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "")%>
+                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
                                 </b></option>
                                 <% } %>
                             </select></td>
@@ -186,7 +193,7 @@
                                 <div align="right"><fmt:message key="schedule.scheduledatepopup.formCreator"/>:
                                 </div>
                             </td>
-                            <td><%=Encode.forHtml(strCreator)%>
+                            <td><carlos:encode value='<%= strCreator %>' context="html"/>
                             </td>
                         </tr>
                     </table>
@@ -201,15 +208,15 @@
                             <td bgcolor="#CCFFCC">
                                 <div align="right"><input type="hidden" name="Submit" value="">
                                     <input type="hidden" name="provider_no"
-                                           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>"> <input
+                                           value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="htmlAttribute"/>"> <input
                                             type="button"
                                             value='<fmt:message key="schedule.scheduledatepopup.btnSave"/>'
-                                            onclick="document.forms['schedule'].Submit.value=' Save '; document.forms['schedule'].submit();">
+                                            onclick="document.forms['schedule'].Submit.value='<%= submitSave %>'; document.forms['schedule'].submit();">
                                     <input type="button" name="Button"
                                            value='<fmt:message key="schedule.scheduledatepopup.btnCancel"/>'
                                            onClick="window.close()"> <input type="button"
                                                                             value='<fmt:message key="schedule.scheduledatepopup.btnDelete"/>'
-                                                                            onclick="document.forms['schedule'].Submit.value=' Delete '; document.forms['schedule'].submit();">
+                                                                            onclick="document.forms['schedule'].Submit.value='<%= submitDelete %>'; document.forms['schedule'].submit();">
                                 </div>
                             </td>
                         </tr>

@@ -1,19 +1,21 @@
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%-- Row Three: Encounter notes, template autocomplete, consumption, action buttons --%>
 <div class="encounter-card card mb-1" id="rowThree">
     <div class="card-header d-flex align-items-center">
         <div class="flex-grow-1 d-flex align-items-center gap-2">
             <%-- Encounter history link --%>
             <a href="#"
-               onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/reportecharthistory.jsp?demographic_no=${bean.demographicNo}');return false;">
+               onclick="popupPage(600,700,'<fmt:message key="encounter.Index.popupPage2Window"/>','${ctx}/report/ViewReportecharthistory?demographic_no=${bean.demographicNo}');return false;">
                 <fmt:message key="global.encounter"/>:
-                <e:forHtmlContent value="${bean.patientLastName}"/>,
-                <e:forHtmlContent value="${bean.patientFirstName}"/>
+                <carlos:encode value='${bean.patientLastName}' context="html"/>,
+                <carlos:encode value='${bean.patientFirstName}' context="html"/>
             </a>
 
             <%-- Split chart link --%>
             <c:if test="${hasSplitChart}">
                 &nbsp;&nbsp;&nbsp;
-                <a href="#" onclick="showpic('splitChartLayer','splitChartId');" id="splitChartId">Split Chart</a>
+                <a href="#" onclick="showpic('splitChartLayer','splitChartId');" id="splitChartId"><fmt:message key="encounter.rowThree.splitChart"/></a>
             </c:if>
 
             <%-- Template autocomplete input (Scriptaculous Autocompleter initialized in encounter.js loader()) --%>
@@ -25,9 +27,9 @@
 
         <%-- Consumption indicator --%>
         <div class="d-flex align-items-center gap-1 me-2" style="font-size: 9px; font-variant: small-caps; font-weight: bold;">
-            <span><c:out value="${consumption}"/>%</span>
+            <span>${carlos:forHtml(consumption)}%</span>
             <div style="width: 80px; height: 12px; background-color: white; border: 1px solid #ccc; border-radius: 2px; overflow: hidden;">
-                <div style="width: <e:forHtmlAttribute value='${consumption}'/>%; height: 100%; background-color: <e:forHtmlAttribute value='${consumptionColor}'/>;" ></div>
+                <div style="width: <carlos:encode value='${consumption}' context="htmlAttribute"/>%; height: 100%; background-color: <carlos:encode value='${consumptionColor}' context="htmlAttribute"/>;" ></div>
             </div>
         </div>
 
@@ -44,14 +46,14 @@
     </div>
     <div class="card-body">
         <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
-                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto"><c:out value="${encounterText}"/></textarea>
+                  style="height:<carlos:encode value='${rowThreeSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(encounterText)}</textarea>
     </div>
 </div>
 
 <%-- Action buttons --%>
 <div class="encounter-actions d-flex justify-content-between align-items-center">
     <div>
-        <input type="hidden" name="subject" value="<e:forHtmlAttribute value='${bean.reason}'/>">
+        <input type="hidden" name="subject" value="<carlos:encode value='${bean.reason}' context="htmlAttribute"/>">
         <c:if test="${consumption >= 50}">
             <input type="submit" name="buttonPressed" value="Split Chart"
                    class="btn btn-sm btn-secondary" onclick="return onSplit();">
@@ -65,7 +67,7 @@
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint.do');"/>
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint');"/>
 
         <input type="hidden" name="btnPressed" value="">
 
@@ -96,10 +98,10 @@
                onclick="document.forms['encForm'].btnPressed.value='Exit'; if (closeEncounterWindow()) {document.forms['encForm'].submit();}">
 
         <%-- Hidden form state fields --%>
-        <input type="hidden" name="rowOneSize" value="<e:forHtmlAttribute value='${rowOneSize}'/>">
-        <input type="hidden" name="rowTwoSize" value="<e:forHtmlAttribute value='${rowTwoSize}'/>">
-        <input type="hidden" name="presBoxSize" value="<e:forHtmlAttribute value='${presBoxSize}'/>">
-        <input type="hidden" name="rowThreeSize" value="<e:forHtmlAttribute value='${rowThreeSize}'/>">
+        <input type="hidden" name="rowOneSize" value="<carlos:encode value='${rowOneSize}' context="htmlAttribute"/>">
+        <input type="hidden" name="rowTwoSize" value="<carlos:encode value='${rowTwoSize}' context="htmlAttribute"/>">
+        <input type="hidden" name="presBoxSize" value="<carlos:encode value='${presBoxSize}' context="htmlAttribute"/>">
+        <input type="hidden" name="rowThreeSize" value="<carlos:encode value='${rowThreeSize}' context="htmlAttribute"/>">
         <input type="hidden" name="status" value="t"/>
         <input type="hidden" name="appointment_no" value="${bean.appointmentNo}"/>
     </div>

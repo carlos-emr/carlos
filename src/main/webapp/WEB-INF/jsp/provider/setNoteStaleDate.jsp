@@ -31,7 +31,8 @@
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("user") == null)
@@ -48,7 +49,7 @@
        scope="request"/>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="provider.setNoteStaleDate.title"/></title>
 
@@ -56,7 +57,7 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
+              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <script type="text/javascript">
@@ -88,7 +89,7 @@
                     if (request.getAttribute("status") == null) {
 
                 %> 
-                <form style="frmProperty" action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+                <form style="frmProperty" action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
                     <input type="hidden" id="method" name="method" value="save">
                     <input type="hidden" name="dateProperty.name" value="staleNoteDate"/>
                     <input type="hidden" name="dateProperty.providerNo" value="${providerNo}"/>

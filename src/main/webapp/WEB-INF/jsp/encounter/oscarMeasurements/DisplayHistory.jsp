@@ -30,7 +30,7 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String userroleName = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -94,7 +94,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2" method="post">
 
         <table style="border-width: 2px; width: 100%; border-spacing: 0px; ">
             <c:if test="${not empty messages}">
@@ -245,7 +245,7 @@
                             <td>
                                 <input type="button" name="Button" class="btn DoNotPrint"
                                     value="<fmt:message key="encounter.oscarMeasurements.oldmesurementindex"/>"
-                                    onclick="javascript: popupPage(300,800,'encounter/oscarMeasurements/SetupHistoryIndex.do')">
+                                    onclick="javascript: popupPage(300,800,'encounter/oscarMeasurements/SetupHistoryIndex')">
                             </td>
 
                             <!-- Print button -->
@@ -278,7 +278,7 @@
                                 <td>
                                     <input type="button" name="Button" class="btn DoNotPrint"
                                         value="<fmt:message key="encounter.oscarMeasurements.displayHistory.plot"/>"
-                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements.do?demographic_no=<%=demo%>&type=${type}')">
+                                        onclick="javascript: popupPage(600,1000,'<%=request.getContextPath()%>/encounter/GraphMeasurements?demographic_no=<%=demo%>&type=${type}')">
                                 </td>
                             </c:if>
                         </tr>

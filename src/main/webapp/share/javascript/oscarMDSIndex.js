@@ -297,7 +297,7 @@ function appendHtmlWithScripts(container, html) {
 
 function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
     console.log('in updateDocStatusInQueue, docid ' + docid);
-    const url = ctx + "/documentManager/inboxManage.do";
+    const url = ctx + "/documentManager/inboxManage";
     const data = "docid=" + docid + "&method=updateDocStatusInQueue";
 
     postForm(url, data)
@@ -564,7 +564,7 @@ function sendMRP(ele) {
         ele.checked = false;
     } else if (confirm('Send to Most Responsible Provider?')) {
         const type = checkType(doclabid);
-        const url = contextpath + "/oscarMDS/SendMRP.do";
+        const url = contextpath + "/oscarMDS/SendMRP";
         const data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
 
         postForm(url, data)
@@ -590,14 +590,14 @@ function rotate180(id) {
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-    postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate180&document=" + id)
+    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate180&document=" + id)
         .then(response => response.text())
         .then(data => {
             jQuery("#rotate180btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -608,14 +608,14 @@ function rotate90(id) {
     const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
     const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-    postForm(contextpath + "/documentManager/SplitDocument.do", "method=rotate90&document=" + id)
+    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate90&document=" + id)
         .then(response => response.text())
         .then(data => {
             jQuery("#rotate90btn_" + id).prop('disabled', false);
             if (displayDocumentAs == "PDF") {
                 showPDF(id, contextpath);
             } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
             }
         })
         .catch(error => console.error('Error:', error));
@@ -628,13 +628,13 @@ function removeFirstPage(id) {
         const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
         const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
 
-        postForm(contextpath + "/documentManager/SplitDocument.do", "method=removeFirstPage&document=" + id)
+        postForm(contextpath + "/documentManager/SplitDocument", "method=removeFirstPage&document=" + id)
             .then(response => response.text())
             .then(data => {
                 if (displayDocumentAs == "PDF") {
                     showPDF(id, contextpath);
                 } else {
-                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
                 }
                 const numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
                 jQuery("#numPages_" + id).text("" + numPages);
@@ -655,7 +655,7 @@ function removeFirstPage(id) {
 }
 
 function split(id) {
-    const loc = contextpath + "/oscarMDS/Split.jsp?document=" + id;
+    const loc = contextpath + "/oscarMDS/ViewSplit?document=" + id;
     popupStart(1400, 1400, loc, "Splitter");
 }
 
@@ -701,7 +701,7 @@ function reportWindow(page, height, width) {
 
 function FileSelectedRows(files, searchProviderNo, status) {
     const filelabs = {"flaggedLabs": "{\"files\" : " + JSON.stringify(files) + "}"};
-    const url = ctx + "/oscarMDS/FileLabs.do";
+    const url = ctx + "/oscarMDS/FileLabs";
     bulkInboxAction(url, filelabs);
 }
 
@@ -748,7 +748,7 @@ function bulkInboxAction(url, filelabs) {
                     fileId = file.split(":")[0];
                     jQuery("#labdoc_" + fileId + " input[name='flaggedLabs']").attr("checked", false)
 
-                    if (url.includes("FileLabs.do")) {
+                    if (url.includes("FileLabs")) {
                         jQuery("#labdoc_" + fileId).remove();
                     }
                 }
@@ -808,11 +808,11 @@ function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoNa
     //alert(div);
     let url = '';
     if (type == 'DOC')
-        url = "../documentManager/showDocument.jsp";
+        url = "../documentManager/ViewShowDocument";
     else if (type == 'MDS')
         url = "";
     else if (type == 'HL7')
-        url = "../lab/CA/ALL/ViewLabDisplayAjax.do";
+        url = "../lab/CA/ALL/ViewLabDisplayAjax";
     else if (type == 'CML')
         url = "";
     else
@@ -1329,7 +1329,7 @@ function getPatientNameFromPatientId(patientId) {
     if (pn && pn != null) {
         return pn;
     } else {
-        const url = contextpath + "/documentManager/ManageDocument.do";
+        const url = contextpath + "/documentManager/ManageDocument";
         const data = 'method=getDemoNameAjax&demo_no=' + patientId;
 
         postForm(url, data)
@@ -1451,7 +1451,7 @@ function showThisPatientDocs(patientId, keepPrevious) {
 }
 
 function popupConsultation(segmentId) {
-    const page = contextpath + '/encounter/ViewRequest.do?segmentId=' + segmentId;
+    const page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
     const popup = window.open(page, msgConsReq, windowprops);
     if (popup != null) {
@@ -1467,7 +1467,7 @@ function checkType(docNo) {
 
 function ForwardSelectedRows(files, searchProviderNo, status) {
     const isListView = jQuery("input[name=isListView]").val();
-    const url = ctx + "/oscarMDS/SelectProvider.jsp";
+    const url = ctx + "/oscarMDS/ViewSelectProvider";
 
     // not sure why this is a parameter, but, just in case...
     const data = {
@@ -1576,7 +1576,7 @@ function styleDialogAsCard() {
 }
 
 function forwardLabs(files, providers, favorites) {
-    const url = ctx + "/oscarMDS/ReportReassign.do";
+    const url = ctx + "/oscarMDS/ReportReassign";
 
         const filesArray = Array.isArray(files) ? files : [files];
 
@@ -1804,7 +1804,7 @@ function updatePatientDocLabNav(num, patientId) {
 }
 
 function createPatientDocLabEle(patientId, doclabid) {
-    const url = ctx + "/documentManager/ManageDocument.do";
+    const url = ctx + "/documentManager/ManageDocument";
     var safeId = parseInt(patientId, 10);
     if (isNaN(safeId)) {
         console.error('Invalid patientId passed to createPatientDocLabEle:', patientId);
@@ -1899,7 +1899,7 @@ function decreaseCount(eleId) {
 }
 
 function updateDocumentAndNext(eleId) {//save doc info
-    const url = "../documentManager/ManageDocument.do"
+    const url = "../documentManager/ManageDocument"
     const formEl = document.getElementById(eleId);
     const data = serializeForm(formEl);
 
@@ -1919,7 +1919,7 @@ function updateDocumentAndNext(eleId) {//save doc info
             const msgBtnEl = document.getElementById("msgBtn_" + num);
             if (msgBtnEl) {
                 msgBtnEl.onclick = function () {
-                    popup(700, 960, contextpath + '/messenger/SendDemoMessage.do?demographic_no=' + patientId, 'msg');
+                    popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
                 };
             }
 
@@ -1956,7 +1956,7 @@ function updateDocument(eleId) {
     }
 
     //save doc info
-    const url = "../documentManager/ManageDocument.do";
+    const url = "../documentManager/ManageDocument";
     const formEl = document.getElementById(eleId);
     const data = serializeForm(formEl);
 
@@ -1983,7 +1983,7 @@ function updateDocument(eleId) {
                 const msgBtn = document.getElementById("msgBtn_" + num);
                 if (msgBtn) {
                     msgBtn.onclick = function () {
-                        popup(700, 960, contextpath + '/messenger/SendDemoMessage.do?demographic_no=' + patientId, 'msg');
+                        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
                     };
                 }
 
@@ -2076,7 +2076,7 @@ function updateStatus(formid) {//acknowledge
         if (demoId === '-1' || !saved) {
             alert('Document is not assigned and saved to a patient,please file it');
         } else {
-            const url = contextpath + "/oscarMDS/UpdateStatus.do";
+            const url = contextpath + "/oscarMDS/UpdateStatus";
             const formEl = document.getElementById(formid);
             const data = serializeFormToObject(formEl);
             console.log("Updating status. URL: " + url);
@@ -2102,7 +2102,7 @@ function updateStatus(formid) {//acknowledge
 						}
                     }
                     // Notify the Inboxhub to refresh its data after acknowledge.
-                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on .do responses,
+                    // Struts 7's CoopInterceptor sets Cross-Origin-Opener-Policy: same-origin on action responses,
                     // which nulls window.opener on popups opened from Inboxhub. BroadcastChannel provides
                     // reliable same-origin cross-window messaging that is unaffected by COOP.
                     try {
@@ -2136,7 +2136,7 @@ function fileDoc(docId) {
             if (isFile) {
                 const type = 'DOC';
                 if (type) {
-                    const url = '../oscarMDS/FileLabs.do';
+                    const url = '../oscarMDS/FileLabs';
                     const data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
 
                     postForm(url, data)
@@ -2169,7 +2169,7 @@ function handleQueueListChange(queueListSelectElement, refileBtnElement, docCurr
 function refileDoc(id) {
     const queueListEl = document.getElementById('queueList_' + id);
     const queueId = queueListEl.options[queueListEl.selectedIndex].value;
-    const url = contextpath + "/documentManager/ManageDocument.do";
+    const url = contextpath + "/documentManager/ManageDocument";
     const data = 'method=refileDocumentAjax&documentId=' + id + "&queueId=" + queueId;
 
     postForm(url, data)
@@ -2202,7 +2202,7 @@ function addDocToList(provNo, provName, docId) {
 }
 
 function removeLink(docType, docId, providerNo, e) {
-    const url = "../documentManager/ManageDocument.do";
+    const url = "../documentManager/ManageDocument";
     const data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
 
     postForm(url, data)
@@ -2344,7 +2344,7 @@ function showPDF(docid, cp) {
     //     width=getWidth()-650;
     // }
 
-    const url = cp + '/documentManager/ManageDocument.do?method=display&doc_no=' + encodeURIComponent(docid) + '&rand=' + Math.random() + '#view=fitV&page=1';
+    const url = cp + '/documentManager/ManageDocument?method=display&doc_no=' + encodeURIComponent(docid) + '&rand=' + Math.random() + '#view=fitV&page=1';
 
     const container = document.getElementById('docDispPDF_' + docid);
     if (container) {
@@ -2366,7 +2366,7 @@ function showPageImg(docid, pn, cp) {
         showPDF(docid, cp);
     } else if (docid && pn && cp) {
         const e = document.getElementById('docImg_' + docid);
-        const url = cp + '/documentManager/ManageDocument.do?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
+        const url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
         if (e) e.setAttribute('src', url);
     }
 }
@@ -2492,7 +2492,7 @@ function showNext(docid) {
 }
 
 function handleDocSave(docid, action) {
-    const url = contextpath + "/documentManager/inboxManage.do";
+    const url = contextpath + "/documentManager/inboxManage";
     const data = 'method=isDocumentLinkedToDemographic&docId=' + docid;
 
     postForm(url, data)
@@ -2506,7 +2506,7 @@ function handleDocSave(docid, action) {
                 if (action == 'addTickler') {
                     demoid = json.demoId;
                     if (demoid != null && demoid.length > 0)
-                        popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler.do?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
+                        popupStart(450, 600, contextpath + '/tickler/ForwardDemographicTickler?docType=DOC&docId=' + docid + '&demographic_no=' + demoid, 'tickler')
                 }
             } else {
                 alert("Make sure demographic is linked and document changes saved!");
@@ -2540,7 +2540,7 @@ function addDocComment(docId, providerNo) {
     if (ret) {
         const statusEl = document.getElementById("status_" + docId);
         if (statusEl) statusEl.value = 'N';
-        const url = ctx + "/oscarMDS/UpdateStatus.do";
+        const url = ctx + "/oscarMDS/UpdateStatus";
         const formid = "acknowledgeForm_" + docId;
         let data = serializeForm(formid);
         data += "&method=addComment";

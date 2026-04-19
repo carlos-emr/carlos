@@ -32,13 +32,15 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +51,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="java.util.ArrayList" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -127,8 +128,8 @@
                 demoSets.addDemographicSet(setName, arrDemo);
                 arrCurDemoSets.add(setName);
     %>
-    <p style="font-size:small; font-variant:small-caps"><fmt:message key="demographic.demographiccohort.saved"/> <%=Encode.forHtml(demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName())%>
-        <fmt:message key="demographic.demographiccohort.to"/> <%=Encode.forHtml(setName)%>
+    <p style="font-size:small; font-variant:small-caps"><fmt:message key="demographic.demographiccohort.saved"/> <carlos:encode value='<%= demoData.getDemographic(loggedInInfo, demoNo).getFirstName() + " " + demoData.getDemographic(loggedInInfo, demoNo).getLastName() %>' context="html"/>
+        <fmt:message key="demographic.demographiccohort.to"/> <carlos:encode value='<%= setName %>' context="html"/>
     </p>
     <%
             }
@@ -139,19 +140,18 @@
     <h3><fmt:message key="demographic.demographiccohort.currentpatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${curSets}">
-            <li><c:out value="${set}"/></li>
+            <li>${carlos:forHtml(set)}</li>
         </c:forEach>
     </ul>
     <h3><fmt:message key="demographic.demographiccohort.addtopatientset"/></h3>
     <ul>
         <c:forEach var="set" items="${arrDemoSets}">
-            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort.do?demographic_no=<%= Encode.forUriComponent(demoNo) %>&setName=<%= Encode.forUriComponent((String) pageContext.getAttribute("set")) %>"><c:out
-                    value="${set}"/></a></li>
+            <li><a href="<%= request.getContextPath() %>/demographic/ViewDemographicCohort?demographic_no=<carlos:encode value='<%= demoNo %>' context="uriComponent"/>&setName=<carlos:encode value='<%= (String) pageContext.getAttribute("set") %>' context="uriComponent"/>">${carlos:forHtml(set)}</a></li>
         </c:forEach>
     </ul>
     <br>
-    <form method="get" action="<%= request.getContextPath() %>/demographic/ViewDemographicCohort.do">
-        <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+    <form method="get" action="<%= request.getContextPath() %>/demographic/ViewDemographicCohort">
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
         <h3><fmt:message key="demographic.demographiccohort.newpatientset"/></h3>
         <input type="text" name="setName">&nbsp;<input type="submit"
                                                        value="<fmt:message key="demographic.demographiccohort.save"/>">

@@ -36,24 +36,23 @@
     }
 %>
 <%@ page import="java.util.*,java.sql.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
@@ -69,7 +68,7 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol.do">
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol">
         <input type="hidden" name="submit_form" value="">
         <input type="hidden" name="displaymode" value="newgroup">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
@@ -98,11 +97,11 @@
             <tr class="<%=bNewNo?"":"table-light"%>">
                 <td style="width:10%" class="text-center">
                     <input type="checkbox" class="form-check-input"
-                           name="<%=Encode.forHtmlAttribute(groupNo+myGroup.getId().getProviderNo())%>"
-                           value="<%=Encode.forHtmlAttribute(groupNo)%>">
+                           name="<carlos:encode value='<%= groupNo+myGroup.getId().getProviderNo() %>' context="htmlAttribute"/>"
+                           value="<carlos:encode value='<%= groupNo %>' context="htmlAttribute"/>">
                 </td>
-                <td class="text-center"><%=Encode.forHtml(groupNo)%></td>
-                <td class="text-center"><%=Encode.forHtml(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
+                <td class="text-center"><carlos:encode value='<%= groupNo %>' context="html"/></td>
+                <td class="text-center"><carlos:encode value='<%= myGroup.getLastName() + ", " + myGroup.getFirstName() %>' context="html"/></td>
             </tr>
             <%
                 }
@@ -116,13 +115,13 @@
             <fmt:message key="provider.providerdisplaymygroup.btnNew" var="btnNewLabel"/>
             <fmt:message key="global.btnBack" var="btnBackLabel"/>
             <input type="submit" class="btn btn-danger btn-sm"
-                   value="${e:forHtmlAttribute(btnDeleteLabel)}"
-                   onclick="if(!confirm('${e:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
+                   value="${carlos:forHtmlAttribute(btnDeleteLabel)}"
+                   onclick="if(!confirm('${carlos:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
             <input type="submit" class="btn btn-primary btn-sm ms-2"
-                   value="${e:forHtmlAttribute(btnNewLabel)}"
+                   value="${carlos:forHtmlAttribute(btnNewLabel)}"
                    onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
             <input type="button" class="btn btn-secondary btn-sm ms-2"
-                   value="${e:forHtmlAttribute(btnBackLabel)}"
+                   value="${carlos:forHtmlAttribute(btnBackLabel)}"
                    onClick="if (window.opener) { window.close(); } else { window.history.back(); }">
         </div>
 

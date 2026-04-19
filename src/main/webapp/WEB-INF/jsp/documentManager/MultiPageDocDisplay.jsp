@@ -1,0 +1,913 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_edoc");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
+<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%!
+    ProviderInboxRoutingDao providerInboxRoutingDao = SpringUtils.getBean(ProviderInboxRoutingDao.class);
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+%>
+<%
+    String demoName, documentNo, providerNo, searchProviderNo, status;
+
+    demoName = (String) request.getAttribute("demoName");
+    documentNo = (String) request.getAttribute("segmentID");
+    providerNo = (String) request.getAttribute("providerNo");
+    searchProviderNo = (String) request.getAttribute("searchProviderNo");
+    status = (String) request.getAttribute("status");
+    if (demoName == null && documentNo == null && providerNo == null && searchProviderNo == null && status == null) {
+        demoName = request.getParameter("demoName");
+        documentNo = request.getParameter("segmentID");
+        providerNo = request.getParameter("providerNo");
+        searchProviderNo = request.getParameter("searchProviderNo");
+        status = request.getParameter("status");
+    }
+
+    Provider provider = providerDao.getProvider(providerNo);
+    String creator = (String) session.getAttribute("user");
+    ArrayList doctypes = EDocUtil.getActiveDocTypes("demographic");
+
+    EDoc curdoc = EDocUtil.getDoc(documentNo);
+
+    String demographicID = curdoc.getModuleId();
+
+    if (demoName == null || "".equals(demoName)) {
+        Demographic d = demographicDao.getDemographic(demographicID);
+        if (d != null) {
+            demoName = d.getFormattedName();
+        }
+    }
+
+    String docId = curdoc.getDocId();
+    int tabindex = 0;
+    int slash = 0;
+    String contentType = "";
+    if ((slash = curdoc.getContentType().indexOf('/')) != -1) {
+        contentType = curdoc.getContentType().substring(slash + 1);
+    }
+    String dStatus = "";
+    if ((curdoc.getStatus() + "").compareTo("A") == 0) {
+        dStatus = "active";
+    } else if ((curdoc.getStatus() + "").compareTo("H") == 0) {
+        dStatus = "html";
+    }
+    int numOfPage = curdoc.getNumberOfPages();
+    String numOfPageStr = "";
+    if (numOfPage == 0)
+        numOfPageStr = "unknown";
+    else
+        numOfPageStr = (new Integer(numOfPage)).toString();
+
+    String url = request.getContextPath() + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + docId + "&curPage=1";
+    String url2 = request.getContextPath() + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
+%>
+
+<html>
+<head>
+    <!-- main calendar program -->
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
+    <!-- language for the calendar -->
+    <script type="text/javascript"
+            src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
+    <!-- the following script defines the Calendar.setup helper function, which makes
+           adding a calendar a matter of 1 or 2 lines of code. -->
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <!-- calendar stylesheet -->
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
+    <script language="javascript" type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+    <!-- Prototype.js/effects.js/controls.js removed — using vanilla JS (Phase 1c migration) -->
+
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/carlosAutocomplete.js"></script>
+    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
+
+    <style type="text/css">
+        .multiPage {
+            background-color: RED;
+            color: WHITE;
+            font-weight: bold;
+            padding: 0px 5px;
+            font-size: medium;
+        }
+
+        .singlePage {
+
+        }
+
+        table.docTable {
+            width: 100%;
+        }
+
+        td:first-child.docTable {
+            width: auto;
+        }
+
+        td:nth-child(2).docTable {
+            width: 200px;
+        }
+
+        img.docTable {
+            max-width: 100%;
+        }
+
+    </style>
+
+    <script>
+        //?segmentID=1&providerNo=999998&searchProviderNo=999998&status=A&demoName=
+        function checkDelete(docId, docDescription) {
+            // revision Apr 05 2004 - we now allow anyone to delete documents
+            if (confirm("<fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/documentManager/ViewMultiPageDocDisplay';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'delDocumentNo';
+                input.value = docId;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        <%
+            if(request.getParameter("delDocumentNo") != null) {
+                EDocUtil.deleteDocument(request.getParameter("delDocumentNo"));
+                %>
+        if (window.opener != null) {
+            window.opener.location.reload();
+        }
+        window.close();
+        <%
+    }
+%>
+    </script>
+</head>
+<body>
+<div id="labdoc_<%=docId%>">
+    <table class="docTable">
+        <tr>
+
+
+            <td colspan="8" class="docTable">
+                <div style="text-align: right; font-weight: bold">
+                    <% if (numOfPage > 1) {%>
+                    <a id="firstP" style="display: none;" href="javascript:void(0);" onclick="firstPage('<%=docId%>');">First</a>
+                    <a id="prevP" style="display: none;" href="javascript:void(0);" onclick="prevPage('<%=docId%>');">Prev</a>
+                    <a id="nextP" href="javascript:void(0);" onclick="nextPage('<%=docId%>');">Next</a>
+                    <a id="lastP" href="javascript:void(0);" onclick="lastPage('<%=docId%>');">Last</a>
+                    <%}%>
+                </div>
+                <a href="<%=url2%>"><img class="docTable" alt="document" src="<%=url%>" id="docImg_<%=docId%>"/></a>
+
+
+            </td>
+            <td align="left" valign="top" class="docTable">
+                <fieldset>
+                    <legend>Patient: <carlos:encode value='<%= demoName %>' context="html"/>
+                    </legend>
+                    <table border="0">
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
+                            <td><carlos:encode value='<%= StringUtils.noNull(curdoc.getDateTimeStamp()) %>' context="html"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.ContentType"/></td>
+                            <td><carlos:encode value='<%= contentType %>' context="html"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><fmt:message key="inboxmanager.document.NumberOfPages"/></td>
+                            <td><span id="viewedPage_<%=docId%>"
+                                      class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">1</span>&nbsp; of &nbsp;<span
+                                    id="numPages_<%=docId %>"
+                                    class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>"><%=numOfPageStr%></span>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <form id="forms_<%=docId%>" onsubmit="return updateDocument(this.id);">
+                        <input type="hidden" name="method" value="documentUpdate"/>
+                        <input type="hidden" name="documentId" value="<%=docId%>"/>
+                        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="status" value="<carlos:encode value='<%= status %>' context="htmlAttribute"/>"/>
+                        <table border="0">
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgDocType"/>:</td>
+                                <td>
+                                    <select tabindex="<%=tabindex++%>" name="docType" id="docType">
+                                        <option value=""><fmt:message key="dms.addDocument.formSelect"/></option>
+                                        <%
+                                            for (int j = 0; j < doctypes.size(); j++) {
+                                                String doctype = (String) doctypes.get(j);
+                                        %>
+                                        <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
+                                        </option>
+                                        <%}%>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
+                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
+                                           value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"/></td>
+                            </tr>
+                            <tr>
+                                <td>Observation Date:</td>
+                                <td>
+                                    <input tabindex="<%=tabindex++%>" id="observationDate<%=docId%>"
+                                           name="observationDate" type="text" value="<carlos:encode value='<%= StringUtils.noNull(curdoc.getObservationDate()) %>' context="htmlAttribute"/>">
+                                    <a id="obsdate<%=docId%>"
+                                       onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
+                                       href="javascript:void(0);"><img title="Calendar"
+                                                                       src="<%=request.getContextPath()%>/images/cal.gif"
+                                                                       alt="Calendar" border="0"/></a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Demographic:
+                                </td>
+                                <td><%if (!demographicID.equals("-1")) {%>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
+                                    <input type="hidden" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>" name="demog"
+                                           id="demofind<%=docId%>"/>
+                                    <carlos:encode value='<%= demoName %>' context="html"/><%} else {%>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
+                                    <input type="hidden" name="demog" value="<carlos:encode value='<%= demographicID %>' context="htmlAttribute"/>"
+                                           id="demofind<%=docId%>"/>
+                                    <input tabindex="<%=tabindex++%>" type="text" id="autocompletedemo<%=docId%>"
+                                           onchange="checkSave('<%=docId%>')" name="demographicKeyword"/>
+                                    <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
+                                    <%}%>
+
+                                    <input id="mrp_<%=docId%>" tabindex="<%=tabindex++%>" onclick="sendMRP(this)"
+                                           type="checkbox" name="demoLink">Send to MRP
+                                    <a id="mrp_fail_<%=docId%>" style="color:red;font-style: italic;display: none;">Failed
+                                        to send MRP</a>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td valign="top">Flag Provider:</td>
+                                <td>
+                                    <input type="hidden" name="provi" id="provfind<%=docId%>"/>
+                                    <input tabindex="<%=tabindex++%>" type="text" id="autocompleteprov<%=docId%>"
+                                           name="demographicKeyword"/>
+                                    <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
+
+                                    <script type="text/javascript">
+                                        // jQuery.noConflict() removed — no longer needed without Prototype.js
+
+                                        function addDocComment(docId, status) {
+                                            var url = "<%=request.getContextPath()%>/oscarMDS/UpdateStatus";
+                                            var formid = "#acknowledgeForm_" + docId;
+
+                                            document.getElementById("ackStatus").value = status;
+                                            var data = jQuery(formid).serialize();
+                                            data += "&method=addComment";
+
+                                            jQuery.ajax({
+                                                type: "POST",
+                                                url: url,
+                                                data: data,
+                                                success: function (data) {
+                                                    window.location.reload();
+                                                }
+                                            });
+
+                                        }
+
+                                        function updateQueryParam(url, key, value) {
+                                            let baseUrl = url.split('?')[0];
+                                            // Ensure that the query does not have multiple repeated params
+                                            let params = new URLSearchParams(url.split('?')[1] || '');
+                                            // Set params to new key and value
+                                            params.set(key, value);
+                                            return baseUrl + '?' + params.toString();
+                                        }
+
+
+                                        var curPage = 1;
+                                        var totalPage =<%=numOfPage%>;
+                                        showPageImg = function (docid, pn) {
+                                            if (docid && pn) {
+                                                var e = document.getElementById('docImg_' + docid);
+                                                if (e) {
+                                                    // Find URl from src of image
+                                                    var url = e.getAttribute('src');
+                                                    // Update query parameters based on URL, current page, and page number
+                                                    url = updateQueryParam(url, 'curPage', pn);
+                                                    // Set attribute to newly updated URL
+                                                    e.setAttribute('src', url);
+                                                }
+                                            }
+                                        }
+                                        nextPage = function (docid) {
+                                            curPage++;
+
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
+                                            showPageImg(docid, curPage);
+                                            if (curPage == totalPage) {
+                                                hideNext();
+                                                showPrev();
+                                            } else {
+                                                showNext();
+                                                showPrev();
+                                            }
+                                        }
+                                        prevPage = function (docid) {
+                                            curPage--;
+                                            if (curPage < 1) {
+                                                curPage = 1;
+                                                hidePrev();
+                                            }
+                                            document.getElementById('viewedPage_' + docid).textContent = curPage;
+                                            showPageImg(docid, curPage);
+                                            if (curPage == 1) {
+                                                hidePrev();
+                                                showNext();
+                                            } else {
+                                                showPrev();
+                                                showNext();
+                                            }
+
+                                        }
+                                        firstPage = function (docid) {
+                                            curPage = 1;
+                                            document.getElementById('viewedPage_' + docid).textContent = 1;
+                                            showPageImg(docid, curPage);
+                                            hidePrev();
+                                            showNext();
+                                        }
+                                        lastPage = function (docid) {
+                                            curPage = totalPage;
+                                            document.getElementById('viewedPage_' + docid).textContent = totalPage;
+                                            showPageImg(docid, curPage);
+                                            hideNext();
+                                            showPrev();
+                                        }
+                                        hidePrev = function () {
+                                            //disable previous link
+                                            document.getElementById("prevP").style.display = 'none';
+                                            document.getElementById("firstP").style.display = 'none';
+                                            document.getElementById("prevP2").style.display = 'none';
+                                            document.getElementById("firstP2").style.display = 'none';
+                                        }
+                                        hideNext = function () {
+                                            //disable next link
+                                            document.getElementById("nextP").style.display = 'none';
+                                            document.getElementById("lastP").style.display = 'none';
+                                            document.getElementById("nextP2").style.display = 'none';
+                                            document.getElementById("lastP2").style.display = 'none';
+                                        }
+                                        showPrev = function () {
+                                            //disable previous link
+                                            document.getElementById("prevP").style.display = 'inline';
+                                            document.getElementById("firstP").style.display = 'inline';
+                                            document.getElementById("prevP2").style.display = 'inline';
+                                            document.getElementById("firstP2").style.display = 'inline';
+                                        }
+                                        showNext = function () {
+                                            //disable next link
+                                            document.getElementById("nextP").style.display = 'inline';
+                                            document.getElementById("lastP").style.display = 'inline';
+                                            document.getElementById("nextP2").style.display = 'inline';
+                                            document.getElementById("lastP2").style.display = 'inline';
+                                        }
+                                        popupStart = function (vheight, vwidth, varpage, windowname) {
+                                            oscarLog("in popupStart ");
+                                            if (!windowname)
+                                                windowname = "helpwindow";
+                                            var page = varpage;
+                                            var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
+                                            oscarLog(varpage);
+                                            oscarLog(windowname);
+                                            oscarLog(windowprops);
+                                            var popup = window.open(varpage, windowname, windowprops);
+                                        }
+                                        initProviderAutocomplete("#autocompleteprov<%=docId%>", "<%= request.getContextPath() %>",
+                                            function (providerNo, firstName, lastName) {
+                                                document.getElementById("provfind<%=docId%>").value = providerNo;
+
+                                                var bdoc = document.createElement('a');
+                                                bdoc.setAttribute("id", "removeProv<%=docId%>");
+                                                bdoc.setAttribute("onclick", "removeProv(this);");
+                                                bdoc.appendChild(document.createTextNode(" -remove- "));
+                                                var adoc = document.createElement('div');
+                                                adoc.appendChild(document.createTextNode(lastName + " " + firstName));
+                                                var idoc = document.createElement('input');
+                                                idoc.setAttribute("type", "hidden");
+                                                idoc.setAttribute("name", "flagproviders");
+                                                idoc.setAttribute("value", providerNo);
+                                                adoc.appendChild(idoc);
+                                                adoc.appendChild(bdoc);
+                                                var providerList = document.getElementById('providerList<%=docId%>');
+                                                providerList.appendChild(adoc);
+
+                                                document.getElementById("autocompleteprov<%=docId%>").value = '';
+                                            });
+                                        refreshParent = function () {
+                                            window.opener.location.reload();
+                                        }
+                                        updateStatus = function (formid) {
+                                            var num = formid.split("_");
+                                            var doclabid = num[1];
+                                            if (doclabid) {
+                                                var demoId = document.getElementById('demofind' + doclabid).value;
+                                                var saved = document.getElementById('saved' + doclabid).value;
+                                                if (demoId == '-1' || saved == 'false' || saved == false) {
+                                                    alert('Document is not assigned to a patient,please file it');
+                                                } else {
+                                                    var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus";
+                                                    var formEl = document.getElementById(formid);
+                                                    var data = new URLSearchParams(new FormData(formEl)).toString();
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
+
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
+                                                        },
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function() {
+                                                        refreshParent();
+                                                        window.close();
+                                                    });
+                                                }
+                                            }
+                                        }
+
+                                        fileDoc = function (docId) {
+                                            if (docId) {
+                                                docId = docId.replace(/\s/, '');
+                                                if (docId.length > 0) {
+                                                    var demoId = document.getElementById('demofind' + docId).value;
+                                                    var saved = document.getElementById('saved' + docId).value;
+                                                    var isFile = true;
+                                                    if (demoId == '-1' || saved == 'false' || saved == false) {
+                                                        isFile = confirm('Document is not assigned and saved to any patient, do you still want to file it?');
+                                                    }
+                                                    if (isFile) {
+                                                        var type = 'DOC';
+                                                        if (type) {
+                                                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
+                                                            var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
+                                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                                            fetch(url, {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                                    'CSRF-TOKEN': csrfToken
+                                                                },
+                                                                credentials: 'same-origin',
+                                                                body: data
+                                                            }).then(function() {
+                                                                refreshParent();
+                                                                window.close();
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        function sendMRP(ele) {
+                                            var doclabid = ele.id;
+                                            doclabid = doclabid.split('_')[1];
+                                            var demoId = document.getElementById('demofind' + doclabid).value;
+                                            if (demoId == '-1') {
+                                                alert('Please enter a valid demographic');
+                                                ele.checked = false;
+                                            } else {
+                                                if (confirm('Send to Most Responsible Provider?')) {
+                                                    var type = 'DOC';
+                                                    var url = "<%=request.getContextPath()%>/oscarMDS/SendMRP";
+                                                    var data = 'demoId=' + demoId + '&docLabType=' + type + '&docLabId=' + doclabid;
+                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                                    var csrfToken = csrfEl ? csrfEl.value : '';
+                                                    fetch(url, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/x-www-form-urlencoded',
+                                                            'X-Requested-With': 'XMLHttpRequest',
+                                                            'CSRF-TOKEN': csrfToken
+                                                        },
+                                                        credentials: 'same-origin',
+                                                        body: data
+                                                    }).then(function(response) {
+                                                        if (response.ok) {
+                                                            ele.disabled = true;
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = 'none';
+                                                        } else {
+                                                            ele.checked = false;
+                                                            document.getElementById('mrp_fail_' + doclabid).style.display = '';
+                                                        }
+                                                    }).catch(function() {
+                                                        ele.checked = false;
+                                                        document.getElementById('mrp_fail_' + doclabid).style.display = '';
+                                                    });
+                                                } else {
+                                                    ele.checked = false;
+                                                }
+                                            }
+                                        }
+
+                                        renderCalendar = function (id, inputFieldId) {
+                                            Calendar.setup({
+                                                inputField: inputFieldId,
+                                                ifFormat: "%Y-%m-%d",
+                                                showsTime: false,
+                                                button: id
+                                            });
+                                        }
+
+                                        if (document.getElementById("autocompletedemo<%=docId%>")) {
+                                            initDemographicAutocomplete("#autocompletedemo<%=docId%>", "<%=request.getContextPath()%>",
+                                                function (demographicNo, formattedName, formattedDob) {
+                                                    document.getElementById("demofind<%=docId%>").value = demographicNo;
+                                                    document.getElementById("autocompletedemo<%=docId%>").value = formattedName + "(" + formattedDob + ")";
+                                                    selectedDemos.push(document.getElementById("autocompletedemo<%=docId%>").value);
+                                                    document.getElementById('save<%=docId%>').disabled = false;
+                                                });
+                                        }
+
+                                        updateDocument = function (eleId) {
+                                            if (!checkObservationDate(eleId)) {
+                                                return false;
+                                            }
+                                            //save doc info
+                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument";
+                                            var formEl = document.getElementById(eleId);
+                                            var data = new URLSearchParams(new FormData(formEl)).toString();
+                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                                            var csrfToken = csrfEl ? csrfEl.value : '';
+                                            fetch(url, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                                    'X-Requested-With': 'XMLHttpRequest',
+                                                    'CSRF-TOKEN': csrfToken
+                                                },
+                                                credentials: 'same-origin',
+                                                body: data
+                                            }).then(function() {
+                                                var ar = eleId.split("_");
+                                                var num = ar[1];
+                                                num = num.replace(/\s/g, '');
+                                                var successMsg = document.getElementById("saveSucessMsg_" + num);
+                                                if (successMsg) successMsg.style.display = '';
+                                                var savedEl = document.getElementById('saved' + num);
+                                                if (savedEl) savedEl.value = 'true';
+                                                var autoEl = document.getElementById('autocompletedemo' + num);
+                                                if (autoEl) autoEl.disabled = true;
+                                                var removeEl = document.getElementById('removeProv' + num);
+                                                if (removeEl) removeEl.parentNode.removeChild(removeEl);
+
+                                                refreshParent();
+                                            });
+                                            return false;
+                                        }
+
+                                        function checkObservationDate(formid) {
+                                            // regular expression to match required date format
+                                            re = /^\d{4}\-\d{1,2}\-\d{1,2}$/;
+                                            re2 = /^\d{4}\/\d{1,2}\/\d{1,2}$/;
+
+                                            var form = document.getElementById(formid);
+                                            if (form.elements["observationDate"].value == "") {
+                                                alert("Blank Date: " + form.elements["observationDate"].value);
+                                                form.elements["observationDate"].focus();
+                                                return false;
+                                            }
+
+                                            if (!form.elements["observationDate"].value.match(re)) {
+                                                if (!form.elements["observationDate"].value.match(re2)) {
+                                                    alert("Invalid date format: " + form.elements["observationDate"].value);
+                                                    form.elements["observationDate"].focus();
+                                                    return false;
+                                                } else if (form.elements["observationDate"].value.match(re2)) {
+                                                    form.elements["observationDate"].value = form.elements["observationDate"].value.replace("/", "-");
+                                                    form.elements["observationDate"].value = form.elements["observationDate"].value.replace("/", "-");
+                                                }
+                                            }
+                                            regs = form.elements["observationDate"].value.split("-");
+                                            // day value between 1 and 31
+                                            if (regs[2] < 1 || regs[2] > 31) {
+                                                alert("Invalid value for day: " + regs[2]);
+                                                form.elements["observationDate"].focus();
+                                                return false;
+                                            }
+                                            // month value between 1 and 12
+                                            if (regs[1] < 1 || regs[1] > 12) {
+                                                alert("Invalid value for month: " + regs[1]);
+                                                form.elements["observationDate"].focus();
+                                                return false;
+                                            }
+                                            // year value between 1902 and 2015
+                                            if (regs[0] < 1902 || regs[0] > (new Date()).getFullYear()) {
+                                                alert("Invalid value for year: " + regs[0] + " - must be between 1902 and " + (new Date()).getFullYear());
+                                                form.elements["observationDate"].focus();
+                                                return false;
+                                            }
+                                            return true;
+                                        }
+
+                                    </script>
+                                    <div id="providerList<%=docId%>"></div>
+                                </td>
+                            </tr>
+
+
+                            <tr>
+                                <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
+                                <td><carlos:encode value='<%= StringUtils.noNull(curdoc.getCreatorName()) %>' context="html"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td colspan="2" align="right"><a id="saveSucessMsg_<%=docId%>"
+                                                                 style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a><%if (!demographicID.equals("-1")) {%><input
+                                        type="submit" name="save" tabindex="<%=tabindex++%>" id="save<%=docId%>"
+                                        value="Save"/><%} else {%><input type="submit" name="save"
+                                                                         tabindex="<%=tabindex++%>" id="save<%=docId%>"
+                                                                         disabled value="Save"/> <%}%></td>
+                            </tr>
+
+                            <tr>
+                                <td colspan="2">
+                                    Linked Providers:
+                                    <%
+                                        Properties p = (Properties) session.getAttribute("providerBean");
+                                        List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                    %>
+                                    <ul>
+                                        <%
+                                            for (ProviderInboxItem pItem : routeList) {
+                                                String s = p.getProperty(pItem.getProviderNo(), pItem.getProviderNo());
+                                                if (!s.equals("0")) {
+                                        %>
+                                        <li><carlos:encode value='<%= s %>' context="html"/>
+                                        </li>
+                                        <%
+                                                }
+                                            }
+                                        %>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </form>
+                </fieldset>
+
+
+                <%
+                    ArrayList ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
+                    String curAckStatus = "N";
+                    if (ackList.size() > 0) {%>
+                <fieldset>
+                    <table width="100%" height="20" cellpadding="2" cellspacing="2">
+                        <tr>
+                            <td align="center" bgcolor="white">
+                                <div class="FieldData">
+                                    <!--center-->
+                                    <% for (int i = 0; i < ackList.size(); i++) {
+                                        ReportStatus report = (ReportStatus) ackList.get(i); %>
+                                    <carlos:encode value='<%= report.getProviderName() %>' context="html"/> :
+
+                                    <% String ackStatus = report.getStatus();
+                                        if (providerNo.equals(report.getOscarProviderNo())) {
+                                            curAckStatus = ackStatus;
+                                        }
+                                        if (ackStatus.equals("A")) {
+                                            ackStatus = "Acknowledged";
+                                        } else if (ackStatus.equals("F")) {
+                                            ackStatus = "Filed but not Acknowledged";
+                                        } else {
+                                            ackStatus = "Not Acknowledged";
+                                        }
+                                    %>
+                                    <font color="red"><carlos:encode value='<%= ackStatus %>' context="html"/>
+                                    </font>
+                                    &nbsp;
+                                    <%= report.getTimestamp() == null ? "" : SafeEncode.forHtml(String.valueOf(report.getTimestamp())) %>,&nbsp;
+                                    comment: <carlos:encode value='<%= report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment() %>' context="html"/>
+
+                                    <br>
+                                    <% }
+                                        if (ackList.size() == 0) {
+                                    %><font color="red">N/A</font><%
+                                    }
+                                %>
+                                    <!--/center-->
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </fieldset>
+                <%
+                    }
+                %>
+
+
+                <fieldset>
+                    <legend><span class="FieldData"><i>Next Appointment: <oscar:nextAppt
+                            demographicNo="<%=demographicID%>"/></i></span></legend>
+                    <form id="reassignForm_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" name="reassignForm_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" method="post" action="">
+                        <input type="hidden" name="flaggedLabs" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="selectedProviders" value=""/>
+                        <input type="hidden" name="labType" value="DOC"/>
+                        <input type="hidden" name="labType<carlos:encode value='<%= docId %>' context="htmlAttribute"/>DOC" value="imNotNull"/>
+                        <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="favorites" value=""/>
+                        <input type="hidden" name="ajax" value="yes"/>
+                    </form>
+                </fieldset>
+                <fieldset>
+                    <legend><fmt:message key="inboxmanager.document.Comment"/></legend>
+                    <form name="acknowledgeForm_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>" id="acknowledgeForm_<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"
+                          onsubmit="updateStatus('acknowledgeForm_<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>');" method="post"
+                          action="javascript:void(0);">
+
+                        <table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td valign="top">
+                                    <table width="100%" border="0" cellspacing="0" cellpadding="3">
+                                        <tr>
+                                            <td align="left" class="" width="100%">
+                                                <input type="hidden" name="segmentID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"/>
+                                                <input type="hidden" name="multiID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>"/>
+                                                <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>"/>
+                                                <input type="hidden" name="status" value="A" id="ackStatus"/>
+                                                <input type="hidden" name="labType" value="DOC"/>
+                                                <input type="hidden" name="ajaxcall" value="yes"/>
+                                                <textarea tabindex="<%=tabindex++%>" name="comment" cols="40"
+                                                          rows="4"></textarea>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <input type="submit" tabindex="<%=tabindex++%>"
+                                                       value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
+                                                <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
+                                                       value="Comment"
+                                                       onclick="addDocComment('<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/>','<%=curAckStatus%>')"/>
+                                                <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
+                                                       value="<fmt:message key="oscarMDS.index.btnForward"/>"
+                                                       onClick="ForwardSelectedRows(<carlos:encode value='<%= docId %>' context="javaScriptAttribute"/> + ':DOC', null, null);">
+                                                <input type="button" tabindex="<%=tabindex++%>" class="smallButton"
+                                                       value="<fmt:message key="oscarMDS.index.btnFile"/>"
+                                                       onclick="fileDoc('<carlos:encode value='<%= documentNo %>' context="javaScriptAttribute"/>');">
+                                                <input type="button" tabindex="<%=tabindex++%>"
+                                                       value=" <fmt:message key="global.btnClose"/> "
+                                                       onClick="window.close()">
+                                                <input type="button" tabindex="<%=tabindex++%>"
+                                                       value=" <fmt:message key="global.btnPrint"/> "
+                                                       onClick="popup(700,960,'<%=url2%>','file download')">
+                                                <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {
+                                                    String eURL = request.getContextPath() + "/encounter/IncomingEncounter?providerNo=" + SafeEncode.forUriComponent(providerNo) + "&appointmentNo=&demographicNo=" + SafeEncode.forUriComponent(demographicID) + "&curProviderNo=&reason=" + java.net.URLEncoder.encode("Document Notes", "UTF-8") + "&encType=" + java.net.URLEncoder.encode("encounter without client", "UTF-8") + "&userName=" + java.net.URLEncoder.encode(provider.getFullName(), StandardCharsets.UTF_8) + "&curDate=" + UtilDateUtilities.getToday("yyyy-MM-dd") + "&appointmentDate=&startTime=&status=";
+                                                %>
+                                                <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
+                                                <input type="button" tabindex="<%=tabindex++%>" value="Msg"
+                                                       onclick="popup(700,960,'<%=request.getContextPath()%>/messenger/SendDemoMessage?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>','msg')"/>
+                                                <c:set var="__enc_2"><carlos:encode value='<%= docId %>' context="uriComponent"/></c:set>
+                                                <c:set var="__enc_3"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
+                                                <c:set var="__enc_4"><carlos:encode value='<%= providerNo %>' context="uriComponent"/></c:set>
+                                                <input type="button" tabindex="<%=tabindex++%>" value="Tickler"
+                                                       onclick="popup(450,600,'<%=request.getContextPath()%>/tickler/ForwardDemographicTickler?docType=DOC&docId=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>','tickler')"/>
+                                                <input type="button" tabindex="<%=tabindex++%>" value="eChart"
+                                                       onclick="popup(710,1024,'<carlos:encode value='<%= eURL %>' context="javaScriptAttribute"/>','encounter')"/>
+                                                <%
+                                                    if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
+                                                %>
+                                                <input type="button" tabindex="<%=tabindex++%>" value="Delete"
+                                                       onClick="javascript: checkDelete('<carlos:encode value='<%= curdoc.getDocId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= curdoc.getDescription() %>' context="javaScriptAttribute"/>')"/>
+
+                                                <%
+                                                } else {
+                                                %>
+                                                <security:oscarSec roleName="<%=roleName$%>"
+                                                                   objectName="_admin,_admin.edocdelete" rights="r">
+                                                    <input type="button" tabindex="<%=tabindex++%>" value="Delete"
+                                                           onClick="javascript: checkDelete('<carlos:encode value='<%= curdoc.getDocId() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= curdoc.getDescription() %>' context="javaScriptAttribute"/>')"/>
+                                                </security:oscarSec>
+                                                <% } %>
+                                                <%}
+                                                %>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </form>
+                </fieldset>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="8">
+                <div style="text-align: right; font-weight: bold">
+                    <% if (numOfPage > 1) {%>
+                    <a id="firstP2" style="display: none;" href="javascript:void(0);"
+                       onclick="firstPage('<%=docId%>');">First</a>
+                    <a id="prevP2" style="display: none;" href="javascript:void(0);" onclick="prevPage('<%=docId%>');">Prev</a>
+                    <a id="nextP2" href="javascript:void(0);" onclick="nextPage('<%=docId%>');">Next</a>
+                    <a id="lastP2" href="javascript:void(0);" onclick="lastPage('<%=docId%>');">Last</a>
+                    <%}%>
+                </div>
+
+            </td>
+            <td>&nbsp;</td>
+        </tr>
+        <tr>
+            <td colspan="9">
+                <hr width="100%" color="blue">
+            </td>
+        </tr>
+    </table>
+</div>
+
+</body>
+</html>

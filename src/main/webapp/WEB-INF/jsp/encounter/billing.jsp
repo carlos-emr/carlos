@@ -29,12 +29,15 @@
 
 --%>
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>billing</title>
+    <fmt:setBundle basename="oscarResources"/>
+    <title><fmt:message key="encounter.billing.title"/></title>
 </head>
 <body>
-<h1>This would be the link to the billing page</h1>
+<h1><fmt:message key="encounter.billing.message"/></h1>
 </body>
 </html>

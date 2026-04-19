@@ -32,6 +32,7 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 
@@ -49,7 +50,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><%=bundle.getString(providertitle)%></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
@@ -73,35 +74,34 @@
             <td class="MainTableLeftColumn"></td>
             <td class="MainTableRightColumn">
                 <%if (request.getAttribute("status") == null) {%>
-                <form action="${pageContext.request.contextPath}/setTicklerPreferences.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
 
-                    <h2>Default Tickler Task Assignee:</h2>
-                    <h3><c:out value="${providerMsg}"/></h3>
+                    <h2><%=bundle.getString("provider.setTicklerPreferences.header")%></h2>
+                    <h3>${carlos:forHtml(providerMsg)}</h3>
 
                     <input type="radio" id="taskAssigneeDefault" name="taskAssigneeMRP.value" value="default"
-                        <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> Default
+                        <c:if test="${taskAssigneeMRPValue == 'default'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("provider.setTicklerPreferences.defaultOption")%>
 
                     <input type="radio" id="taskAssigneeMRP" name="taskAssigneeMRP.value" value="mrp"
-                        <c:if test="${taskAssigneeMRPValue == 'mrp'}">checked</c:if> onclick="checkAssignee()" /> MRP
+                        <c:if test="${taskAssigneeMRPValue == 'mrp'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("tickler.ticklerMain.MRP")%>
 
                     <input type="radio" id="taskAssigneeProvider" name="taskAssigneeMRP.value" value="provider"
-                        <c:if test="${taskAssigneeMRPValue == 'providers'}">checked</c:if> onclick="checkAssignee()" /> Set a provider
+                        <c:if test="${taskAssigneeMRPValue == 'providers'}">checked</c:if> onclick="checkAssignee()" /> <%=bundle.getString("provider.setTicklerPreferences.setProviderOption")%>
 
                     <input type="hidden" id="taskAssignee" name="taskAssigneeSelection.value" />
 
                     <div style="margin-top:20px;margin-bottom:20px;padding-left:20px;height:50px">
                         <div style="display:none;" id="taskAssigneeDefaultContainer">
-                            <h3>No preference set.</h3>
+                            <h3><%=bundle.getString("provider.setTicklerPreferences.noPreference")%></h3>
                         </div>
 
                         <div style="display:none;" id="taskAssigneeMRPContainer">
-                            <h3>Most Responsible Physician (MRP) as specified on the patients master record
-                                (demographics).</h3>
+                            <h3><%=bundle.getString("provider.setTicklerPreferences.mrpDescription")%></h3>
                         </div>
 
                         <div style="display:none;" id="taskAssigneeProviderContainer">
-                            <h3>Select a provider from the list to set as your default assignee:</h3>
+                            <h3><%=bundle.getString("provider.setTicklerPreferences.providerDescription")%></h3>
                             <br>
                             <select name="taskAssigneeSelection.value" onchange="updateTaskAssignee(this.value)">
                                 <c:forEach var="provider" items="${providerSelect}">

@@ -30,14 +30,14 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
     MeasurementMapConfig mmc = new MeasurementMapConfig();
@@ -75,7 +75,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap';
             return true;
         }
 
@@ -104,11 +104,11 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="RemapMeasurementMap.do">
-    <input type="hidden" name="id" value="<%= Encode.forHtmlAttribute(id) %>"> <input
-        type="hidden" name="identifier" value="<%= Encode.forHtmlAttribute(identifier) %>"> <input
-        type="hidden" name="name" value="<%= Encode.forHtmlAttribute(name) %>"> <input
-        type="hidden" name="type" value="<%= Encode.forHtmlAttribute(type) %>">
+<form method="post" name="CONFIG" action="RemapMeasurementMap">
+    <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="name" value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"> <input
+        type="hidden" name="type" value="<carlos:encode value='<%= type %>' context="htmlAttribute"/>">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">
@@ -118,8 +118,8 @@
                                                 value=" <fmt:message key="global.btnClose"/> "
                                                 onClick="window.close()"></td>
                         <td align="right"><a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -135,17 +135,17 @@
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Identifier:</td>
-                            <td class="Cell" width="80%"><%= Encode.forHtml(identifier) %>
+                            <td class="Cell" width="80%"><carlos:encode value='<%= identifier %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Name:</td>
-                            <td class="Cell" width="80%"><%= Encode.forHtml(name) %>
+                            <td class="Cell" width="80%"><carlos:encode value='<%= name %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
                             <td class="Cell" width="20%">Lab Type:</td>
-                            <td class="Cell" width="80%"><%= Encode.forHtml(type) %>
+                            <td class="Cell" width="80%"><carlos:encode value='<%= type %>' context="html"/>
                             </td>
                         </tr>
                         <tr>
@@ -157,7 +157,7 @@
                                         searchstring = "";
                                 %>
                                 <input type="text" size="30" name="searchstring"
-                                       value="<%= Encode.forHtmlAttribute(searchstring) %>"/> <input type="submit" value="Search"
+                                       value="<carlos:encode value='<%= searchstring %>' context="htmlAttribute"/>"/> <input type="submit" value="Search"
                                                                             onclick="return reloadPage()"/></td>
                         <tr>
                             <td class="Cell" width="20%">Select code to map to:</td>
@@ -176,7 +176,7 @@
                             <td colspan="2" class="Cell" align="center"><input
                                     type="submit" value=" Remap Measurement "> <input
                                     type="button" value=" Add New Loinc Code "
-                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap.do','Add New Loinc Code')">
+                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap','Add New Loinc Code')">
                             </td>
                         </tr>
                         <tr>

@@ -36,8 +36,8 @@
     entry fields and a code search button. Center panel has Add/Remove buttons.
     Right panel shows current items in the list as a multi-select.
 
-    Submits to dxResearchUpdateQuickList.do which processes add/remove actions
-    and redirects back to dxResearchLoadQuickListItems.do to reload this page.
+    Submits to dxResearchUpdateQuickList which processes add/remove actions
+    and redirects back to dxResearchLoadQuickListItems to reload this page.
 
     Request Attributes:
     - quickListName: Name of the quick list being edited
@@ -50,12 +50,13 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
         <script type="text/javascript">
             function setfocus() {
@@ -89,7 +90,7 @@
                 var t3 = encodeURIComponent(document.forms[0].xml_research4.value);
                 var t4 = encodeURIComponent(document.forms[0].xml_research5.value);
                 var codeType = document.forms[0].selectedCodingSystem.value;
-                awnd = rs('att', 'dxResearchCodeSearch.do?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
+                awnd = rs('att', 'dxResearchCodeSearch?codeType=' + codeType + '&xml_research1=' + t0 + '&xml_research2=' + t1 + '&xml_research3=' + t2 + '&xml_research4=' + t3 + '&xml_research5=' + t4 + '&demographicNo=', 600, 600, 1);
                 awnd.focus();
             }
 
@@ -110,7 +111,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
                 </svg>
-                &nbsp;— ${e:forHtml(quickListName)}
+                &nbsp;— ${carlos:forHtml(quickListName)}
             </h4>
         </div>
 
@@ -121,15 +122,15 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= org.owasp.encoder.Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
 <% } %>
 
-        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList.do" method="post">
+        <form action="${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchUpdateQuickList" method="post">
             <input type="hidden" name="forward" value="none"/>
-            <input type="hidden" name="quickListName" value="${e:forHtmlAttribute(quickListName)}"/>
+            <input type="hidden" name="quickListName" value="${carlos:forHtmlAttribute(quickListName)}"/>
 
             <div class="d-flex flex-wrap gap-3 mt-3">
 
@@ -165,10 +166,10 @@
 
                 <%-- Right panel: current quick list items --%>
                 <div style="flex:1; min-width:200px;">
-                    <label class="form-label"><fmt:message key="oscarResearch.oscarDxResearch.quickListItemsOf"/> ${e:forHtml(quickListName)}</label>
+                    <label class="form-label"><fmt:message key="oscarResearch.oscarDxResearch.quickListItemsOf"/> ${carlos:forHtml(quickListName)}</label>
                     <select class="form-select" name="quickListItems" size="10" multiple="true">
                         <c:forEach var="qlItems" items="${allQuickListItems.dxQuickListItemsVector}">
-                            <option value="${e:forHtmlAttribute(qlItems.type)},${e:forHtmlAttribute(qlItems.dxSearchCode)}">${e:forHtml(qlItems.description)}</option>
+                            <option value="${carlos:forHtmlAttribute(qlItems.type)},${carlos:forHtmlAttribute(qlItems.dxSearchCode)}">${carlos:forHtml(qlItems.description)}</option>
                         </c:forEach>
                     </select>
                 </div>

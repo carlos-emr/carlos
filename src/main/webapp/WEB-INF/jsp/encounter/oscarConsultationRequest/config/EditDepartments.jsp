@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,6 +45,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -52,8 +54,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);
     List<Department> Departments = departmentDao.findAll();
@@ -62,7 +62,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title>Edit Departments</title>
     </head>
 
@@ -79,7 +79,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -96,7 +96,7 @@
             <div class="col-md-9">
                 <p><fmt:message key="encounter.oscarConsultationRequest.config.EditDepartments.msgClickOn"/></p>
 
-                <form action="${pageContext.request.contextPath}/encounter/EditDepartments.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/EditDepartments" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
                            value="<fmt:message key="encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"
                            onclick="return confirm('Are you sure you want to delete the selected departments?');"/>
@@ -111,11 +111,11 @@
                             <%
                                 for (Department i : Departments) {
                                     String contextPath = request.getContextPath();
-                                    String url = contextPath + "/encounter/EditDepartments.do?id=" + i.getId();
+                                    String url = contextPath + "/encounter/EditDepartments?id=" + i.getId();
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>"></td>
-                                <td><a href="<%= url %>"><%= Encode.forHtml(i.getName()) %></a></td>
+                                <td><a href="<%= url %>"><carlos:encode value='<%= i.getName() %>' context="html"/></a></td>
                             </tr>
                             <% } %>
                         </tbody>

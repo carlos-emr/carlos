@@ -103,7 +103,7 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages.do");
+        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages");
     }
 
     @Test
@@ -139,7 +139,7 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
-                .endsWith("/demographic/DemographicLinkMsg.do");
+                .endsWith("/demographic/DemographicLinkMsg");
         assertThat(bean.getAttachment()).isNotNull();
         assertThat(bean.getMessageId()).isEqualTo("42");
     }
@@ -201,7 +201,7 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
-                .endsWith("/demographic/DemographicLinkMsg.do");
+                .endsWith("/demographic/DemographicLinkMsg");
         // The item remained because its itemId matches "1"; the parser never
         // saw "foo" as a valid selection.
         assertThat(bean.getAttachment()).contains("itemId=\"1\"");

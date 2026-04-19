@@ -32,15 +32,16 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -50,8 +51,6 @@
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
@@ -67,7 +66,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><%=transactionType%></title>
     </head>
 
@@ -84,7 +83,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -110,58 +109,58 @@
                 </div>
                 <% } %>
 
-                <form action="${pageContext.request.contextPath}/encounter/AddInstitution.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/AddInstitution" method="post">
                     <input type="hidden" name="id" id="id" value="<%= id != null ? id : "" %>"/>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="inst-name" class="form-label">Name</label>
-                            <input type="text" name="name" id="inst-name" class="form-control" value="<e:forHtmlAttribute value='${name}'/>"/>
+                            <input type="text" name="name" id="inst-name" class="form-control" value="<carlos:encode value='${name}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="address" class="form-label">Address</label>
-                            <input type="text" name="address" id="address" class="form-control" value="<e:forHtmlAttribute value='${address}'/>"/>
+                            <input type="text" name="address" id="address" class="form-control" value="<carlos:encode value='${address}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="city" class="form-label">City</label>
-                            <input type="text" name="city" id="city" class="form-control" value="<e:forHtmlAttribute value='${city}'/>"/>
+                            <input type="text" name="city" id="city" class="form-control" value="<carlos:encode value='${city}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="province" class="form-label">Province</label>
-                            <input type="text" name="province" id="province" class="form-control" value="<e:forHtmlAttribute value='${province}'/>"/>
+                            <input type="text" name="province" id="province" class="form-control" value="<carlos:encode value='${province}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="postal" class="form-label">Postal Code</label>
-                            <input type="text" name="postal" id="postal" class="form-control" value="<e:forHtmlAttribute value='${postal}'/>"/>
+                            <input type="text" name="postal" id="postal" class="form-control" value="<carlos:encode value='${postal}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="phone" class="form-label">Phone</label>
-                            <input type="text" name="phone" id="phone" class="form-control" value="<e:forHtmlAttribute value='${phone}'/>"/>
+                            <input type="text" name="phone" id="phone" class="form-control" value="<carlos:encode value='${phone}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="fax" class="form-label">Fax</label>
-                            <input type="text" name="fax" id="fax" class="form-control" value="<e:forHtmlAttribute value='${fax}'/>"/>
+                            <input type="text" name="fax" id="fax" class="form-control" value="<carlos:encode value='${fax}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="website" class="form-label">Website</label>
-                            <input type="text" name="website" id="website" class="form-control" value="<e:forHtmlAttribute value='${website}'/>"/>
+                            <input type="text" name="website" id="website" class="form-control" value="<carlos:encode value='${website}' context="htmlAttribute"/>"/>
                         </div>
                         <div class="col-md-6">
                             <label for="email" class="form-label">Email</label>
-                            <input type="text" name="email" id="email" class="form-control" value="<e:forHtmlAttribute value='${email}'/>"/>
+                            <input type="text" name="email" id="email" class="form-control" value="<carlos:encode value='${email}' context="htmlAttribute"/>"/>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="annotation" class="form-label">Annotation</label>
-                            <textarea name="annotation" id="annotation" class="form-control" rows="3"><e:forHtmlContent value='${annotation}'/></textarea>
+                            <textarea name="annotation" id="annotation" class="form-control" rows="3"><carlos:encode value='${annotation}' context="html"/></textarea>
                         </div>
                     </div>
                     <input type="hidden" name="whichType" value="<%=whichType%>"/>

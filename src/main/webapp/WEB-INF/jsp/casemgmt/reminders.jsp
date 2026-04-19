@@ -30,14 +30,15 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -72,6 +73,6 @@
 <input type="submit" name="submit" value="save" onclick="this.form.method.value='patientCPPSave'"/>
 <c:if test="${not empty messages}">
     <c:forEach var="message" items="${messages}">
-        <div style="color: blue"><I>${e:forHtml(message)}</I></div>
+        <div style="color: blue"><I>${carlos:forHtml(message)}</I></div>
     </c:forEach>
 </c:if>

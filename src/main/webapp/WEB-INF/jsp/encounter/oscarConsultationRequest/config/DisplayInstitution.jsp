@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.consult" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.consult");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.consult");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,6 +45,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -56,7 +58,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.InstitutionDepartmentPK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutitionDepartmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);
@@ -68,7 +69,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title>Display Institution</title>
     </head>
 
@@ -85,7 +86,7 @@
         <div class="action-errors">
             <ul>
                 <% for (String error : actionErrors) { %>
-                    <li><%= Encode.forHtml(error) %></li>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
                 <% } %>
             </ul>
         </div>
@@ -100,9 +101,9 @@
             </div>
 
             <div class="col-md-9">
-                <p>Please check off all the departments offered by <%= Encode.forHtml(name) %>.</p>
+                <p>Please check off all the departments offered by <carlos:encode value='<%= name %>' context="html"/>.</p>
 
-                <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment.do" method="post">
+                <form action="${pageContext.request.contextPath}/encounter/UpdateInstitutionDepartment" method="post">
                     <input type="hidden" name="id" value="<%=id %>">
                     <input type="submit" class="btn btn-primary mb-3" value="Update Institution Department">
 
@@ -120,7 +121,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="specialists" value="<%=i.getId()%>" <%=assoc != null ? "checked" : ""%>></td>
-                                <td><%= Encode.forHtml(i.getName()) %></td>
+                                <td><carlos:encode value='<%= i.getName() %>' context="html"/></td>
                             </tr>
                             <% } %>
                         </tbody>

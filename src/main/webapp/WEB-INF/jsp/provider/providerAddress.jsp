@@ -177,28 +177,28 @@
 
                 %>
 
-                <form action="${pageContext.request.contextPath}/EditAddress.do" method="post">
+                <form action="${pageContext.request.contextPath}/EditAddress" method="post">
 
-			<span style="color:blue">By entering in values, you will 
+			<span style="color:blue"><fmt:message key="provider.providerAddress.noticeIntro"/>
 			<ul>
-			<li>Override the address in prescriptions</li>
-			<li> When choosing your letterhead in consult requests, the clinic address and your provider record's address will be overridden
+			<li><fmt:message key="provider.providerAddress.overridePrescriptionAddress"/></li>
+			<li> <fmt:message key="provider.providerAddress.overrideConsultAddress"/>
 			</li>
 			</ul>
 			</span>
                     <br/>
 
 
-                    <label for="address">Address</label>
+                    <label for="address"><fmt:message key="provider.providerAddress.address"/></label>
                     <input type="text" name="address" value="<%=address %>" />
                     <br/>
-                    <label for="city">City</label>
+                    <label for="city"><fmt:message key="provider.providerAddress.city"/></label>
                     <input type="text" name="city" value="<%=city %>" />
                     <br/>
-                    <label for="province">Province</label>
+                    <label for="province"><fmt:message key="provider.providerAddress.province"/></label>
                     <input type="text" name="province" value="<%=province %>" />
                     <br/>
-                    <label for="postal">Postal</label>
+                    <label for="postal"><fmt:message key="provider.providerAddress.postal"/></label>
                     <input type="text" name="postal" value="<%=postal %>" />
                     <br/>
 

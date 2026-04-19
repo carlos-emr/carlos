@@ -29,9 +29,11 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -56,13 +58,13 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <table>
         <tr>
-            <td>Processing...</td>
+            <td><fmt:message key="encounter.insertTemplate.processing"/></td>
             <%
                 String tmplValue = (String) request.getAttribute("templateValue");
             %>
             <script>
             <% if (tmplValue != null && !tmplValue.isEmpty()) { %>
-                var text = "<%= Encode.forJavaScript(tmplValue) %>";
+                var text = "<carlos:encode value='<%= tmplValue %>' context="javaScriptBlock"/>";
                 write2Parent(text);
             <% } else { %>
                 window.close();

@@ -56,7 +56,12 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("delete".equals(method) || "submit".equals(method) || "download".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("changeDisplay".equals(method)) {
             return changeDisplay();
         } else if ("reset".equals(method)) {

@@ -30,18 +30,19 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,7 +55,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
@@ -109,9 +110,9 @@
             }, 1000);
 
             // Print consultation request form
-            const consultPDFName = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("consultPDFName")))%>';
-            const consultPDF = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("consultPDF")))%>';
-            const isPreviewReady = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("isPreviewReady")))%>';
+            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
+            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
+            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF, function () {
                     setTimeout("window.close()", secs * 1000);

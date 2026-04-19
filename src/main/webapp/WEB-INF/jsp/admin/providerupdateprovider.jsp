@@ -36,20 +36,22 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, io.github.carlos_emr.SxmlMisc, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -70,7 +72,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
 %>
@@ -122,12 +123,12 @@
                 if (document.updatearecord.practitionerNo.value != "") {
                     var val = document.updatearecord.practitionerNoType.options[document.updatearecord.practitionerNoType.selectedIndex].value;
                     if (val == "") {
-                        alert("Please choose a College Type");
+                        alert("<fmt:message key="admin.providerupdateprovider.msgChooseCollegeType"/>");
                         return false;
                     }
                 }
                 if (!(document.updatearecord.provider_no.value == "-new-" || document.updatearecord.provider_no.value.match(/^[1-9]\d*$/))) {
-                    alert("Provider No. must be a number.");
+                    alert("<fmt:message key="admin.providerupdateprovider.msgProviderNoNumber"/>");
                     return false;
                 } else {
                     return true;
@@ -194,7 +195,7 @@
             </tr>
         </table>
 
-        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderUpdate.do" name="updatearecord" onsubmit="return onsub()">
+        <form method="post" action="${pageContext.request.contextPath}/admin/ProviderUpdate" name="updatearecord" onsubmit="return onsub()">
 
             <table cellspacing="0" cellpadding="2" width="100%" border="0"
                    datasrc='#xml_list'>
@@ -204,8 +205,8 @@
                     </td>
                     <td>
                                 <% String provider_no = provider.getId(); %>
-                                <%= Encode.forHtml(provider_no) %>
-                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(provider_no) %>">
+                                <carlos:encode value='<%= provider_no %>' context="html"/>
+                        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= provider_no %>' context="htmlAttribute"/>">
 
                 </tr>
                 <tr>
@@ -214,7 +215,7 @@
                         </div>
                     </td>
                     <td><input type="text" index="3" name="last_name"
-                               value="<%= Encode.forHtmlAttribute(provider.getLastName() == null ? "" : provider.getLastName()) %>" maxlength="30"></td>
+                               value="<carlos:encode value='<%= provider.getLastName() == null ? "" : provider.getLastName() %>' context="htmlAttribute"/>" maxlength="30"></td>
                 </tr>
                 <tr>
                     <td>
@@ -222,7 +223,7 @@
                         </div>
                     </td>
                     <td><input type="text" index="4" name="first_name"
-                               value="<%= Encode.forHtmlAttribute(provider.getFirstName() == null ? "" : provider.getFirstName()) %>" maxlength="30"></td>
+                               value="<carlos:encode value='<%= provider.getFirstName() == null ? "" : provider.getFirstName() %>' context="htmlAttribute"/>" maxlength="30"></td>
                 </tr>
 
 
@@ -240,8 +241,8 @@
                             for (int i = 0; i < sites.size(); i++) {
                         %>
                         <input type="checkbox" name="sites"
-                               value="<%= Encode.forHtmlAttribute(sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId())) %>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
-                        <%= Encode.forHtmlContent(sites.get(i).getName() == null ? "" : sites.get(i).getName()) %><br/>
+                               value="<carlos:encode value='<%= sites.get(i).getSiteId() == null ? "" : String.valueOf(sites.get(i).getSiteId()) %>' context="htmlAttribute"/>" <%= psites.contains(sites.get(i))?"checked='checked'":"" %> <%=((!isSiteAccessPrivacy) || siteIDs.contains(sites.get(i).getSiteId()) ? "" : " disabled ") %>>
+                        <carlos:encode value='<%= sites.get(i).getName() == null ? "" : sites.get(i).getName() %>' context="html"/><br/>
                         <%
                             }
                         %>
@@ -285,18 +286,16 @@
                     } else {
                     }
                 %>">
-                <td align="right">
-                    Assigned Supervisor
-                </td>
+                <td align="right"><fmt:message key="admin.providerupdateprovider.assignedSupervisor"/></td>
                 <td>
                     <select id="supervisor" name="supervisor">
-                        <option value="">Please Assign Supervisor</option>
+                        <option value=""><fmt:message key="admin.providerupdateprovider.pleaseAssignSupervisor"/></option>
                                 <%
                     for( ProviderData p : providerL ) {
                         
                     %>
-                        <option value="<%=Encode.forHtmlAttribute(p.getId() == null ? "" : p.getId())%>"
-                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><%=Encode.forHtmlContent((p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()))%>
+                        <option value="<carlos:encode value='<%= p.getId() == null ? "" : p.getId() %>' context="htmlAttribute"/>"
+                                <%if( provider.getSupervisor() != null &&  provider.getSupervisor().equals(p.getId())){%>SELECTED<%}%>><carlos:encode value='<%= (p.getLastName() == null ? "" : p.getLastName()) + ", " + (p.getFirstName() == null ? "" : p.getFirstName()) %>' context="html"/>
                         </option>
 
                                 <%
@@ -309,13 +308,13 @@
                         <td align="right"><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
                         <td><input type="text" name="specialty"
-                                   value="<%= Encode.forHtmlAttribute(provider.getSpecialty() == null ? "" : provider.getSpecialty()) %>" maxlength="40"></td>
+                                   value="<carlos:encode value='<%= provider.getSpecialty() == null ? "" : provider.getSpecialty() %>' context="htmlAttribute"/>" maxlength="40"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formTeam"/>:
                         </td>
                         <td><input type="text" name="team"
-                                   value="<%= Encode.forHtmlAttribute(provider.getTeam() == null ? "" : provider.getTeam()) %>" maxlength="20"></td>
+                                   value="<carlos:encode value='<%= provider.getTeam() == null ? "" : provider.getTeam() %>' context="htmlAttribute"/>" maxlength="20"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formSex"/>:
@@ -340,82 +339,82 @@
                         <td align="right"><fmt:message key="admin.provider.formAddress"/>:
                         </td>
                         <td><input type="text" name="address"
-                                   value="<%= Encode.forHtmlAttribute(provider.getAddress()==null ? "" : provider.getAddress()) %>" size="40"
+                                   value="<carlos:encode value='<%= provider.getAddress()==null ? "" : provider.getAddress() %>' context="htmlAttribute"/>" size="40"
                                    maxlength="40"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formHomePhone"/>:
                         </td>
                         <td><input type="text" name="phone"
-                                   value="<%= Encode.forHtmlAttribute(provider.getPhone()==null ? "" : provider.getPhone()) %>"></td>
+                                   value="<carlos:encode value='<%= provider.getPhone()==null ? "" : provider.getPhone() %>' context="htmlAttribute"/>"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formWorkPhone"/>:
                         </td>
                         <td><input type="text" name="workphone"
-                                   value="<%= Encode.forHtmlAttribute(provider.getWorkPhone()==null ? "" : provider.getWorkPhone()) %>"
+                                   value="<carlos:encode value='<%= provider.getWorkPhone()==null ? "" : provider.getWorkPhone() %>' context="htmlAttribute"/>"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formEmail"/>:</td>
                         <td><input type="text" name="email"
-                                   value="<%= Encode.forHtmlAttribute(provider.getEmail()==null ? "" : provider.getEmail()) %>"
+                                   value="<carlos:encode value='<%= provider.getEmail()==null ? "" : provider.getEmail() %>' context="htmlAttribute"/>"
                                    maxlength="50"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formPager"/>:
                         </td>
                         <td><input type="text" name="xml_p_pager"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_pager") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_pager'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCell"/>:
                         </td>
                         <td><input type="text" name="xml_p_cell"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_cell") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_cell'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOtherPhone"/>:
                         </td>
                         <td><input type="text" name="xml_p_phone2"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_phone2") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_phone2'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formFax"/>:
                         </td>
                         <td><input type="text" name="xml_p_fax"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_fax") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_fax'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOhipNo"/>:
                         </td>
                         <td><input type="text" name="ohip_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getOhipNo()==null ? "" : provider.getOhipNo()) %>" maxlength="20">
+                                   value="<carlos:encode value='<%= provider.getOhipNo()==null ? "" : provider.getOhipNo() %>' context="htmlAttribute"/>" maxlength="20">
                         </td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formRmaNo"/>:
                         </td>
                         <td><input type="text" name="rma_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getRmaNo()==null ? "" : provider.getRmaNo()) %>" maxlength="20">
+                                   value="<carlos:encode value='<%= provider.getRmaNo()==null ? "" : provider.getRmaNo() %>' context="htmlAttribute"/>" maxlength="20">
                         </td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingNo"/>:
                         </td>
                         <td><input type="text" name="billing_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getBillingNo()==null ? "" : provider.getBillingNo()) %>"
+                                   value="<carlos:encode value='<%= provider.getBillingNo()==null ? "" : provider.getBillingNo() %>' context="htmlAttribute"/>"
                                    maxlength="20"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formHsoNo"/>:
                         </td>
                         <td><input type="text" name="hso_no"
-                                   value="<%= Encode.forHtmlAttribute(provider.getHsoNo()==null ? "" : provider.getHsoNo()) %>" maxlength="10">
+                                   value="<carlos:encode value='<%= provider.getHsoNo()==null ? "" : provider.getHsoNo() %>' context="htmlAttribute"/>" maxlength="10">
                         </td>
                     </tr>
                     <tr>
@@ -434,14 +433,14 @@
                         <td align="right"><fmt:message key="admin.provider.formSpecialtyCode"/>:
                         </td>
                         <td><input type="text" name="xml_p_specialty_code"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_specialty_code") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_specialty_code'></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
-                                   value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")) %>"
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no") %>' context="htmlAttribute"/>"
                                    datafld='xml_p_billinggroup_no'></td>
                     </tr>
                     <tr>
@@ -449,7 +448,7 @@
                         </td>
                         <td>
                             <select name="practitionerNoType" id="practitionerNoType">
-                                <option value="">Select Below</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.selectBelow"/></option>
                                 <%
                                     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
@@ -462,14 +461,14 @@
                                             }
                                 %>
 
-                                <option value="<%=Encode.forHtmlAttribute(llItem.getValue() == null ? "" : llItem.getValue())%>" <%=selected %>><%=Encode.forHtmlContent(llItem.getLabel() == null ? "" : llItem.getLabel())%>
+                                <option value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>" <%=selected %>><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/>
                                 </option>
                                 <%
                                     }
                                 } else {
                                 %>
 
-                                <option value="">None Available</option>
+                                <option value=""><fmt:message key="admin.providerupdateprovider.noneAvailable"/></option>
                                 <%
                                     }
 
@@ -482,7 +481,7 @@
                         <td align="right"><fmt:message key="admin.provider.formCPSID"/>:
                         </td>
                         <td><input type="text" name="practitionerNo"
-                                   value="<%= Encode.forHtmlAttribute(provider.getPractitionerNo()==null ? "" : provider.getPractitionerNo()) %>"
+                                   value="<carlos:encode value='<%= provider.getPractitionerNo()==null ? "" : provider.getPractitionerNo() %>' context="htmlAttribute"/>"
                                    maxlength="10"></td>
                     </tr>
                     <%
@@ -491,24 +490,24 @@
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialFirstName"/>:</td>
                         <td><input type="text" name="officialFirstName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME))) %>"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_FIRST_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialSecondName"/>:</td>
                         <td><input type="text" name="officialSecondName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME))) %>"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_SECOND_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formOfficialLastName"/>:</td>
                         <td><input type="text" name="officialLastName"
-                                   value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME))) %>"
+                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME)) %>' context="htmlAttribute"/>"
                                    maxlength="255"></td>
                     </tr>
                     <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <tr>
-                        <td align="right">Default Clinic NBR:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.defaultClinicNbr"/></td>
                         <td colspan="3">
                             <select name="xml_p_nbr">
                                 <%
@@ -519,7 +518,7 @@
                                         ClinicNbr tempNbr = nbrIter.next();
                                         String valueString = tempNbr.getNbrValue() + " | " + tempNbr.getNbrString();
                                 %>
-                                <option value="<%=Encode.forHtmlAttribute(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue())%>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><%=Encode.forHtmlContent(valueString)%>
+                                <option value="<carlos:encode value='<%= tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue() %>' context="htmlAttribute"/>" <%=StringUtils.defaultString(SxmlMisc.getXmlContent(provider.getComments(), "xml_p_nbr")).startsWith(tempNbr.getNbrValue() == null ? "" : tempNbr.getNbrValue()) ? "selected" : ""%>><carlos:encode value='<%= valueString %>' context="html"/>
                                 </option>
                                 <%}%>
 
@@ -528,7 +527,7 @@
                     </tr>
                     <%} %>
                     <tr>
-                        <td align="right">Bill Center:</td>
+                        <td align="right"><fmt:message key="admin.providerupdateprovider.billCenter"/></td>
                         <td><select name="billcenter">
                             <option value=""></option>
                             <%
@@ -541,8 +540,8 @@
                                     billCode = (String) keys.nextElement();
                                     codeDesc = billCenter.getAllBillCenter().getProperty(billCode);
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(billCode) %>"
-                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><%= Encode.forHtmlContent(codeDesc)%>
+                            <option value="<carlos:encode value='<%= billCode %>' context="htmlAttribute"/>"
+                                    <%=currentBillCode.compareTo(billCode) == 0 ? "selected" : ""%>><carlos:encode value='<%= codeDesc %>' context="html"/>
                             </option>
                             <%
                                 }
@@ -558,21 +557,21 @@
                     <td align="right"><fmt:message key="admin.provider.formSlpUsername"/>:
                     </td>
                     <td><input type="text" name="xml_p_slpusername"
-                               value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")) %>"
+                               value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slpusername") %>' context="htmlAttribute"/>"
                                datafld='xml_p_slpusername'></td>
                 </tr>
                 <tr>
                     <td align="right"><fmt:message key="admin.provider.formSlpPassword"/>:
                     </td>
                     <td><input type="text" name="xml_p_slppassword"
-                               value="<%= Encode.forHtmlAttribute(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")) %>"
+                               value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_slppassword") %>' context="htmlAttribute"/>"
                                datafld='xml_p_slppassword'></td>
                 </tr>
                 <tr>
                     <td align="right"><fmt:message key="provider.login.title.confidentiality"/>:
                     </td>
                     <td><input type="text" readonly name="signed_confidentiality"
-                               value="<%= Encode.forHtmlAttribute(provider.getSignedConfidentiality()==null ? "" : String.valueOf(provider.getSignedConfidentiality())) %>">
+                               value="<carlos:encode value='<%= provider.getSignedConfidentiality()==null ? "" : String.valueOf(provider.getSignedConfidentiality()) %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
 

@@ -29,10 +29,11 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -70,11 +71,11 @@
 
 
     <object id="pdf" type="application/pdf"
-            data="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>"
+            data="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>"
             height="80%" width="100%" standby="Loading pdf...">
 
         Sorry the pdf failed to load...<a
-            href="<%= request.getContextPath() %>/report/GenerateEnvelopes.do?demos=<%= Encode.forUriComponent(StringUtils.noNull(request.getParameter("demos"))) %>">click here to download the
+            href="<%= request.getContextPath() %>/report/GenerateEnvelopes?demos=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demos")) %>' context="uriComponent"/>">click here to download the
         PDF</a>.
 
     </object>

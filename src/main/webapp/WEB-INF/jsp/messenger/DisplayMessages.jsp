@@ -62,8 +62,8 @@
     - Font Awesome 6 (action icons: trash, folder, undo, search, caret)
 
     Form Routing:
-    - Inbox/Sent/Demographic views POST to DisplayMessages.do (MsgDisplayMessages2Action)
-    - Deleted/Archived view POSTs to ReDisplayMessages.do (MsgReDisplayMessages2Action)
+    - Inbox/Sent/Demographic views POST to DisplayMessages (MsgDisplayMessages2Action)
+    - Deleted/Archived view POSTs to ReDisplayMessages (MsgReDisplayMessages2Action)
 
     @since 2002-11-08
 --%>
@@ -75,6 +75,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
  
 	
@@ -84,6 +85,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // Build security role string from session attributes
     String userrole = (String) session.getAttribute("userrole");
@@ -93,7 +96,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     // Exit if user is not authorized
@@ -152,17 +155,17 @@
 %>
 
 <c:if test="${empty msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty msgSessionBean}">
     <c:if test="${msgSessionBean.valid == 'false'}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 <%
     MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
     if (bean == null) {
-        response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.do");
+        response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
         return;
     }
 %>
@@ -278,15 +281,15 @@
                 <fmt:message key="messenger.DisplayMessages.msgArchived"/>
         <%      break;
             case 3: %>
-                Messages related to <%=Encode.forHtml(demographic_name)%>
+                Messages related to <carlos:encode value='<%= demographic_name %>' context="html"/>
         <%      break;
         }%>
     </h4>
-    <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post" class="page-header-search-form">
+    <form action="${pageContext.request.contextPath}/messenger/DisplayMessages" method="post" class="page-header-search-form">
         <input name="boxType" type="hidden" value="<%=pageType%>">
         <div class="input-group input-group-sm">
             <input name="searchString" type="text" class="form-control" placeholder="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"
-                   value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
+                   value="<carlos:encode value='<%= DisplayMessagesBeanId.getFilter() %>' context="html"/>">
             <button name="btnSearch" type="submit" class="btn btn-primary" title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
@@ -299,12 +302,12 @@
 
                     <%
                         // Route form to different Struts actions based on view type:
-                        // - Inbox/Sent/Demographic → DisplayMessages.do (handles delete, read, unread)
-                        // - Deleted/Archived → ReDisplayMessages.do (handles unarchive, mark as read)
+                        // - Inbox/Sent/Demographic → DisplayMessages (handles delete, read, unread)
+                        // - Deleted/Archived → ReDisplayMessages (handles unarchive, mark as read)
                         String contextPath = request.getContextPath();
-                        String strutsAction = contextPath + "/messenger/DisplayMessages.do";
+                        String strutsAction = contextPath + "/messenger/DisplayMessages";
                         if (pageType == 2) {
-                            strutsAction = contextPath + "/messenger/ReDisplayMessages.do";
+                            strutsAction = contextPath + "/messenger/ReDisplayMessages";
                         }
                     %>
 
@@ -326,23 +329,23 @@
                         <td>
                             <ul class="nav nav-tabs">
                                 <li class="nav-item">
-                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage.do">
+                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">
                                          <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages">
                                          <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=1">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=1">
                                          <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
-                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?boxType=2">
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages?boxType=2">
                                          <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
@@ -389,7 +392,7 @@
 
 		                    String previous = "";
 		                    String next = "";
-		                    String path = request.getContextPath()+"/messenger/DisplayMessages.do?boxType=" + pageType + "&page=";
+		                    String path = request.getContextPath()+"/messenger/DisplayMessages?boxType=" + pageType + "&page=";
 		                    if (pageType != 3){
 
 		                    int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
@@ -399,13 +402,13 @@
 		                    String prevLabel;
 		                    String nextLabel;
 		                    try {
-		                        prevLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
+		                        prevLabel = SafeEncode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
 		                    } catch (java.util.MissingResourceException e) {
 		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnPrevious");
 		                        prevLabel = "&laquo; Previous";
 		                    }
 		                    try {
-		                        nextLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
+		                        nextLabel = SafeEncode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
 		                    } catch (java.util.MissingResourceException e) {
 		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnNext");
 		                        nextLabel = "Next &raquo;";
@@ -433,7 +436,7 @@
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
-                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=status"
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=status"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class="fa-solid fa-caret-down"></i>
@@ -441,13 +444,13 @@
                                     </th>
                                     <th style="text-align: left;">
                                       <%if( pageType == 1 ) {%>
-                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=sentto"
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=sentto"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
-                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=from"
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=from"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class="fa-solid fa-caret-down"></i>
@@ -455,21 +458,21 @@
                                        <% } %>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=subject"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=subject"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=date"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=date"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
-                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.do?orderby=linked"
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages?orderby=linked"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class="fa-solid fa-caret-down"></i>
@@ -509,7 +512,7 @@
                                 <tr class="<%=rowClass%>">
                                     <td style="width:25px;">
                                     <%if (pageType != 1){%>
-                                       <input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId()) %>">
+                                       <input type="checkbox" name="messageNo" value="<carlos:encode value='<%= dm.getMessageId() %>' context="htmlAttribute"/>">
                                      <% } %>
 
                                     </td>
@@ -523,21 +526,21 @@
 %>
 <span class="recipientList">
 <%
-                                                out.print(Encode.forHtml(dm.getSentto()));
+                                                out.print(SafeEncode.forHtml(dm.getSentto()));
 %>
 </span>
 <%
                                             }
                                             else
                                             {
-                                                out.print(Encode.forHtml(dm.getSentby()));
+                                                out.print(SafeEncode.forHtml(dm.getSentby()));
                                             }
                                         %>
 
                                     </td>
                                     <td>
-                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage.do?messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&boxType=<%=pageType%>">
-                                        <%=Encode.forHtml(dm.getThesubject())%>
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>' context="uriComponent"/>&boxType=<%=pageType%>">
+                                        <carlos:encode value='<%= dm.getThesubject() %>' context="html"/>
                                     </a>
                                     <%
                                        String atta = dm.getAttach();
@@ -546,14 +549,14 @@
                                             &nbsp;<i class="fa-solid fa-paperclip" title="attachment"></i>
                                     <% } %>
                                     </td>
-                                    <td title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
-                                    	<%=Encode.forHtml(dm.getThedate())%>
+                                    <td title="<carlos:encode value='<%= dm.getThedate() %>' context="htmlAttribute"/>&nbsp;&nbsp;<carlos:encode value='<%= dm.getThetime() %>' context="htmlAttribute"/>">
+                                    	<carlos:encode value='<%= dm.getThedate() %>' context="html"/>
 
                                     </td>
                                     <td>
 
                                     <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
-                                        <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
+                                        <oscar:nameage demographicNo="<%= dm.getDemographic_no() %>"></oscar:nameage>
                                     <%} %>
 
                                     </td>

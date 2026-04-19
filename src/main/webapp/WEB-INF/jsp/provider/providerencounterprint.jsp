@@ -29,13 +29,17 @@
 
 --%>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*,java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Encounter" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%
     EncounterDao encounterDao = SpringUtils.getBean(EncounterDao.class);
 %>
@@ -44,7 +48,7 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>ENCOUNTER PRINT</title>
+    <title><fmt:message key="provider.providerencounterprint.title"/></title>
     <script language="JavaScript">
         <!--
 
@@ -63,8 +67,8 @@
                     <TR>
                         <%@ include file="/share/letterheader.htm" %>
                         <TD WIDTH="20%" ALIGN="right" nowrap valign="top"><input
-                                type="button" name="Submit" value="Print" onClick="window.print()">
-                            <input type="button" name="Submit2" value="Cancel"
+                                type="button" name="Submit" value="<fmt:message key='provider.providerencounterprint.print'/>" onClick="window.print()">
+                            <input type="button" name="Submit2" value="<fmt:message key='provider.providerencounterprint.cancel'/>"
                                    onClick="window.close()"></TD>
                     </TR>
                 </TABLE>
@@ -81,31 +85,31 @@
                     }
                 %>
                 <xml id="xml_list">
-                    <encounter><%=Encode.forXml(content)%>
+                    <encounter><carlos:encode value='<%= content %>' context="xml"/>
                     </encounter>
                 </xml>
                 <table width="100%" border="1" datasrc='#xml_list'>
                     <tr>
-                        <td width="65%"><b>Name: </b><span datafld='xml_name'></td>
-                        <td><b>Phone: </b><span datafld='xml_hp'></td>
+                        <td width="65%"><b><fmt:message key="provider.providerencounterprint.name"/>: </b><span datafld='xml_name'></td>
+                        <td><b><fmt:message key="provider.providerencounterprint.phone"/>: </b><span datafld='xml_hp'></td>
                     </tr>
                     <tr>
-                        <td colspan='2'><b>Address: </b><span datafld='xml_address'></td>
+                        <td colspan='2'><b><fmt:message key="provider.providerencounterprint.address"/>: </b><span datafld='xml_address'></td>
                     </tr>
                     <tr>
-                        <td width="50%"><b>DOB</b>(yyyy/mm/dd): <span
+                        <td width="50%"><b><fmt:message key="provider.providerencounterprint.dob"/></b>(yyyy/mm/dd): <span
                                 datafld='xml_dob'></td>
-                        <td><b>Age: </b><span datafld='xml_age'> <span
+                        <td><b><fmt:message key="provider.providerencounterprint.age"/>: </b><span datafld='xml_age'> <span
                                 datafld='xml_sex'></td>
                     </tr>
                     <tr>
-                        <td width="50%"><b>PCN Roster Status: </b><span
+                        <td width="50%"><b><fmt:message key="provider.providerencounterprint.rosterStatus"/>: </b><span
                                 datafld='xml_roster'></td>
-                        <td><b>HIN: </b><span datafld='xml_hin'> <span
+                        <td><b><fmt:message key="provider.providerencounterprint.hin"/>: </b><span datafld='xml_hin'> <span
                                 datafld='xml_ver'></td>
                     </tr>
                     <tr>
-                        <td colspan='2'><b>Family Doctor: </b><span datafld='xml_fd'></td>
+                        <td colspan='2'><b><fmt:message key="provider.providerencounterprint.familyDoctor"/>: </b><span datafld='xml_fd'></td>
                     </tr>
                 </table>
 
@@ -115,18 +119,18 @@
                 <table width="100%" cellspacing="0" cellpadding="1" border="1"
                        datasrc='#xml_list'>
                     <tr>
-                        <td width="50%" valign="top"><b>Problem List:</b><br>
+                        <td width="50%" valign="top"><b><fmt:message key="provider.providerencounterprint.problemList"/>:</b><br>
                             <div datafld='xml_Problem_List'>
                         </td>
-                        <td valign="top"><b>Medication:</b><br>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.medication"/>:</b><br>
                             <div datafld='xml_Medication'>
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top"><b>Allergy/Alert:</b><br>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.allergyAlert"/>:</b><br>
                             <div datafld='xml_Alert'>
                         </td>
-                        <td valign="top"><b>Family Social History:</b><br>
+                        <td valign="top"><b><fmt:message key="provider.providerencounterprint.familySocialHistory"/>:</b><br>
                             <div datafld='xml_Family_Social_History'>
                         </td>
                     </tr>
@@ -139,9 +143,9 @@
                 <table width="100%" cellspacing="0" cellpadding="2" border="1"
                        datasrc='#xml_list'>
                     <tr>
-                        <td><%=Encode.forHtml(encounter_date)%> <%=Encode.forHtml(encounter_time)%><br>
-                            <b>Reason:</b><%=Encode.forHtml(subject.substring(2).replaceAll("\\|", " "))%><br>
-                            <b>Content:</b>
+                        <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= subject.substring(2).replaceAll("\\|", " ") %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.content"/>:</b>
                             <div datafld='xml_content'>
                         </td>
                     </tr>
@@ -150,7 +154,7 @@
                 <table width="100%" cellspacing="0" cellpadding="0" border="0"
                        datasrc='#xml_list'>
                     <tr>
-                        <td><b>By: </b><span datafld='xml_username'><br></td>
+                        <td><b><fmt:message key="provider.providerencounterprint.by"/>: </b><span datafld='xml_username'><br></td>
                     </tr>
                 </table>
 

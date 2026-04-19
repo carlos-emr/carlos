@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="java.util.Calendar" %>
@@ -57,7 +58,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 <head>
     <link rel="stylesheet" type="text/css" href="styles.css">
@@ -76,13 +76,13 @@
 %>
 
 <a onmouseover="this.style.cursor='pointer';" onMouseDown="parent.mb.hide();"><img
-        src="${e:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
+        src="${carlos:forHtmlAttribute(ctx)}/images/close.png" border="0" TITLE="Close"
         style="position: absolute; top: 0.5em; right: 0.5em; "></a>
 <br/><br/>
 <table class="mhTable">
     <tr>
         <th colspan="3" align="center"
-            style="font-style:normal;font-weight:bold;margin:0;font-family:sans-serif;font-size:80%"><%=Encode.forHtml(drugName)%> Rx
+            style="font-style:normal;font-weight:bold;margin:0;font-family:sans-serif;font-size:80%"><carlos:encode value='<%= drugName %>' context="html"/> Rx
             Examples
         </th>
     </tr>
@@ -107,16 +107,16 @@
     <%if (instructionExist && specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(ins)%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>');parent.addSpecialInstruction(document.getElementById('mhSpecInst_<%=i%>').innerHTML,'<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>');parent.mb.hide();"><carlos:encode value='<%= ins %>' context="html"/>
         </a></td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(specIns)%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>');parent.mb.hide();"><carlos:encode value='<%= specIns %>' context="html"/>
         </a></td>
     </tr>
     <%} else if (instructionExist && !specialInstructionExist) {%>
     <tr>
         <td align="left" style=""><a id="mhInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(ins)%>
+                                     onclick="parent.addInstruction(this.innerHTML,'<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>');parent.mb.hide();"><carlos:encode value='<%= ins %>' context="html"/>
         </a></td>
         <td>&nbsp;</td>
     </tr>
@@ -124,7 +124,7 @@
     <tr>
         <td>&nbsp;</td>
         <td align="left" style=""><a id="mhSpecInst_<%=i%>" href="javascript:void(0);"
-                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<%= Encode.forJavaScriptAttribute(randomId) %>');parent.mb.hide();"><%=Encode.forHtml(specIns)%>
+                                     onclick="parent.addSpecialInstruction(this.innerHTML,'<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>');parent.mb.hide();"><carlos:encode value='<%= specIns %>' context="html"/>
         </a></td>
     </tr>
     <%}%>

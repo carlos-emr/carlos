@@ -30,10 +30,11 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest, io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -43,14 +44,14 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");%>
 </security:oscarSec>
 <%
     if (!authed) {
         return;
     }
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%!
     TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
@@ -141,7 +142,7 @@
             }
         }
     </script>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <style>
         .text-selection {
             width: 300px;
@@ -151,7 +152,7 @@
 <body>
 <div class="container">
     <h3><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
-    <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
+    <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
 
@@ -173,7 +174,7 @@
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestActive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestActive.getSuggestedText())%>
+                                value="<%=tTextSuggestActive.getId().toString()%>"><carlos:encode value='<%= tTextSuggestActive.getSuggestedText() %>' context="html"/>
                         </option>
                         <% }
                         }
@@ -200,7 +201,7 @@
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestInactive.getSuggestedText())%>
+                                value="<%=tTextSuggestInactive.getId().toString()%>"><carlos:encode value='<%= tTextSuggestInactive.getSuggestedText() %>' context="html"/>
                         </option>
                         <% }
                         }

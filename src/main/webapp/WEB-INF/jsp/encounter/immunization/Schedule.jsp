@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
@@ -84,7 +85,7 @@
         sDoc = new EctImmImmunizationData().getImmunizations(demoNo);
     }
     if (sDoc == null) {
-        String redirect = "loadConfig.do";
+        String redirect = "loadConfig";
 
         if (demoNo != null)
             redirect += "?demographic_no=" + demoNo;
@@ -98,6 +99,8 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -119,7 +122,7 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit.do?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {
@@ -208,7 +211,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <%=Encode.forHtml(last_name)%>, <%=Encode.forHtml(first_name)%> <%=Encode.forHtml(sex)%> <%=Encode.forHtml(age)%>
+                        <carlos:encode value='<%= last_name %>' context="html"/>, <carlos:encode value='<%= first_name %>' context="html"/> <carlos:encode value='<%= sex %>' context="html"/> <carlos:encode value='<%= age %>' context="html"/>
                     </td>
                     <td>
                     </td>
@@ -224,8 +227,8 @@
 
         </td>
         <td class="MainTableRightColumn">
-            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule.do" method="post">
-                <input type="hidden" name="demographic_no" value="<%= Encode.forHtmlAttribute(demoNo) %>">
+            <form action="${pageContext.request.contextPath}/encounter/immunization/saveSchedule" method="post">
+                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
                 <table name="encounterTableRightCol" width="100%">
                     <tr>
                         <td>
@@ -279,25 +282,25 @@
                                        id="chkSet<%=i%>"/>
                                 <a href=#
                                    onclick="javascript:showSetName('tblSet<%=i%>', 'chkSet<%=i%>');" <%=fontStyle%> >
-                                    <%=Encode.forHtml(set.getAttribute("name"))%>
+                                    <carlos:encode value='<%= set.getAttribute("name") %>' context="html"/>
                                 </a>
                                 &nbsp;&nbsp;
 
                                 <% if (!status.equals("deleted")) { %>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to delete this record ?')){document.getElementById('scheduleForm_<%=i%>').submit()}">del</a>
-                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="delete"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
+                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
                                 </form>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
                                    onclick="if(confirm('Are you sure you want to restore this record ?')){document.getElementById('restoreForm_<%=i%>').submit()}">restore</a>
-                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
                                     <input type="hidden" name="method" value="restore"/>
                                     <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<%= Encode.forHtmlAttribute(demoNo) %>"/>
+                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
                                 </form>
                                 <%}%>
 
@@ -317,7 +320,7 @@
                                     <%
                                         for (int j = 0; j < columns.getLength(); j++) {
                                             Element column = (Element) columns.item(j);%>
-                                    <td class="head"><%=Encode.forHtml(column.getAttribute("name"))%>&nbsp;</td>
+                                    <td class="head"><carlos:encode value='<%= column.getAttribute("name") %>' context="html"/>&nbsp;</td>
                                     <%
                                             colCount = j + 2;
                                         }
@@ -342,7 +345,7 @@
                                             <%   }else{%>
 
                                 <tr>
-                                    <td class="head"><%=Encode.forHtml(sName)%>
+                                    <td class="head"><carlos:encode value='<%= sName %>' context="html"/>
                                     </td>
                                     <% }
 
@@ -407,7 +410,7 @@
                             String genText(String id, String value) {
                                 String s = "\n<span style='width:100%'>"
                                         + "<input type=text style='width:100%;' name='"
-                                        + Encode.forHtmlAttribute(id) + "_text' value='" + Encode.forHtmlAttribute(value) + "'></input>"
+                                        + SafeEncode.forHtmlAttribute(id) + "_text' value='" + SafeEncode.forHtmlAttribute(value) + "'></input>"
                                         + "</span>\n";
 
                                 return s;
@@ -422,25 +425,25 @@
                                 String provider = cell.getAttribute("providers");
                                 String comments = cell.getAttribute("comments");
 
-                                s += "<input type=hidden name='" + id + "_givenDate' value='" + Encode.forHtmlAttribute(givenDate) + "' />"
-                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + Encode.forHtmlAttribute(refusedDate) + "' />"
-                                        + "<input type=hidden name='" + id + "_lot' value='" + Encode.forHtmlAttribute(lot) + "' />"
-                                        + "<input type=hidden name='" + id + "_provider' value='" + Encode.forHtmlAttribute(provider) + "' />"
-                                        + "<input type=hidden name='" + id + "_comments' value='" + Encode.forHtmlAttribute(comments) + "' />";
+                                s += "<input type=hidden name='" + id + "_givenDate' value='" + SafeEncode.forHtmlAttribute(givenDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_refusedDate' value='" + SafeEncode.forHtmlAttribute(refusedDate) + "' />"
+                                        + "<input type=hidden name='" + id + "_lot' value='" + SafeEncode.forHtmlAttribute(lot) + "' />"
+                                        + "<input type=hidden name='" + id + "_provider' value='" + SafeEncode.forHtmlAttribute(provider) + "' />"
+                                        + "<input type=hidden name='" + id + "_comments' value='" + SafeEncode.forHtmlAttribute(comments) + "' />";
 
                                 s += "<span id='" + id + "_label' style='font-size:8pt;width:75px'>";
                                 if (givenDate.length() > 0) {
-                                    s += Encode.forHtml(givenDate);
+                                    s += SafeEncode.forHtml(givenDate);
                                 } else {
                                     if (refusedDate.length() > 0) {
-                                        s += "Refused " + Encode.forHtml(refusedDate);
+                                        s += "Refused " + SafeEncode.forHtml(refusedDate);
                                     } else {
                                         s += "&nbsp;";
                                     }
                                 }
                                 s += "</span>";
 
-                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + Encode.forJavaScript(id) + "', '" + Encode.forJavaScript(colName) + "');\"><img border=0 src='img/edit.gif' /></a></span>";
+                                s += "<span style='text-align:right;width:15px'><a href=\"javascript:edit('" + SafeEncode.forJavaScript(id) + "', '" + SafeEncode.forJavaScript(colName) + "');\"><img border=0 src='img/edit.gif' /></a></span>";
                                 s += "</span>\n";
 
                                 return s;

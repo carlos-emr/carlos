@@ -33,6 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -62,21 +63,21 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <!-- main calendar program -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
             function setup() {
                 Calendar.setup({
@@ -92,7 +93,7 @@
             function validate() {
                 var date = document.getElementById("staleDate");
                 if (date.value == "") {
-                    alert("Please select a date before saving");
+                    alert("<fmt:message key='provider.setShowPatientDOB.msgPleaseSelectDate'/>");
                     return false;
                 }
 
@@ -112,12 +113,12 @@
         <tr>
             <td class="MainTableLeftColumn">&nbsp;</td>
             <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> <c:out value="${rxPageSizeProperty.value}"/>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
-                    <input type="checkbox" name="rxShowPatientDOBProperty.checked" <c:if test="${rxShowPatientDOBProperty.checked}">checked</c:if> />Show patient's date of birth
+                <%if (request.getAttribute("status") == null) {%> <%=bundle.getString(providermsgEdit)%> ${carlos:forHtml(rxPageSizeProperty.value)}
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
+                    <input type="checkbox" name="rxShowPatientDOBProperty.checked" <c:if test="${rxShowPatientDOBProperty.checked}">checked</c:if> /><fmt:message key='provider.setShowPatientDOB.msgShowPatientDob'/>
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
                 <%}%>
             </td>

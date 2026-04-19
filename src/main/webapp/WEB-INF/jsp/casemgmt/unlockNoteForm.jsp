@@ -30,14 +30,15 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_casemgmt.notes");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -51,7 +52,7 @@
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 </head>
 
@@ -64,7 +65,7 @@
 <h5 style="color: red">This note will only be unlocked for the
     duration of your session. To permanently unlock, click on Edit Note, and
     remove the password.</h5>
-<form action="<%= request.getContextPath() %>/CaseManagementView.do" method="post">
+<form action="<%= request.getContextPath() %>/CaseManagementView" method="post">
     <input type="hidden" name="method" value="do_unlock"/>
     <input type="hidden" name="noteId" id="noteId"/>
     <table>

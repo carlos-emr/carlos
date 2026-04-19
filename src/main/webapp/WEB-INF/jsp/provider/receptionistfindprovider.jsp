@@ -30,13 +30,14 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -48,7 +49,7 @@
     String day = request.getParameter("pday") != null ? request.getParameter("pday") : "8";
 %>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
@@ -115,7 +116,7 @@
             newGroupNo = p;
             var form = document.createElement('form');
             form.method = 'post';
-            form.action = '<%= request.getContextPath() %>/provider/providercontrol.do';
+            form.action = '<%= request.getContextPath() %>/provider/providercontrol';
             var fields = {provider_no: '<%=curUser_no%>', start_hour: '<%=startHour%>', end_hour: '<%=endHour%>', every_min: '<%=everyMin%>', color_template: 'deepblue', dboperation: 'updatepreference', displaymode: 'updatepreference', default_servicetype: '<%=defaultServiceType%>', mygroup_no: newGroupNo};
             for (var key in fields) {
                 var input = document.createElement('input');
@@ -136,11 +137,11 @@
 
         function selectProviderCustom(p, pn) {
             <%if (form == null || form.isEmpty() || elementName == null || elementName.isEmpty() || elementId == null || elementId.isEmpty()) {%>
-            alert("Error: Missing form configuration. Cannot transfer the selected provider.");
+            alert("<fmt:message key='receptionist.receptionistfindprovider.msgMissingFormConfig'/>");
             return;
             <%} else {%>
-            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementName) %>"].value = pn;
-            opener.document["<%= Encode.forJavaScript(form) %>"].elements["<%= Encode.forJavaScript(elementId) %>"].value = p;
+            opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"].elements["<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>"].value = pn;
+            opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"].elements["<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>"].value = p;
             self.close();
             <%}%>
         }
@@ -157,7 +158,7 @@
 
 <table width="100%" border="0">
     <tr>
-        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <%= Encode.forHtml(StringUtils.noNull(providername)) %>
+        <td align="left"><i><fmt:message key="receptionist.receptionistfindprovider.keywords"/></i> <carlos:encode value='<%= StringUtils.noNull(providername) %>' context="html"/>
         </td>
         <td align="right"><INPUT TYPE="SUBMIT" NAME="displaymode"
                                  VALUE="<fmt:message key="receptionist.receptionistfindprovider.btnExit"/>"
@@ -313,5 +314,3 @@
         return false;
     }
 %>
-
-        

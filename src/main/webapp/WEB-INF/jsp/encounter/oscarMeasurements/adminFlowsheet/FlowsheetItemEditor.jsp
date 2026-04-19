@@ -41,7 +41,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -51,13 +51,13 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
@@ -91,7 +91,9 @@
             });
 
             function loadItem() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getFlowsheetItem&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_1"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getFlowsheetItem&flowsheetId=<carlos:encode value='${__enc_1}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_2}' context="javaScript"/>", {},
                     function (xml) {
                         document.getElementById('displayName').value = xml.displayName;
                         document.getElementById('guideline').value = xml.guideline;
@@ -102,7 +104,7 @@
             }
 
             function loadValidations() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getValidations", {},
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getValidations", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -120,7 +122,9 @@
             }
 
             function loadWarnings() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getWarnings&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_3"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_4"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getWarnings&flowsheetId=<carlos:encode value='${__enc_3}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_4}' context="javaScript"/>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -139,7 +143,9 @@
             }
 
             function loadTargets() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTargets&flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>", {},
+                <c:set var="__enc_5"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_6"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getTargets&flowsheetId=<carlos:encode value='${__enc_5}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_6}' context="javaScript"/>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.results instanceof Array) {
@@ -158,33 +164,38 @@
             }
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItem',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItem',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor.do?id=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>';
+                        <c:set var="__enc_7"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetEditor?id=<carlos:encode value='${__enc_7}' context="javaScript"/>';
                     });
             }
 
             function addNewWarning() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                <c:set var="__enc_8"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_9"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddWarning?flowsheetId=<carlos:encode value='${__enc_8}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_9}' context="javaScript"/>';
             }
 
             function addNewTarget() {
-                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget.do?flowsheetId=<%= Encode.forJavaScript(Encode.forUriComponent(flowsheetId)) %>&measurementType=<%= Encode.forJavaScript(Encode.forUriComponent(measurementType)) %>';
+                <c:set var="__enc_10"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_11"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+                location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetAddTarget?flowsheetId=<carlos:encode value='${__enc_10}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_11}' context="javaScript"/>';
             }
 
             function updateDetails() {
                 var template = document.getElementById('template').value;
 
-                $.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=getTemplateDetails', {template: template}, function (data) {
+                $.post('<%=request.getContextPath()%>/admin/Flowsheet?method=getTemplateDetails', {template: template}, function (data) {
                     //  loadFlowsheet();
                 });
             }
 
             function removeWarning(hash) {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeWarning', {
-                        flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
-                        type: '<%= Encode.forJavaScript(measurementType) %>',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeWarning', {
+                        flowsheetId: '<carlos:encode value='<%= flowsheetId %>' context="javaScriptBlock"/>',
+                        type: '<carlos:encode value='<%= measurementType %>' context="javaScriptBlock"/>',
                         hash: hash
                     },
                     function (data) {
@@ -193,9 +204,9 @@
             }
 
             function removeTarget(hash) {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=removeTarget', {
-                        flowsheetId: '<%= Encode.forJavaScript(flowsheetId) %>',
-                        type: '<%= Encode.forJavaScript(measurementType) %>',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=removeTarget', {
+                        flowsheetId: '<carlos:encode value='<%= flowsheetId %>' context="javaScriptBlock"/>',
+                        type: '<carlos:encode value='<%= measurementType %>' context="javaScriptBlock"/>',
                         hash: hash
                     },
                     function (data) {
@@ -210,8 +221,8 @@
     <h2>Flowsheet Item Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<%= Encode.forHtmlAttribute(flowsheetId) %>"/>
-        <input type="hidden" name="measurementType" value="<%= Encode.forHtmlAttribute(measurementType) %>"/>
+        <input type="hidden" name="flowsheetId" value="<carlos:encode value='<%= flowsheetId %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="measurementType" value="<carlos:encode value='<%= measurementType %>' context="htmlAttribute"/>"/>
 
         <table style="width:20%">
             <tr>

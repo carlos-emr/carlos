@@ -1,0 +1,160 @@
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
+         import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+<%@ page import="org.apache.commons.lang3.*" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
+<%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%
+    String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
+    String tableName = request.getParameter("tableName") != null ? request.getParameter("tableName") : "";
+    String formTableName = request.getParameter("formTableName") != null ? request.getParameter("formTableName") : tableName;
+    String configTableName = request.getParameter("configTableName") != null ? request.getParameter("configTableName") : formTableName;
+    String SAVE_AS = request.getParameter("save") != null ? request.getParameter("save") : "default";
+    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
+
+// get form name
+    String reportName = (new RptReportItem()).getReportName(reportId);
+
+// get form parameters
+    RptReportConfigData tableObj = new RptReportConfigData();
+
+// change order action 
+    String submitMoveHere = bundle.getString("report.reportFormOrder.button.moveHere");
+    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitMoveHere)) {
+        String itemId = request.getParameter("nameSelected") != null ? request.getParameter("nameSelected") : "";
+        String newPos = request.getParameter("position") != null ? request.getParameter("position") : "";
+        tableObj.updateRecordOrder(SAVE_AS, reportId, itemId, newPos);
+    }
+// get display data
+
+    Vector vecConfigObj = tableObj.getConfigObj(SAVE_AS, reportId);
+%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<html>
+    <head>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <title><fmt:message key="report.reportFormOrder.title"/></title>
+        <LINK REL="StyleSheet" HREF="<%= request.getContextPath() %>/web.css" TYPE="text/css">
+        <script language="JavaScript">
+
+            <!--
+            var n = 0;
+
+            function setfocus() {
+                this.focus();
+                //document.forms[0].service_code.focus();
+            }
+
+            function onButMove(pos) {
+                document.forms[0].position.value = pos;
+            }
+
+            function checkscript() {
+                if (n != 1) {
+                    // something is wrong
+                    alert('<fmt:message key="report.reportFormOrder.alertOneSelection"/>');
+                    return false;
+                }
+                return true;
+            }
+
+            function onCheckbox(param, num) {
+                var oTR = param.parentNode.parentNode;
+                if (param.checked) {
+                    n++;
+                    if (n > 1) {
+                        alert("<fmt:message key='report.reportFormOrder.alertMoreThanOneSelection'/>");
+                        n--;
+                        param.checked = false;
+                    } else {
+                        oTR.className = 'trSelected';
+                    }
+                } else {
+                    n--;
+                    oTR.className = num % 2 == 0 ? 'trOdd' : 'trEven';
+                }
+            }
+
+            function goPage(id) {
+                self.location.href = "<%= request.getContextPath() %>/report/ViewReportFilter?id=" + id;
+            }
+
+            //-->
+
+        </script>
+    </head>
+    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
+          rightmargin="0">
+    <center></center>
+    <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
+        <tr BGCOLOR="#CCCCFF">
+            <td><carlos:encode value='<%= reportName %>' context="html"/> <fmt:message key="report.reportFormOrder.heading"/></td>
+            <td width="10%" align="right" nowrap><a
+                    href="<%= request.getContextPath() %>/report/ViewReportFormConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormOrder.backToConfiguration"/></a></td>
+        </tr>
+    </table>
+
+    <table width="100%" border="0" cellspacing="2" cellpadding="2">
+        <tr>
+            <td width="70%">
+
+                <table width="100%" border="0" cellspacing="1" cellpadding="2">
+                    <form method="post" name="baseurl" action="<%= request.getContextPath() %>/report/ViewReportFormOrder"
+                          onsubmit="return checkscript()">
+                        <%
+                            for (int i = 0; i < vecConfigObj.size(); i++) {
+                                String color = i % 2 == 0 ? "trOdd" : "trEven"; //"#EEEEFF" : "";
+                                Properties prop = (Properties) vecConfigObj.get(i);
+                                String fieldName = SafeEncode.forHtmlAttribute(prop.getProperty("name", ""));
+                                String fieldCaption = SafeEncode.forHtml(prop.getProperty("caption", ""));
+                                String fieldId = prop.getProperty("id", "");
+                                String fieldPosition = prop.getProperty("order_no", "");
+                                String action = submitMoveHere;
+                        %>
+
+                        <tr class=<%=color%>>
+                            <td width="20%" align="right"><input type="checkbox"
+                                                                 name="nameSelected" value="<carlos:encode value='<%= fieldId %>' context="htmlAttribute"/>"
+                                                                 onClick="onCheckbox(this, <%=i%>);"/></td>
+                            <td width="30%" nowrap><span title="<%=fieldName%>"><%=fieldCaption%></span></td>
+                            <td align="center"><input type="submit" name="submit"
+                                                      value="<fmt:message key='report.reportFormOrder.button.moveHere'/>" onClick="onButMove(<carlos:encode value='<%= fieldPosition %>' context="javaScript"/>)"/></td>
+                        </tr>
+                        <% } %>
+                        <input type="hidden" name="position"/>
+                        <input type="hidden" name="id" value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="save" value="<carlos:encode value='<%= SAVE_AS %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="tableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="formTableName" value="<carlos:encode value='<%= formTableName %>' context="htmlAttribute"/>"/>
+                        <input type="hidden" name="configTableName"
+                               value="<carlos:encode value='<%= configTableName %>' context="htmlAttribute"/>"/>
+                    </form>
+                </table>
+            </td>
+            <td></td>
+        </tr>
+    </table>
+
+
+    </body>
+</html>

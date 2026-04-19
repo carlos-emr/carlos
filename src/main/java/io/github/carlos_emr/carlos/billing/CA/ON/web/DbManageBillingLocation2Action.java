@@ -112,7 +112,7 @@ public class DbManageBillingLocation2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingLocation.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingLocation");
         return NONE;
     }
 

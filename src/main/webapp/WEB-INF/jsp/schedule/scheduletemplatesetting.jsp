@@ -46,14 +46,15 @@
     @since 2001-02-01
 --%>
 <!DOCTYPE html>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -106,7 +107,7 @@
                 // DOM text from flowing into a navigation sink (js/xss-through-dom).
                 var form = document.createElement('form');
                 form.method = 'get';
-                form.action = '${pageContext.request.contextPath}/schedule/TemplateApplying.do';
+                form.action = '${pageContext.request.contextPath}/schedule/TemplateApplying';
                 var fNo = document.createElement('input');
                 fNo.type = 'hidden';
                 fNo.name = 'provider_no';
@@ -130,7 +131,7 @@
                 var s = document.schedule.providerid;
                 var form = document.createElement('form');
                 form.method = 'get';
-                form.action = '${pageContext.request.contextPath}/schedule/EditTemplate.do';
+                form.action = '${pageContext.request.contextPath}/schedule/EditTemplate';
                 form.target = popupName;
                 var fId = document.createElement('input');
                 fId.type = 'hidden';
@@ -159,7 +160,7 @@
             <fmt:message key="schedule.scheduletemplatesetting.msgStepTwo"/>
         </div>
 
-        <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do">
+        <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate">
         <div class="card card-body bg-body-tertiary">
 
             <div class="mb-3">
@@ -184,7 +185,7 @@
 
                         for (Provider p : providers) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                     <% } %>
                 </select>
             </div>
@@ -195,13 +196,13 @@
                 <%if (!(isSiteAccessPrivacy || isTeamAccessPrivacy || grantOnlyCurProviderScheduleData)) {%>
                 <div class="p-2 bg-success-subtle rounded">
                     <a href="#"
-                       onclick="popupPage(440,530,'${pageContext.request.contextPath}/schedule/HolidaySetting.do?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
+                       onclick="popupPage(440,530,'${pageContext.request.contextPath}/schedule/HolidaySetting?year=<%=year%>&month=<%=month%>&day=<%=day%>')"
                        title="<fmt:message key="schedule.scheduletemplatesetting.msgHolidaySettingTip"/>">
                         <fmt:message key="schedule.scheduletemplatesetting.btnHolidaySetting"/>
                     </a>
                 </div>
                 <div class="p-2 bg-success-subtle rounded">
-                    <a href="#" onclick="popupPage(600,700,'${pageContext.request.contextPath}/schedule/TemplateCodeSetting.do')">
+                    <a href="#" onclick="popupPage(600,700,'${pageContext.request.contextPath}/schedule/TemplateCodeSetting')">
                         <fmt:message key="schedule.scheduletemplatesetting.btnTemplateCodeSetting"/>
                     </a>
                 </div>
@@ -216,7 +217,7 @@
                         <%
                             for (Provider p : providers) {
                         %>
-                        <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFormattedName())%></option>
+                        <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/></option>
                         <% } %>
                     </select>
                 </div>

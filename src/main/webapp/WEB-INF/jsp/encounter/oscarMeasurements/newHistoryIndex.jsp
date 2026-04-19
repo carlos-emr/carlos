@@ -23,12 +23,14 @@
 
 --%>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
@@ -76,7 +78,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/DeleteData2" method="post">
         <table>
             <tr>
                 <td>
@@ -93,7 +95,7 @@
                             </th>
                             <c:forEach var="date" items="${measurementsDates}" varStatus="count">
                                 <th align="left" class="Header" style="width:50px;color:white">
-                                    <c:out value="${sf.format(date)}" />
+                                    ${carlos:forHtml(sf.format(date))}
                                 </th>
                             </c:forEach>
                             <th align="left" class="Header" style="color:white" width="50">
@@ -111,9 +113,9 @@
                                 </c:otherwise>
                             </c:choose>
 
-                            <tr class="data" style='<c:out value="${rowStyle}"/>'>
-                                <td><c:out value="${pair.key}"/></td>
-                                <td><c:out value="${pair.value}"/></td>
+                            <tr class="data" style='${carlos:forHtmlAttribute(rowStyle)}'>
+                                <td>${carlos:forHtml(pair.key)}</td>
+                                <td>${carlos:forHtml(pair.value)}</td>
 
                                 <c:forEach items="${sessionScope.measurementsDates }" var="date">
                                     <c:set var="map" value="${sessionScope.measurementsData[date]}"/>
@@ -129,8 +131,8 @@
                                             }
 
                                         %>
-                                        <td title='<c:out value="${unit}" /> <c:out value="${comment}" />' <%=ucStyle%>>
-                                            <c:out value="${cell.dataField}"/>
+                                        <td title='${carlos:forHtmlAttribute(unit)} ${carlos:forHtml(comment)}' <%=ucStyle%>>
+                                            ${carlos:forHtml(cell.dataField)}
                                         </td>
                                     </c:if>
                                     <c:if test="${cell==null }">
@@ -139,8 +141,7 @@
                                 </c:forEach>
 
                                 <td><a href="#" name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory.do?type=<c:out
-                                               value="${pair.key}"/>'); return false;">more...</a></td>
+                                       onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forHtml(pair.key)}'); return false;">more...</a></td>
                             </tr>
                         </c:forEach>
 

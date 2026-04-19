@@ -34,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,6 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <style type="text/css" media="print">
     .header {
         display: none;
@@ -62,28 +63,24 @@
 <table width="100%" border="0" cellpadding="0" cellspacing="1">
 
     <tr>
-        <td><b>Client Name : </b><c:out
-                value="${requestScope.casemgmt_demoName}"/></td>
+        <td><b>Client Name : </b>${carlos:forHtml(requestScope.casemgmt_demoName == null ? '' : requestScope.casemgmt_demoName)}</td>
     </tr>
     <tr>
-        <td><b>Age : </b><c:out value="${requestScope.casemgmt_demoAge}"/></td>
-        <td><b>DOB : </b><c:out value="${requestScope.casemgmt_demoDOB}"/></td>
+        <td><b>Age : </b>${carlos:forHtml(requestScope.casemgmt_demoAge)}</td>
+        <td><b>DOB : </b>${carlos:forHtml(requestScope.casemgmt_demoDOB)}</td>
     </tr>
     <tr>
-        <td><b>Team : </b><c:out value="${requestScope.teamName}"/></td>
-        <td><b>Other File Number : </b><c:out
-                value="${cpp.otherFileNumber}"/></td>
+        <td><b>Team : </b>${carlos:forHtml(requestScope.teamName)}</td>
+        <td><b>Other File Number : </b>${carlos:forHtml(cpp.otherFileNumber)}</td>
     </tr>
 
     <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
     <tr>
-        <td><b>Primary Health Care Provider : </b><c:out
-                value="${cpp.primaryPhysician}"/></td>
+        <td><b>Primary Health Care Provider : </b>${carlos:forHtml(cpp.primaryPhysician)}</td>
     </tr>
     <%} %>
     <tr>
-        <td><b>Primary Counsellor/Caseworker : </b><c:out
-                value="${cpp.primaryCounsellor}"/></td>
+        <td><b>Primary Counsellor/Caseworker : </b>${carlos:forHtml(cpp.primaryCounsellor)}</td>
     </tr>
 
     <tr height="10">
@@ -91,8 +88,7 @@
     </tr>
 
     <tr>
-        <td><b>Updated Last : </b><c:out
-                value="${requestScope.cpp.update_date}"/></td>
+        <td><b>Updated Last : </b>${carlos:forHtml(requestScope.cpp.update_date)}</td>
     </tr>
 
 
@@ -101,8 +97,8 @@
         <td><b>Family History</b></td>
     </tr>
     <tr>
-        <td><c:out value="${cpp.socialHistory}"/></td>
-        <td><c:out value="${cpp.familyHistory}"/></td>
+        <td>${carlos:forHtml(cpp.socialHistory)}</td>
+        <td>${carlos:forHtml(cpp.familyHistory)}</td>
     </tr>
     <tr>
         <td>&nbsp;</td>
@@ -112,8 +108,8 @@
         <td><b>Past Medications</b></td>
     </tr>
     <tr>
-        <td><c:out value="${cpp.medicalHistory}"/></td>
-        <td><c:out value="${cpp.pastMedications}"/></td>
+        <td>${carlos:forHtml(cpp.medicalHistory)}</td>
+        <td>${carlos:forHtml(cpp.pastMedications)}</td>
     </tr>
     <tr>
         <td>&nbsp;</td>
@@ -122,7 +118,7 @@
         <td colspan="2"><b>Other Support Systems</b></td>
     </tr>
     <tr>
-        <td colspan="2"><c:out value="${cpp.otherSupportSystems}"/></td>
+        <td colspan="2">${carlos:forHtml(cpp.otherSupportSystems)}</td>
     </tr>
 
     <tr>
@@ -139,6 +135,6 @@
 
 <c:if test="${not empty requestScope.messages}">
     <c:forEach var="message" items="${requestScope.messages}">
-        <div style="color: blue"><I><c:out value="${message}"/></I></div>
+        <div style="color: blue"><I>${carlos:forHtml(message)}</I></div>
     </c:forEach>
 </c:if>

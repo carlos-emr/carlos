@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -53,6 +53,11 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
 
     String postTo = request.getParameter("postTo");
@@ -82,7 +87,7 @@
         keyword = ConversionUtils.fromIntString(keyword);
     }
 
-    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect.do?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
+    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
 
     DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
 
@@ -93,30 +98,30 @@
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>CARLOS Patient Search</title>
+    <title><fmt:message key="demographic.search.msgSearchPatient"/></title>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
     <script language="JavaScript">
         function PopupReturn(index) {
-            window.opener.location = '<%=Encode.forJavaScript(postTo.replaceAll("-","&"))%>' + index;
+            window.opener.location = '<carlos:encode value='<%= postTo.replaceAll("-","&") %>' context="javaScriptBlock"/>' + index;
             window.opener.focus();
             window.close();
         };
     </SCRIPT>
 </head>
 <body>
-<form method="post" action="<%= request.getContextPath() %>/lab/CA/BC/ViewDemoSelect.do">
+<form method="post" action="<%= request.getContextPath() %>/lab/CA/BC/ViewDemoSelect">
     <table width="100%" class="DarkBG">
         <tr>
             <td height="40" width="25"></td>
             <td width="90%" align="left"><font color="#4D4D4D"><b><font
-                    size="4">oscar<font size="3">Search For Patient</font></font></b></font></td>
+                    size="4">oscar<font size="3"><fmt:message key="demographic.search.msgSearchPatient"/></font></font></b></font></td>
         </tr>
     </table>
     <table>
         <tr>
-            <td><input type="hidden" name="postTo" value="<%=Encode.forHtmlAttribute(postTo)%>"/> <input
-                    type="text" name="keyword" value="<%=Encode.forHtmlAttribute(String.valueOf(keyword))%>"/> <input
-                    type="submit" value="Search"/></td>
+            <td><input type="hidden" name="postTo" value="<carlos:encode value='<%= postTo %>' context="htmlAttribute"/>"/> <input
+                    type="text" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
+                    type="submit" value="<fmt:message key='demographic.search.btnSearch'/>"/></td>
         </tr>
     </table>
     <table width="100%" border="0" bgcolor="#ffffff" cellspacing="2"
@@ -125,29 +130,29 @@
             <td width="10%" class="Text"><input type="radio" name="column"
                                                 value="DemographicNo"
                     <%=(column.equals("DemographicNo") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=DemographicNo")%>">Demo No</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=DemographicNo" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></a></td>
             <td width="20%" class="Text"><input type="radio" name="column"
                                                 value="LastName" <%=(column.equals("LastName") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url)%>">Last Name</a></td>
+                    href="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="demographic.search.formName"/></a></td>
             <td width="15%" class="Text"><input type="radio" name="column"
                                                 value="FirstName" <%=(column.equals("FirstName") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=FirstName")%>">First Name</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=FirstName" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.firstName"/></a></td>
             <td width="10%" class="Text" align="center"><input type="radio"
                                                                name="column" value="ChartNo"
                     <%=(column.equals("ChartNo") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=ChartNo")%>">Chart#</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=ChartNo" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.optChart"/></a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column"
                                                               value="Sex" <%=(column.equals("Sex") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=Sex")%>">Sex</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=Sex" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.sex"/></a></td>
             <td width="15%" class="Text" align="center"><input type="radio"
                                                                name="column" value="YearOfBirth"
                     <%=(column.equals("YearOfBirth") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=YearOfBirth")%>">DOB</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=YearOfBirth" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.DOB"/></a></td>
             <td width="2%" class="Text" align="center"><input type="radio"
                                                               name="column" value="PatientStatus"
                     <%=(column.equals("PatientStatus") ? "checked" : "")%> /><a
-                    href="<%=Encode.forHtmlAttribute(url + "&orderby=PatientStatus")%>">Status</a></td>
+                    href="<carlos:encode value='<%= url + "&orderby=PatientStatus" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/></a></td>
         </tr>
         <%
             boolean other = true;
@@ -156,20 +161,20 @@
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
             <td class="Text" align="center"><a
-                    href="javascript:PopupReturn('<%=Encode.forJavaScript(String.valueOf(d.getDemographicNo()))%>')">
-                <%=Encode.forHtml(String.valueOf(d.getDemographicNo()))%>
+                    href="javascript:PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>')">
+                <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
             </a></td>
-            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getLastName()))%>
+            <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getLastName()) %>' context="html"/>
             </td>
-            <td class="Text"><%=Encode.forHtml(Misc.toUpperLowerCase(d.getFirstName()))%>
+            <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getFirstName()) %>' context="html"/>
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getChartNo(), ""))%>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getChartNo(), "") %>' context="html"/>
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getSex(), ""))%>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getSex(), "") %>' context="html"/>
             </td>
-            <td class="Text" align="center" nowrap><%=Encode.forHtml(d.getBirthDayAsString())%>
+            <td class="Text" align="center" nowrap><carlos:encode value='<%= d.getBirthDayAsString() %>' context="html"/>
             </td>
-            <td class="Text" align="center"><%=Encode.forHtml(Misc.check(d.getPatientStatus(), ""))%>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getPatientStatus(), "") %>' context="html"/>
             </td>
         </tr>
         <%
@@ -183,10 +188,10 @@
         %>
         <tr>
             <td width="50%" colspan="3" align="right" class="SmallerText">
-                &nbsp;<%=(start > 0 ? "<a href=\"" + Encode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
+                &nbsp;<%=(start > 0 ? "<a href=\"" + SafeEncode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
             </td>
             <td width="50%" colspan="4" align="left" class="SmallerText">
-                | <%=(count == 10 ? "<a href=\"" + Encode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
+                | <%=(count == 10 ? "<a href=\"" + SafeEncode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
             </td>
         </tr>
     </table>

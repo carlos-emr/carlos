@@ -35,13 +35,15 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_lab");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -151,7 +153,6 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <html>
 
     <head>
@@ -205,9 +206,10 @@
             function addLabToProfile(labType, testName) {
 
                 alert("calling addLabToProfile");
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue.do";
+                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
+                <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(demographic_no) %>' context="uriComponent"/></c:set>
+                var params = "demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 alert(params);
                 CarlosAjax.updater('dd', url + '?' + params, {
                     method: 'GET',
@@ -228,9 +230,10 @@
                 newNode.setAttribute('id', 'd' + ran_number);
                 document.getElementById('cumulativeLab').appendChild(newNode);
 
-                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue.do";
+                var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
-                var params = "demographicNo=<%= Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(demographic_no))) %>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
+                <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(demographic_no) %>' context="uriComponent"/></c:set>
+                var params = "demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>&rand=" + ran_number + "&labType=" + encodeURIComponent(labType) + "&testName=" + encodeURIComponent(testName);  //hack to get around ie caching the page
                 CarlosAjax.updater(newNode, url + '?' + params, {
                     method: 'GET',
                     evalScripts: true
@@ -303,7 +306,7 @@
                         %>
 
                         <th><a
-                                href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay.do?segmentID=<%=lab_no%>&providerNo=<%= session.getAttribute("user") %>')"><%=UtilDateUtilities.DateToString(labDate, "dd MMM yy")%>
+                                href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=lab_no%>&providerNo=<%= session.getAttribute("user") %>')"><%=UtilDateUtilities.DateToString(labDate, "dd MMM yy")%>
                         </a>
                         </th>
                         <%}%>

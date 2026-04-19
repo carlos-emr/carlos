@@ -1,0 +1,225 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+%>
+
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*, java.sql.*, org.apache.commons.lang3.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
+<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+
+<security:oscarSec roleName="<%=roleName$%>"
+                   objectName="_admin,_report" rights="r" reverse="<%=true%>">
+    <%
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
+    %>
+</security:oscarSec>
+<!DOCTYPE html>
+
+<html>
+    <head>
+
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+        <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+
+    </head>
+
+    <body>
+
+    <%@ include file="rbtTopNav.jspf" %>
+
+    <%
+        // can be three options: add/edit/upload
+        // add --> no relevant request parameters/attributes
+        // edit --> templateid in request parameter or attribute
+        // upload --> templateXML in request parameter and no templateid
+        ReportManager rm = new ReportManager();
+        String action = "add";
+        // try templateid from attribute and parameter - check to see if we are editing or adding
+        String templateid = "";
+        String templatexml = "";
+        if ((request.getAttribute("templateid") != null) && (!((String) request.getAttribute("templateid")).equals(""))) {
+            templateid = (String) request.getAttribute("templateid");
+            templatexml = rm.getTemplateXml(templateid);
+            action = "edit";
+        } else if ((request.getParameter("templateid") != null) && (!request.getParameter("templateid").equals(""))) {
+            templateid = request.getParameter("templateid");
+            templatexml = rm.getTemplateXml(templateid);
+            action = "edit";
+        }
+
+        if ("edit".equals(action) && templateid != null) {
+            ReportObject curreport = rm.getReportTemplateNoParam(templateid);
+            pageContext.setAttribute("curreport", curreport);
+            pageContext.setAttribute("templatexml", templatexml);
+        }
+        pageContext.setAttribute("action", action);
+        pageContext.setAttribute("templateid", templateid);
+    %>
+
+    <h3>
+        <%=StringUtils.capitalize(action)%>
+
+        <c:if test="${ action eq 'add' }">
+            Template
+        </c:if>
+        <c:if test="${ action eq 'edit' }">
+            : ${carlos:forHtml(curreport.title)}<br/>
+            <small>${carlos:forHtml(curreport.description)}</small>
+        </c:if>
+    </h3>
+
+    <c:if test="${ not empty message }">
+        <c:choose>
+            <c:when test="${ not fn:startsWith(fn:toLowerCase(message), 'error') and not fn:startsWith(fn:toLowerCase(message), 'exception')}">
+                <div class="alert alert-success">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    ${carlos:forHtml(message)}
+                </div>
+            </c:when>
+            <c:otherwise>
+                <div class="alert alert-danger">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    ${carlos:forHtml(message)}
+                </div>
+            </c:otherwise>
+        </c:choose>
+    </c:if>
+    <c:if test="${ empty opentext and empty param.opentext }">
+        <!-- <form class="" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates"
+                        enctype="multipart/form-data">
+        <div class="row">
+        <div class="card card-body bg-body-tertiary">
+        <div class="mb-3">
+        <label class="form-label" for="uploadReportXml">Select template</label>
+        <div>
+        <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
+        </div>
+        </div>
+        <input type="hidden" name="action" value="${ action }">
+        <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
+        <input type="hidden" name="templateid" value="${ templateid }">
+        <input type="hidden" name="uuid" value="${ curreport.uuid }">
+        <div class="mb-3">
+        <div>
+        <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
+        </div>
+        </div>
+        </div>
+        </div>
+    </form> -->
+        <form class="" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates"
+                   method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
+                    <div class="mb-3">
+                        <label class="form-label" for="uploadReportXml">Select template</label>
+                        <div>
+                            <input type="file" id="uploadReportXml" class="input-file" name="templateFile"
+                                   title="Upload a formatted template file. The extension is usually xml or txt">
+                        </div>
+                    </div>
+                    <input type="hidden" name="action" value="${ action }">
+                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
+                    <input type="hidden" name="templateid" value="${ templateid }">
+                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                    <div class="mb-3">
+                        <div>
+                            <input type="submit" class="btn btn-primary float-end"
+                                   value="Upload & <%=StringUtils.capitalize(action)%>">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </c:if>
+    <c:if test="${ opentext eq '1' or param.opentext eq '1' }">
+
+        <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/addEditTemplatesAction" method="post">
+            <div class="row">
+                <div class="card card-body bg-body-tertiary">
+                    <textarea id="xmltext" name="xmltext"
+                              style="width:99%;height:300px;overflow-y:scroll;">${ templatexml }</textarea>
+                    <input type="hidden" name="action" value="${ action }">
+                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
+                    <input type="hidden" name="templateid" value="${ templateid }">
+                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                </div>
+
+                <div class="form-actions">
+                    <input type="submit" class="btn float-end" value="Save">
+
+                    <c:if test="${ action eq 'edit' }">
+                        <input type="submit" class="btn btn-primary float-end" name="done" value="Done">
+                    </c:if>
+                    <c:if test="${ action ne 'edit' }">
+                        <input type="button" class="btn float-end" name="cancel" value="Cancel"
+                               onclick="document.location='<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewHomePage'">
+                    </c:if>
+                </div>
+            </div>
+        </form>
+
+    </c:if>
+
+    <script type="text/javascript">
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
+        });
+    </script>
+
+    <script type="text/javascript">
+        function validateFileUpload() {
+            var fileUpload = document.getElementById('uploadReportXml');
+            if (fileUpload.files.length == 0) {
+                alert('Please upload a file before submitting the form.');
+                return false;
+            }
+            return true;
+        }
+
+        document.getElementById('xmltext')?.addEventListener('keyup', function () {
+            document.querySelectorAll('.alert').forEach(function (el) { el.style.display = 'none'; });
+        });
+    </script>
+
+    </body>
+</html>

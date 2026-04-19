@@ -29,24 +29,27 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -139,13 +142,13 @@
 
     <%if (request.getParameter("websiteSave") != null) {%>
     <div class="alert alert-success">
-        <strong>Success!</strong> Help link has been saved.
+        <strong><fmt:message key="admin.resourcebaseurl.msgSuccess"/></strong> <fmt:message key="admin.resourcebaseurl.msgHelpSaved"/>
     </div>
     <%}%>
 
     <%if (request.getParameter("detailsSave") != null) {%>
     <div class="alert alert-success">
-        <strong>Success!</strong> Your new help details has been saved.
+        <strong><fmt:message key="admin.resourcebaseurl.msgSuccess"/></strong> <fmt:message key="admin.resourcebaseurl.msgHelpDetailsSaved"/>
     </div>
     <%}%>
 
@@ -156,13 +159,13 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do" class="d-flex flex-wrap align-items-center gap-2">
+            <form method="post" name="baseurl" id="websiteForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl" class="d-flex flex-wrap align-items-center gap-2">
 
-                <h4>Website</h4>
+                <h4><fmt:message key="admin.resourcebaseurl.headingWebsite"/></h4>
                 <!--<fmt:message key="admin.resourcebaseurl.formBaseUrl"/><br>-->
                 <input type="text" name="resource_baseurl" style="width:100%;margin-bottom:10px"
                        placeholder="<fmt:message key="admin.resourcebaseurl.formBaseUrlExample"/>"
-                       value="<%if(resource_baseurl_value!=null){ out.print(Encode.forHtmlAttribute(resource_baseurl_value));}%>">
+                       value="<%if(resource_baseurl_value!=null){ out.print(SafeEncode.forHtmlAttribute(resource_baseurl_value));}%>">
                 <div class="col-md-8">
                     <input type="submit" class="btn float-end" name="websiteSave" id="websiteSave"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">
@@ -172,7 +175,7 @@
         </div><!-- col-md-8 -->
     </div>
 
-    <h4 class="text-muted text-center"><em>~ or ~</em></h4>
+    <h4 class="text-muted text-center"><em><fmt:message key="admin.resourcebaseurl.msgOr"/></em></h4>
 
     <!-- Help Link - Details -->
     <div class="row card card-body bg-body-tertiary" id="detailsDiv">
@@ -181,13 +184,13 @@
         </div><!-- col-md-2 -->
 
         <div class="col-md-8" style="background-color:">
-            <form method="post" name="baseurl" id="detailsForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl.do">
-                <h4>Details</h4>
+            <form method="post" name="baseurl" id="detailsForm" action="${pageContext.request.contextPath}/admin/ResourceBaseUrl">
+                <h4><fmt:message key="admin.resourcebaseurl.headingDetails"/></h4>
                 <input type="hidden" name="resource_helpHtml" id="resource_helpHtml_hidden"/>
                 <div id="resource_helpHtml_editor" style="width:100%;min-height:160px"></div>
                 <div class="col-md-8" style="padding-left:0px;padding-right:0px;">
                     <div class="col-md-6" id="chars">
-                        <div class='alert alert-plain'>Character Limit = 2000</div>
+                        <div class='alert alert-plain'><fmt:message key="admin.resourcebaseurl.msgCharacterLimit"/></div>
                     </div>
                     <input type="submit" class="btn float-end" name="detailsSave" id="detailsSave"
                            value="<fmt:message key="admin.resourcebaseurl.btnSave"/>">
@@ -220,7 +223,7 @@
 
     <%-- Load existing HTML content into the editor (OWASP-encoded for JS context, DOMPurify-sanitized by editor) --%>
     <% if (resource_helpHtml_value != null && !resource_helpHtml_value.isEmpty()) { %>
-    editor.setHTML('<%= Encode.forJavaScript(resource_helpHtml_value) %>');
+    editor.setHTML('<carlos:encode value='<%= resource_helpHtml_value %>' context="javaScriptBlock"/>');
     <% } %>
 
     <%-- Sync editor content to hidden input before form submit --%>
@@ -233,10 +236,10 @@
         var html = editor.getHTML();
         var c = html.length;
         if (c > 2000) {
-            $("#chars").html("<div class='alert'><strong>Warning!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
+            $("#chars").html("<div class='alert'><strong><fmt:message key='admin.resourcebaseurl.msgWarning'/></strong> <fmt:message key='admin.resourcebaseurl.msgCharacterLimit'/>. <fmt:message key='admin.resourcebaseurl.msgCharacterCount'/> = " + c + "</div>");
             $("#detailsSave").prop("disabled", true);
         } else {
-            $("#chars").html("<div class='alert alert-success'><strong>Good!</strong> Character Limit = 2000. Character Count = " + c + "</div>");
+            $("#chars").html("<div class='alert alert-success'><strong><fmt:message key='admin.resourcebaseurl.msgGood'/></strong> <fmt:message key='admin.resourcebaseurl.msgCharacterLimit'/>. <fmt:message key='admin.resourcebaseurl.msgCharacterCount'/> = " + c + "</div>");
             $("#detailsSave").prop("disabled", false);
         }
     });

@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.measurements");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.measurements");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -106,7 +106,7 @@
         You have successfully <%=state%> the decision support!
 
         <div style="width:100%;text-align:right;margin-top:10px"><a class="btn btn-secondary" onclick="window.close();">Done</a> <a
-                href="SetupGroupList.do" class="btn btn-info">Modify another group</a></div>
+                href="SetupGroupList" class="btn btn-info">Modify another group</a></div>
 
     </div>
 

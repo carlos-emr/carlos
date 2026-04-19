@@ -32,6 +32,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     if (session.getAttribute("user") == null)
@@ -64,21 +65,21 @@
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="<c:out value="${ctx}"/>/share/calendar/calendar.css"
+              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
 
         <!-- main calendar program -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
                        adding a calendar a matter of 1 or 2 lines of code. -->
         <script type="text/javascript"
-                src="<c:out value="${ctx}"/>/share/calendar/calendar-setup.js"></script>
+                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
             function setup() {
                 Calendar.setup({
@@ -130,7 +131,7 @@
             <td style="color: white" class="MainTableTopRowRightColumn"><%=bundle.getString(providermsgProvider)%></td>
         </tr>
         <%if (request.getAttribute("status") == null) {%>
-        <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
+        <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
             <tr>
                 <td class="MainTableLeftColumn">&nbsp;</td>
                 <td class="MainTableRightColumn">
@@ -141,8 +142,8 @@
                 <td class="MainTableLeftColumn">&nbsp;</td>
                 <td class="MainTableRightColumn">
                     <div id="fromExisting">
-                        <c:out value="${defaultDocQueueProperty.value}"/>
-                        <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                        ${carlos:forHtml(defaultDocQueueProperty.value)}
+                        <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                         <select name="existingDefaultDocQueueProperty.value" id="existingDefaultDocQueueProperty.value">
                             <c:forEach var="viewChoice" items="${viewChoices}">
                                 <option value="${viewChoice.value}">
@@ -163,7 +164,7 @@
                 <td class="MainTableLeftColumn">&nbsp;</td>
                 <td class="MainTableRightColumn">
                     <div id="saveNew" style="display:none">
-                        <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                        <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                         <input type="text" name="newDefaultDocQueueProperty.value" id="newDefaultDocQueueProperty.value" />
                     </div>
                 </td>

@@ -32,7 +32,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="java.sql.*, java.util.*" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
@@ -40,6 +40,9 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
@@ -113,9 +116,9 @@
         </td>
         </td>
         <td style="font-size: xx-small" width='1%'
-            <%=dateTimeCodeBean.get("color"+hourmin.toString())!=null?("bgcolor=\""+Encode.forHtmlAttribute((String)dateTimeCodeBean.get("color"+hourmin.toString()))+"\"" ):""%>
-            title='<%=Encode.forHtmlAttribute(dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String)dateTimeCodeBean.get("description"+hourmin.toString()) : "")%>'><font
-                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><%=Encode.forHtml(hourmin.toString()) %>
+            <%=dateTimeCodeBean.get("color"+hourmin.toString())!=null?("bgcolor=\""+SafeEncode.forHtmlAttribute((String)dateTimeCodeBean.get("color"+hourmin.toString()))+"\"" ):""%>
+            title='<carlos:encode value='<%= dateTimeCodeBean.get("description"+hourmin.toString()) != null ? (String)dateTimeCodeBean.get("description"+hourmin.toString()) : "" %>' context="htmlAttribute"/>'><font
+                color='<%=(dateTimeCodeBean.get("color"+hourmin.toString())!=null && !dateTimeCodeBean.get("color"+hourmin.toString()).equals(bgcolordef) )?"black":"white" %>'><carlos:encode value='<%= hourmin.toString() %>' context="html"/>
         </font>
     </tr>
         <%  }%>

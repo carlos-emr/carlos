@@ -58,6 +58,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -78,13 +80,14 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html lang="en">
 
     <%
-        if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         String CurProviderNo = (String) session.getAttribute("user");
 
-        if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         String CurRoleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 
         boolean isSiteAccessPrivacy = false;
@@ -247,7 +250,7 @@
             }
             String providerNoParam = URLEncoder.encode(StringUtils.noNull(param.length > 0 ? param[0] : ""), StandardCharsets.UTF_8);
             String providerNameParam = URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8);
-            response.sendRedirect(request.getContextPath() + "/schedule/TemplateApplying.do?provider_no=" + providerNoParam + "&provider_name=" + providerNameParam);
+            response.sendRedirect(request.getContextPath() + "/schedule/TemplateApplying?provider_no=" + providerNoParam + "&provider_name=" + providerNameParam);
             return;
         } else {
     %>
@@ -272,17 +275,18 @@
         <script>
             // i18n messages — encoded server-side to be safe for JS string literals
             var i18n = {
-                msgDeleteConfirmation: "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsDeleteConfirmation"))%>",
-                msgIncorrectOutput:    "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsIncorrectOutput"))%>",
-                msgInputDate:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsInputDate"))%>",
-                msgInputCorrectDate:   "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsInputCorrectDate"))%>",
-                msgDateOrder:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsDateOrder"))%>",
-                msgSelectDay:          "<%=Encode.forJavaScript((String)pageContext.getAttribute("jsSelectDay"))%>"
+                msgDeleteConfirmation: "<carlos:encode value='<%= (String)pageContext.getAttribute("jsDeleteConfirmation") %>' context="javaScriptBlock"/>",
+                msgIncorrectOutput:    "<carlos:encode value='<%= (String)pageContext.getAttribute("jsIncorrectOutput") %>' context="javaScriptBlock"/>",
+                msgInputDate:          "<carlos:encode value='<%= (String)pageContext.getAttribute("jsInputDate") %>' context="javaScriptBlock"/>",
+                msgInputCorrectDate:   "<carlos:encode value='<%= (String)pageContext.getAttribute("jsInputCorrectDate") %>' context="javaScriptBlock"/>",
+                msgDateOrder:          "<carlos:encode value='<%= (String)pageContext.getAttribute("jsDateOrder") %>' context="javaScriptBlock"/>",
+                msgSelectDay:          "<carlos:encode value='<%= (String)pageContext.getAttribute("jsSelectDay") %>' context="javaScriptBlock"/>"
             };
 
             async function displayTemplate(s) {
-                var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
-                var url = "${pageContext.request.contextPath}/schedule/DisplayTemplate.do?name=" + templateName + "&providerid=<%=Encode.forJavaScript(Encode.forUriComponent(StringUtils.noNull(request.getParameter("provider_no"))))%>";
+                           <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="uriComponent"/></c:set>
+     var templateName = encodeURIComponent(s.options[s.selectedIndex].value);
+                var url = "${pageContext.request.contextPath}/schedule/DisplayTemplate?name=" + templateName + "&providerid=<carlos:encode value='${__enc_1}' context="javaScript"/>";
                 var div = "template";
                 fetch(url)
                     .then(response => response.text())
@@ -293,7 +297,7 @@
             }
 
             function selectrschedule(s) {
-                var ref = "${pageContext.request.contextPath}/schedule/TemplateApplying.do";
+                var ref = "${pageContext.request.contextPath}/schedule/TemplateApplying";
                 ref += "?provider_no=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_no")), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(StringUtils.noNull(request.getParameter("provider_name")), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 window.location.href = ref;
@@ -303,10 +307,10 @@
                 if (confirm(i18n.msgDeleteConfirmation)) {
                     var form = document.createElement('form');
                     form.method = 'post';
-                    form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying.do";
+                    form.action = "${pageContext.request.contextPath}/schedule/TemplateApplying";
                     var fields = {
-                        'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>',
-                        'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "")%>',
+                        'provider_no': '<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="javaScriptBlock"/>',
+                        'provider_name': '<carlos:encode value='<%= request.getParameter("provider_name") != null ? request.getParameter("provider_name") : "" %>' context="javaScriptBlock"/>',
                         'sdate': s.options[s.selectedIndex].value,
                         'delete': '1',
                         'deldate': 'all'
@@ -569,7 +573,7 @@
     %>
     <body>
     <div class="container-fluid py-3">
-    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate.do"
+    <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate"
           onSubmit="<%=bAlternate||bOrigAlt?"addDataStringB();":""%>addDataString();return(addDataString1())">
 
         <h4><fmt:message key="schedule.scheduletemplateapplying.msgMainLabel"/></h4>
@@ -643,10 +647,10 @@
                         %>
                         <table style="width:99%">
                             <tr>
-                                <td class="bg-success-subtle"><b><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_name"))) %>
+                                <td class="bg-success-subtle"><b><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_name")) %>' context="html"/>
                                 </b>
                                     <input type="hidden" name="provider_name"
-                                           value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_name"))) %>"></td>
+                                           value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_name")) %>' context="htmlAttribute"/>"></td>
                                 <td class="bg-success-subtle text-end"><select
                                         name="select" onChange="selectrschedule(this)">
                                     <%
@@ -663,7 +667,7 @@
                                         }
                                     %>
                                 </select> <input type="button" name="command" class="btn btn-secondary"
-                                                 value="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("btnDelete"))%>"
+                                                 value="<carlos:encode value='<%= (String)pageContext.getAttribute("btnDelete") %>' context="htmlAttribute"/>"
                                                  onClick="onBtnDelete(document.forms['schedule'].elements['select'])">
                                 </td>
                             </tr>
@@ -1030,7 +1034,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                                 %>
-                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
+                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=SafeEncode.forHtml(st.getId().getName()) + " |" + SafeEncode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <%
                                                     }
@@ -1038,7 +1042,7 @@
                                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                                 %>
-                                                <option value="<%=Encode.forHtmlAttribute(st.getId().getName())%>"><%=Encode.forHtml(st.getId().getName()) + " |" + Encode.forHtml(st.getSummary())%>
+                                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"><%=SafeEncode.forHtml(st.getId().getName()) + " |" + SafeEncode.forHtml(st.getSummary())%>
                                                 </option>
                                                 <% } %>
                                             </select></td>
@@ -1063,9 +1067,9 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="text-end">
-                                        <input type="hidden" name="provider_no" value="<%= Encode.forHtmlAttribute(StringUtils.noNull(request.getParameter("provider_no"))) %>">
+                                        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
-                                        <input type="submit" class="btn btn-primary" value="<%=Encode.forHtmlAttribute((String)pageContext.getAttribute("btnNext"))%>">
+                                        <input type="submit" class="btn btn-primary" value="<carlos:encode value='<%= (String)pageContext.getAttribute("btnNext") %>' context="htmlAttribute"/>">
                                     </div>
                                 </td>
                             </tr>
@@ -1107,12 +1111,12 @@
             }
 
             if ((isExcludedSiteSelected) || (!excludedSites.contains(site[i]))) {
-                ret += "<option value='" + Encode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "") + ">" + Encode.forHtml(site[i]) + "</option>";
+                ret += "<option value='" + SafeEncode.forHtmlAttribute(site[i]) + "'" + t + (bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "") + ">" + SafeEncode.forHtml(site[i]) + "</option>";
             }
         }
         ret += "</select>";
         if (bMultisites)
-            ret += "<script>document.schedule." + s + ".style.backgroundColor='" + Encode.forJavaScript(Encode.forCssString(bgColors[ind])) + "';</script>";
+            ret += "<script>document.schedule." + s + ".style.backgroundColor='" + SafeEncode.forJavaScript(SafeEncode.forCssString(bgColors[ind])) + "';</script>";
         if (isExcludedSiteSelected) {
             // For week-B addr inputs (e.g. "sunaddr2"), the checkbox name is "checksun2"; for week-A it's "checksun".
             // Uncheck before disabling so serializers don't pick up the checked+disabled state.

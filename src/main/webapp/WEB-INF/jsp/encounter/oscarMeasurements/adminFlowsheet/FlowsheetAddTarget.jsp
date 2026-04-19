@@ -39,7 +39,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,13 +49,13 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Provider provider = loggedInInfo.getLoggedInProvider();
@@ -80,7 +80,8 @@
             });
 
             function loadIndicators() {
-                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=getIndicators&flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>", {},
+                <c:set var="__enc_1"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet?method=getIndicators&flowsheetId=<carlos:encode value='${__enc_1}' context="javaScript"/>", {},
                     function (xml) {
                         var arr = new Array();
                         if (xml.indicators instanceof Array) {
@@ -101,10 +102,12 @@
 
 
             function saveItem() {
-                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet.do?method=saveFlowsheetItemTarget',
+                jQuery.post('<%=request.getContextPath()%>/admin/Flowsheet?method=saveFlowsheetItemTarget',
                     jQuery('#theForm').serialize(),
                     function (data) {
-                        location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor.do?flowsheetId=<%=Encode.forJavaScript(Encode.forUriComponent(flowsheetId))%>&measurementType=<%=Encode.forJavaScript(Encode.forUriComponent(measurementType))%>';
+                                                <c:set var="__enc_2"><carlos:encode value='<%= flowsheetId %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_3"><carlos:encode value='<%= measurementType %>' context="uriComponent"/></c:set>
+location.href = '<%=request.getContextPath()%>/encounter/oscarMeasurements/adminFlowsheet/ViewFlowsheetItemEditor?flowsheetId=<carlos:encode value='${__enc_2}' context="javaScript"/>&measurementType=<carlos:encode value='${__enc_3}' context="javaScript"/>';
                     });
             }
 
@@ -121,8 +124,8 @@
     <h2>Flowsheet Target Editor</h2>
     <br/>
     <form name="theForm" id="theForm">
-        <input type="hidden" name="flowsheetId" value="<%= Encode.forHtmlAttribute(flowsheetId) %>"/>
-        <input type="hidden" name="measurementType" value="<%= Encode.forHtmlAttribute(measurementType) %>"/>
+        <input type="hidden" name="flowsheetId" value="<carlos:encode value='<%= flowsheetId %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="measurementType" value="<carlos:encode value='<%= measurementType %>' context="htmlAttribute"/>"/>
 
         <table style="width:20%">
             <tr>

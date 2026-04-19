@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -38,7 +39,7 @@
                    objectName="_admin,_admin.userAdmin" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,11 +47,10 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
+<%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
@@ -189,7 +189,7 @@
 	 */
 	function handleResetMfa(securityId) {
 		if (confirm("<fmt:message key="admin.securityAddRecord.mfa.reset.confirm"/>")) {
-			var url = "${pageContext.request.contextPath}/securityRecord/mfa.do";
+			var url = "${pageContext.request.contextPath}/securityRecord/mfa";
 			var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
 			var csrfToken = csrfEl ? csrfEl.value : '';
 			var params = 'method=<%= MfaActions2Action.METHOD_RESET_MFA %>&securityId=' + encodeURIComponent(securityId);
@@ -227,7 +227,7 @@
             </tr>
         </table>
         <table cellspacing="0" cellpadding="2" width="100%" border="0">
-            <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate.do" name="updatearecord" onsubmit="return onsub()">
+            <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate" name="updatearecord" onsubmit="return onsub()">
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
                     Integer securityId = Integer.valueOf(request.getParameter("keyword"));
@@ -245,7 +245,7 @@
                     <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
                     <td><input type="text" name="user_name" maxlength="10"
-                               value="<%= Encode.forHtmlAttribute(security.getUserName()) %>"></td>
+                               value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>
                     <td align="right" nowrap><fmt:message key="admin.securityrecord.formPassword"/>:
@@ -264,9 +264,9 @@
                         <div align="right"><fmt:message key="admin.securityrecord.formProviderNo"/>:
                         </div>
                     </td>
-                    <td><%= Encode.forHtmlContent(security.getProviderNo()) %>
+                    <td><carlos:encode value='<%= security.getProviderNo() %>' context="html"/>
                         <input type="hidden" name="provider_no"
-                               value="<%= Encode.forHtmlAttribute(security.getProviderNo()) %>"></td>
+                               value="<carlos:encode value='<%= security.getProviderNo() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <!-- new sec -->
                 <tr>
@@ -372,7 +372,7 @@
 
                 <tr>
                     <td colspan="2" align="center">
-                        <input type="hidden" name="security_no" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
+                        <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
                         <input type="button" value="<fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
@@ -383,9 +383,15 @@
                     }
                 %>
             </form>
-            <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete.do" style="display:none">
-                <input type="hidden" name="keyword" value="<%= Encode.forHtmlAttribute(String.valueOf(security.getSecurityNo())) %>">
+            <%
+                if (security != null) {
+            %>
+            <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete" style="display:none">
+                <input type="hidden" name="keyword" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
             </form>
+            <%
+                }
+            %>
         </table>
 
         <p></p>

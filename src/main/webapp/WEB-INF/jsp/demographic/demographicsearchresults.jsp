@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_search" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_search");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_search");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -55,7 +55,9 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%
@@ -91,6 +93,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -121,16 +124,16 @@
     String dboperation = request.getParameter("dboperation");
     String keyword = null;
     if (request.getParameter("keyword") != null) {
-        keyword = Encode.forJava(request.getParameter("keyword"));
+        keyword = SafeEncode.forJava(request.getParameter("keyword"));
     }
     String orderBy = request.getParameter("orderby");
 
     // Pre-encode request parameters used repeatedly in sort and pagination links.
     // Each is null-safe (noNull converts null to "") and URI-component-encoded.
-    String encKeyword = Encode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
-    String encDisplayMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
-    String encSearchMode = Encode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
-    String encDbOperation = Encode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
+    String encKeyword = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
+    String encDisplayMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
+    String encSearchMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
+    String encDbOperation = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
     ;
@@ -146,8 +149,8 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
-        <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/Oscar.js"></script>
         <title><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
         <link rel="stylesheet" type="text/css" media="all"
@@ -242,7 +245,7 @@
              * opener window and closes this search popup.
              *
              * Uses direct DOM access (same pattern as the appointment search popup) rather
-             * than a server-side redirect through DemographicLinkMsg.do, which was unreliable
+             * than a server-side redirect through DemographicLinkMsg, which was unreliable
              * after multi-hop popup navigation. Always defined; only called from onclick
              * links rendered when fromMessenger=true, so harmless in non-messenger contexts.
              *
@@ -285,8 +288,7 @@
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
 
-            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : <c:out
-                value="${param.keyword}"/>
+            <i><fmt:message key="demographic.demographicsearchresults.msgSearchKeys"/></i> : ${carlos:forHtml(param.keyword)}
 
             <div class="table-responsive">
             <table id="patientResults" class="table table-sm table-striped">
@@ -295,12 +297,12 @@
                     <%
                         // Common search-link prefix shared by all column sort headers.
                         // Only the "orderby" value changes per column.
-                        String sortBase = "DemographicSearch.do?fromMessenger=" + fromMessenger
+                        String sortBase = "DemographicSearch?fromMessenger=" + fromMessenger
                             + "&keyword=" + encKeyword
                             + "&displaymode=" + encDisplayMode
                             + "&search_mode=" + encSearchMode
                             + "&dboperation=" + encDbOperation;
-                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + Encode.forUriComponent(ptStatus);
+                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + SafeEncode.forUriComponent(ptStatus);
                     %>
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
@@ -435,30 +437,36 @@
                                 String messengerPatientName = Misc.toUpperLowerCase(demo.getLastName() + ", " + demo.getFirstName());
                         %>
                         <a href="javascript:void(0)"
-                           onclick="selectForMessenger('<%=Encode.forJavaScriptAttribute(messengerPatientName)%>','<%=Encode.forJavaScriptAttribute(dem_no)%>')"><%=Encode.forHtml(demo.getDemographicNo().toString())%>
+                           onclick="selectForMessenger('<carlos:encode value='<%= messengerPatientName %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= dem_no %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= demo.getDemographicNo().toString() %>' context="html"/>
                         </a></td>
                     <%
                     } else {
                     %>
+                    <c:set var="__enc_1"><carlos:encode value='<%= head != null ? head : dem_no %>' context="uriComponent"/></c:set>
                     <a title="Master Demographic File" href="javascript:void(0)"
-                       onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(head != null ? head : dem_no))%>')"><%=Encode.forHtml(dem_no)%>
+                       onclick="popup(700,1027,'DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= dem_no %>' context="html"/>
                     </a></td>
 
                     <!-- Rights -->
                     <td class="links"><security:oscarSec roleName="<%=roleName$%>"
                                                          objectName="_eChart" rights="r">
+                        <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(curProvider_no) %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_3"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
                         <a class="encounterBtn" title="Encounter" href="javascript:void(0)"
-                           onclick="popupEChart(710,1024,'<c:out
-                                   value="${ctx}"/>/encounter/IncomingEncounter.do?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(curProvider_no)))%>&appointmentNo=&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>&curProviderNo=&reason=<%=Encode.forJavaScriptAttribute(URLEncoder.encode(noteReason, StandardCharsets.UTF_8))%>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
+                           onclick="popupEChart(710,1024,'${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&appointmentNo=&demographicNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&curProviderNo=&reason=<carlos:encode value='<%= URLEncoder.encode(noteReason, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>&encType=&curDate=<%=""+curYear%>-<%=""+curMonth%>-<%=""+curDay%>&appointmentDate=&startTime=&status=');return false;">E</a>
                     </security:oscarSec> <!-- Rights --> <security:oscarSec roleName="<%=roleName$%>"
                                                                             objectName="_rx" rights="r">
-			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/rx/choosePatient.do?providerNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(StringUtils.noNull(demo.getProviderNo())))%>&demographicNo=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">Rx</a>
+			<c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(demo.getProviderNo()) %>' context="uriComponent"/></c:set>
+			<c:set var="__enc_5"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="rxBtn" title="Prescriptions"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/rx/choosePatient?providerNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>')">Rx</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/tickler/ViewTicklerMain.do?demoview=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">T</a>
+			<c:set var="__enc_6"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="ticklerBtn" title="Tickler"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>')">T</a>
 			</security:oscarSec>
 			<security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
-			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'<c:out value="${ctx}"/>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>')">C</a>
+			<c:set var="__enc_7"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
+			<a class="consultBtn" title="Consultation"  href="javascript:void(0)" onclick="popup(700,1027,'${carlos:forJavaScript(ctx)}/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>')">C</a>
 			</security:oscarSec>
 		</td>
 
@@ -466,30 +474,31 @@
                         }
                     %>
                     <caisi:isModuleLoad moduleName="caisi">
+                        <c:set var="__enc_8"><carlos:encode value='<%= dem_no %>' context="uriComponent"/></c:set>
                         <td class="name"><a href="javascript:void(0)"
-                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(dem_no))%>'"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName()))%>
-                            , <%=Encode.forHtml(Misc.toUpperLowerCase(demo.getFirstName()))%>
+                                            onclick="location.href='<%= request.getContextPath() %>/PMmodule/ClientManager?id=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>'"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName()) %>' context="html"/>
+                            , <carlos:encode value='<%= Misc.toUpperLowerCase(demo.getFirstName()) %>' context="html"/>
                         </a></td>
                     </caisi:isModuleLoad>
                     <caisi:isModuleLoad moduleName="caisi" reverse="true">
-                        <td class="name"><%=Encode.forHtml(Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + " " + Misc.toUpperLowerCase(demo.getMiddleNames())))%>
+                        <td class="name"><carlos:encode value='<%= Misc.toUpperLowerCase(demo.getLastName() + ", " + Misc.toUpperLowerCase(demo.getFirstName()) + (demo.getMiddleNames() != null && !demo.getMiddleNames().isEmpty() ? " " + Misc.toUpperLowerCase(demo.getMiddleNames()) : "")) %>' context="html"/>
                         </td>
                     </caisi:isModuleLoad>
-                    <td class="chartNo"><%=Encode.forHtml(demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo())%>
+                    <td class="chartNo"><carlos:encode value='<%= demo.getChartNo() == null || demo.getChartNo().equals("") ? " " : demo.getChartNo() %>' context="html"/>
                     </td>
-                    <td class="sex"><%=Encode.forHtml(demo.getSex() == null ? "" : demo.getSex())%>
+                    <td class="sex"><carlos:encode value='<%= demo.getSex() == null ? "" : demo.getSex() %>' context="html"/>
                     </td>
-                    <td class="dob"><%=Encode.forHtml(demo.getFormattedDob() == null ? "" : demo.getFormattedDob())%>
+                    <td class="dob"><carlos:encode value='<%= demo.getFormattedDob() == null ? "" : demo.getFormattedDob() %>' context="html"/>
                     </td>
                     <td class="doctor"><%
                         String providerShortName = Misc.getShortStr(providerBean.getProperty(demo.getProviderNo() == null ? "" : demo.getProviderNo()), "_", 12);
-                        %><%=Encode.forHtml(providerShortName == null ? "" : providerShortName)%>
+                        %><carlos:encode value='<%= providerShortName == null ? "" : providerShortName %>' context="html"/>
                     </td>
-                    <td class="rosterStatus"><%=Encode.forHtml(demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus())%>
+                    <td class="rosterStatus"><carlos:encode value='<%= demo.getRosterStatus() == null || demo.getRosterStatus().equals("") ? " " : demo.getRosterStatus() %>' context="html"/>
                     </td>
-                    <td class="patientStatus"><%=Encode.forHtml(demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus())%>
+                    <td class="patientStatus"><carlos:encode value='<%= demo.getPatientStatus() == null || demo.getPatientStatus().equals("") ? " " : demo.getPatientStatus() %>' context="html"/>
                     </td>
-                    <td class="phone"><%=Encode.forHtml(demo.getPhone() == null || demo.getPhone().equals("") ? " " : (demo.getPhone().length() == 10 ? (demo.getPhone().substring(0, 3) + "-" + demo.getPhone().substring(3)) : demo.getPhone()))%>
+                    <td class="phone"><carlos:encode value='<%= demo.getPhone() == null || demo.getPhone().equals("") ? " " : (demo.getPhone().length() == 10 ? (demo.getPhone().substring(0, 3) + "-" + demo.getPhone().substring(3)) : demo.getPhone()) %>' context="html"/>
                     </td>
                 </tr>
                 <%
@@ -509,29 +518,29 @@
                 nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
 
                 // Pagination links use local variables (already extracted from request params above)
-                String pageBase = "DemographicSearch.do?fromMessenger=" + fromMessenger
-                    + "&keyword=" + Encode.forUriComponent(StringUtils.noNull(keyword))
-                    + "&search_mode=" + Encode.forUriComponent(StringUtils.noNull(searchMode))
-                    + "&displaymode=" + Encode.forUriComponent(StringUtils.noNull(displayMode))
-                    + "&dboperation=" + Encode.forUriComponent(StringUtils.noNull(dboperation))
-                    + "&orderby=" + Encode.forUriComponent(StringUtils.noNull(orderBy));
+                String pageBase = "DemographicSearch?fromMessenger=" + fromMessenger
+                    + "&keyword=" + SafeEncode.forUriComponent(StringUtils.noNull(keyword))
+                    + "&search_mode=" + SafeEncode.forUriComponent(StringUtils.noNull(searchMode))
+                    + "&displaymode=" + SafeEncode.forUriComponent(StringUtils.noNull(displayMode))
+                    + "&dboperation=" + SafeEncode.forUriComponent(StringUtils.noNull(dboperation))
+                    + "&orderby=" + SafeEncode.forUriComponent(StringUtils.noNull(orderBy));
 
                 if (nLastPage >= 0) {
             %>
-            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
+            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
                 <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
             }
             if (nItems >= Integer.parseInt(strLimit)) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<%=Encode.forUriComponent(ptStatus)%>">
+            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
                 <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
             <%
                 }
             %>
             <br>
             <div class="createNew">
-                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm.do?search_mode=<%=Encode.forUriComponent(StringUtils.noNull(searchMode))%>&keyword=<%=Encode.forUriComponent(StringUtils.noNull(keyWord))%>"
+                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<carlos:encode value='<%= StringUtils.noNull(searchMode) %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= StringUtils.noNull(keyWord) %>' context="uriComponent"/>"
                    title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
                     <fmt:message key="demographic.search.btnCreateNew"/>
                 </a>
@@ -539,7 +548,7 @@
 
             <caisi:isModuleLoad moduleName="caisi">
                 <div class="goBackToSchedule">
-                    <a href="<%= request.getContextPath() %>/provider/providercontrol.do"
+                    <a href="<%= request.getContextPath() %>/provider/providercontrol"
                        title="<fmt:message key="demographic.search.btnReturnToSchedule"/>">
                         <fmt:message key="demographic.search.btnReturnToSchedule"/>
                     </a>

@@ -44,7 +44,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -58,7 +58,8 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline" %>
 
@@ -76,7 +77,7 @@
 <body>
 <div style="font-size: 16px; font-weight: bold;"><fmt:message key="encounter.guidelinelist.youcurrently"/></div>
 <c:if test="${not empty demographic_no}">
-    <div style="font-size: 10px;"><fmt:message key="encounter.guidelinelist.demographicno"/> ${e:forHtml(demographic_no)}</div>
+    <div style="font-size: 10px;"><fmt:message key="encounter.guidelinelist.demographicno"/> ${carlos:forHtml(demographic_no)}</div>
 </c:if>
 <br>
 <table class="dsTable">
@@ -125,7 +126,7 @@
                             <span class="bad"><fmt:message key="encounter.guidelinelist.failed"/></span>
                         </c:otherwise>
                     </c:choose>
-                    - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
+                    - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
                     <fmt:message key="encounter.guidelinelist.moreinfo"/>
                 </a>
                 </td>

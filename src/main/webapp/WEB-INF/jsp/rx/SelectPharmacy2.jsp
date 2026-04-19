@@ -33,9 +33,10 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
@@ -49,7 +50,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -95,7 +96,7 @@
                 $(function () {
                     var demo = $("#demographicNo").val();
 					if(demo != null && demo !== "") {
-						$.post("<%=request.getContextPath() + "/rx/managePharmacy.do?method=getPharmacyFromDemographic&demographicNo="%>" + demo,
+						$.post("<%=request.getContextPath() + "/rx/managePharmacy?method=getPharmacyFromDemographic&demographicNo="%>" + demo,
                         function (data) {
                             if (data && data.length && data.length > 0) {
                                 $("#preferredList").html("");
@@ -170,7 +171,7 @@
                                 $(".prefUnlink").click(function () {
                                     var data = "pharmacyId=" + $(this).closest("div").attr("pharmId") + "&demographicNo=" + demo;
                                     ShowSpin(true);
-                                    $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=unlink",
+                                    $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=unlink",
                                         data, function (data) {
                                             if (data.id) {
                                                 window.location.reload(false);
@@ -191,11 +192,11 @@
                                         } else {
                                             var data = "pharmId=" + $curr.attr("pharmId") + "&demographicNo=" + demo + "&preferredOrder=" + (parseInt($curr.attr("prefOrder")) - 1);
                                             ShowSpin(true);
-                                            $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=setPreferred",
+                                            $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=setPreferred",
                                                 data, function (data2) {
                                                     if (data2.id) {
                                                         data = "pharmId=" + $prev.attr("pharmId") + "&demographicNo=" + demo + "&preferredOrder=" + (parseInt($prev.attr("prefOrder")) + 1);
-                                                        $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=setPreferred",
+                                                        $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=setPreferred",
                                                             data, function (data3) {
                                                                 if (data3.id) {
                                                                     window.location.reload(false);
@@ -221,11 +222,11 @@
                                         } else {
                                             var data = "pharmId=" + $curr.attr("pharmId") + "&demographicNo=" + demo + "&preferredOrder=" + (parseInt($curr.attr("prefOrder")) + 1);
                                             ShowSpin(true);
-                                            $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=setPreferred",
+                                            $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=setPreferred",
                                                 data, function (data2) {
                                                     if (data2.id) {
                                                         data = "pharmId=" + $next.attr("pharmId") + "&demographicNo=" + demo + "&preferredOrder=" + (parseInt($next.attr("prefOrder")) - 1);
-                                                        $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=setPreferred",
+                                                        $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=setPreferred",
                                                             data, function (data3) {
                                                                 if (data3.id) {
                                                                     window.location.reload(false);
@@ -363,7 +364,7 @@
 
                         var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + ($("#preferredList div").length + 1);
                         ShowSpin(true);
-                        $.post("<%=request.getContextPath() + "/rx/managePharmacy.do?method=setPreferred"%>", data, function (data) {
+                        $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=setPreferred"%>", data, function (data) {
                             if (data.id) {
                                 $("html, body").animate({scrollTop: 0}, 1000);
                                 window.location.reload(false);
@@ -377,7 +378,7 @@
                     $(".deletePharm").click(function () {
                         let pharmacyData = "pharmacyId=" + $(this).closest("tr").attr("pharmId");
                         ShowSpin(true);
-                        $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=getTotalDemographicsPreferedToPharmacy",
+                        $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=getTotalDemographicsPreferedToPharmacy",
                             pharmacyData, function (data) {
                                 HideSpin(true);
                                 let deletingWarningStr = "WARNING - proceeding will delete this pharmacy from the clinic's database for all users. Only proceed if you are absolutely sure.\n\nType \"yes\" in the box below to proceed.";
@@ -391,7 +392,7 @@
                                 }
 
                                 ShowSpin(true);
-                                $.post("<%=request.getContextPath()%>/rx/managePharmacy.do?method=delete",
+                                $.post("<%=request.getContextPath()%>/rx/managePharmacy?method=delete",
                                     pharmacyData, function (data) {
                                         if (data.success) {
                                             window.location.reload(false);
@@ -423,15 +424,15 @@
             }
 
             function addPharmacy() {
-                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewManagePharmacy2.do?type=Add");
+                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewManagePharmacy2?type=Add");
             }
 
             function editPharmacy(id) {
-                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewManagePharmacy2.do?type=Edit&ID=" + id);
+                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewManagePharmacy2?type=Edit&ID=" + id);
             }
 
             function viewPharmacy(id) {
-                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewViewPharmacy.do?type=View&ID=" + id);
+                openPharmacyModal("<%= request.getContextPath() %>/rx/ViewViewPharmacy?type=View&ID=" + id);
             }
 
 
@@ -442,7 +443,7 @@
                     opener.window.refresh();
                     window.close();
                 } else {
-                    window.location.href = "<%= request.getContextPath() %>/rx/searchDrug.do";
+                    window.location.href = "<%= request.getContextPath() %>/rx/searchDrug";
                 }
             }
 
@@ -635,21 +636,21 @@
                                             if (ph.getName() != null && !ph.getName().isEmpty()) {
                                         %>
                                         <tr class="pharmacyItem" pharmId="<%=ph.getId()%>">
-                                            <td class="pharmacyName"><%=Encode.forHtmlContent(ph.getName())%>
+                                            <td class="pharmacyName"><carlos:encode value='<%= ph.getName() %>' context="html"/>
                                             </td>
-                                            <td class="address"><%=Encode.forHtmlContent(ph.getAddress())%>
-                                            </td>
-                                            <td style="white-space: nowrap;"
-                                                class="city"><%=Encode.forHtmlContent(ph.getCity())%>
+                                            <td class="address"><carlos:encode value='<%= ph.getAddress() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="postalCode"><%=Encode.forHtmlContent(ph.getPostalCode())%>
+                                                class="city"><carlos:encode value='<%= ph.getCity() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="phone"><%=Encode.forHtmlContent(ph.getPhone1())%>
+                                                class="postalCode"><carlos:encode value='<%= ph.getPostalCode() %>' context="html"/>
                                             </td>
                                             <td style="white-space: nowrap;"
-                                                class="fax"><%=Encode.forHtmlContent(ph.getFax())%>
+                                                class="phone"><carlos:encode value='<%= ph.getPhone1() %>' context="html"/>
+                                            </td>
+                                            <td style="white-space: nowrap;"
+                                                class="fax"><carlos:encode value='<%= ph.getFax() %>' context="html"/>
                                             </td>
                                             <security:oscarSec roleName="<%=roleName$%>" objectName="_rx.editPharmacy"
                                                                rights="w" reverse="false">

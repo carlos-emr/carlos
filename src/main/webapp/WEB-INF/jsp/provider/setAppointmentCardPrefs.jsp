@@ -33,6 +33,7 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -76,16 +77,16 @@
                 <%if (request.getAttribute("status") == null) {%>
                 <%=bundle.getString(providermsgEdit)%>
 
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate.do" method="post">
-                    <input type="hidden" name="method" value="<c:out value="${method}"/>">
+                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
                     <br/>
-                    Name: <input type="text" name="appointmentCardName.value" value="<c:out value='${name.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelName"/> <input type="text" name="appointmentCardName.value" value="${carlos:forHtmlAttribute(name.value)}" size="50" />
                     <br/>
-                    Phone: <input type="text" name="appointmentCardPhone.value" value="<c:out value='${phone.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelPhone"/> <input type="text" name="appointmentCardPhone.value" value="${carlos:forHtmlAttribute(phone.value)}" size="50" />
                     <br/>
-                    Fax: <input type="text" name="appointmentCardFax.value" value="<c:out value='${fax.value}'/>" size="50" />
+                    <fmt:message key="provider.appointmentCardPrefs.labelFax"/> <input type="text" name="appointmentCardFax.value" value="${carlos:forHtmlAttribute(fax.value)}" size="50" />
                     <br/>
-                    <input type="submit" name="btnApply" value="Apply" />
+                    <input type="submit" name="btnApply" value="<fmt:message key='provider.setShowPatientDOB.btnApply'/>" />
                 </form>
 
                 <%} else {%>

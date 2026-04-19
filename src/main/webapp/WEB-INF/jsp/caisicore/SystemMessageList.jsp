@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -33,7 +34,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -62,7 +63,7 @@
 
 <br/>
 
-<%@ include file="/caisicore/messages.jsp" %>
+<%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
 <br/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
@@ -90,11 +91,11 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="SystemMessage.do?method=edit&id=<c:out value="${msg.id}"/>"><img
+                    href="SystemMessage?method=edit&id=${carlos:forHtmlAttribute(msg.id)}"><img
                     border="0" src="images/edit.jpg"/></a></td>
-            <td><c:out value="${msg.formattedCreationDate}"/></td>
-            <td><c:out value="${msg.formattedExpiryDate}"/></td>
-            <td><c:out value="${msg.message}"/></td>
+            <td>${carlos:forHtml(msg.formattedCreationDate)}</td>
+            <td>${carlos:forHtml(msg.formattedExpiryDate)}</td>
+            <td>${carlos:forHtml(msg.message)}</td>
         </tr>
     </c:forEach>
 </table>
@@ -104,9 +105,9 @@
 <table>
     <tr>
         <td><input type="button" value="Back"
-                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin.do'"/></td>
+                   onclick="location.href='<%=request.getContextPath()%>/admin/ViewAdmin'"/></td>
         <td><input type="button" value="Create New Message"
-                   onclick="location.href='SystemMessage.do?method=edit'"/></td>
+                   onclick="location.href='SystemMessage?method=edit'"/></td>
     </tr>
 </table>
 

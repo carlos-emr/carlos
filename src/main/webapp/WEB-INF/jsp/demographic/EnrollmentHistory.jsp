@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -63,7 +63,7 @@
 <%@page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <html>
     <head>
-        <title>Enrollment History</title>
+        <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
@@ -75,7 +75,7 @@
             var ctx = '<%=request.getContextPath()%>';
         </script>
 
-        <title><fmt:message key="demographic.demographicappthistory.title"/></title>
+        <title><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></title>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
 
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -101,17 +101,17 @@
 
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Enrolment History</td>
+            <td class="MainTableTopRowLeftColumn"><fmt:message key="demographic.enrollementhistory.enrollmentHistory"/></td>
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
                         <td><%=demographic.getFormattedName() %> (<%=demographic.getFormattedDob()%>)</td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a target="_blank"
-                                                         href="http://www.oscarmanual.org/search?SearchableText=appointment history">Help</a>
+                                href="http://www.oscarmanual.org/search?SearchableText=appointment history"><fmt:message key="demographic.enrollementhistory.help"/></a>
                             | <a href="javascript:popupStart(300,400,'About.jsp')">
-                                About</a> | <a href="javascript:popupStart(300,400,'License.jsp')">
-                                License</a>
+                                <fmt:message key="global.about"/></a> | <a href="javascript:popupStart(300,400,'License.jsp')">
+                                <fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -123,22 +123,22 @@
             </td>
             <td class="MainTableRightColumn">
                 <% if (!org.apache.commons.lang3.StringUtils.isEmpty(demographic.getRosterStatus())) { %>
-                <h2>Current Enrollment Status</h2>
+                <h2><fmt:message key="demographic.enrollementhistory.currentEnrollmentStatus"/></h2>
                 <br/>
                 <table style="width:5%">
                     <tr>
-                        <td nowrap="nowrap"><b>Status</b>:</td>
+                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.status"/></b>:</td>
                         <td nowrap="nowrap"><%=demographic.getRosterStatusDisplay()%>
                         </td>
                     </tr>
                     <% if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
                     <tr>
-                        <td nowrap="nowrap"><b>Date Rostered</b>:</td>
+                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.dateRostered"/></b>:</td>
                         <td nowrap="nowrap"><%=DateUtils.formatDate(demographic.getRosterDate(), request.getLocale())%>
                         </td>
                     </tr>
                     <tr>
-                        <td nowrap="nowrap"><b>Enrolled To:</b>:</td>
+                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.enrolledTo"/></b>:</td>
                         <td nowrap="nowrap"><%=providerDao.getProviderName(demographic.getRosterEnrolledTo())%>
                         </td>
                     </tr>
@@ -146,12 +146,12 @@
 
                     <% if ("TE".equals(demographic.getRosterStatus())) { %>
                     <tr>
-                        <td nowrap="nowrap"><b>Date Terminated</b>:</td>
+                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.dateTerminated"/></b>:</td>
                         <td nowrap="nowrap"><%=DateUtils.formatDate(demographic.getRosterTerminationDate(), request.getLocale())%>
                         </td>
                     </tr>
                     <tr>
-                        <td nowrap="nowrap"><b>Termination Reason:</b>:</td>
+                        <td nowrap="nowrap"><b><fmt:message key="demographic.enrollementhistory.terminationReason"/></b>:</td>
                         <td nowrap="nowrap"><%=Util.rosterTermReasonProperties.getReasonByCode(demographic.getRosterTerminationReason()) %>
                         </td>
                     </tr>
@@ -160,7 +160,7 @@
 
                 <br/>
 
-                <h2>Patient Enrollment History</h2>
+                <h2><fmt:message key="demographic.enrollementhistory.patientEnrollmentHistory"/></h2>
                 <br/>
 
                 <table width="80%">
@@ -213,12 +213,12 @@
                             printedHeaders = true;
                     %>
                     <tr>
-                        <th>Date of Record</th>
-                        <th>Status</th>
-                        <th>Enrolled To</th>
-                        <th>Date Rostered</th>
-                        <th>Date Terminated</th>
-                        <th>Termination Reason</th>
+                        <th><fmt:message key="demographic.enrollementhistory.dateOfRecord"/></th>
+                        <th><fmt:message key="demographic.enrollementhistory.status"/></th>
+                        <th><fmt:message key="demographic.enrollementhistory.enrolledTo"/></th>
+                        <th><fmt:message key="demographic.enrollementhistory.dateRostered"/></th>
+                        <th><fmt:message key="demographic.enrollementhistory.dateTerminated"/></th>
+                        <th><fmt:message key="demographic.enrollementhistory.terminationReason"/></th>
                     </tr>
                     <%
                         }
@@ -254,7 +254,7 @@
                     <% } else { %>
                     <table>
                         <tr>
-                            <td>No Enrollment Data Found!</td>
+                            <td><fmt:message key="demographic.enrollementhistory.noEnrollmentDataFound"/></td>
                         </tr>
                     </table>
                     <% } %>
@@ -295,5 +295,3 @@
 %>
 
 
-
- 

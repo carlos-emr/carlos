@@ -234,7 +234,7 @@ function referralScriptAttach2(elementName, name2) {
 var d = elementName;
 t0 = escape("document.forms[1].elements[\'"+d+"\'].value");
 t1 = escape("document.forms[1].elements[\'"+name2+"\'].value");
-rs('att',('<%=request.getContextPath()%>/billing/CA/ON/searchRefDoc.jsp?param='+t0+'&param2='+t1),600,600,1);
+rs('att',('<%=request.getContextPath()%>/billing/CA/ON/ViewSearchRefDoc?param='+t0+'&param2='+t1),600,600,1);
 }
 function removeAccents(s){
 var r=s.toLowerCase();
@@ -311,7 +311,7 @@ updateProvinces('');
 
 jQuery.ajax({
 type: "POST",
-url: ctx + '/demographicSupport.do',
+url: ctx + '/demographicSupport',
 data: 'method=getCountryAndProvinceCodes',
 dataType: 'json',
 success: function (data) {
@@ -342,7 +342,7 @@ return;
 
 jQuery.ajax({
 type: "POST",
-url: ctx + '/demographicSupport.do',
+url: ctx + '/demographicSupport',
 data: 'method=getCountryAndProvinceCodes&country=' + country,
 dataType: 'json',
 success: function (data) {
@@ -369,7 +369,7 @@ updateResidentialProvinces('');
 
 jQuery.ajax({
 type: "POST",
-url: ctx + '/demographicSupport.do',
+url: ctx + '/demographicSupport',
 data: 'method=getCountryAndProvinceCodes',
 dataType: 'json',
 success: function (data) {
@@ -397,7 +397,7 @@ return;
 }
 jQuery.ajax({
 type: "POST",
-url: ctx + '/demographicSupport.do',
+url: ctx + '/demographicSupport',
 data: 'method=getCountryAndProvinceCodes&country=' + country,
 dataType: 'json',
 success: function (data) {

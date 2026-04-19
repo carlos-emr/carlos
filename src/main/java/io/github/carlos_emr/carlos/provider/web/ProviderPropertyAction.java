@@ -142,7 +142,7 @@ public class ProviderPropertyAction {
         saveAllowEmpty(request, propertyDAO, providerNo, "rxPhone", "rxPhone");
         saveAllowEmpty(request, propertyDAO, providerNo, "faxnumber", "faxnumber");
 
-        // Provider colour is managed exclusively via setProviderColour.do / ProviderColourUpdater,
+        // Provider colour is managed exclusively via setProviderColour / ProviderColourUpdater,
         // which writes to the property table under "ProviderColour" via PropertyDao.
         // Both PropertyDao and UserPropertyDAO read from the same underlying property table,
         // so providerpreference.jsp can read it via UserPropertyDAO for display.

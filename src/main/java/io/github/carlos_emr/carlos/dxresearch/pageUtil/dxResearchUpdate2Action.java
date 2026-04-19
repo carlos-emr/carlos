@@ -60,8 +60,12 @@ public class dxResearchUpdate2Action extends ActionSupport {
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "u", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch u)");
         }
 
         String status = request.getParameter("status");
@@ -111,7 +115,7 @@ public class dxResearchUpdate2Action extends ActionSupport {
             dao.merge(research);
         }
 
-        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch.do");
+        StringBuffer forward = new StringBuffer(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
         forward.append("?demographicNo=").append(URLEncoder.encode(Integer.toString(demographicNoInt), StandardCharsets.UTF_8));
         forward.append("&providerNo=").append(URLEncoder.encode(Integer.toString(providerNoInt), StandardCharsets.UTF_8));
         forward.append("&quickList=");

@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -104,7 +104,7 @@
                         <td width="200">${data.typeDescription}</td>
                         <td width="50"><a href="#"
                                           name='<fmt:message key="encounter.Index.oldMeasurements"/>'
-                                          onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory.do?type=${data.type}'); return false;">more...</a></td>
+                                          onClick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${data.type}'); return false;">more...</a></td>
                     </tr>
                 </c:forEach>
             </c:if>

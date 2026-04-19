@@ -33,16 +33,16 @@
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_rx" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_rx");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_rx");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,8 +67,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<%=Encode.forJavaScript(interactingDrugList != null ? interactingDrugList : "")%>';
-    var randomIds = '<%=Encode.forJavaScript(allRandomIdInStash != null ? allRandomIdInStash.toString() : "")%>';
+    var interactStr = '<carlos:encode value='<%= interactingDrugList != null ? interactingDrugList : "" %>' context="javaScriptBlock"/>';
+    var randomIds = '<carlos:encode value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' context="javaScriptBlock"/>';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {
@@ -164,8 +164,8 @@
 
     var errorMsg = "Failed";
     //oscarLog("errorMsg="+errorMsg);
-    var interactStr = '<%=Encode.forJavaScript(interactingDrugList != null ? interactingDrugList : "")%>';
-    var randomIds = '<%=Encode.forJavaScript(allRandomIdInStash != null ? allRandomIdInStash.toString() : "")%>';
+    var interactStr = '<carlos:encode value='<%= interactingDrugList != null ? interactingDrugList : "" %>' context="javaScriptBlock"/>';
+    var randomIds = '<carlos:encode value='<%= allRandomIdInStash != null ? allRandomIdInStash.toString() : "" %>' context="javaScriptBlock"/>';
     //clear all warnings - remove all bracket characters
     randomIds = randomIds.replace(/[\[\]]/g, "");
     if (randomIds.length > 0) {

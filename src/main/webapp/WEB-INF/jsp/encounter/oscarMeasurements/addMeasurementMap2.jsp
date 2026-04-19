@@ -30,6 +30,8 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -37,8 +39,6 @@
         import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
 <%
 
     MeasurementMapConfig mmc = new MeasurementMapConfig();
@@ -73,7 +73,7 @@
         }
 
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap.do';
+            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementMap';
             return true;
         }
 
@@ -100,7 +100,7 @@
 </head>
 
 <body>
-<form method="post" name="CONFIG" action="AddMeasurementMap.do">
+<form method="post" name="CONFIG" action="AddMeasurementMap">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRow" colspan="9" align="left">
@@ -110,8 +110,8 @@
                                                 onClick="window.close()"></td>
                         <td align="right">
 
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> |
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a>
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> |
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -141,15 +141,15 @@
 
                         </tr>
                         <tr>
-                            <td class="Cell" width="20%">To Map to Loinc Code : <%=Encode.forHtml(loinc)%>
+                            <td class="Cell" width="20%">To Map to Loinc Code : <carlos:encode value='<%= loinc %>' context="html"/>
                             </td>
-                            <td class="Cell"><input type="hidden" name="loinc_code" value="<%= Encode.forHtmlAttribute(loinc) %>"/></td>
+                            <td class="Cell"><input type="hidden" name="loinc_code" value="<carlos:encode value='<%= loinc %>' context="htmlAttribute"/>"/></td>
                         </tr>
                         <tr>
                             <td colspan="2" class="Cell" align="center"><input
                                     type="submit" value=" Update Measurement Mapping "> <input
                                     type="button" value=" Add New Loinc Code "
-                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap.do','Add_New_Loinc_Code')">
+                                    onclick="javascript:popupStart('300','600','<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewNewMeasurementMap','Add_New_Loinc_Code')">
                             </td>
                         </tr>
                         <tr>

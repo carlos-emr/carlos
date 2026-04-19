@@ -30,13 +30,15 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -65,7 +67,7 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/EditMeasurementStyle.do" method="post">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/EditMeasurementStyle" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
@@ -88,8 +90,8 @@
                                         <td>
                                     <tr>
                                         <td align="left"><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgCurrentStyleSheet"/>
-                                            <c:out value='${groupName}'/>: <c:if test="${not empty css}">
-                                                <c:out value="${css}"/>
+                                            ${carlos:forHtml(groupName)}: <c:if test="${not empty css}">
+                                                ${carlos:forHtml(css)}
                                             </c:if></td>
                                     <tr>
                                         <td><fmt:message key="encounter.oscarMeasurements.SelectMeasurementGroup.msgChangeTo"/>:
@@ -114,7 +116,7 @@
                                                    value="<fmt:message key="global.btnCancel"/>"
                                                    onClick="window.close()"></td>
                                         <input type="hidden" name="groupName"
-                                               value="<c:out value='${groupName}'/>"/>
+                                               value="${carlos:forHtmlAttribute(groupName)}"/>
                                     </tr>
                                 </table>
                             </td>

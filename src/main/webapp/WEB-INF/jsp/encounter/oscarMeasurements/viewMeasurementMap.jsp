@@ -30,6 +30,9 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -161,7 +164,7 @@
 </head>
 
 <body>
-<form method="post" name="LOINC" action="encounter/oscarMeasurements/NewMeasurementMap.do"><input
+<form method="post" name="LOINC" action="encounter/oscarMeasurements/NewMeasurementMap"><input
         type="hidden" name="identifier" value="">
     <table width="100%" height="100%" border="0">
         <tr class="MainTableTopRow">
@@ -173,8 +176,8 @@
                                                 onClick="window.close()"></td>
                         <td align="right">
 
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout.do')"><fmt:message key="global.about"/></a> |
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense.do')"><fmt:message key="global.license"/></a>
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> |
+                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -223,7 +226,9 @@
                             <% if (measurement != null && !measurement.equals("&nbsp;")) {%>
                             <%=measurement%>
                             <%} else {%>
-                            <a href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/encounter/oscarMeasurements/ViewAddMeasurementMap2.do?loinc=" + Encode.forUriComponent(s)) %>">map</a>
+                            <c:set var="__encMeasurementMapLoinc"><carlos:encode value='<%= s %>' context="uriComponent"/></c:set>
+                            <c:set var="__encMeasurementMapUrl" value="${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewAddMeasurementMap2?loinc=${__encMeasurementMapLoinc}" />
+                            <a href="<carlos:encode value='${__encMeasurementMapUrl}' context="htmlAttribute"/>">map</a>
                             <%}%>
                         </td>
                         <td class="Cell"><%=s%>

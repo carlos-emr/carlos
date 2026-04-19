@@ -39,6 +39,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -50,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -57,7 +60,7 @@
 %>
 <security:oscarSec roleName="<%=roleName2$%>" objectName="_allergy" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_allergy");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_allergy");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -137,8 +140,8 @@
                     //--> action for selecting from search results.
                     $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
                         event.preventDefault();
-                        // override the old addReaction.do with the new addReaction2.do
-                        var path = "${ pageContext.servletContext.contextPath }/rx/addReaction2.do"
+                        // override the old addReaction with the new addReaction2
+                        var path = "${ pageContext.servletContext.contextPath }/rx/addReaction2"
                         var param = this.href.split("?")[1];
 
                         sendSearchRequest(path, param, "#addAllergyDialogue");
@@ -154,7 +157,7 @@
                         allergyId = allergyId.split("=")[1].trim()
                         $("#allergy_" + allergyId).addClass("highLightRow");
 
-                        var path = "${ pageContext.servletContext.contextPath }/rx/deleteAllergy2.do";
+                        var path = "${ pageContext.servletContext.contextPath }/rx/deleteAllergy2";
 
                         if (confirm(action + " this Allergy?")) {
                             sendSearchRequest(path, param, ".Step1Text");
@@ -165,7 +168,7 @@
                     $(".modifyAllergyLink").on("click", function (event) {
                         var ids = this.id.split("_");
                         var param = ids[1].trim();
-                        sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2.do",
+                        sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
                             param, "#addAllergyDialogue");
                     });
 
@@ -206,7 +209,7 @@
                         var json = {};
 
                         // Build JSON with boolean values for checkboxes (Jackson expects boolean, not "on"/"off")
-                        form.find('input:enabled[name]:not([type=submit]):not([type=button]), select:enabled[name], textarea:enabled[name]')
+                        form.find('input:enabled[name]:not([type=submit]):not([type=button]), select:enabled[name], textare:enabled[name]')
                             .each(function () {
                                 const $elem = $(this);
                                 const name = $elem.attr('name');
@@ -375,7 +378,7 @@
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
                     confirm("Adding custom allergy: " + name);
-                    sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2.do",
+                    sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
                         "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
                     $("input[value='Custom Allergy']").addClass("highLightButton");
                 }
@@ -385,7 +388,7 @@
                 $(".highLightButton").removeClass("highLightButton");
                 var param = "ID=44452&name=PENICILLINS&type=10";
 
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2.do",
+                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
                     param, "#addAllergyDialogue");
                 $("input[value='Penicillin']").addClass("highLightButton");
             }
@@ -394,7 +397,7 @@
                 $(".highLightButton").removeClass("highLightButton");
                 var param = "ID=44159&name=SULFONAMIDES&type=10";
 
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2.do",
+                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
                     param, "#addAllergyDialogue");
                 $("input[value='Sulfa']").addClass("highLightButton");
             }
@@ -403,7 +406,7 @@
 
             function addCustomNKDA() {
                 $(".highLightButton").removeClass("highLightButton");
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2.do",
+                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
                     "ID=0&type=0&" + paramNKDA, "#addAllergyDialogue");
                 $("input[value='NKDA']").addClass("highLightButton");
             }
@@ -435,7 +438,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="${pageContext.request.contextPath}/rx/searchDrug.do"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>
@@ -491,7 +494,7 @@
         if (strView.equals(navArray[i])) {
             out.print(" <span class='view_selected'>" + navArray[i] + "</span>");
         } else {
-            out.print("<span class='view_menu'><a href='" + request.getContextPath() + "/rx/showAllergy.do?demographicNo=" + Encode.forUriComponent(demoNo) + "&view=" + Encode.forUriComponent(navArray[i]) + "'>");
+            out.print("<span class='view_menu'><a href='" + request.getContextPath() + "/rx/showAllergy?demographicNo=" + SafeEncode.forUriComponent(demoNo) + "&view=" + SafeEncode.forUriComponent(navArray[i]) + "'>");
             out.print(navArray[i]);
             out.print("</a></span>");
          }
@@ -558,7 +561,7 @@
 
                                                     String title = "";
                                                     if (allergy.getRegionalIdentifier() != null && !allergy.getRegionalIdentifier().trim().equalsIgnoreCase("null") && !allergy.getRegionalIdentifier().trim().equals("")) {
-                                                        title = " title=\"Din: " + Encode.forHtmlAttribute(allergy.getRegionalIdentifier()) + "\" ";
+                                                        title = " title=\"Din: " + SafeEncode.forHtmlAttribute(allergy.getRegionalIdentifier()) + "\" ";
                                                     }
 
                                                     boolean filterOut = false;
@@ -607,28 +610,28 @@
                                             <tr bgcolor="<%=trColour%>" id="allergy_<%= allergy.getAllergyId() %>">
                                                 <td><%=labelStatus%>
                                                 </td>
-                                                <td><%=entryDate == null ? "" : Encode.forHtml(entryDate) %>
+                                                <td><%=entryDate == null ? "" : SafeEncode.forHtml(entryDate) %>
                                                 </td>
-                                                <td><%=allergy.getLastUpdateDate() != null ? Encode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
+                                                <td><%=allergy.getLastUpdateDate() != null ? SafeEncode.forHtml(DateUtils.formatDate(allergy.getLastUpdateDate(), request.getLocale())) : "" %>
                                                 </td>
-                                                <td <%=title%> ><%=Encode.forHtml(allergy.getDescription())%>
+                                                <td <%=title%> ><carlos:encode value='<%= allergy.getDescription() %>' context="html"/>
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getTypeDesc()) %>
+                                                <td><carlos:encode value='<%= allergy.getTypeDesc() %>' context="html"/>
                                                 </td>
 
                                                 <td><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() == null ? "<i>&lt;Not Set&gt;</i>" : ""%><%=allergy.getTypeCode() == 0 && allergy.isNonDrug() != null && allergy.isNonDrug() ? "*" : "" %>
                                                 </td>
-                                                <td bgcolor="<%=sevColour%>"><%=Encode.forHtml(allergy.getSeverityOfReactionDesc()) %>
+                                                <td bgcolor="<%=sevColour%>"><carlos:encode value='<%= allergy.getSeverityOfReactionDesc() %>' context="html"/>
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getOnSetOfReactionDesc()) %>
+                                                <td><carlos:encode value='<%= allergy.getOnSetOfReactionDesc() %>' context="html"/>
                                                 </td>
-                                                <td><%=allergy.getReaction() != null ? Encode.forHtml(allergy.getReaction()) : "" %>
+                                                <td><%=allergy.getReaction() != null ? SafeEncode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
-                                                <td><%=startDate == null ? "" : Encode.forHtml(startDate) %>
+                                                <td><%=startDate == null ? "" : SafeEncode.forHtml(startDate) %>
                                                 </td>
-                                                <td><%=Encode.forHtml(allergy.getLifeStageDesc()) %>
+                                                <td><carlos:encode value='<%= allergy.getLifeStageDesc() %>' context="html"/>
                                                 </td>
-                                                <td><%=allergy.getAgeOfOnset() == null ? "" : Encode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
+                                                <td><%=allergy.getAgeOfOnset() == null ? "" : SafeEncode.forHtml(String.valueOf(allergy.getAgeOfOnset()))%>
                                                 </td>
                                                 <td>
                                                     <%
@@ -636,12 +639,12 @@
                                                             if (intArchived == 0) {
                                                     %>
                                                     <a href="#" class="deleteAllergyLink"
-                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<%= Encode.forHtmlAttribute(demoNo) %>&action=<%=actionPath %>">
+                                                       id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>&action=<%=actionPath %>">
                                                         <%=labelAction%>
                                                     </a> |
                                                     <% } %>
                                                     <a href="#" class="modifyAllergyLink"
-                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<%=Encode.forHtmlAttribute(allergy.getDescription()) %>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
+                                                       id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<carlos:encode value='<%= allergy.getDescription() %>' context="htmlAttribute"/>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
                                                         <%=intArchived == 0 ? "Modify" : labelAction%>
                                                     </a>
                                                     <% } %>
@@ -662,7 +665,7 @@
 
                     <tr id="addAllergyInterface">
                         <td>
-                            <form action="<%=request.getContextPath()%>/rx/searchAllergy2.do" focus="searchString" id="searchAllergy2"
+                            <form action="<%=request.getContextPath()%>/rx/searchAllergy2" focus="searchString" id="searchAllergy2"
                                   onSubmit="return submitSearchForm()">
 
                                 <input type="hidden" name="iNKDA" value="<%=iNKDA%>"/>

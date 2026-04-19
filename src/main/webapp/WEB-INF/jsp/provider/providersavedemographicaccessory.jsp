@@ -30,16 +30,17 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicAccessory" %>
 <%
     DemographicAccessoryDao demographicAccessoryDao = (DemographicAccessoryDao) SpringUtils.getBean(DemographicAccessoryDao.class);
+    java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
 %>
 <html>
 <head>
@@ -50,7 +51,7 @@
     <table border="0" cellspacing="0" cellpadding="0" width="90%">
         <tr bgcolor="#486ebd">
             <th align="CENTER"><font face="Helvetica" color="#FFFFFF">
-                ADD/UPDATE AN ENCOUNTERDEMOACCS RECORD</font></th>
+                <%= bundle.getString("provider.providersavedemographicaccessory.title") %></font></th>
         </tr>
     </table>
     <%
@@ -79,7 +80,7 @@
 
     %>
     <p>
-    <h1>Successful Update of the demographic accessory record.</h1>
+    <h1><%= bundle.getString("provider.providersavedemographicaccessory.success") %></h1>
     </p>
     <script LANGUAGE="JavaScript">
         //self.history.go(-1);return false;//this.location.reload();	//self.opener.refresh();
@@ -99,7 +100,7 @@
 
     <p></p>
     <hr width="90%"/>
-    <form><input type="button" value="Close this window"
+    <form><input type="button" value="<%= bundle.getString("provider.providersavedemographicaccessory.closeWindow") %>"
                  onClick="self.close()"></form>
 </center>
 </body>

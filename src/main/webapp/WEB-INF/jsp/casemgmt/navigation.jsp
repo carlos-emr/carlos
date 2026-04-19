@@ -37,7 +37,8 @@
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementHelper" %>
@@ -79,7 +80,7 @@
     if (bean == null) bean = new EctSessionBean();
     if (bean.appointmentNo == null) bean.appointmentNo = "0";
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
-    String backurl = bsurl + "/encounter/IncomingEncounter.do?";
+    String backurl = bsurl + "/encounter/IncomingEncounter?";
 //get programId
     String pgId = (String) session.getAttribute("case_program_id");
     if (pgId == null) pgId = "";
@@ -109,7 +110,7 @@
     function popUpMsg(vheight, vwidth, msgPosition) {
 
 
-        var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/messenger/ViewMessageByPosition.do?from=encounter&orderBy=!date&demographic_no=<%=bean.demographicNo%>&messagePosition=" + msgPosition;
+        var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/messenger/ViewMessageByPosition?from=encounter&orderBy=!date&demographic_no=<%=bean.demographicNo%>&messagePosition=" + msgPosition;
         windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
         var popup = window.open(page, "", windowprops);
         if (popup != null) {
@@ -123,7 +124,7 @@
     function popUpMeasurements(vheight, vwidth, name, varpage) { //open a new popup window
         if (varpage != 'null') {
             name.options[0].selected = true;
-            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements.do?groupName=" + varpage;
+            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements?groupName=" + varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
             var popup = window.open(page, "", windowprops);
             if (popup != null) {
@@ -191,7 +192,7 @@
                 String curDay = Integer.toString(today.getDay());
                 String Hour = Integer.toString(today.getHours());
                 String Min = Integer.toString(today.getMinutes());
-                String eURL = "/encounter/IncomingEncounter.do?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
+                String eURL = "/encounter/IncomingEncounter?casetoEncounter=true&providerNo=" + bean.providerNo + "&appointmentNo=" + bean.appointmentNo + "&demographicNo=" + bean.demographicNo + "&curProviderNo=" + bean.providerNo + "&reason=" + java.net.URLEncoder.encode(" ", StandardCharsets.UTF_8) + "&userName=" + java.net.URLEncoder.encode(bean.patientFirstName + " " + bean.patientLastName, StandardCharsets.UTF_8) + "&curDate=" + curYear + "-" + curMonth + "-" + curDay + "&appointmentDate=" + curYear + "-" + curMonth + "-" + curDay + "&startTime=" + Hour + ":" + Min + "&status=t";%>
             <caisirole:SecurityAccess accessName="medical encounter" accessType="access"
                                       providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
                                       programId="<%=pgId%>">
@@ -209,7 +210,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit.do?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
+                               onClick="popupPage('<%=bsurl%>/demographic/DemographicEdit?demographic_no=<%=bean.demographicNo%>');return false;">Master</a>
                         </td>
                     </tr>
 
@@ -222,13 +223,13 @@
                     <% if (bean.status.indexOf('B') == -1) { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/billing.do?billRegion=<%=java.net.URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=java.net.URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=java.net.URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=Hour+":"+Min%>&demographic_name=<%=java.net.URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&bNewForm=1&status=t');return false;">Billing</a>
+                               onClick="popupPage('<%=bsurl%>/billing?billRegion=<%=java.net.URLEncoder.encode(province, StandardCharsets.UTF_8)%>&billForm=<%=java.net.URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=java.net.URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=bean.appointmentNo%>&appointment_date=<%=bean.appointmentDate%>&start_time=<%=Hour+":"+Min%>&demographic_name=<%=java.net.URLEncoder.encode(bean.patientLastName+","+bean.patientFirstName)%>&demographic_no=<%=bean.demographicNo%>&providerview=<%=bean.curProviderNo%>&user_no=<%=bean.providerNo%>&apptProvider_no=<%=bean.curProviderNo%>&bNewForm=1&status=t');return false;">Billing</a>
                         </td>
                     </tr>
                     <%} else { %>
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/BillingDeleteWithoutNo.do?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
+                               onClick="onUnbilled('<%=bsurl%>/billing/CA/<%=province%>/BillingDeleteWithoutNo?appointment_no=<%=bean.appointmentNo%>');return false;">Billing</a>
                         </td>
                     </tr>
                     <%} %>
@@ -243,7 +244,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/rx/choosePatient.do?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
+                               onClick="popupPage('<%=bsurl%>/rx/choosePatient?providerNo=<%=bean.providerNo%>&demographicNo=<%=bean.demographicNo%>');return false;">Prescriptions</a>
                         </td>
                     </tr>
 
@@ -256,7 +257,7 @@
                 <!-- Consultations -->
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests.do?de=<%=bean.demographicNo%>');return false;">Consultations</a>
+                           onClick="popupPage('<%=bsurl%>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<%=bean.demographicNo%>');return false;">Consultations</a>
                     </td>
                 </tr>
 
@@ -268,13 +269,13 @@
                         <% if (EctImmImmunizationData.hasImmunizations(bean.demographicNo)) { %>
                         <tr>
                             <td><a style="color:red" href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } else {%>
                         <tr>
                             <td><a href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule.do');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } %>
@@ -287,7 +288,7 @@
                     <oscar:oscarPropertiesCheck property="PREVENTION" value="yes">
                         <tr>
                             <td><a href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/prevention/ViewPreventionIndex.do?demographic_no=<%=bean.demographicNo%>');return false;">
+                                   onClick="popupPage('<%=bsurl%>/prevention/ViewPreventionIndex?demographic_no=<%=bean.demographicNo%>');return false;">
                                 <oscar:preventionWarnings
                                         demographicNo="<%=bean.demographicNo%>">prevention</oscar:preventionWarnings></a>
                             </td>
@@ -308,7 +309,7 @@
 
                     <tr>
                         <td><a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&quickList=');return false;">Disease
+                               onClick="popupPage('<%=bsurl%>/oscarResearch/dxresearch/setupDxResearch?demographicNo=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&quickList=');return false;">Disease
                             Registry</a></td>
                     </tr>
                 </caisirole:SecurityAccess>
@@ -320,7 +321,8 @@
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                 <tr>
                     <td><a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler.do?demographic_no=<%=bean.demographicNo%>&name=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(bean.getPatientLastName() +"," + bean.getPatientFirstName()))%>');return false;">Add
+                           <c:set var="__enc_1"><carlos:encode value='<%= bean.getPatientLastName() +"," + bean.getPatientFirstName() %>' context="uriComponent"/></c:set>
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewAddTickler?demographic_no=<%=bean.demographicNo%>&name=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');return false;">Add
                         Tickler</a></td>
                 </tr>
             </caisirole:SecurityAccess>
@@ -342,7 +344,7 @@
                                     <c:set var="pforms" value="${cf.patientForms}" />
                                     <c:if test="${fn:length(pforms) > 0}">
                                         <c:set var="pfrm" value="${pforms[0]}" />
-                                        <c:set var="value" value="${sessionScope.casemgmt_oscar_baseurl}/form/forwardshortcutname.do?formname=${cf.formName}&demographic_no=${bean.demographicNo}" />
+                                        <c:set var="value" value="${sessionScope.casemgmt_oscar_baseurl}/form/forwardshortcutname?formname=${cf.formName}&demographic_no=${bean.demographicNo}" />
                                         <c:set var="label" value="${cf.formName}&nbsp;Cr:${pfrm.created}&nbsp;Ed:${pfrm.edited}" />
                                         <option value="${value}">${label}</option>
                                     </c:if>
@@ -375,7 +377,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/ViewFormlist.do?demographic_no=<%=bean.demographicNo%>'); return false;">-old
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewFormlist?demographic_no=<%=bean.demographicNo%>'); return false;">-old
                             forms-</a>
                     </td>
                 </tr>
@@ -402,7 +404,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">New
+                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">New
                             Messages</a>
                     </td>
                 </tr>
@@ -411,7 +413,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages.do?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">-All
+                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">-All
                             Messages-</a>
                     </td>
                 </tr>
@@ -442,7 +444,7 @@
                             %>* <% }
                         %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a><br/>
                             <%}%>
                         </td>
@@ -465,7 +467,7 @@
                                 for (String flowsheet : flowsheets) {
                             %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet.do?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<%=bean.demographicNo%>&template=<%=flowsheet%>','flowsheet')"><%=MeasurementTemplateFlowSheetConfig.getInstance().getDisplayName(flowsheet)%>
                             </a>
                             <%}%>
 
@@ -487,7 +489,7 @@
                     <tr>
                         <td>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex.do'); return false;">-Old
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex'); return false;">-Old
                                 Measurements--</a>
                         </td>
                     </tr>
@@ -516,7 +518,7 @@
             <tr>
                 <td>
                     <a href="javascript:void(0)"
-                       onClick="popupPage('<%=bsurl%>/documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;">documents</a><br>
+                       onClick="popupPage('<%=bsurl%>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<%=bean.demographicNo%>&curUser=<%=bean.curProviderNo%>');return false;">documents</a><br>
                 </td>
             </tr>
 
@@ -527,7 +529,7 @@
                     <tr>
                         <td>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/eform/efmpatientformlist.jsp?demographic_no=<%=bean.demographicNo%>');return false;">E-Forms</a><br>
+                               onClick="popupPage('<%=bsurl%>/eform/efmpatientformlist?demographic_no=<%=bean.demographicNo%>');return false;">E-Forms</a><br>
                         </td>
                     </tr>
                 </caisirole:SecurityAccess>
@@ -538,7 +540,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/tickler/ViewTicklerMain.do?demoview=<%=bean.demographicNo%>');return false;">View
+                           onClick="popupPage('<%=bsurl%>/tickler/ViewTicklerMain?demoview=<%=bean.demographicNo%>');return false;">View
                             Tickler</a><br>
                     </td>
                 </tr>
@@ -548,7 +550,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators.do?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
                     </td>
                 </tr>
 
@@ -564,9 +566,9 @@
                                 <option value="null" selected>-lab results-</option>
                                 <c:forEach var="labrst" items="${casemgmtLabsbeans}">
                                     <c:set var="lablable" value="${labrst.dateTime}${labrst.discipline}" />
-                                    <c:set var="mdvalue" value="${bsurl}/oscarMDS/SegmentDisplay.jsp?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}&status=${labrst.reportStatus}" />
-                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/ViewCMLDisplay.do?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
-                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay.do?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
+                                    <c:set var="mdvalue" value="${bsurl}/oscarMDS/ViewSegmentDisplay?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}&status=${labrst.reportStatus}" />
+                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/ViewCMLDisplay?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
+                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
 
                                     <c:choose>
                                         <c:when test="${labrst.mds}">

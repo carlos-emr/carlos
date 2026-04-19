@@ -40,7 +40,7 @@
 
 <%
     if (session.getAttribute("userrole") == null) {
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     }
     String curUser_no = (String) session.getAttribute("user");
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -49,7 +49,7 @@
 %>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
 
@@ -112,8 +112,7 @@
             <td class="MainTableRightColumn">
                 <%if (oscarProps.getProperty("new_label_print") == null || oscarProps.getProperty("new_label_print").equals("false")) { %>
 
-                <div class="alert-box warning"><span>Warning: </span>This feature is currently disabled and requires the
-                    property "new_label_print" to be enabled. Please contact your support to enable this property.
+                <div class="alert-box warning"><span><fmt:message key="global.warning"/> </span><fmt:message key="provider.setDefaultPrinter.warningText"/>
                 </div>
 
                 <%}%>
@@ -194,7 +193,7 @@
                     if (request.getAttribute("status") == null) {
                 %>
 
-                <form action="${pageContext.request.contextPath}/EditPrinter.do" method="post">
+                <form action="${pageContext.request.contextPath}/EditPrinter" method="post">
                     <fmt:message key="provider.setDefaultPrinter.setDefaultPrinterFor"/>:<br>
                     <table>
                         <tr>
@@ -265,7 +264,7 @@
                                 <fmt:message key="provider.setDefaultPrinter.requirementSilentPrint"/>
                                 <div style="visibility: hidden; display:inline;">
                                     <object id="myPdf" type="application/pdf"
-                                            data="<%=request.getContextPath()%>/PrinterList.do?method=generatePrinterListInPDF"
+                                            data="<%=request.getContextPath()%>/PrinterList?method=generatePrinterListInPDF"
                                             height="100%" width="100%"></object>
                                 </div>
                             </td>

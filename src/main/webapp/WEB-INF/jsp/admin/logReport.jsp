@@ -34,10 +34,13 @@
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,7 +48,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -72,6 +75,7 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
 
@@ -88,7 +92,7 @@
 
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-        <title>Log Report</title>
+        <title><fmt:message key="admin.logReport.title"/></title>
         <script language="JavaScript">
 
             <!--
@@ -99,7 +103,7 @@
 
             function onSub() {
                 if (document.myform.startDate.value == "" || document.myform.endDate.value == "") {
-                    alert("Please set Start and End Dates.");
+                    alert("<fmt:message key='admin.logReport.alertDates'/>");
                     return false;
                 } else {
                     return true;
@@ -119,24 +123,24 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport.do" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="${pageContext.request.contextPath}/admin/LogReport" method="POST" onSubmit="return(onSub());">
         <fieldset>
-            <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
+            <h3><fmt:message key="admin.logReport.heading"/> <small><fmt:message key="admin.logReport.subheading"/></small></h3>
 
             <div class="row">
             <div class="col-md-4">
-                <label>Provider: </label>
+                <label><fmt:message key="admin.logReport.provider"/>:</label>
 
                 <select name="providerNo">
-                    <option value="*">All</option>
+                    <option value="*"><fmt:message key="admin.logReport.all"/></option>
                     <%
                         for (int i = 0; i < vecProvider.size(); i++) {
                             String prov = ((Properties) vecProvider.get(i)).getProperty("providerNo", "");
                             String selected = request.getParameter("providerNo");
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(prov) %>"
+                    <option value="<carlos:encode value='<%= prov %>' context="htmlAttribute"/>"
                             <% if ((selected != null) && (selected.equals(prov))) { %> selected
-                            <% } %>><%= Encode.forHtmlContent(((Properties) vecProvider.get(i)).getProperty("name", "")) %>
+                            <% } %>><carlos:encode value='<%= ((Properties) vecProvider.get(i)).getProperty("name", "") %>' context="html"/>
                     </option>
                     <%
                         }
@@ -145,26 +149,26 @@
             </div>
 
             <div class="col-md-4">
-                <label>Content Type:</label>
+                <label><fmt:message key="admin.logReport.contentType"/>:</label>
                 <select name="content">
-                    <option value="admin">Admin</option>
-                    <option value="login">Log in</option>
+                    <option value="admin"><fmt:message key="admin.logReport.content.admin"/></option>
+                    <option value="login"><fmt:message key="admin.logReport.content.login"/></option>
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label>Start Date: </label>
+                <label><fmt:message key="admin.logReport.startDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="startDate" id="startDate1" value="<%=Encode.forHtmlAttribute(startDate!=null?startDate:"")%>"
+                    <input type="text" name="startDate" id="startDate1" value="<carlos:encode value='<%= startDate!=null?startDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-4">
-                <label>End Date: </label>
+                <label><fmt:message key="admin.logReport.endDate"/>:</label>
                 <div class="input-group">
-                    <input type="text" name="endDate" id="endDate1" value="<%=Encode.forHtmlAttribute(endDate!=null?endDate:"")%>"
+                    <input type="text" name="endDate" id="endDate1" value="<carlos:encode value='<%= endDate!=null?endDate:"" %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -172,7 +176,7 @@
 
 
             <div class="col-md-8" style="padding-top:10px;">
-                <input class="btn btn-primary" type="submit" name="submit" value="Run Report">
+                <input class="btn btn-primary" type="submit" name="submit" value="<fmt:message key='admin.logReport.runReport'/>">
             </div>
 
             </div><!--row-->
@@ -182,7 +186,7 @@
         String dateError = (String) request.getAttribute("dateError");
         if (dateError != null && !dateError.isEmpty()) {
     %>
-    <div class="alert alert-danger" role="alert"><%= Encode.forHtml(dateError) %></div>
+    <div class="alert alert-danger" role="alert"><carlos:encode value='<%= dateError %>' context="html"/></div>
     <%
         }
         out.flush();
@@ -195,32 +199,36 @@
         if (providerNo == null) providerNo = "";
         if (vec == null) vec = new Vector<Properties>();
     %>
+    <fmt:message var="allProviderLabel" key="admin.logReport.all"/>
+    <%
+        String allProviderLabel = (String) pageContext.findAttribute("allProviderLabel");
+    %>
     <h4><%
         if (propName.getProperty(providerNo, "").equals("")) {
-            out.print("All");
+            out.print(allProviderLabel);
         } else {
-            out.print(Encode.forHtml(propName.getProperty(providerNo, "")));
+            out.print(SafeEncode.forHtml(propName.getProperty(providerNo, "")));
         }
-    %> - Log Report</h4>
+    %> - <fmt:message key="admin.logReport.title"/></h4>
 
     <button class="btn float-end" onClick="window.print()" style="margin-bottom:4px">
-        <i class="fa-solid fa-print"></i> Print
+        <i class="fa-solid fa-print"></i> <fmt:message key="admin.logReport.print"/>
     </button>
 
 
-    <p>Period: ( <%= Encode.forHtml(startDate == null ? "" : startDate) %> ~ <%= Encode.forHtml(endDate == null ? "" : endDate) %>)</p>
+    <p><fmt:message key="admin.logReport.period"/> ( <carlos:encode value='<%= startDate == null ? "" : startDate %>' context="html"/> ~ <carlos:encode value='<%= endDate == null ? "" : endDate %>' context="html"/>)</p>
     <table class="table table-bordered table-striped table-hover table-sm">
         <tr bgcolor="<%=tdTitleColor%>">
-            <TH>Time</TH>
-            <TH>Action</TH>
-            <TH>Content</TH>
-            <TH>Keyword</TH>
-            <TH>IP</TH>
+            <TH><fmt:message key="admin.logReport.table.time"/></TH>
+            <TH><fmt:message key="admin.logReport.table.action"/></TH>
+            <TH><fmt:message key="admin.logReport.table.content"/></TH>
+            <TH><fmt:message key="admin.logReport.table.keyword"/></TH>
+            <TH><fmt:message key="admin.logReport.table.ip"/></TH>
             <% if (bAll) { %>
-            <TH>Provider</TH>
+            <TH><fmt:message key="admin.logReport.table.provider"/></TH>
             <% } %>
-            <TH>Demo</TH>
-            <TH>Data</TH>
+            <TH><fmt:message key="admin.logReport.table.demo"/></TH>
+            <TH><fmt:message key="admin.logReport.table.data"/></TH>
         </tr>
                 <%
 String catName = "";
@@ -232,16 +240,16 @@ for (int i = 0; i < vec.size(); i++) {
     color = i%2==0?tdInterlColor:"white";
 %>
         <tr bgcolor="<%=color %>" align="center">
-            <td><c:out value='<%=prop.getProperty("dateTime")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("action")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("content")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("contentId")%>'/></td>
-            <td><c:out value='<%=prop.getProperty("ip")%>'/></td>
+            <td><carlos:encode value='<%= prop.getProperty("dateTime", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("action", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("content", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("contentId", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("ip", "") %>' context="html"/></td>
             <% if (bAll) { %>
-            <td><c:out value='<%=propName.getProperty(prop.getProperty("provider_no"), "")%>'/></td>
+            <td><carlos:encode value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' context="html"/></td>
             <% } %>
-            <td><c:out value='<%=prop.getProperty("demographic_no")%>'/></td>
-            <td><%=prop.getProperty("data") %></td>
+            <td><carlos:encode value='<%= prop.getProperty("demographic_no", "") %>' context="html"/></td>
+            <td><carlos:encode value='<%= prop.getProperty("data", "") %>' context="html"/></td>
         </tr>
 
                 <% } %>

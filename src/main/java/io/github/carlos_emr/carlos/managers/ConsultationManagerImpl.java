@@ -665,12 +665,15 @@ public class ConsultationManagerImpl implements ConsultationManager {
          * whole string of dated code.
          */
         List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true);
+        Map<String, EctFormData.PatientForm> formById = new HashMap<>(allForms.size());
+        for (EctFormData.PatientForm form : allForms) {
+            formById.put(form.getFormId(), form);
+        }
+
         for (ConsultDocs attached : attachedForms) {
-            for (EctFormData.PatientForm form : allForms) {
-                if ((form.getFormId()).equals((attached.getDocumentNo() + ""))) {
-                    filteredForms.add(form);
-                    break;
-                }
+            EctFormData.PatientForm form = formById.get(String.valueOf(attached.getDocumentNo()));
+            if (form != null) {
+                filteredForms.add(form);
             }
         }
 
@@ -690,15 +693,49 @@ public class ConsultationManagerImpl implements ConsultationManager {
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocuments.size());
+        Map<Integer, HashMap<String, ? extends Object>> hrmDocumentById = new HashMap<>(allHRMDocuments.size());
+        for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
+            Integer hrmDocumentId = getHrmDocumentId(hrmDocument);
+            if (hrmDocumentId != null) {
+                hrmDocumentById.put(hrmDocumentId, hrmDocument);
+            }
+        }
+
         for (ConsultDocs attachedHRMDocument : attachedHRMDocuments) {
-            for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-                if (((Integer) hrmDocument.get("id")) == attachedHRMDocument.getDocumentNo()) {
-                    filteredHRMDocuments.add(hrmDocument);
-                }
+            HashMap<String, ? extends Object> hrmDocument = hrmDocumentById.get(attachedHRMDocument.getDocumentNo());
+            if (hrmDocument != null) {
+                filteredHRMDocuments.add(hrmDocument);
             }
         }
         //return the subset of listHRMDocuments that is attached
         return filteredHRMDocuments;
+    }
+
+    /**
+     * Extracts and normalizes the HRM document ID stored in a listHRMDocuments map entry.
+     *
+     * <p>The legacy HRM utility may return IDs as either {@link Number} or {@link String}
+     * values depending on the backing query path, so this helper converts both forms into
+     * a consistent {@link Integer} key for map-based lookups.</p>
+     *
+     * @param hrmDocument Map<String, ? extends Object> the HRM document entry returned by HRMUtil
+     * @return Integer the normalized HRM document ID, or {@code null} when the entry has no usable ID
+     * @since 2026-04-17
+     */
+    private Integer getHrmDocumentId(Map<String, ? extends Object> hrmDocument) {
+        Object hrmDocumentId = hrmDocument.get("id");
+        if (hrmDocumentId instanceof Number) {
+            return ((Number) hrmDocumentId).intValue();
+        }
+        if (hrmDocumentId instanceof String) {
+            try {
+                return Integer.valueOf((String) hrmDocumentId);
+            } catch (NumberFormatException e) {
+                logger.debug("Invalid HRM document ID format encountered");
+                return null;
+            }
+        }
+        return null;
     }
 
     @Override

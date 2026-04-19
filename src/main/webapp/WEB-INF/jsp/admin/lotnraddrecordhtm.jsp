@@ -56,7 +56,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -114,7 +114,7 @@
                 <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.admin.add_lot_nr.description"/></font></th>
             </tr>
         </table>
-        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrAddRecord.do" name="addlotnr"
+        <form method="post" action="${pageContext.request.contextPath}/admin/LotNrAddRecord" name="addlotnr"
               onsubmit="return onsub();">
             <table cellspacing="0" cellpadding="2" width="90%" border="0">
                 <tr>

@@ -1,12 +1,14 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -17,7 +19,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Configure Email</title>
+    <title><fmt:message key="admin.configureEmail.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
@@ -26,24 +28,23 @@
 <div class="container mt-5">
     <div class="card shadow-sm rounded">
         <div class="card-body">
-            <h3 class="card-title">Outgoing Email Accounts</h3>
-            <p class="card-text mt-3">Please contact your server administrator for assistance. Outgoing email account
-                configuration details must be added manually into the emailConfig table.</p>
-            <p>Sample configuration data:</p>
+            <h3 class="card-title"><fmt:message key="admin.configureEmail.heading"/></h3>
+            <p class="card-text mt-3"><fmt:message key="admin.configureEmail.help"/></p>
+            <p><fmt:message key="admin.configureEmail.sampleData"/></p>
             <dl class="row">
-                <dt class="col-sm-3">emailType:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.emailType"/></dt>
                 <dd class="col-sm-9">SMTP</dd>
-                <dt class="col-sm-3">emailProvider:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.emailProvider"/></dt>
                 <dd class="col-sm-9">GMAIL</dd>
-                <dt class="col-sm-3">active:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.active"/></dt>
                 <dd class="col-sm-9">1</dd>
-                <dt class="col-sm-3">senderFirstName:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderFirstName"/></dt>
                 <dd class="col-sm-9">Test</dd>
-                <dt class="col-sm-3">senderLastName:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderLastName"/></dt>
                 <dd class="col-sm-9">Clinic</dd>
-                <dt class="col-sm-3">senderEmail:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderEmail"/></dt>
                 <dd class="col-sm-9">do.not.email@test.clinic</dd>
-                <dt class="col-sm-3">configDetails:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.configDetails"/></dt>
                 <dd class="col-sm-9">
                     <code>
                         {
@@ -55,21 +56,21 @@
                     </code>
                 </dd>
             </dl>
-            <p>Sample API configuration data:</p>
+            <p><fmt:message key="admin.configureEmail.sampleApiData"/></p>
             <dl class="row">
-                <dt class="col-sm-3">emailType:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.emailType"/></dt>
                 <dd class="col-sm-9">API</dd>
-                <dt class="col-sm-3">emailProvider:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.emailProvider"/></dt>
                 <dd class="col-sm-9">SENDGRID</dd>
-                <dt class="col-sm-3">active:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.active"/></dt>
                 <dd class="col-sm-9">1</dd>
-                <dt class="col-sm-3">senderFirstName:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderFirstName"/></dt>
                 <dd class="col-sm-9">Test</dd>
-                <dt class="col-sm-3">senderLastName:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderLastName"/></dt>
                 <dd class="col-sm-9">Clinic</dd>
-                <dt class="col-sm-3">senderEmail:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.senderEmail"/></dt>
                 <dd class="col-sm-9">do.not.email@test.clinic</dd>
-                <dt class="col-sm-3">configDetails:</dt>
+                <dt class="col-sm-3"><fmt:message key="admin.configureEmail.label.configDetails"/></dt>
                 <dd class="col-sm-9">
                     <code>
                         {

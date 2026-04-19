@@ -39,7 +39,7 @@
                    objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.invoices,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.torontoRfq,_admin.flowsheet"
                    rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.*");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.*");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -58,7 +58,7 @@
     String userlastname = (String) session.getAttribute("userlastname");
 %>
 
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String country = request.getLocale().getCountry();
@@ -217,7 +217,7 @@
     <div class="logoutBox">
         <%
             if (roleName$.equals("admin" + "," + curProvider_no)) {
-        %><a href="${pageContext.request.contextPath}/logout.jsp">
+        %><a href="${pageContext.request.contextPath}/logoutPage">
         <fmt:message key="global.btnLogout"/>
         </a>&nbsp;<%
         }
@@ -231,27 +231,27 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.UserManagement"/></h3>
             <ul>
-                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderAddARecordHtm.do">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderAddARecordHtm">
                     <fmt:message key="admin.admin.btnAddProvider"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderSearchRecordsHtm.do">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewProviderSearchRecordsHtm">
                     <fmt:message key="admin.admin.btnSearchProvider"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/ViewSecurityAddARecord.do">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewSecurityAddARecord">
                     <fmt:message key="admin.admin.btnAddLogin"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/admin/ViewSecuritySearchRecordsHtm.do">
+                <li><a href="${pageContext.request.contextPath}/admin/ViewSecuritySearchRecordsHtm">
                     <fmt:message key="admin.admin.btnSearchLogin"/>
                 </a></li>
 
                 <li><a href="#"
-                       onclick='popupPage(500,700,"${pageContext.request.contextPath}/admin/ProviderRole.do");return false;'>
+                       onclick='popupPage(500,700,"${pageContext.request.contextPath}/admin/ProviderRole");return false;'>
                     <fmt:message key="admin.admin.assignRole"/></a></li>
 
                 <security:oscarSec roleName="<%=roleName$%>"
                                    objectName="_admin,_admin.unlockAccount" rights="r">
                     <li><a href="#"
-                           onclick='popupPage(500,800,"${pageContext.request.contextPath}/admin/UnLock.do");return false;'>
+                           onclick='popupPage(500,800,"${pageContext.request.contextPath}/admin/UnLock");return false;'>
                         <fmt:message key="admin.admin.unlockAcct"/></a></li>
                 </security:oscarSec>
             </ul>
@@ -271,53 +271,55 @@
                     <%
                         if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform");return false;'><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingPrivateCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode");return false;'><fmt:message key="admin.admin.ManagePrivFrm"/></a></li>
                     <oscar:oscarPropertiesCheck property="BC_BILLING_CODE_MANAGEMENT"
                                                 value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingCodeAdjust.jsp");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
+                               onclick='popupPage(600,900,"${pageContext.request.contextPath}/billing/CA/BC/billingAddCode");return false;'><fmt:message key="admin.admin.ManageBillCodes"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,600,"${pageContext.request.contextPath}/billing/CA/BC/showServiceCodeAssocs.do");return false;'><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
+                           onclick='popupPage(600,600,"${pageContext.request.contextPath}/billing/CA/BC/showServiceCodeAssocs");return false;'><fmt:message key="admin.admin.ManageServiceDiagnosticCodeAssoc"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,500,"${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction.do");return false;'><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
+                           onclick='popupPage(600,500,"${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction");return false;'><fmt:message key="admin.admin.ManageProcedureFeeCodeAssoc"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingManageReferralDoc.jsp");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/AddReferralDoc");return false;'><fmt:message key="admin.admin.ManageReferralDoc"/></a></li>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/billingSim.jsp");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingSim");return false;'><fmt:message key="admin.admin.SimulateSubFile"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/billingTeleplanGroupReport.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTeleplanGroupReport");return false;'><fmt:message key="admin.admin.genTeleplanFile"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSimulation.jsp");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
+                               onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile");return false;'><fmt:message key="admin.admin.simulateSubFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/TeleplanSubmission.jsp");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
+                               onclick='popupPage(800,720,"${pageContext.request.contextPath}/billing/CA/BC/SimulateTeleplanFile");return false;'><fmt:message key="admin.admin.genTeleplanFile2"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/teleplan/ManageTeleplan.jsp");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan");return false;'><fmt:message key="admin.admin.manageTeleplan"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <oscar:oscarPropertiesCheck property="NEW_BC_TELEPLAN" value="no"
                                                 defaultVal="true">
                         <li><a href="#"
-                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/billingTA.jsp");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
+                               onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingTA");return false;'><fmt:message key="admin.admin.uploadRemittance"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/viewReconcileReports.jsp");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
+                           onclick='popupPage(600,800,"${pageContext.request.contextPath}/billing/CA/BC/ProcessRemittance");return false;'><fmt:message key="admin.admin.reconciliationReports"/></a></li>
                     <li><a href="#"
-                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/billingAccountReports.jsp");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
+                           onclick='popUpBillStatus(375,425,"${pageContext.request.contextPath}/billing/CA/BC/ViewBillingAccountReports");return false;'><fmt:message key="admin.admin.AccountingRpts"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/billStatus.jsp");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/BC/reprocessBill");return false;'><fmt:message key="admin.admin.editInvoices"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/settleBG.jsp");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
+                           onclick='popupPage(200,300,"${pageContext.request.contextPath}/billing/CA/BC/ViewSettleBG");return false;'><fmt:message key="admin.admin.settlePaidClaims"/></a></li>
 
                     <%-- Addition of BC MSP Quick Billing by Dennis Warren - December 2011 --%>
                     <li>
-                        <a href='javascript: popupPage( 500, 900, "${pageContext.request.contextPath}/quickBillingBC.do");'>
+                        <a href='javascript: popupPage( 500, 900, "${pageContext.request.contextPath}/quickBillingBC");'>
                             BC MSP Quick Billing
                         </a>
                     </li>
@@ -326,52 +328,54 @@
                     } else if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ScheduleOfBenefitsUpload.jsp");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/benefitScheduleUpload");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/addEditServiceCode.jsp");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
+                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/billingONEditPrivateCode.jsp");return false;'><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+                           onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode");return false;'><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles.do");return false;'><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/GstControl.do"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/GstReport.do"><fmt:message key="admin.admin.gstReport"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles");return false;'><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstControl"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/GstReport"><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingLocation.jsp");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/manageBillingform.jsp");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+                           onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
-                           onclick='popupPage(700,700, "${pageContext.request.contextPath}/billing/CA/ON/billingOHIPsimulation.jsp");return false;'><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
+                           onclick='popupPage(700,700, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPsimulation");return false;'><fmt:message key="admin.admin.btnSimulationOHIPDiskette"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/billingOHIPreport.jsp");return false;'><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
+                           onclick='popupPage(700,720, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOHIPreport");return false;'><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/billingCorrection.jsp?billing_no=");return false;'><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
+                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection?billing_no=");return false;'><fmt:message key="admin.admin.btnBillingCorrection"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/batchBilling.jsp?service_code=all");return false;'><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
+                           onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/BatchBill?service_code=all");return false;'><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jsp?provider_no=all");return false;'><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+                           onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/ViewInrReportINR?provider_no=all");return false;'><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingONUpload.jsp");return false;'><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/BillingONUpload");return false;'><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
                     <% if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
-                    <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
+                    <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles");return false;'><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
-                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/genRA.jsp") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
+                           onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/billingOBECEA.jsp");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
                     <li>
-                        <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt.do");return false;'><fmt:message key="admin.admin.mcedt"/></a>
+                        <a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/mcedt/mcedt");return false;'><fmt:message key="admin.admin.mcedt"/></a>
                     </li>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/billStatus.jsp");return false;'><fmt:message key="admin.admin.invoiceRpts"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/ViewBillStatus");return false;'><fmt:message key="admin.admin.invoiceRpts"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do");return false;'><fmt:message key="admin.admin.endYearStatement"/></a></li>
+                           onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement");return false;'><fmt:message key="admin.admin.endYearStatement"/></a></li>
                     <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <li>
-                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/ViewClinicNbrManage.do");return false;'>Manage Clinic NBR Codes</a>
+                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/ViewClinicNbrManage");return false;'>Manage Clinic NBR Codes</a>
                     </li>
                     <%}%>
                     <li>
-                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/billing/CA/ON/managePaymentType.do");return false;'><fmt:message key="admin.admin.managePaymentType"/></a>
+                        <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/billing/CA/ON/managePaymentType");return false;'><fmt:message key="admin.admin.managePaymentType"/></a>
                     </li>
 
                     <%
@@ -380,7 +384,7 @@
                 </security:oscarSec>
 
                 <% if (oscarVariables.getProperty("billregion", "").equals("ON")) { %>
-                <li><a href="#" onclick="popupPage(800,1000,'/billing/CA/ON/billingONPayment.jsp');return false;"><fmt:message key="admin.admin.paymentReceived"/></a></li>
+                <li><a href="#" onclick="popupPage(800,1000,'/billing/CA/ON/BillingONPayment');return false;"><fmt:message key="admin.admin.paymentReceived"/></a></li>
                 <% } %>
             </ul>
         </div>
@@ -393,14 +397,14 @@
         <div class="adminBox">
             <h3>&nbsp;<fmt:message key="admin.admin.LabsInbox"/></h3>
             <ul>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/insideLabUpload.do");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/CA/ALL/insideLabUpload");return false;'><fmt:message key="admin.admin.hl7LabUpload"/></a></li>
                 <oscar:oscarPropertiesCheck property="OLD_LAB_UPLOAD" value="yes"
                                             defaultVal="false">
                     <li><a href="#"
-                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload.do");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
+                           onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
                 </oscar:oscarPropertiesCheck>
-                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules.do");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
-                <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/ViewAddQueue.do");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
+                <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
+                <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/ViewAddQueue");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
             </ul>
         </div>
 
@@ -414,28 +418,28 @@
             <h3>&nbsp;<fmt:message key="admin.admin.FormsEforms"/></h3>
             <ul>
                 <li><a href="#"
-                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/setupSelect.do");return false;'><fmt:message key="admin.admin.btnSelectForm"/></a></li>
+                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/setupSelect");return false;'><fmt:message key="admin.admin.btnSelectForm"/></a></li>
                 <li><a href="#"
-                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload.jsp");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
-                <li><a href="${pageContext.request.contextPath}/eform/efmformmanager.jsp">
+                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+                <li><a href="${pageContext.request.contextPath}/eform/efmformmanager">
                     <fmt:message key="admin.admin.btnUploadForm"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/eform/efmimagemanager.jsp">
+                <li><a href="${pageContext.request.contextPath}/eform/efmimagemanager">
                     <fmt:message key="admin.admin.btnUploadImage"/>
                 </a></li>
-                <li><a href="${pageContext.request.contextPath}/eform/efmmanageformgroups.jsp">
+                <li><a href="${pageContext.request.contextPath}/eform/efmmanageformgroups">
                     <fmt:message key="admin.admin.frmGroups"/>
                 </a></li>
 
 
-                <li><a href="${pageContext.request.contextPath}/eform/efmmanageindependent.jsp">
+                <li><a href="${pageContext.request.contextPath}/eform/efmmanageindependent">
                     <fmt:message key="admin.admin.frmIndependent"/>
                 </a></li>
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fieldnote" rights="r"
                                    reverse="<%=false%>">
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/eform/fieldNoteReport/fieldnotereport.jsp");return false;'>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/eform/fieldNoteReport/fieldnotereport");return false;'>
                         <fmt:message key="admin.admin.fieldNoteReport"/></a>
                     </li>
                 </security:oscarSec>
@@ -456,57 +460,54 @@
                     %>
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/RptByExample.do");return false;'><fmt:message key="admin.admin.btnQueryByExample"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/RptByExample");return false;'><fmt:message key="admin.admin.btnQueryByExample"/></a></li>
 
                     <li>
-                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/homePage.jsp">
+                        <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewHomePage">
                             <fmt:message key="admin.admin.rptbyTemplate"/>
                         </a>
                     </li>
                     <li><a href="#"
                            onclick='postToPopup("ageSexForm",600,900);return false;'><fmt:message key="admin.admin.btnAgeSexReport"/></a>
-                        <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex.do" target="groupno" style="display:none"></form>
+                        <form id="ageSexForm" method="post" action="${pageContext.request.contextPath}/oscarReport/DbReportAgeSex" target="groupno" style="display:none"></form>
                     </li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportVisitControl.jsp");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportVisitControl");return false;'><fmt:message key="admin.admin.btnVisitReport"/></a></li>
                         <%-- This links doesnt make sense on Brazil. Hide then --%>
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/oscarReportCatchment.jsp");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewOscarReportCatchment");return false;'><fmt:message key="admin.admin.btnPCNCatchmentReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling.do?orderby=");return false;'><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/FluBilling?orderby=");return false;'><fmt:message key="admin.admin.btnFluBillingReport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec.do");return false;'><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
+                           onclick='popupPage(600,1000,"${pageContext.request.contextPath}/oscarReport/obec");return false;'><fmt:message key="admin.admin.btnOvernightChecking"/></a></li>
 
 
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/patientlist.jsp")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/oscarReport/ViewPatientlist")'><fmt:message key="admin.admin.exportPatientbyAppt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
                         <li><a href="${pageContext.request.contextPath}/PMmodule/reports/activity_report_form.jsp"><fmt:message key="admin.admin.activityRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/provider_service_report_form.jsp"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewProviderServiceReportForm"><fmt:message key="admin.admin.providerServiceRpt"/></a></li>
                     <caisi:isModuleLoad moduleName="caisi">
-                        <li><a href="${pageContext.request.contextPath}/PopulationReport.do"><fmt:message key="admin.admin.popRpt"/></a></li>
+                        <li><a href="${pageContext.request.contextPath}/PopulationReport"><fmt:message key="admin.admin.popRpt"/></a></li>
                     </caisi:isModuleLoad>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cds_4_report_form.jsp"><fmt:message key="admin.admin.cdsRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/mis_report_form.jsp"><fmt:message key="admin.admin.misRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport.do"><fmt:message key="admin.admin.usageRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewCds4ReportForm"><fmt:message key="admin.admin.cdsRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/oscarReport/ViewMisReportForm"><fmt:message key="admin.admin.misRpt"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/admin/ViewUsageReport"><fmt:message key="admin.admin.usageRpt"/></a></li>
                     <oscar:oscarPropertiesCheck property="SERVERLOGGING" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(600,900, "${pageContext.request.contextPath}/admin/ViewOscarLogging.do")'><fmt:message key="admin.admin.serverLog"/></a></li>
+                               onclick='popupPage(600,900, "${pageContext.request.contextPath}/admin/ViewOscarLogging")'><fmt:message key="admin.admin.serverLog"/></a></li>
                     </oscar:oscarPropertiesCheck>
                     <li><a href="#"
-                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/report/DxresearchReport.do")'><fmt:message key="admin.admin.diseaseRegister"/></a></li>
+                           onclick='popupPage(600,900,"${pageContext.request.contextPath}/report/DxresearchReport")'><fmt:message key="admin.admin.diseaseRegister"/></a></li>
                     <%
                         if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledphcp.jsp");return false;'><fmt:message key="admin.admin.PHCP"/></a>
+                           onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledphcp");return false;'><fmt:message key="admin.admin.PHCP"/></a>
                         <span style="font-size: x-small;"> (Setting: <a href="#"
-                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/reportonbilledvisitprovider.jsp");return false;'><fmt:message key="admin.admin.provider"/></a>,
+                                                                        onclick='popupPage(660,1000, "${pageContext.request.contextPath}/report/ViewReportonbilledvisitprovider");return false;'><fmt:message key="admin.admin.provider"/></a>,
 			        ) </span></li>
                     <%
                         }
@@ -530,7 +531,7 @@
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_newCasemgmt.templates" rights="w"
                                        reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ProviderTemplate.do");return false;'>
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ProviderTemplate");return false;'>
                             <fmt:message key="admin.admin.btnInsertTemplate"/></a>
                         </li>
                     </security:oscarSec>
@@ -547,14 +548,14 @@
             <div class="adminBox">
                 <h3>&nbsp;<fmt:message key="admin.admin.caisi"/></h3>
                 <ul>
-                    <li><a href="${pageContext.request.contextPath}/SystemMessage.do">
+                    <li><a href="${pageContext.request.contextPath}/SystemMessage">
                         <fmt:message key="admin.admin.systemMessage"/>
                     </a></li>
-                    <li><a href="${pageContext.request.contextPath}/FacilityMessage.do?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
-                    <li><a href="${pageContext.request.contextPath}/issueAdmin.do?method=list">
+                    <li><a href="${pageContext.request.contextPath}/FacilityMessage?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+                    <li><a href="${pageContext.request.contextPath}/issueAdmin?method=list">
                         <fmt:message key="admin.admin.issueEditor"/>
                     </a></li>
-                    <li><a href="${pageContext.request.contextPath}/DefaultEncounterIssue.do">
+                    <li><a href="${pageContext.request.contextPath}/DefaultEncounterIssue">
                         <fmt:message key="admin.admin.defaultEncounterIssue"/>
                     </a></li>
                 </ul>
@@ -568,13 +569,13 @@
                 <ul>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.systemMessage" rights="r" reverse="<%=false%>">
-                        <li><a href="${pageContext.request.contextPath}/SystemMessage.do">
+                        <li><a href="${pageContext.request.contextPath}/SystemMessage">
                             <fmt:message key="admin.admin.systemMessage"/>
                         </a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.facilityMessage" rights="r" reverse="<%=false%>">
-                        <li><a href="${pageContext.request.contextPath}/FacilityMessage.do?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
+                        <li><a href="${pageContext.request.contextPath}/FacilityMessage?"><fmt:message key="admin.admin.FacilitiesMsgs"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.lookupFieldEditor" rights="r">
@@ -582,7 +583,7 @@
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin.issueEditor" rights="r">
-                        <li><a href="${pageContext.request.contextPath}/issueAdmin.do?method=list">
+                        <li><a href="${pageContext.request.contextPath}/issueAdmin?method=list">
                             <fmt:message key="admin.admin.issueEditor"/>
                         </a></li>
                     </security:oscarSec>
@@ -607,29 +608,29 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.ScheduleManagement"/></h3>
                 <ul>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/schedule/TemplateSetting.do");return false;'
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/schedule/TemplateSetting");return false;'
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.scheduleSetting"/></a></li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only"
                                        rights="r" reverse="<%=true%>">
                         <oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
                                                     value="yes">
                             <li><a href="#"
-                                   onclick="popupPage(500,600,'${pageContext.request.contextPath}/appointment/apptStatusSetting.do');return false;"
+                                   onclick="popupPage(500,600,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
                                    title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
                         </oscar:oscarPropertiesCheck>
 
                         <li><a href="#"
-                               onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction.do'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
+                               onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup.do?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup.do");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl.do")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences.do")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
-                        <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/prevention/ViewPreventionManager.do");return false;'
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+                        <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/prevention/ViewPreventionManager");return false;'
                                title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
                     </security:oscarSec>
                 </ul>
@@ -645,12 +646,12 @@
                 <ul>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.flowsheet" rights="r"
                                        reverse="<%=false%>">
-                        <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+                        <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r"
                                        reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true");return false;'><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate?setDefault=true");return false;'><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
                     </security:oscarSec>
                 </ul>
             </div>
@@ -664,67 +665,67 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.SystemManagement"/></h3>
                 <ul>
 
-                    <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction.do?method=manageSingle&listName=consultApptInst");return false;'>
+                    <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction?method=manageSingle&listName=consultApptInst");return false;'>
                         <fmt:message key="admin.admin.encounter.consult.appointmentIntructions"/></a>
                     </li>
 
-                    <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction.do?method=manage");return false;'><fmt:message key="admin.admin.lookUpLists"/></a></li>
+                    <li><a href="javascript:void(0);" onclick='popupPage(550,800, "${pageContext.request.contextPath}/lookupListManagerAction?method=manage");return false;'><fmt:message key="admin.admin.lookUpLists"/></a></li>
 
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(300,600, "${pageContext.request.contextPath}/admin/ProviderAddRole.do");return false;'>
+                               onclick='popupPage(300,600, "${pageContext.request.contextPath}/admin/ProviderAddRole");return false;'>
                             <fmt:message key="admin.admin.addRole"/></a></li>
                     </security:oscarSec>
 
                     <li><a href="#"
-                           onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ProviderPrivilege.do");return false;'>
+                           onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ProviderPrivilege");return false;'>
                         <fmt:message key="admin.admin.assignRightsObject"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate.do?setDefault=true");return false;'><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DisplayDocumentDescriptionTemplate?setDefault=true");return false;'><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ManageClinic.do");return false;'><fmt:message key="admin.admin.clinicAdmin"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ManageClinic");return false;'><fmt:message key="admin.admin.clinicAdmin"/></a></li>
                     <%
                         if (IsPropertiesOn.isMultisitesEnable()) {
                     %>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ManageSites.do");return false;'><fmt:message key="admin.admin.sitesAdmin"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/ManageSites");return false;'><fmt:message key="admin.admin.sitesAdmin"/></a></li>
                     <%
                         }
                     %>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists.do");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/encounter/oscarConsultationRequest/config/ViewEditSpecialists");return false;'><fmt:message key="admin.admin.professionalSpecialistAdmin"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/dxResearchCustomization.jsp");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
+                           onclick='popupPage(400,450, "${pageContext.request.contextPath}/oscarResearch/oscarDxResearch/ViewDxResearchCustomization");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="oscar.admin.diseaseRegistryQuickList"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewCustomization.do");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
+                           onclick='popupPage(250,450, "${pageContext.request.contextPath}/encounter/oscarMeasurements/ViewCustomization");return false;'><fmt:message key="encounter.Index.btnCustomize"/> <fmt:message key="admin.admin.oscarMeasurements"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/ResourceBaseUrl.do");return false;'
+                           onclick='popupPage(200,300, "${pageContext.request.contextPath}/admin/ResourceBaseUrl");return false;'
                            title='<fmt:message key="admin.admin.baseURLSettingTitle"/>'><fmt:message key="admin.admin.btnBaseURLSetting"/></a></li>
 
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>");return false;'><fmt:message key="admin.admin.messages"/></a></li>
+                               onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages?providerNo=<%=curProvider_no%>");return false;'><fmt:message key="admin.admin.messages"/></a></li>
                         <li><a href="#"
-                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger.do");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
+                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
                     </security:oscarSec>
 
-                    <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/ViewKeygenKeyManager.do");return false;'><fmt:message key="admin.admin.keyPairGen"/></a></li>
-                    <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager.do");return false;'><fmt:message key="admin.admin.manageFacilities"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet.do");return false;'>Create
+                    <li><a href="#" onclick='popupPage(800,1000, "${pageContext.request.contextPath}/admin/ViewKeygenKeyManager");return false;'><fmt:message key="admin.admin.keyPairGen"/></a></li>
+                    <li><a href="#" onclick='popupPage(600,600, "${pageContext.request.contextPath}/FacilityManager");return false;'><fmt:message key="admin.admin.manageFacilities"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet");return false;'>Create
                         New Flowsheet</a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets.do");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm.do");return false;'><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
-                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrSearchRecordsHtm.do");return false;'><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ManageFlowsheets");return false;'><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm");return false;'><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
+                    <li><a href="#" onclick='popupPage(800, 1000, "${pageContext.request.contextPath}/admin/ViewLotNrSearchRecordsHtm");return false;'><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
 
                     <oscar:oscarPropertiesCheck property="LOGINTEST" value="yes">
                         <li><a href="#"
-                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText.do");return false;'><fmt:message key="admin.admin.uploadEntryTxt"/></a>
+                               onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/uploadEntryText");return false;'><fmt:message key="admin.admin.uploadEntryTxt"/></a>
                         </li>
                     </oscar:oscarPropertiesCheck>
 
@@ -774,13 +775,13 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.securityLogReport" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/LogReport.do?keyword=admin");return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/LogReport?keyword=admin");return false;'>
                             <fmt:message key="admin.admin.securityLogReport"/></a></li>
                     </security:oscarSec>
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin, _admin.traceability" rights="r">
                         <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewTraceReport.do?keyword=admin");return false;'>
+                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewTraceReport?keyword=admin");return false;'>
                             <fmt:message key="admin.admin.traceabilityReport"/></a></li>
                     </security:oscarSec>
 
@@ -797,11 +798,11 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Integration"/></h3>
                 <ul>
 
-                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients.do");return false;'>REST Clients</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
+                    <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients");return false;'>REST Clients</a></li>
+                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/Statement");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
 
-                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref.do');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>
             </div>
         </security:oscarSec>
@@ -813,7 +814,7 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.Status"/></h3>
                 <ul>
                     <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
-                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus.do");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
+                    <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus");return false;'><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
 
                 </ul>
@@ -828,16 +829,16 @@
                 <h3>&nbsp;<fmt:message key="admin.admin.DataManagement"/></h3>
                 <ul>
                     <li><a href="#"
-                           onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/ViewAdminBackupDownload.do"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
+                           onclick='popupPage(500,600, "${pageContext.request.contextPath}/admin/ViewAdminBackupDownload"); return false;'><fmt:message key="admin.admin.btnAdminBackupDownload"/></a></li>
 
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/DemographicExport.do");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/demographic/DemographicExport");return false;'><fmt:message key="admin.admin.DemoExport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/form/importUpload.do");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/form/importUpload");return false;'><fmt:message key="admin.admin.DemoImport"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DemographicMergeRecord.do");return false;'><fmt:message key="admin.admin.mergeRec"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/DemographicMergeRecord");return false;'><fmt:message key="admin.admin.mergeRec"/></a></li>
                     <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/UpdateDemographicProvider.do");return false;'><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
+                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/UpdateDemographicProvider");return false;'><fmt:message key="admin.admin.btnUpdatePatientProvider"/></a></li>
 
                 </ul>
             </div>
@@ -854,7 +855,7 @@
         <%
             if (roleName$.equals("admin" + "," + curProvider_no)) {
         %><a
-            href="${pageContext.request.contextPath}/logout.jsp">
+            href="${pageContext.request.contextPath}/logoutPage">
         <fmt:message key="global.btnLogout"/>
     </a>&nbsp;<%
         }

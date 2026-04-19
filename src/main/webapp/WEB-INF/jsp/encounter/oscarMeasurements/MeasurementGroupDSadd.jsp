@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.measurements" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin.measurements");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin.measurements");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -83,7 +83,7 @@
         </strong> measurement group.</em></p>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete.do" method="post" name="formAdd">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formAdd">
         <select name="htmlName">
             <option value="-1">Select Decision Support</option>
             <%
@@ -97,7 +97,7 @@
         </select>
 
         <button type="submit" name="add" class="btn btn-primary" style="margin-top:-10px">Add</button>
-        <a href="SetupGroupList.do" class="btn btn-secondary" style="margin-top:-10px">Cancel</a>
+        <a href="SetupGroupList" class="btn btn-secondary" style="margin-top:-10px">Cancel</a>
     </form>
 
 </div><!-- container -->

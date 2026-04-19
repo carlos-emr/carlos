@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -49,7 +49,7 @@
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
-<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
@@ -74,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -84,6 +85,8 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%!
@@ -184,10 +187,15 @@
                 if (value) {
                     //show deleted
                     //appt_history_w_deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history_w_deleted&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>&deleted=true';
+                    <c:set var="__enc_1"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
+                    <c:set var="__enc_2"><carlos:encode value='<%= orderby %>' context="uriComponent"/></c:set>
+                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_2}' context="javaScript"/>&dboperation=appt_history_w_deleted&limit1=<carlos:encode value='<%= strLimit1 %>' context="javaScript"/>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>&deleted=true';
                 } else {
                     //don't show deleted
-                    location.href = '<%=request.getContextPath()%>/demographic/DemographicApptHistory.do?demographic_no=<%=Encode.forJavaScript(Encode.forUriComponent(demographic_no))%>&orderby=<%=Encode.forJavaScript(Encode.forUriComponent(orderby))%>&dboperation=appt_history&limit1=<%=Encode.forJavaScript(strLimit1)%>&limit2=<%=Encode.forJavaScript(strLimit2)%>';
+                    <c:set var="__enc_3"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
+                    <c:set var="__enc_4"><carlos:encode value='<%= orderby %>' context="uriComponent"/></c:set>
+                    location.hr                    
+ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_3}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_4}' context="javaScript"/>&dboperation=appt_history&limit1=<carlos:encode value='<%= strLimit1 %>' context="javaScript"/>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>';
                 }
             }
 
@@ -223,8 +231,8 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td><fmt:message key="demographic.demographicappthistory.msgResults"/>: <%=Encode.forHtml(demolastname)%>
-                            ,<%=Encode.forHtml(demofirstname)%>(<%= Encode.forHtml(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>)
+                        <td><fmt:message key="demographic.demographicappthistory.msgResults"/>: <carlos:encode value='<%= demolastname %>' context="html"/>
+                            ,<carlos:encode value='<%= demofirstname %>' context="html"/>(<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="html"/>)
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
@@ -239,7 +247,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top"><a
-                    href="<%=request.getContextPath()%>/demographic/DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&apptProvider=<%=Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")))%>"
+                    href="<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&apptProvider=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull((String) session.getAttribute("user")) %>' context="uriComponent"/>"
                     onMouseOver="self.status=document.referrer;return true">
                 <fmt:message key="global.btnBack"/></a>
                 <br/>
@@ -334,26 +342,29 @@
 
                     %>
                     <tr <%=(deleted) ? "style='text-decoration: line-through' " : "" %>
-                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<%=Encode.forHtmlAttribute(appointment.getId().toString())%>"
-                            demographic_no="<%=Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no))%>" provider_no="<%=Encode.forHtmlAttribute(provider!=null?provider.getId():"")%>">
-                        <td align="center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?demographic_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(demographic_no))%>&appointment_no=<%=Encode.forJavaScriptAttribute(Encode.forUriComponent(appointment.getId().toString()))%>&displaymode=edit&dboperation=search');return false;"><%=Encode.forHtml(appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "")%>
+                            bgcolor="<%=bodd?weakColor:"white"%>" appt_no="<carlos:encode value='<%= appointment.getId().toString() %>' context="htmlAttribute"/>"
+                            demographic_no="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic_no) %>' context="htmlAttribute"/>" provider_no="<carlos:encode value='<%= provider!=null?provider.getId():"" %>' context="htmlAttribute"/>">
+                        <c:set var="__enc_5"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
+                        <c:set var="__enc_6"><carlos:encode value='<%= appointment.getId().toString() %>' context="uriComponent"/></c:set>
+                        <td align=                                              
+"center"><a href=#
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol?demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&appointment_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"><carlos:encode value='<%= appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "" %>' context="html"/>
                         </a></td>
-                        <td align="center"><%=Encode.forHtml(appointment.getStartTime() != null ? appointment.getStartTime().toString() : "")%>
+                        <td align="center"><carlos:encode value='<%= appointment.getStartTime() != null ? appointment.getStartTime().toString() : "" %>' context="html"/>
                         </td>
-                        <td align="center"><%=Encode.forHtml(appointment.getEndTime() != null ? appointment.getEndTime().toString() : "")%>
+                        <td align="center"><carlos:encode value='<%= appointment.getEndTime() != null ? appointment.getEndTime().toString() : "" %>' context="html"/>
                         </td>
                         <td align="center">
                             <%if (as != null && as.getDescription() != null) {%>
-                            <%=Encode.forHtml(as.getDescription())%>
+                            <carlos:encode value='<%= as.getDescription() %>' context="html"/>
                             <% } %>
                         </td>
-                        <td><%=Encode.forHtml(appointment.getType())%>
+                        <td><carlos:encode value='<%= appointment.getType() %>' context="html"/>
                         </td>
-                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? Encode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + Encode.forHtml(appointment.getReason()) : ""%>
+                        <td><%=(reasonCodeName != null && !reasonCodeName.isEmpty()) ? SafeEncode.forHtml(reasonCodeName) : ""%><%=(appointment.getReason() != null && !appointment.getReason().isEmpty()) ? ((reasonCodeName != null && !reasonCodeName.isEmpty()) ? " - " : "") + SafeEncode.forHtml(appointment.getReason()) : ""%>
                         </td>
                         <% if (provider != null) {%>
-                        <td><%=Encode.forHtml((provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()))%>
+                        <td><carlos:encode value='<%= (provider.getLastName() == null ? "N/A" : provider.getLastName()) + "," + (provider.getFirstName() == null ? "N/A" : provider.getFirstName()) %>' context="html"/>
                         </td>
                         <%} else { %>
                         <td>N/A</td>
@@ -380,7 +391,7 @@
                                 newline = true;
                             }
                         %>
-                        <td>&nbsp;<%=Encode.forHtml(remarks)%><% if (newline) {%><br/>&nbsp;<%}%><%=Encode.forHtml(comments)%>
+                        <td>&nbsp;<carlos:encode value='<%= remarks %>' context="html"/><% if (newline) {%><br/>&nbsp;<%}%><carlos:encode value='<%= comments %>' context="html"/>
                         </td>
                         <%
                             if (IsPropertiesOn.isMultisitesEnable()) {
@@ -388,7 +399,7 @@
                                 String siteColor = sbc != null && sbc.length > 0 ? sbc[0] : "";
                                 String siteLabel = sbc != null && sbc.length > 1 ? sbc[1] : io.github.carlos_emr.carlos.util.StringUtils.noNull(appointment.getLocation());
                         %>
-                        <td style='background-color:<%= Encode.forCssString(siteColor) %>'><%= Encode.forHtml(siteLabel) %>
+                        <td style='background-color:<carlos:encode value='<%= siteColor %>' context="cssString"/>'><carlos:encode value='<%= siteLabel %>' context="html"/>
                         </td>
                         <%
                             }
@@ -407,14 +418,14 @@
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nPrevPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory?demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&dboperation=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/>&limit1=<%=nPrevPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>">
                     <fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="DemographicApptHistory.do?demographic_no=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no"))) %>&dboperation=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation"))) %>&orderby=<%= Encode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby"))) %>&limit1=<%=nNextPage%>&limit2=<%=Encode.forUriComponent(strLimit2)%>">
+                <a href="DemographicApptHistory?demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&dboperation=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("dboperation")) %>' context="uriComponent"/>&orderby=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>">
                     <fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }
@@ -431,7 +442,7 @@
                     <%
                         for (ProviderData prov : providerMap.values()) {
                     %>
-                    <option value="<%=Encode.forHtmlAttribute(prov.getId())%>"><%=Encode.forHtml(prov.getLastName() + ", " + prov.getFirstName()) %>
+                    <option value="<carlos:encode value='<%= prov.getId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= prov.getLastName() + ", " + prov.getFirstName() %>' context="html"/>
                     </option>
                     <%
                         }

@@ -52,7 +52,7 @@
         - Page loads existing macros from UserProperty.LAB_MACRO_JSON via SpringUtils
         - User fills form fields or edits raw JSON directly
         - JavaScript assembleJSON() function builds JSON from form or passes through raw JSON
-        - Form submission calls setProviderStaleDate.do?method=saveLabMacroPrefs
+        - Form submission calls setProviderStaleDate?method=saveLabMacroPrefs
         - Action validates JSON and persists to UserProperty table
         - JSP displays success or error status on form return
 
@@ -110,8 +110,11 @@
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper"%>
 
 <%@page import="org.owasp.encoder.Encode"%>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt"%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%-- Capture i18n message into page-scope variable for safe use in JavaScript with OWASP encoding --%>
 <fmt:message key="provider.labMacroPrefs.confirmDeleteAll" var="confirmDeleteAllMsg"/>
@@ -153,7 +156,7 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 <html>
 <head>
 
-<%@ include file="/includes/global-head.jspf" %>
+<%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
 
 <script>
@@ -162,8 +165,8 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 // ============================================================================
 
 // Localized confirmation message when user attempts to delete all macros.
-// Encoded with OWASP Encode.forJavaScript() to prevent XSS from translation strings.
-var MSG_CONFIRM_DELETE_ALL = '<%=Encode.forJavaScript((String) pageContext.getAttribute("confirmDeleteAllMsg"))%>';
+// Encoded with OWASP SafeEncode.forJavaScript() to prevent XSS from translation strings.
+var MSG_CONFIRM_DELETE_ALL = '<carlos:encode value='<%= (String) pageContext.getAttribute("confirmDeleteAllMsg") %>' context="javaScriptBlock"/>';
 
 /**
  * assembleJSON()
@@ -320,7 +323,7 @@ function toggleMe(el){
     </div>
 </div>
 
-<form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do" onsubmit="return assembleJSON();">
+<form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate" onsubmit="return assembleJSON();">
 <input type="hidden" name="method" value="saveLabMacroPrefs">
 <div class="container mt-3">
 
@@ -408,24 +411,24 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 
  <div class="mb-3 row" id="macro_<%=x%>">
     <div class="col-sm-2">
-        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<%=Encode.forHtmlAttribute(name)%>">
+        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<carlos:encode value='<%= name %>' context="html"/>">
     </div>
     <div class="col-sm-3">
-        <label for="comment_<%=x%>"><fmt:message key="provider.appointmentprovideradminmonth.btnLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+        <label for="comment_<%=x%>"><fmt:message key="provider.appointmentprovideradminmonth.btnLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm" value="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
+        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<carlos:encode value='<%= message %>' context="html"/>">
     </div>
     <div class="col-sm-2">
         <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-select form-select-sm w-100">
             <option value=""<%=(ticklerTo.equals("") ? " selected=\"selected\"" : "")%>>-</option>
             <%for (Provider p : providerList) {%>
-            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"<%=(ticklerTo.equals(p.getProviderNo()) ? " selected=\"selected\"" : "")%>><%=Encode.forHtml(p.getFullName())%></option>
+            <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"<%=(ticklerTo.equals(p.getProviderNo()) ? " selected=\"selected\"" : "")%>><carlos:encode value='<%= p.getFullName() %>' context="html"/></option>
             <%}%>
         </select>
     </div>
     <div class="col-sm-3">
-        <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><div style="display: flex;"><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>" class="form-select form-select-sm" style="width:80px;">
+        <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><div style="display: flex;"><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<carlos:encode value='<%= quantity %>' context="htmlAttribute"/>"><select id="timeUnits_<%=x%>" class="form-select form-select-sm" style="width:80px;">
             <option value="1"<%=(timeUnits.equals("1") ? " selected=\"selected\"" : "")%>><fmt:message key="global.days" /></option>
             <option value="7"<%=(timeUnits.equals("7") ? " selected=\"selected\"" : "")%>><fmt:message key="global.weeks" /></option>
             <option value="30"<%=(timeUnits.equals("30") ? " selected=\"selected\"" : "")%>><fmt:message key="global.months" /></option>
@@ -463,7 +466,7 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
         <label for="ticklerTo_new"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_new" name="ticklerTo_new" class="form-select form-select-sm w-100">
             <option value="" selected="selected">-</option>
             <%for (Provider p : providerList) {%>
-            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtml(p.getFullName())%></option>
+            <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getFullName() %>' context="html"/></option>
             <%}%>
         </select>
     </div>
@@ -493,7 +496,7 @@ String rawJsonValue = (submittedJSON != null) ? submittedJSON : ((up != null && 
 String rawPanelStyle = (submittedJSON != null) ? "display:block;" : "display:none;";
 %>
 <div class="mb-3 row" style="<%=rawPanelStyle%>" id="raw">
-    <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><%=Encode.forHtml(rawJsonValue)%></textarea>
+    <textarea name="labMacroJSON.value" id="macroJSON" style="width:80%;height:80%" rows="25"><carlos:encode value='<%= rawJsonValue %>' context="html"/></textarea>
     <input type="submit" class="btn btn-secondary" value="<fmt:message key="global.btnSave" />" />
 </div>
 </div>

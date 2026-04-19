@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
  *
  * <h3>Detection Strategy</h3>
  * <ul>
- *   <li><strong>.do actions</strong>: Action name is extracted from the URL and checked against
+ *   <li><strong>Action URLs</strong>: Action name is extracted from the URL and checked against
  *       mutator prefixes (Add, Delete, Save, Submit, Create, etc.). The {@code method} request
  *       parameter is also checked for mutator values (save, delete, update, etc.) to catch
  *       mixed-method actions that route via parameter.</li>
@@ -116,7 +116,7 @@ public class HttpMethodGuardFilter implements Filter {
      * {@code ?method=save} routes to a save method within a read/write action.
      *
      * <p>Note: "add" is intentionally excluded. Many actions use {@code method=add} to
-     * load an "add new" form (e.g., FacilityManager.do?method=add), not to perform a
+     * load an "add new" form (e.g., FacilityManager?method=add), not to perform a
      * mutation. The actual save goes through a separate POST. Actions named "Add*"
      * are still caught by {@link #MUTATOR_ACTION_PREFIXES}.</p>
      */
@@ -134,23 +134,34 @@ public class HttpMethodGuardFilter implements Filter {
      */
     private static final Set<String> READ_ONLY_ACTION_NAMES = Set.of(
             "createbillingreportaction",  // PDF/CSV download — GET is correct for file downloads
-            "createdate"                  // ScheduleCreateDate2Action (schedule bulk-date editor):
+            "createdate",                 // ScheduleCreateDate2Action (schedule bulk-date editor):
                                           // GET serves month-navigation reloads (bFirstDisp=0);
                                           // ScheduleCreateDate2Action.execute() enforces POST for
                                           // real mutations (bFirstDisp null or "1") internally.
                                           // Pre-migration, the JSP form (schedulecreatedate.jsp)
                                           // was handled under DUAL_PURPOSE_JSP_NAMES where GET was
                                           // permitted because nav links omit the mutator parameters
-                                          // (dboperation/submit/submitFrm/formAction). The .do
+                                          // (dboperation/submit/submitFrm/formAction). The
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
+            "addappointment"              // ViewAppointmentWrite2Action — view gate that loads the
+                                          // add-appointment form. The name starts with "add" so it
+                                          // matches MUTATOR_ACTION_PREFIXES, but the action itself
+                                          // only renders a JSP — the actual write goes through
+                                          // appointment/AddRecord (which IS a POST-only mutator).
     );
 
     /**
      * JSP filenames (without path, lowercased) that are POST-only mutator targets.
      * GET requests to these JSPs are always blocked — they have no form display
      * function and should never be accessed directly via GET.
+     *
+     * <p>Some entries are retained for defense-in-depth even though the
+     * underlying JSPs have been migrated behind {@code /WEB-INF/jsp/}: filename
+     * matching still protects against any future misconfiguration that exposes
+     * a JSP with one of these names at a public path. Schedule-specific
+     * entries that the reviewer flagged as WEB-INF-gated have been removed.</p>
      */
     private static final Set<String> PURE_MUTATOR_JSP_NAMES = Set.of(
             // Admin mutators (POST-only handlers)
@@ -166,8 +177,6 @@ public class HttpMethodGuardFilter implements Filter {
             "manageflowsheetsupload.jsp",
             "dbmanageprovider.jsp",
             "adminsavemygroup.jsp",
-            // Appointment mutators
-            "appointmentdeletearecord.jsp",
             // Demographic mutators
             "demographicaddarecord.jsp",
             // Billing mutators (POST-only)
@@ -178,9 +187,6 @@ public class HttpMethodGuardFilter implements Filter {
             "deleteprivatecode.jsp",
             "deleteservices.jsp",
             "ongenreport.jsp",
-            // Schedule mutators (POST-only)
-            "scheduledatesave.jsp",
-            "scheduledatefinal.jsp",
             // Messenger mutators
             "postitems.jsp",
             "adjustattachments.jsp",
@@ -217,6 +223,9 @@ public class HttpMethodGuardFilter implements Filter {
      *   <li>{@code submitFrm=Save|Add Service Code} — billing service codes</li>
      *   <li>{@code formAction=update|custom} — prevention manager</li>
      * </ul>
+     *
+     * <p>Schedule-specific entries that the reviewer flagged as WEB-INF-gated
+     * have been removed; other entries are retained for defense-in-depth.</p>
      */
     private static final Set<String> DUAL_PURPOSE_JSP_NAMES = Set.of(
             // Admin forms (GET loads form, POST saves)
@@ -240,10 +249,6 @@ public class HttpMethodGuardFilter implements Filter {
             "billingdeletewithoutno.jsp",
             "billingondisplay.jsp",
             "billingoneditprivatecode.jsp",
-            // Schedule forms
-            "scheduleholidaysetting.jsp",
-            "scheduletemplatecodesetting.jsp",
-            "schedulecreatedate.jsp",
             // Prevention forms
             "preventionmanager.jsp",
             "preventionlistmanager.jsp",
@@ -263,6 +268,31 @@ public class HttpMethodGuardFilter implements Filter {
             "uploadmultidocument.jsp",
             "antenatalplanner.jsp",
             "setprovideravailability.jsp"
+    );
+
+    /**
+     * Non-Struts extensionless endpoints that are served by servlets or other infrastructure.
+     * These paths must not be treated as Struts action names when the filter is mapped to
+     * {@code /*} for extensionless action support.
+     */
+    static final Set<String> NON_STRUTS_PREFIXES = Set.of(
+            "/ws/",
+            "/servlet/",
+            "/csrfguard",
+            "/monitoring",
+            "/loginResource/",
+            "/patientlistbyappt",
+            "/imageRenderingServlet",
+            "/contentRenderingServlet/",
+            "/download",
+            "/report/reportDownload",
+            "/form/createpdf",
+            "/form/createcustomedpdf",
+            "/eform/createpdf",
+            "/eformViewForPdfGenerationServlet",
+            "/EFormViewForPdfGenerationServlet",
+            "/EFormSignatureViewForPdfGenerationServlet",
+            "/EFormImageViewForPdfGenerationServlet"
     );
 
     /**
@@ -339,28 +369,26 @@ public class HttpMethodGuardFilter implements Filter {
         // (e.g., /safe/../admin/mutator.jsp resolving to /admin/mutator.jsp)
         path = normalizePath(path);
 
-        if (path.endsWith(".do")) {
-            if (isMutatorAction(path, httpRequest)) {
-                blockRequest(httpRequest, httpResponse, path);
-                return;
-            }
-        } else if (path.endsWith(".jsp")) {
+        if (path.endsWith(".jsp")) {
             if (isMutatorJsp(path, httpRequest)) {
                 blockRequest(httpRequest, httpResponse, path);
                 return;
             }
+        } else if (isActionPath(path) && isMutatorAction(path, httpRequest)) {
+            blockRequest(httpRequest, httpResponse, path);
+            return;
         }
 
         chain.doFilter(request, response);
     }
 
     /**
-     * Determines if a {@code .do} action URL targets a mutator action.
+     * Determines if an action URL targets a mutator action.
      *
      * <p>Checks the action name against mutator prefixes and the {@code method}
      * request parameter against mutator method values.</p>
      *
-     * @param path    the request path (without context path), e.g. {@code /tickler/addTickler.do}
+     * @param path    the request path (without context path), e.g. {@code /tickler/addTickler}
      * @param request the HTTP request (for parameter access)
      * @return {@code true} if this is a mutator action on GET
      */
@@ -468,23 +496,37 @@ public class HttpMethodGuardFilter implements Filter {
     }
 
     /**
-     * Extracts the simple action name from a {@code .do} URL path.
+     * Extracts the simple action name from an action URL path.
      *
-     * <p>For example, {@code /tickler/addTickler.do} returns {@code addTickler},
-     * and {@code /web/dashboard/display/AssignTickler.do} returns {@code AssignTickler}.</p>
+     * <p>For example, {@code /tickler/addTickler} returns {@code addTickler},
+     * and {@code /web/dashboard/display/AssignTickler} returns {@code AssignTickler}.</p>
      *
      * @param path the request path
      * @return the action name, or {@code null} if not extractable
      */
     static String extractActionName(String path) {
-        if (path == null || !path.endsWith(".do")) {
+        if (path == null || path.isBlank()) {
             return null;
         }
-        // Remove .do suffix
-        String withoutSuffix = path.substring(0, path.length() - 3);
-        // Get the last path segment (the action name)
-        int lastSlash = withoutSuffix.lastIndexOf('/');
-        return lastSlash >= 0 ? withoutSuffix.substring(lastSlash + 1) : withoutSuffix;
+        int lastSlash = path.lastIndexOf('/');
+        String actionName = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+        if (actionName.isEmpty() || actionName.contains(".")) {
+            return null;
+        }
+        return actionName;
+    }
+
+    static boolean isActionPath(String path) {
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        String normalized = path.toLowerCase(Locale.ROOT);
+        for (String prefix : NON_STRUTS_PREFIXES) {
+            if (normalized.startsWith(prefix.toLowerCase(Locale.ROOT))) {
+                return false;
+            }
+        }
+        return extractActionName(path) != null;
     }
 
     /**

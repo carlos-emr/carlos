@@ -54,7 +54,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_con");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_con");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,8 +74,11 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String demo = request.getParameter("de");
@@ -89,7 +92,7 @@
     if (demo != null) {
         demographic = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demo);
     } else
-        request.getRequestDispatcher("/errorpage.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/jsp/error/errorpage.jsp").forward(request, response);
 
     EctConsultationFormRequestUtil consultUtil;
     consultUtil = new EctConsultationFormRequestUtil();
@@ -108,7 +111,7 @@
     <title><fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.title"/></title>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
 
@@ -210,18 +213,18 @@
         <h4 class="page-header-title">
             <i class="fa-solid fa-stethoscope page-header-icon"></i>
             &nbsp;<fmt:message key="encounter.oscarConsultationRequest.DisplayDemographicConsultationRequests.msgConsReqFor"/>
-            <%= Encode.forHtml(demographic.getLastName()) %>, <%= Encode.forHtml(demographic.getFirstName()) %>
-            <%= Encode.forHtml(demographic.getSex()) %> <%= Encode.forHtml(demographic.getAge()) %>
+            <carlos:encode value='<%= demographic.getLastName() %>' context="html"/>, <carlos:encode value='<%= demographic.getFirstName() %>' context="html"/>
+            <carlos:encode value='<%= demographic.getSex() %>' context="html"/> <carlos:encode value='<%= demographic.getAge() %>' context="html"/>
         </h4>
         <div>
             <%
                 String newConsultUrl = request.getContextPath()
-                    + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest.do"
-                    + "?de=" + Encode.forUriComponent(demo)
-                    + "&teamVar=" + Encode.forUriComponent(team);
+                    + "/encounter/oscarConsultationRequest/ViewConsultationFormRequest"
+                    + "?de=" + SafeEncode.forUriComponent(demo)
+                    + "&teamVar=" + SafeEncode.forUriComponent(team);
             %>
             <a class="btn btn-primary btn-sm"
-               href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(newConsultUrl) %>')">
+               href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= newConsultUrl %>' context="javaScriptAttribute"/>')">
                 <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
             </a>
             <input type="button" class="btn btn-secondary btn-sm"
@@ -279,35 +282,35 @@
                     }
                     // Prebuild view URL for JS embedding (JS-attribute-encoded to prevent XSS)
                     String viewRequestUrl = request.getContextPath()
-                        + "/encounter/ViewRequest.do"
-                        + "?de=" + Encode.forUriComponent(demo)
-                        + "&requestId=" + Encode.forUriComponent(id);
+                        + "/encounter/ViewRequest"
+                        + "?de=" + SafeEncode.forUriComponent(demo)
+                        + "&requestId=" + SafeEncode.forUriComponent(id);
             %>
             <tr>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <% if (!statusKey.isEmpty()) { %>
                         <fmt:message key="<%= statusKey %>"/>
                     <% } %>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <% if (!urgencyKey.isEmpty()) { %>
                         <fmt:message key="<%= urgencyKey %>"/>
                     <% } %>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
-                        <%=Encode.forHtml(patient)%>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                    <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
+                        <carlos:encode value='<%= patient %>' context="html"/>
                     </a>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(provider)%></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= (cProv != null) ? Encode.forHtml(cProv.getFormattedName()) : "" %></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>">
-                    <a href="javascript:popupConsultation(700,960,'<%= Encode.forJavaScriptAttribute(viewRequestUrl) %>')">
-                        <%=Encode.forHtml(StringUtils.trimToEmpty(service))%>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getFormattedName()) : "" %></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                    <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
+                        <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>
                     </a>
                 </td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%= Encode.forHtml(StringUtils.trimToEmpty(specialist)) %></td>
-                <td class="stat<%=Encode.forHtmlAttribute(status)%>"><%=Encode.forHtml(date)%></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= StringUtils.trimToEmpty(specialist) %>' context="html"/></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= date %>' context="html"/></td>
             </tr>
             <%}%>
         </tbody>

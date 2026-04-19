@@ -83,7 +83,7 @@
                 io.github.carlos_emr.carlos.demographic.data.*" %>
 
 <%@ page import=" java.util.*, org.w3c.dom.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EChart" %>
@@ -97,13 +97,15 @@
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -115,6 +117,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%
@@ -123,19 +126,19 @@
     // Reject null/missing or non-integer values before any session writes.
     int demographicNoInt;
     if (demographic_no_raw == null || demographic_no_raw.isEmpty()) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");
         return;
     }
     try {
         demographicNoInt = Integer.parseInt(demographic_no_raw);
     } catch (NumberFormatException e) {
-        response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");
         return;
     }
     // Use the validated integer value as the canonical demographic number string
     String demographic_no = String.valueOf(demographicNoInt);
     // Pre-encode for reuse in URI construction below
-    String encDemoNo = Encode.forUriComponent(demographic_no);
+    String encDemoNo = SafeEncode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -316,12 +319,12 @@
             <td class="MainTableTopRowRightColumn">
                 <table class="TopStatusBar">
                     <tr>
-                        <td>Attach document for: <%=Encode.forHtml(demoName)%>
+                        <td><fmt:message key="messenger.generatePreviewPDF.attachDocumentFor"/> <carlos:encode value='<%= demoName %>' context="html"/>
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="messenger.generatePreviewPDF.linkAbout"/></a> | <a
+                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="messenger.generatePreviewPDF.linkLicense"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -340,8 +343,7 @@
                                             <tr>
                                                 <td class="messengerButtonsA"><a href="#"
                                                                                  onclick="javascript:top.window.close()"
-                                                                                 class="messengerButtons"> Close
-                                                    Attachment </a></td>
+                                                                                 class="messengerButtons"><fmt:message key="messenger.generatePreviewPDF.btnCloseAttachment"/> </a></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -353,29 +355,28 @@
 
                     <tr>
 
-                        <td bgcolor="#EEEEFF"><form action="${pageContext.request.contextPath}/messenger/Doc2PDF.do" method="post">
+                        <td bgcolor="#EEEEFF"><form action="${pageContext.request.contextPath}/messenger/Doc2PDF" method="post">
 
 
                             <table border="0" cellpadding="0" cellspacing="1" width="400">
                                 <tr>
-                                    <th align="left" bgcolor="#DDDDFF" colspan="3">Demographic
-                                        information
+                                    <th align="left" bgcolor="#DDDDFF" colspan="3"><fmt:message key="messenger.generatePreviewPDF.sectionDemographic"/>
                                     </th>
                                 </tr>
                                 <tr>
                                     <td>
-                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel.do?demographic_no=" + encDemoNo; %>
-                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
+                                        <% String currentURI = request.getContextPath() + "/demographic/DemographicPdfLabel?demographic_no=" + encDemoNo; %>
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
 
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value="<%=Encode.forHtmlAttribute(demoName)%> information" style="display: none"/></td>
-                                    <td><%=Encode.forHtml(demoName)%> Information</td>
+                                                value="<carlos:encode value='<%= demoName %>' context="htmlAttribute"/> <fmt:message key='messenger.generatePreviewPDF.info'/>" style="display: none"/></td>
+                                    <td><carlos:encode value='<%= demoName %>' context="html"/> <fmt:message key="messenger.generatePreviewPDF.info"/></td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value=Preview onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
+                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -383,7 +384,7 @@
 
                                 <tr>
 
-                                    <th align="left" bgcolor="#DDDDFF" colspan="3">Encounters:</th>
+                                    <th align="left" bgcolor="#DDDDFF" colspan="3"><fmt:message key="messenger.generatePreviewPDF.sectionEncounters"/></th>
 
                                 </tr>
                                 <%
@@ -397,19 +398,19 @@
                                 %>
                                 <tr>
                                     <td>
-                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint.do?echartid=" + Encode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
-                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
+                                        <% currentURI = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid=" + SafeEncode.forUriComponent(String.valueOf(ec.getId())) + "&demographic_no=" + encDemoNo; %>
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
                                                 type=checkbox name="titleArray"
-                                                value='Encounter: <%=Encode.forHtmlAttribute(ec.getTimestamp().toString())%>'
+                                                value='<fmt:message key="messenger.generatePreviewPDF.encounter"/> <carlos:encode value='<%= ec.getTimestamp().toString() %>' context="htmlAttribute"/>'
                                                 style="display: none"/></td>
-                                    <td><%=Encode.forHtml(ec.getTimestamp().toString())%>
+                                    <td><carlos:encode value='<%= ec.getTimestamp().toString() %>' context="html"/>
                                     </td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type=button value="Preview" onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
+                                            type=button value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -422,7 +423,7 @@
                                 <tr>
 
                                     <th align="left" bgcolor="#DDDDFF" colspan="3">
-                                        Prescriptions
+                                        <fmt:message key="messenger.generatePreviewPDF.sectionPrescriptions"/>
                                     </th>
 
 
@@ -453,18 +454,18 @@
                                             Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
                                             Rxbean.setDemographicNo(demographicNoInt);
 
-                                        %> <% currentURI = request.getContextPath() + "/rx/ViewPrintDrugProfile2.do?demographic_no=" + encDemoNo; %>
+                                        %> <% currentURI = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo; %>
 
-                                        <input type="checkbox" name="uriArray" value="<%=Encode.forHtmlAttribute(currentURI)%>"
+                                        <input type="checkbox" name="uriArray" value="<carlos:encode value='<%= currentURI %>' context="htmlAttribute"/>"
                                                        style="display:none"/>
                                         <input type="checkbox" name="indexArray" value="<%= Integer.toString(indexCount++) %>"/>
                                         <input
-                                                type=checkbox name="titleArray" value='Current prescriptions'
+                                                type=checkbox name="titleArray" value='<fmt:message key="messenger.generatePreviewPDF.currentPrescriptions"/>'
                                                 style="display: none"/></td>
-                                    <td>Current prescriptions</td>
+                                    <td><fmt:message key="messenger.generatePreviewPDF.currentPrescriptions"/></td>
                                     <td>
                                         <% if (request.getParameter("isAttaching") == null) { %> <input
-                                            type="button" value=Preview onclick="PreviewPDF( '<%=Encode.forJavaScriptAttribute(currentURI)%>')"/>
+                                            type="button" value="<fmt:message key='messenger.generatePreviewPDF.btnPreview'/>" onclick="PreviewPDF( '<carlos:encode value='<%= currentURI %>' context="javaScriptAttribute"/>')"/>
                                         <% } %> &nbsp;
                                     </td>
                                 </tr>
@@ -473,7 +474,7 @@
                                     <td colspan="3" align="center">
                                         <% if (request.getParameter("isAttaching") != null) { %> <input
                                             type=text name=status value=''/> <% } else { %> <input
-                                            type="button" name="Attach" value="Attach Document"
+                                            type="button" name="Attach" value="<fmt:message key='messenger.generatePreviewPDF.btnAttachDocument'/>"
                                             onclick="AttachingPDF(-1)"/> <% } %> <br/>
                                     </td>
                                 </tr>
@@ -481,10 +482,10 @@
                                 <tr>
                                     <td colspan="3"><input type="hidden" name="srcText" id="srcText" value=''/>
 
-                                        <input type="hidden" name="attachmentCount" id="attachmentCount" value='<%= Encode.forHtmlAttribute(request.getParameter("attachmentCount")==null?"0":request.getParameter("attachmentCount")) %>'/>
-                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<%= Encode.forHtmlAttribute(demographic_no != null ? demographic_no : "") %>'/>
-                                        <input type="hidden" name="isPreview" id="isPreview" value='<%= Encode.forHtmlAttribute(request.getParameter("isPreview")==null?"false":request.getParameter("isPreview")) %>'/>
-                                        <input type="hidden" name="isAttaching" id="isAttaching" value='<%= Encode.forHtmlAttribute(request.getParameter("isAttaching")==null?"false":request.getParameter("isAttaching")) %>'/>
+                                        <input type="hidden" name="attachmentCount" id="attachmentCount" value='<carlos:encode value='<%= request.getParameter("attachmentCount")==null?"0":request.getParameter("attachmentCount") %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="demographic_no" id="demographic_no" value='<carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="isPreview" id="isPreview" value='<carlos:encode value='<%= request.getParameter("isPreview")==null?"false":request.getParameter("isPreview") %>' context="htmlAttribute"/>'/>
+                                        <input type="hidden" name="isAttaching" id="isAttaching" value='<carlos:encode value='<%= request.getParameter("isAttaching")==null?"false":request.getParameter("isAttaching") %>' context="htmlAttribute"/>'/>
                                         <input type="hidden" name="isNew" id="isNew" value='true'/>
                                         <input type="hidden" name="attachmentTitle" id="attachmentTitle" value=''/></td>
                                 </tr>
@@ -502,7 +503,7 @@
                                         }
                                     }
 
-                                    document.forms[0].status.value = "Attaching <%=MsgSessionBean.getCurrentAttachmentCount() + 1%> out of " + j;
+                                    document.forms[0].status.value = "<fmt:message key='messenger.generatePreviewPDF.statusAttaching'/> <%=MsgSessionBean.getCurrentAttachmentCount() + 1%> <fmt:message key='messenger.generatePreviewPDF.statusOutOf'/> " + j;
                                     AttachingPDF(<%=MsgSessionBean.getCurrentAttachmentCount()%>);
 
                                 }
