@@ -223,17 +223,25 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         }
         // filter by programId for user
         if ("USR".equals(tableId) && !Utility.IsEmpty(pCd)) {
-            List userLst = providerDao.getActiveProviders(Integer.valueOf(pCd));
-            ArrayList<LookupCodeValue> newLst = new ArrayList<LookupCodeValue>();
-            for (int n = 0; n < userLst.size(); n++) {
-                SecProvider sp = (SecProvider) userLst.get(n);
-                for (int m = 0; m < list.size(); m++) {
-                    LookupCodeValue lv = list.get(m);
-                    if (lv.getCode().equals(sp.getProviderNo()))
-                        newLst.add(lv);
-                }
+            Integer programId = null;
+            try {
+                programId = Integer.valueOf(pCd);
+            } catch (NumberFormatException e) {
+                // Ignore invalid programId format and keep the unfiltered list.
             }
-            list = newLst;
+            if (programId != null) {
+                List userLst = providerDao.getActiveProviders(programId);
+                ArrayList<LookupCodeValue> newLst = new ArrayList<LookupCodeValue>();
+                for (int n = 0; n < userLst.size(); n++) {
+                    SecProvider sp = (SecProvider) userLst.get(n);
+                    for (int m = 0; m < list.size(); m++) {
+                        LookupCodeValue lv = list.get(m);
+                        if (lv.getCode().equals(sp.getProviderNo()))
+                            newLst.add(lv);
+                    }
+                }
+                list = newLst;
+            }
         }
         return list;
     }
