@@ -89,11 +89,8 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
         String method = request.getParameter("method");
+        ensureMethodPrivilege(loggedInInfo, method);
 
         if (method != null) {
             if (method.equalsIgnoreCase("fetchEFormDocuments"))
@@ -127,6 +124,23 @@ public class DocumentPreview2Action extends ActionSupport {
         }
 
         return fetchConsultDocuments();
+    }
+
+    private void ensureMethodPrivilege(LoggedInInfo loggedInInfo, String method) {
+        boolean requiresEdocPrivilege = "fetchEFormDocuments".equalsIgnoreCase(method)
+                || "renderEDocPDF".equalsIgnoreCase(method)
+                || "renderEFormPDF".equalsIgnoreCase(method)
+                || "renderHrmPDF".equalsIgnoreCase(method)
+                || "renderLabPDF".equalsIgnoreCase(method)
+                || "renderFormPDF".equalsIgnoreCase(method)
+                || "renderPDF".equalsIgnoreCase(method);
+
+        String securityObjectName = requiresEdocPrivilege ? "_edoc" : "_con";
+        String privilege = requiresEdocPrivilege ? SecurityInfoManager.READ : SecurityInfoManager.WRITE;
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
+            throw new SecurityException("missing required sec object (" + securityObjectName + ")");
+        }
     }
 
     /**
