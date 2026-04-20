@@ -410,6 +410,7 @@
             }
 
             function checkDob() {
+                syncDobParts();  // ensure hidden part-fields reflect current visible input
                 var yyyy = document.updatedelete.year_of_birth.value;
                 var mm = document.updatedelete.month_of_birth.value;
                 var dd = document.updatedelete.date_of_birth.value;
@@ -482,19 +483,14 @@
 
             function rosterEnrolledToValid(trueIfBlank) {
                 var val = document.updatedelete.roster_enrolled_to.value.trim();
-                var errMsg = '';
 
                 if (trueIfBlank) {
-                    errMsg += i18n.msgLeaveBlank;
-                    if (val == "") return true;
+                    // blank or non-blank is acceptable when trueIfBlank=true
+                    return true;
                 }
 
-                if (val == "") {
-                    errMsg += i18n.msgWrongRosterEnrolledTo;
-                }
-
-                if (errMsg != '') {
-                    showAlert(errMsg);
+                if (val === '') {
+                    showAlert(i18n.msgWrongRosterEnrolledTo);
                     return false;
                 }
                 return true;
@@ -1407,7 +1403,6 @@
 
     <script type="text/javascript">
 
-
         Calendar.setup({
             inputField: "paper_chart_archived_date",
             ifFormat: "%Y-%m-%d",
@@ -1416,6 +1411,51 @@
             singleClick: true,
             step: 1
         });
+
+        /* -------------------------------------------------------
+         * DOB single-input: calendar picker + hidden-field sync
+         * The server expects separate year_of_birth / month_of_birth /
+         * date_of_birth parameters; we derive them from the one visible
+         * yyyy-mm-dd field every time it changes or the calendar selects.
+         * ------------------------------------------------------- */
+        Calendar.setup({
+            inputField: "dob",
+            ifFormat: "%Y-%m-%d",
+            showsTime: false,
+            button: "dob_cal",
+            singleClick: true,
+            step: 1,
+            onSelect: function() { syncDobParts(); }
+        });
+
+        function syncDobParts() {
+            var dobEl = document.getElementById('dob');
+            var yearEl = document.getElementById('year_of_birth');
+            var monthEl = document.getElementById('month_of_birth');
+            var dayEl = document.getElementById('date_of_birth');
+            var val = dobEl ? dobEl.value.trim() : '';
+
+            if (!yearEl || !monthEl || !dayEl) {
+                return;
+            }
+
+            yearEl.value = '';
+            monthEl.value = '';
+            dayEl.value = '';
+
+            var parts = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (parts) {
+                yearEl.value = parts[1];
+                monthEl.value = parts[2];
+                dayEl.value = parts[3];
+            }
+        }
+
+        var dobEl = document.getElementById('dob');
+        if (dobEl) {
+            dobEl.addEventListener('change', syncDobParts);
+            dobEl.addEventListener('blur',   syncDobParts);
+        }
 
         function callEligibilityWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
