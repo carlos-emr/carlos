@@ -39,6 +39,8 @@ class AppointmentJspRoutingTest {
         assertThat(editAppointment).doesNotContain("appointmenteditrepeatbooking.jsp");
 
         assertThat(addAppointment).contains("/appointment/appointmentrepeatbooking");
+        assertThat(addAppointment).contains("id=\"addButton\" class=\"btn btn-primary\"");
+        assertThat(addAppointment).contains("formaction=\"<%=request.getContextPath()%>/appointment/AddRecord\"");
         assertThat(addAppointment).doesNotContain("appointmentrepeatbooking.jsp");
 
         assertThat(editRepeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking\"");

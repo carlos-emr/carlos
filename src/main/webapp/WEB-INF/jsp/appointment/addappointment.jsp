@@ -1470,6 +1470,7 @@ Ontario, Canada
 
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="submit" id="addButton" class="btn btn-primary"
+                           formaction="<%=request.getContextPath()%>/appointment/AddRecord"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Add Appointment'"
                            tabindex="7"
                            value="<% if (isMobileOptimized) { %><fmt:message key="appointment.addappointment.btnAddAppointmentMobile"/>
