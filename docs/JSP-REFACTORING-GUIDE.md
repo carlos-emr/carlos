@@ -427,22 +427,123 @@ Alternative using `<c:url>` tag (preferred for URLs with parameters):
 
 ### Step 2.6: Internationalization (i18n) Setup
 
-Always include the resource bundle declaration near the top of the view:
+> **Full i18n standards:** [docs/I18N-STANDARDS.md](I18N-STANDARDS.md)
+> **Per-file conversion checklist:** [docs/I18N-CONVERSION-CHECKLIST.md](I18N-CONVERSION-CHECKLIST.md)
+
+#### Bundle Declaration (single, pre-DOCTYPE)
+
+Place **one** `<fmt:setBundle>` declaration after all taglib declarations, immediately
+before `<!DOCTYPE html>`. Never repeat it inline before each `fmt:message`.
 
 ```jsp
+<%@ taglib uri="jakarta.tags.fmt"      prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core"     prefix="c"   %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e"   %>
+
+<%-- Single bundle declaration — place here, before DOCTYPE --%>
 <fmt:setBundle basename="oscarResources"/>
+
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 ```
 
-Then use messages:
+#### HTML lang Attribute
+
+Always use the dynamic locale from the request — **never** hardcode `lang="en"`:
+
 ```jsp
-<label><fmt:message key="Appointment.formDate"/>:</label>
+<%-- CORRECT --%>
+<html lang="${pageContext.request.locale.language}">
+
+<%-- WRONG — breaks screen readers for non-English users --%>
+<html lang="en">
 ```
 
-For messages with parameters:
+#### Key Naming
+
+Keys follow `<domain>.<jspFilename>.<elementDescription>` (see [I18N-STANDARDS.md](I18N-STANDARDS.md)):
+
+```properties
+# appointment/addAppointment.jsp
+appointment.addAppointment.title=Add Appointment
+appointment.addAppointment.labelDate=Date
+appointment.addAppointment.btnAdd=Add Appointment
+```
+
+#### Using fmt:message in HTML
+
 ```jsp
+<title><fmt:message key="appointment.addAppointment.title"/></title>
+<label><fmt:message key="appointment.addAppointment.labelDate"/>:</label>
+```
+
+For attribute values, capture to a variable first:
+
+```jsp
+<fmt:message key="appointment.addAppointment.tooltipHelp" var="tooltipHelp"/>
+<button title="${e:forHtmlAttribute(tooltipHelp)}">?</button>
+```
+
+#### Parameterized Messages
+
+```jsp
+<%-- Properties: appointment.welcome=Welcome, {0}. You have {1} appointments today. --%>
 <fmt:message key="appointment.welcome">
-    <fmt:param value="${providerName}"/>
+    <fmt:param value="${e:forHtml(providerName)}"/>
+    <fmt:param value="${apptCount}"/>
 </fmt:message>
+```
+
+#### JavaScript i18n — Use ResourceBundle + Encode.forJavaScript
+
+**Never** put hardcoded English strings inside `<script>` blocks. Load translated
+strings server-side and encode them with `Encode.forJavaScript()`:
+
+```jsp
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%
+    java.util.ResourceBundle oscarResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+
+<script>
+    // Pre-computed i18n strings, safely encoded for JavaScript
+    var i18n = {
+        msgConfirmDelete: '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgConfirmDelete")) %>',
+        msgSaveSuccess:   '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgSaveSuccess")) %>',
+        btnCancel:        '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>'
+    };
+</script>
+```
+
+Then use in JavaScript:
+```javascript
+if (!confirm(i18n.msgConfirmDelete)) return;
+```
+
+> **Reference implementations:**
+> - `demographic/demographiceditdemographic.jsp` — full `var i18n = {}` object
+> - `tickler/ticklerAdd.jsp` — individual `const` pattern + `alert()` i18n
+
+#### UTF-8 Encoding
+
+Properties files must be saved as valid UTF-8 on Java 21. Direct non-ASCII characters
+are allowed, and existing `\uXXXX` escapes remain valid. See
+[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-21).
+
+#### Legacy Pattern to Avoid
+
+The inline `fmt:setBundle` + `fmt:message` on the same line is a legacy pattern that
+must be cleaned up during conversion:
+
+```jsp
+<%-- LEGACY (do not create, clean up when encountered) --%>
+<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addAppointment.title"/>
+
+<%-- CORRECT (single bundle at top, message inline) --%>
+<fmt:message key="appointment.addAppointment.title"/>
 ```
 
 ### Step 2.7: Encoding Values in JavaScript Context
