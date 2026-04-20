@@ -103,6 +103,17 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return forbidden when caller lacks appointment write privilege")
+    void shouldReturnForbidden_whenCallerLacksAppointmentWritePrivilege() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(false);
+
+        Response response = service.saveSearchConfig(123, new SearchConfigTo1());
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+        verify(appointmentSearchDao, never()).find(any());
+    }
+
+    @Test
     @DisplayName("should return internal server error when persist fails")
     void shouldReturnInternalServerError_whenPersistFails() {
         AppointmentSearch currentSearch = new AppointmentSearch();
