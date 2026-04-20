@@ -244,6 +244,7 @@ public class ProgramManagerImpl implements ProgramManager {
         programFunctionalUserDAO.deleteFunctionalUserType(Long.valueOf(id));
     }
 
+    @Override
     public List<ProgramFunctionalUser> getFunctionalUsers(String programId) {
         return programFunctionalUserDAO.getFunctionalUsers(Long.valueOf(programId));
     }
