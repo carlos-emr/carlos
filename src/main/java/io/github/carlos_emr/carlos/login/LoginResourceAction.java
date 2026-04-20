@@ -65,6 +65,10 @@ public class LoginResourceAction extends HttpServlet {
         this.images = oscarDocument + File.separator + "login";
     }
 
+    protected String getImagesDir() {
+        return this.images;
+    }
+
     protected void doGet(HttpServletRequest request,
                          HttpServletResponse response) throws ServletException, IOException {
         try {
@@ -94,7 +98,7 @@ public class LoginResourceAction extends HttpServlet {
                 
                 // Construct and validate the file path using PathValidationUtils
                 try {
-                    File imagesDir = new File(images);
+                    File imagesDir = new File(getImagesDir());
                     image = PathValidationUtils.validatePath(sanitizedFilename, imagesDir);
                 } catch (SecurityException e) {
                     log.warn("Path validation rejected for filename: {}", sanitizedFilename);
@@ -104,8 +108,12 @@ public class LoginResourceAction extends HttpServlet {
             }
 
             // Send 404 if no valid image path was provided or file doesn't exist
-            if (image == null || !image.exists()) {
+            if (image == null) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+            if (!image.exists()) {
+                response.setStatus(HttpServletResponse.SC_NO_CONTENT);
                 return;
             }
 
