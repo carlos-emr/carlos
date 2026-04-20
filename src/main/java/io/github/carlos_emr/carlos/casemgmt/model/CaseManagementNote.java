@@ -72,7 +72,6 @@ public class CaseManagementNote extends BaseObject {
     private String uuid;
     private String revision;
 
-    private String password;
     private boolean locked;
     private boolean archived;
 
@@ -456,10 +455,6 @@ public class CaseManagementNote extends BaseObject {
         return locked;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
     public void setLocked(boolean locked) {
         this.locked = locked;
     }
@@ -472,25 +467,15 @@ public class CaseManagementNote extends BaseObject {
         this.archived = archived;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
     public String getStatus() {
-        String status = "";
+        String status;
         if (isSigned()) {
             status = "Signed";
         } else {
             status = "Unsigned";
         }
-
-        if (getPassword() != null && getPassword().length() > 0) {
-            // locked note - can be temporarily unlocked
-            if (locked) {
-                status += "/Locked";
-            } else {
-                status += "/Unlocked";
-            }
+        if (locked) {
+            status += "/Locked";
         }
         return status;
     }

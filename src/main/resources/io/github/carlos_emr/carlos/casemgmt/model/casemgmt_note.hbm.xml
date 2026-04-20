@@ -61,7 +61,6 @@
 		<property name="create_date" type="java.util.Date"
 			formula="(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)" />
 
-		<property name="password" type="string" column="password" />
 		<property name="locked" type="boolean" column="locked" />
                 <property name="archived" type="boolean" column="archived" />
                 <property name="position" type="integer" column="position" />
@@ -87,7 +86,7 @@
 		program_no as {cmn.program_no},
 		reporter_caisi_role as {cmn.reporter_caisi_role}, reporter_program_team as
 		{cmn.reporter_program_team}, history as {cmn.history},
-		uuid as {cmn.uuid}, password as {cmn.password}, locked as {cmn.locked}, archived as {cmn.archived},
+		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
 		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},
@@ -117,7 +116,7 @@
 		program_no as {cmn.program_no},
 		reporter_caisi_role as {cmn.reporter_caisi_role}, reporter_program_team as
 		{cmn.reporter_program_team}, history as {cmn.history},
-		uuid as {cmn.uuid}, password as {cmn.password}, locked as {cmn.locked}, archived as {cmn.archived},
+		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
 		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},
@@ -148,7 +147,7 @@
 		program_no as {cmn.program_no},
 		reporter_caisi_role as {cmn.reporter_caisi_role}, reporter_program_team as
 		{cmn.reporter_program_team}, history as {cmn.history},
-		uuid as {cmn.uuid}, password as {cmn.password}, locked as {cmn.locked}, archived as {cmn.archived},
+		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
 		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},

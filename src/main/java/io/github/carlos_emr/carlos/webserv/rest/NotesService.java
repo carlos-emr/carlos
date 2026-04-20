@@ -528,14 +528,6 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // update password
-		/*
-		String passwd = cform.getCaseNote().getPassword();
-		if (passwd != null && passwd.trim().length() > 0) {
-			note.setPassword(passwd);
-			note.setLocked(true);
-		}
-		 */
         Date now = new Date();
 
         Date observationDate = note.getObservationDate();
@@ -1278,8 +1270,7 @@ public class NotesService extends AbstractServiceImpl {
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
 
-            Map unlockedNotesMap = null; //NEED THIS ??
-            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo, unlockedNotesMap)) == null) {
+            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo)) == null) {
 //				session.setAttribute("newNote", "true");
 //				//session.setAttribute("issueStatusChanged", "false");
 
@@ -1315,7 +1306,6 @@ public class NotesService extends AbstractServiceImpl {
 //		if (!note.isIncludeissue()) cform.setIncludeIssue("off");
 //		else cform.setIncludeIssue("on");
 
-//		boolean passwd = caseManagementMgr.getEnabled();
 //		String chain = request.getParameter("chain");
 
 
