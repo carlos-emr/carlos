@@ -61,7 +61,7 @@
  * 3. Submits selected file ID to ViewPDFFile action for download
  *
  * Form Integration:
- * - Posts to ViewPDFFile.do action with file_id parameter
+ * - Posts to ViewPDFFile action with file_id parameter
  * - Passes attachment data as hidden form field
  *
  * @since 2003
@@ -86,7 +86,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_msg");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_msg");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -96,12 +96,12 @@
 
 
 <c:if test="${empty msgSessionBean}">
-    <c:redirect url="index.jsp"/>
+    <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty msgSessionBean}">
     <c:set var="bean" value="${msgSessionBean}" scope="session"/>
     <c:if test="${bean.valid == 'false'}">
-        <c:redirect url="index.jsp"/>
+        <c:redirect url="/index"/>
     </c:if>
 </c:if>
 
@@ -109,7 +109,6 @@
 <html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
-    <title><fmt:message key="messenger.ViewAttachment.title"/></title>
     <%@ include file="/includes/global-head.jspf" %>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
@@ -119,7 +118,7 @@
         session.setAttribute("PDFAttachment", pdfAttch);
     %>
 
-
+    <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
 </head>
 <body>
 <div class="container-fluid px-2 py-2">
@@ -161,14 +160,13 @@
                     class="btn btn-outline-secondary btn-sm"
                     onclick="javascript:top.window.close()">
                 <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
-                <fmt:message key="messenger.generatePreviewPDF.btnClose"/>
+                <fmt:message key="messenger.ViewPDFAttachment.btnCloseAttachment"/>
             </button>
         </div>
 
 
-        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile.do" method="post">
+        <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile" method="post">
             <table class="table table-sm table-bordered">
-
 
                             <% 
                                 // Extract PDF file titles from attachment data
@@ -179,9 +177,14 @@
                         <td><%= Encode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
-                          <button type="submit" class="btn btn-success"  onclick=" document.forms[0].file_id.value = <%=i%>">
+                          <button type="submit"
+                                  class="btn btn-success"
+                                  onclick="document.forms[0].file_id.value = <%=i%>"
+                                  title="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>"
+                                  aria-label="<fmt:message key='messenger.ViewPDFAttachment.btnDownload'/>">
                               <i class="fa fa-download" aria-hidden="true"></i>
-                          </button></td>
+                              <span class="visually-hidden"><fmt:message key="messenger.ViewPDFAttachment.btnDownload"/></span>
+                           </button></td>
                     </tr>
                             <% }  %>
                     </table>

@@ -40,7 +40,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_eChart");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_eChart");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -113,7 +113,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"></td>
-            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/encounter/immunization/config/deleteImmunizationSet.do" method="post">
+            <td class="MainTableRightColumn"><form action="${pageContext.request.contextPath}/encounter/immunization/config/deleteImmunizationSet" method="post">
                 <table width="50%" border=0 cellspacing=1>
                     <tr>
                         <th>&nbsp;</th>
@@ -133,7 +133,7 @@
                         <td width="3%"><input type="checkbox" name="chkSetId"
                                               value="<%=id%>"/></td>
                         <td width="70%"><a
-                                href="javascript:popupImmunizationSet(768,1024,'encounter/immunization/config/ImmunizationSetDisplay.do?setId=<%=id%>')">
+                                href="javascript:popupImmunizationSet(768,1024,'encounter/immunization/config/ImmunizationSetDisplay?setId=<%=id%>')">
                             <%=name%>
                         </a></td>
                         <td align="center"><%=createDate%>
@@ -153,13 +153,13 @@
                         </td>
                         <td align="right"><input type="button" name="Button"
                                                  value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnAddNew"/>"
-                                                 onClick="javascript:goURL('encounter/immunization/config/CreateImmunizationSetInit.jsp');">
+                                                 onClick="javascript:goURL('encounter/immunization/config/ViewCreateImmunizationSetInit');">
                             <% if (deletedList == true) { %> <input type="button" name="action"
                                                                     value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnSetlist"/>"
-                                                                    onClick="goURL('encounter/immunization/config/initConfig.do');"> <% } else { %>
+                                                                    onClick="goURL('encounter/immunization/config/initConfig');"> <% } else { %>
                             <input type="button" name="action"
                                    value="<fmt:message key="encounter.immunization.config.administrativeImmunizationSets.btnDelList"/>"
-                                   onClick="goURL('encounter/immunization/config/initConfig.do?stat=2');">
+                                   onClick="goURL('encounter/immunization/config/initConfig?stat=2');">
                             <% } %>
                         </td>
                     </tr>

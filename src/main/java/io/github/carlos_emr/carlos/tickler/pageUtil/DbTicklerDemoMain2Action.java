@@ -90,7 +90,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
 
         // Security check — requires _tickler update privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");
+            response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");
             return NONE;
         }
 
@@ -98,7 +98,7 @@ public final class DbTicklerDemoMain2Action extends ActionSupport {
         String parentAjaxId = request.getParameter("parentAjaxId") == null ? "" : request.getParameter("parentAjaxId");
         String updateParent = request.getParameter("updateParent") == null ? "false" : request.getParameter("updateParent");
 
-        String redirectUrl = request.getContextPath() + "/tickler/ticklerMain.jsp"
+        String redirectUrl = request.getContextPath() + "/tickler/ViewTicklerMain"
                 + "?demoview=" + Encode.forUriComponent(demoview)
                 + "&parentAjaxId=" + Encode.forUriComponent(parentAjaxId)
                 + "&updateParent=" + Encode.forUriComponent(updateParent);

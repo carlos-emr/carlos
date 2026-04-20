@@ -173,6 +173,34 @@ When the converted file is a `.jsp` (not a static `.html`):
    ${e:forHtmlAttribute(someAttr)}
    ```
 
+   **JavaScript encoding in JSP — important limitation:**
+   The `encoder-jakarta-jsp` TLD exposes `forJavaScript()` but **not** `forJavaScriptAttribute()`.
+   Calling `${e:forJavaScriptAttribute(value)}` causes a JSP compilation error (HTTP 500):
+   `The function [forJavaScriptAttribute] cannot be located with the specified prefix`.
+
+   Use `${e:forJavaScript(value)}` for **all** JavaScript string contexts in JSP EL, including
+   values placed inside HTML `onclick` / `onchange` attribute strings:
+
+   ```jsp
+   <%-- Correct — forJavaScript covers both <script> blocks and inline event attributes in JSP --%>
+   onclick="if (confirm('${e:forJavaScript(confirmMsg)}')) { ... }"
+   ```
+
+   If you need the additional HTML-attribute encoding layer that `forJavaScriptAttribute` provides
+   (JS + HTML double-encoding), call `Encode.forJavaScriptAttribute(value)` from a scriptlet
+   or write the value into a `data-*` attribute first and read it from JavaScript:
+
+   ```jsp
+   <%-- Scriptlet alternative --%>
+   onclick="if (confirm('<%= Encode.forJavaScriptAttribute(confirmMsg) %>')) { ... }"
+   ```
+
+   > **CLAUDE.md note:** The main `CLAUDE.md` OWASP encoding table lists `forJavaScriptAttribute`
+   > as the recommended EL function for "JS in HTML attr" context. That entry refers to the Java
+   > method `Encode.forJavaScriptAttribute()`. The EL function equivalent is **not available** in
+   > the `encoder-jakarta-jsp` library — use `${e:forJavaScript()}` in EL or the Java method in
+   > scriptlets.
+
 
 3. **CSRF tokens are auto-injected** by `CsrfGuardScriptInjectionFilter` — do not manually add
    hidden `<input name="CSRF-TOKEN">` elements in JSP markup; the filter handles injection

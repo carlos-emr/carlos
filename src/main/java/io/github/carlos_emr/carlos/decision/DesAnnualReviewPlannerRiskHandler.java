@@ -217,11 +217,11 @@ public class DesAnnualReviewPlannerRiskHandler extends DefaultHandler {
 
         // Process element attributes for name and href properties
         for (int i = 0; i < atts.getLength(); i++) {
-            if (atts.getQName(i) == "name") {
+            if ("name".equals(atts.getQName(i))) {
                 riskName = atts.getValue(i);
                 riskNameObj.setProperty(riskName, "risk_" + riskName);
             }
-            if (atts.getQName(i) == "href") {
+            if ("href".equals(atts.getQName(i))) {
                 results += "<a href=# onClick=\"popupPage(400,500,'" + atts.getValue(i) + "');return false;\">";
                 href = 1;
             }

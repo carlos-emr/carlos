@@ -1,0 +1,15 @@
+# scripts/lint/encode-null-safety-allowlist.txt
+#
+# Glob patterns, one per line, relative to the repository root. Files matching
+# any pattern are skipped by scripts/lint/check-encoder-null-safety.sh.
+#
+# Use sparingly. Every entry is a deliberate exception to the default rule
+# "use <carlos:encode> / ${carlos:forXxx} / SafeEncode.forXxx for all new
+# encoded output." Add a short comment next to each entry explaining why.
+#
+# Entries are matched via bash `[[ $path == $pattern ]]`; standard shell glob
+# semantics apply (`*`, `?`, `[...]`). Entries are NOT regex.
+#
+# Example:
+#   src/main/webapp/WEB-INF/jsp/some/file-where-null-string-is-desired.jsp
+#   src/main/webapp/legacy/**/*.jsp

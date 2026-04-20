@@ -45,7 +45,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
         try {
             request.setAttribute("prepareForFax", true);
-            RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage.do");
+            RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/displayImage");
             requestDispatcher.forward(request, response);
         } catch (ServletException | IOException e) {
             throw e;

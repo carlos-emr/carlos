@@ -38,7 +38,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -54,6 +54,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
     <head>
@@ -76,7 +77,7 @@
             // This JSP only displays the outcome.
             String resultMsg = (String) request.getAttribute("resultMsg");
         %>
-        <%= resultMsg != null ? Encode.forHtml(resultMsg) : "" %>
+        <%= resultMsg != null ? SafeEncode.forHtml(resultMsg) : "" %>
 
     </center>
     </body>

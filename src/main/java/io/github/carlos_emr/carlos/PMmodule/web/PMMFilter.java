@@ -97,7 +97,7 @@ public class PMMFilter implements Filter {
  * Each link should be separately configurable under the role rights object screen.
  *
 
-		if (request.getRequestURI().indexOf("ProgramManager.do") != -1 && ((String) session.getAttribute("userrole")).indexOf("admin") == -1) {
+		if (request.getRequestURI().indexOf("ProgramManager") != -1 && ((String) session.getAttribute("userrole")).indexOf("admin") == -1) {
 			RequestDispatcher rd = baseRequest.getRequestDispatcher("/commons/auth.jsp");
 			rd.forward(baseRequest, baseResponse);
 			return;

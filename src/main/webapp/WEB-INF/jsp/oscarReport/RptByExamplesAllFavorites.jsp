@@ -39,7 +39,7 @@
     - Bootstrap 5 / HTML5 compliant layout
     - OWASP encoding for all server-supplied values
     - i18n via oscarResources bundle
-    - Edit and Delete actions submitted to RptByExamplesFavorite.do
+    - Edit and Delete actions submitted to RptByExamplesFavorite
     - Close button reloads the opener window and closes this popup
 
     Parameters (set by backing Action):
@@ -63,7 +63,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -74,7 +74,8 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     Locale requestLocale = request.getLocale();
@@ -88,13 +89,13 @@
         <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>
     </title>
 
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link rel="stylesheet" type="text/css" media="all"
           href="${pageContext.request.contextPath}/share/css/extractedFromPages.css">
     <fmt:message key="oscarReport.RptByExample.MsgConfirmDelete" var="msgConfirmDelete"/>
     <script type="text/javascript">
         // Localized confirm-delete message rendered server-side for i18n support
-        var msgConfirmDelete = '${e:forJavaScript(msgConfirmDelete)}';
+        var msgConfirmDelete = '${carlos:forJavaScript(msgConfirmDelete)}';
         /**
          * Populates the hidden newQuery and newName fields with the selected
          * favourite's data and submits the edit form.
@@ -162,7 +163,7 @@
 
     <!-- Favourites management form -->
     <form id="favoritesForm"
-          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite.do"
+          action="${pageContext.request.contextPath}/oscarReport/RptByExamplesFavorite"
           method="post">
 
         <input type="hidden" name="newName"/>
@@ -181,17 +182,17 @@
             <tbody>
                 <c:forEach var="favorite" items="${allFavorites.favoriteVector}">
                     <tr>
-                        <td>${e:forHtml(favorite.queryName)}</td>
-                        <td>${e:forHtml(favorite.query)}</td>
+                        <td>${carlos:forHtml(favorite.queryName)}</td>
+                        <td>${carlos:forHtml(favorite.query)}</td>
                         <td class="text-nowrap">
                             <input type="button"
                                    class="btn btn-outline-secondary btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgEdit'/>"
-                                   onclick="set('${e:forJavaScript(favorite.query)}', '${e:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
+                                   onclick="set('${carlos:forJavaScript(favorite.query)}', '${carlos:forJavaScript(favorite.queryName)}'); document.getElementById('favoritesForm').submit(); return false;"/>
                             <input type="button"
                                    class="btn btn-danger btn-sm"
                                    value="<fmt:message key='oscarReport.RptByExample.MsgDelete'/>"
-                                   onclick="confirmDelete('${e:forJavaScript(favorite.id)}'); return false;"/>
+                                   onclick="confirmDelete('${carlos:forJavaScript(favorite.id)}'); return false;"/>
                         </td>
                     </tr>
                 </c:forEach>

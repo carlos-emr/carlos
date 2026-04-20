@@ -46,7 +46,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
         } else {
 
             String winName = "docs" + bean.demographicNo;
-            Dao.setLeftPopup(500, 1115, winName, request.getContextPath() + "/hospitalReportManager/displayHRMDocList.jsp?demographic_no=" + bean.demographicNo);
+            Dao.setLeftPopup(500, 1115, winName, request.getContextPath() + "/hospitalReportManager/ViewDocList?demographic_no=" + bean.demographicNo);
             Dao.setLeftHeading(getText("encounter.Index.msgHRMDocuments"));
 
             Dao.setRightHeadingID(cmd); //no menu so set div id to unique id for this action
@@ -82,7 +82,7 @@ public class EctDisplayHRM2Action extends EctDisplayAction {
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 
-                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display.do?id=" + hrmDocumentId + "&segmentID=" + hrmDocumentId + "');";
+                url = "popupPage(700,800,'" + hash + "', '" + request.getContextPath() + "/hospitalReportManager/Display?id=" + hrmDocumentId + "&segmentID=" + hrmDocumentId + "');";
 
                 String labRead = "";
                 if (!oscarLogDao.hasRead(user, "hrm", hrmDocumentId)) {

@@ -42,8 +42,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Date;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BpmhFormRetrieve2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -52,6 +57,11 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     private BpmhForm2Handler bpmhFormHandler;
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         String method = request.getParameter("method");
         if ("save".equals(method)) {
             return save();
@@ -95,7 +105,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         addActionMessage("Form Saved");
 
 
-        StringBuilder actionRedirect = new StringBuilder("/formBPMH.do?method=fetch");
+        StringBuilder actionRedirect = new StringBuilder("/formBPMH?method=fetch");
         actionRedirect.append("&demographic_no=").append(demographicNo);
         actionRedirect.append("&formId=").append(formId);
         actionRedirect.append("&provNo=");

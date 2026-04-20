@@ -31,7 +31,8 @@
     @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -53,7 +54,7 @@
     <script type="text/javascript">
         if (window.opener && !window.opener.closed) {
             <% if ("visitreport".equals(action)) { %>
-            window.opener.location.href = "<%=request.getContextPath()%>/administration/?show=<%=Encode.forJavaScript(action)%>";
+            window.opener.location.href = "<%=request.getContextPath()%>/administration/?show=<carlos:encode value='<%= action %>' context="javaScript"/>";
             <% } else { %>
             window.opener.location.reload();
             <% } %>

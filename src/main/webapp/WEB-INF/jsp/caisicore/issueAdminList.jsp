@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -34,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +45,7 @@
 <title>MyIssues ~ Issue List</title>
 <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
-<button onclick="location.href='issueAdmin.do?method=edit'">Add
+<button onclick="location.href='issueAdmin?method=edit'">Add
     Issue
 </button>
 <table border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
@@ -72,14 +73,13 @@
             </c:otherwise>
         </c:choose>
         <!--Not allow to edit issue
-        <td><a href="issueAdmin.do?method=edit&amp;id=<c:out value="${issueAdmin.id}"/>"><c:out
-            value="${issueAdmin.code}"/></a></td>
+        <td><a href="issueAdmin?method=edit&amp;id=${carlos:forHtmlAttribute(issueAdmin.id)}">${carlos:forHtml(issueAdmin.code)}</a></td>
         -->
-        <td><c:out value="${issueAdmin.code}"/></a></td>
-        <td><c:out value="${issueAdmin.description}"/></td>
-        <td><c:out value="${issueAdmin.role}"/></td>
+        <td>${carlos:forHtml(issueAdmin.code)}</td>
+        <td>${carlos:forHtml(issueAdmin.description)}</td>
+        <td>${carlos:forHtml(issueAdmin.role)}</td>
         <!--
-        <td><c:out value="${issueAdmin.update_date}"/></td>
+        <td>${carlos:forHtml(issueAdmin.update_date)}</td>
         -->
         </tr>
     </c:forEach>

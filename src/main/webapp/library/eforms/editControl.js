@@ -398,7 +398,7 @@ function loadTemplate(selectname) {
 function parseTemplate() {
     //replace template placeholders with database pulls
     var temp = new Array();
-    contents = editControlContents(cfg_editorname);
+    var contents = editControlContents(cfg_editorname);
     temp = contents.split('##'); //parse for template place holders identified by ##value##
     contents = '';
     var keys = [];
@@ -433,7 +433,7 @@ function parseTemplate() {
 function populateTemplate() {
     //replace template placeholders with database pulls
     var temp = new Array();
-    contents = editControlContents(cfg_editorname);
+    var contents = editControlContents(cfg_editorname);
     temp = contents.split('##'); //parse for template place holders identified by ##value##
     contents = '';
     var x;

@@ -14,6 +14,7 @@ import io.github.carlos_emr.carlos.form.JSONUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action class for managing professional specialist contact registry operations in the OpenO EMR system.
@@ -38,6 +39,8 @@ import java.util.List;
  * @see io.github.carlos_emr.carlos.utility.LoggedInInfo
  */
 public class ProfessionalSpecialist2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -59,6 +62,11 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      * @return String always returns null as this action writes directly to the response stream
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
 
         /*
          * Designed for backwards compatibility.
@@ -103,6 +111,9 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void get() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
         String specialistId = request.getParameter("id");
         ProfessionalSpecialist professionalSpecialist = null;
 
@@ -144,6 +155,9 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      */
     public void search() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
         String search_keyword = request.getParameter("keyword");
         List<ProfessionalSpecialist> professionalSpecialist = null;
 

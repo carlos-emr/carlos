@@ -56,7 +56,7 @@ public class AllergiesSummary implements Summary {
         List<Allergy> allergies = allergyManager.getActiveAllergies(loggedInInfo, demographicNo);
         for (Allergy allergy : allergies) {
 
-            SummaryItemTo1 summaryItem = new SummaryItemTo1(allergy.getId(), allergy.getDescription(), "../oscarRx/showAllergy.do?demographicNo=" + demographicNo, "allergy");
+            SummaryItemTo1 summaryItem = new SummaryItemTo1(allergy.getId(), allergy.getDescription(), "../rx/showAllergy?demographicNo=" + demographicNo, "allergy");
 
             if ("1".equalsIgnoreCase(allergy.getSeverityOfReaction())) {
                 //summaryItem.setIndicatorClass("mild");

@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
@@ -44,6 +45,9 @@ import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
+
+    private static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
+            Set.of("customName", "regional_identifier", "BN");
 
     public DrugDaoImpl() {
         super(Drug.class);
@@ -480,9 +484,12 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findByParameter(String parameter, String value) {
-        String sql = "select special,special_instruction from drugs where " + parameter + " = '" + value
-                + "' order by drugid desc";
+        if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
+            throw new IllegalArgumentException("Unsupported parameter: " + parameter);
+        }
+        String sql = "select special, special_instruction from drugs where " + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("value", value);
         return query.getResultList();
     }
 

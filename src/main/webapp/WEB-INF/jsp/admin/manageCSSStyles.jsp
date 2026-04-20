@@ -37,7 +37,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -46,7 +46,7 @@
 %>
 
 
-<%@include file="/casemgmt/taglibs.jsp" %>
+<%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
@@ -256,13 +256,13 @@
     %>
     <div class="alert alert-success">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        <strong>Success!</strong> <fmt:message key="admin.manageCodeStyles.sucess"/>
+        <strong><fmt:message key="admin.manageCodeStyles.success"/></strong> <fmt:message key="admin.manageCodeStyles.sucess"/>
     </div>
     <%
         }
     %>
 
-    <form action="${pageContext.request.contextPath}/admin/manageCSSStyles.do" method="post" accept-charset="UTF-8">
+    <form action="${pageContext.request.contextPath}/admin/manageCSSStyles" method="post" accept-charset="UTF-8">
         <input type="hidden" id="method" name="method" value="save"/>
 
         <div class="row card card-body bg-body-tertiary"><!--select existing styles-->
@@ -278,7 +278,7 @@
 
             <input class="btn btn-secondary" type="button" onclick="edit();return false;"
                    value="<fmt:message key="admin.manageCodeStyles.Edit"/>"/>
-            <input type="submit" name="submit" value="Delete" class="btn btn-secondary" onclick="return deleteStyle();"/>
+            <input type="submit" name="submit" value="<fmt:message key="admin.manageCodeStyles.Delete"/>" class="btn btn-secondary" onclick="return deleteStyle();"/>
 
 
         </div>
@@ -299,45 +299,45 @@
                 <fmt:message key="admin.manageCodeStyles.FontSize"/><br>
                 <select id="font-size" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
-                    <option value="xx-small">XX-Small</option>
-                    <option value="x-small">X-Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                    <option value="x-large">X-Large</option>
-                    <option value="xx-large">XX-Large</option>
+                    <option value="xx-small"><fmt:message key="admin.manageCodeStyles.xxSmall"/></option>
+                    <option value="x-small"><fmt:message key="admin.manageCodeStyles.xSmall"/></option>
+                    <option value="medium"><fmt:message key="admin.manageCodeStyles.medium"/></option>
+                    <option value="large"><fmt:message key="admin.manageCodeStyles.large"/></option>
+                    <option value="x-large"><fmt:message key="admin.manageCodeStyles.xLarge"/></option>
+                    <option value="xx-large"><fmt:message key="admin.manageCodeStyles.xxLarge"/></option>
                 </select>
                 <br>
 
                 <fmt:message key="admin.manageCodeStyles.FontStyle"/><br>
                 <select id="font-style" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
-                    <option value="italic">Italic</option>
-                    <option value="oblique">Obllique</option>
+                    <option value="italic"><fmt:message key="admin.manageCodeStyles.italic"/></option>
+                    <option value="oblique"><fmt:message key="admin.manageCodeStyles.oblique"/></option>
                 </select>
                 <br>
 
                 <fmt:message key="admin.manageCodeStyles.FontVariant"/><br>
                 <select id="font-variant" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
-                    <option value="small-caps">Small-Caps</option>
+                    <option value="small-caps"><fmt:message key="admin.manageCodeStyles.smallCaps"/></option>
                 </select>
                 <br>
 
                 <fmt:message key="admin.manageCodeStyles.FontWeight"/><br>
                 <select id="font-weight" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
-                    <option value="bold">Bold</option>
-                    <option value="bolder">Bolder</option>
-                    <option value="lighter">Lighter</option>
+                    <option value="bold"><fmt:message key="admin.manageCodeStyles.bold"/></option>
+                    <option value="bolder"><fmt:message key="admin.manageCodeStyles.bolder"/></option>
+                    <option value="lighter"><fmt:message key="admin.manageCodeStyles.lighter"/></option>
                 </select>
                 <br/>
 
                 <fmt:message key="admin.manageCodeStyles.TextDecoration"/><br>
                 <select id="text-decoration" onchange="addStyle(this.id, this.options[this.selectedIndex]);">
                     <option value=""><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
-                    <option value="underline">Underline</option>
-                    <option value="overline">Overline</option>
-                    <option value="line-through">Line Through</option>
+                    <option value="underline"><fmt:message key="admin.manageCodeStyles.underline"/></option>
+                    <option value="overline"><fmt:message key="admin.manageCodeStyles.overline"/></option>
+                    <option value="line-through"><fmt:message key="admin.manageCodeStyles.lineThrough"/></option>
                 </select>
                 <br/>
 
@@ -372,7 +372,7 @@
 
                 <br><br>
 
-                Sample Text:<br>
+                <fmt:message key="admin.manageCodeStyles.SampleText"/><br>
                 <span id="example"><fmt:message key="admin.manageCodeStyles.Example"/></span>
 
             </div><!--span6-->
@@ -384,7 +384,7 @@
             <hr>
             <input class="btn btn-lg" type="button" value="<fmt:message key="admin.manageCodeStyles.Clear"/>"
                    onclick="reinit();return false;"/>
-            <input type="submit" name="submit" value="Save" class="btn btn-lg btn-primary" onclick="return checkfields();" />
+            <input type="submit" name="submit" value="<fmt:message key="admin.manageCodeStyles.Save"/>" class="btn btn-lg btn-primary" onclick="return checkfields();" />
         </div>
 
     </form>

@@ -91,7 +91,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
 
         // Security check — requires _tickler update privilege
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "u", null)) {
-            response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_tickler");
+            response.sendRedirect(request.getContextPath() + "/securityError?type=_tickler");
             return NONE;
         }
 
@@ -108,7 +108,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
 
             response.sendRedirect(request.getContextPath()
-                    + "/tickler/ticklerMain.jsp?sort_column=" + Encode.forUriComponent(sortColumn)
+                    + "/tickler/ViewTicklerMain?sort_column=" + Encode.forUriComponent(sortColumn)
                     + "&sort_order=" + Encode.forUriComponent(sortOrder));
             return NONE;
         }
@@ -142,7 +142,7 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
-        String redirect = request.getContextPath() + "/tickler/ticklerMain.jsp";
+        String redirect = request.getContextPath() + "/tickler/ViewTicklerMain";
         if (failCount > 0) {
             redirect += "?failCount=" + failCount;
         }

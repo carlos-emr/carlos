@@ -27,8 +27,9 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <form name="servicetypeform" method="post">
 <table width="75%" border="0" height="285">
@@ -97,9 +98,9 @@ int rCount = 0;
     for (CtlBillingService cbs:cbss1) {
 %><tr>
 				<td width="23%" valign="top" class="black"><a href=#
-					onClick='onUnbilled("<%= Encode.forJavaScript(cbs.getServiceType()) %>");return false;'
-					title="Delete Billing Form"><%= Encode.forHtml(cbs.getServiceType()) %></a></td>
-				<td width="77%" class="black"><%= Encode.forHtml(cbs.getServiceTypeName()) %></td>
+					onClick='onUnbilled("<carlos:encode value='<%= cbs.getServiceType() %>' context="javaScriptAttribute"/>");return false;'
+					title="Delete Billing Form"><carlos:encode value='<%= cbs.getServiceType() %>' context="html"/></a></td>
+				<td width="77%" class="black"><carlos:encode value='<%= cbs.getServiceTypeName() %>' context="html"/></td>
 			</tr>
 			<%
 }}%>

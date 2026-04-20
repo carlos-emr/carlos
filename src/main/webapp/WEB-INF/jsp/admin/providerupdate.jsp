@@ -28,18 +28,19 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="r" reverse="<%=true%>">
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
     <%authed = false; %>
 </security:oscarSec>
 
@@ -54,7 +55,7 @@
 %>
 <%@ page
         import="java.sql.*, io.github.carlos_emr.carlos.login.*, java.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
-        errorPage="/errorpage.jsp" %>
+        errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -234,13 +235,13 @@
         %>
         <p>
         <h2><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "")%>"><%= Encode.forHtml(request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "") %>
+            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>"><carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/>
             </a>
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><%= Encode.forHtml(StringUtils.noNull(request.getParameter("provider_no"))) %>.</h1>
+        <h1><fmt:message key="admin.providerupdate.msgUpdateFailure"/><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="html"/>.</h1>
         <%
             }
         } else {
@@ -248,7 +249,7 @@
                 //output ProviderFormalize error message
         %>
         <h1><fmt:message key="<%=errMsgProviderFormalize%>"/></h1>
-        Provider # range from : <%=min_value %> To : <%=max_value %>
+        <fmt:message key="admin.providerupdate.msgProviderRange"/> <%=min_value %> <fmt:message key="admin.providerupdate.msgTo"/> <%=max_value %>
         <%
                 }
             }

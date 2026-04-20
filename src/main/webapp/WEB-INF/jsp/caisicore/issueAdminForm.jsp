@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -34,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -45,13 +46,13 @@
 <title>MyIssues ~ Issue Details</title>
 <p>Please fill in issue's information below:</p>
 <!-- form action="/issueAdmin" focus="issueAdmin.code" onsubmit="return validateIssueAdminForm(this)" -->
-<form action="${pageContext.request.contextPath}/issueAdmin.do" method="post" focus="issueAdmin.code">
+<form action="${pageContext.request.contextPath}/issueAdmin" method="post" focus="issueAdmin.code">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="id" id="id"/>
     <input type="hidden" name="update_date_web" id="update_date_web"/>
 
     <div style="color: red">
-    <%@ include file="/caisicore/messages.jsp" %>
+    <%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
     <table>
         <tr>
@@ -74,12 +75,10 @@
                     <c:choose>
                         <c:when
                                 test="${caisiRole.name == issueAdminForm.map.issueAdmin.role}">
-                            <option value="<c:out value="${caisiRole.name}"/>" selected><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}" selected>${carlos:forHtml(caisiRole.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${caisiRole.name}"/>"><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}">${carlos:forHtml(caisiRole.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>

@@ -99,12 +99,19 @@ public class PrintLabs2Action extends ActionSupport {
 
                 //first write to a file
                 File f = File.createTempFile("labReport", ".pdf");
-                FileOutputStream fos = new FileOutputStream(f);
-                LabPDFCreator pdf = new LabPDFCreator(request, fos);
-                pdf.printPdf();
-                pdf.addEmbeddedDocuments(f, response.getOutputStream());
-
-                f.delete();
+                try {
+                    LabPDFCreator pdf;
+                    try (FileOutputStream fos = new FileOutputStream(f)) {
+                        pdf = new LabPDFCreator(request, fos);
+                        pdf.printPdf();
+                    }
+                    pdf.addEmbeddedDocuments(f, response.getOutputStream());
+                } finally {
+                    if (f.exists() && !f.delete()) {
+                        f.deleteOnExit();
+                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSanitizer.sanitize(f.getAbsolutePath()), segmentID);
+                    }
+                }
             }
         } catch (IOException ioe) {
             logger.error("IOException occurred inside PrintLabs2Action", ioe);

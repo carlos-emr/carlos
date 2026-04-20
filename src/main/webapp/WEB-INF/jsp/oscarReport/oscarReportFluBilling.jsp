@@ -30,13 +30,15 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,9 +49,6 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-
-
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -94,11 +93,11 @@
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <%=Encode.forHtml(years)%>
+        <carlos:encode value='<%= years %>' context="html"/>
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/FluBilling.do" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+<form action="${ctx}/oscarReport/FluBilling" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {
@@ -116,7 +115,7 @@
     <%
         for (Provider p : providers) {
     %>
-    <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=selled(p.getProviderNo(), pros)%>><%=Encode.forHtml(p.getFormattedName())%>
+    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=selled(p.getProviderNo(), pros)%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
     </option>
     <%
         }
@@ -149,19 +148,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><%=Encode.forHtml(demoData.demoName)%>
+        <td><carlos:encode value='<%= demoData.demoName %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoDOB())%>
+        <td><carlos:encode value='<%= demoData.getDemoDOB() %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoAge())%>
+        <td><carlos:encode value='<%= demoData.getDemoAge() %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.demoRosterStatus)%>
+        <td><carlos:encode value='<%= demoData.demoRosterStatus %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.demoPatientStatus)%>
+        <td><carlos:encode value='<%= demoData.demoPatientStatus %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.getDemoPhone())%>
+        <td><carlos:encode value='<%= demoData.getDemoPhone() %>' context="html"/>
         </td>
-        <td><%=Encode.forHtml(demoData.getBillingDate(fluData.years))%>
+        <td><carlos:encode value='<%= demoData.getBillingDate(fluData.years) %>' context="html"/>
         </td>
     </tr>
     <%

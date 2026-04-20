@@ -46,7 +46,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -63,11 +64,11 @@
         <%-- Waiting list removal prompt --%>
         <c:if test="${not empty waitingListName}">
             <form name="updateWLFrm" method="post"
-                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList.jsp">
-                <input type="hidden" name="listId" value="${e:forHtmlAttribute(waitingListId)}"/>
-                <input type="hidden" name="demographicNo" value="${e:forHtmlAttribute(waitingListDemographicNo)}"/>
+                  action="${pageContext.request.contextPath}/waitinglist/RemoveFromWaitingList">
+                <input type="hidden" name="listId" value="${carlos:forHtmlAttribute(waitingListId)}"/>
+                <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(waitingListDemographicNo)}"/>
                 <script language="JavaScript">
-                    var removeList = confirm("Click OK to remove patient from the waiting list: ${e:forJavaScript(waitingListName)}");
+                    var removeList = confirm("Click OK to remove patient from the waiting list: ${carlos:forJavaScript(waitingListName)}");
                     if (removeList) {
                         document.forms[0].submit();
                     }
@@ -81,9 +82,9 @@
                 <h1><fmt:message key="appointment.addappointment.msgAddSuccess"/></h1>
                 <script language="JavaScript">
                     <c:if test="${printReceipt}">
-                    popupPage(350, 750, 'printappointment.jsp?appointment_no=${e:forJavaScript(apptId)}');
+                    popupPage(350, 750, '${pageContext.request.contextPath}/appointment/printappointment?appointment_no=${carlos:forJavaScript(carlos:forUriComponent(apptId))}');
                     </c:if>
-                    self.opener.refresh();
+                    try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();
                 </script>
             </c:when>

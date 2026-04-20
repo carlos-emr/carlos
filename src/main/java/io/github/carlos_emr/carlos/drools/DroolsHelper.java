@@ -121,7 +121,7 @@ public final class DroolsHelper {
      * the DRL. The stream is automatically closed via try-with-resources.</p>
      *
      * <p>Typically used to load DRL files from the classpath, e.g.:
-     * {@code DroolsHelper.loadFromUrl(getClass().getResource("/oscar/oscarPrevention/prevention.drl"))}</p>
+     * {@code DroolsHelper.loadFromUrl(getClass().getResource("/oscar/prevention/prevention.drl"))}</p>
      *
      * @param url URL pointing to a DRL rule file (classpath or filesystem)
      * @return KieBase compiled rule base ready for creating KieSessions

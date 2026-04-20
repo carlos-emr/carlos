@@ -41,7 +41,7 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * <h3>Architecture Context</h3>
  * <p>The RTL eForm stores its HTML in the database ({@code eform.form_html} column),
- * but references external JavaScript and template files via {@code displayImage.do}
+ * but references external JavaScript and template files via {@code displayImage}
  * URLs. These files must exist on disk in the eForm images directory for the editor
  * to function. This deployer bridges the gap between the WAR-bundled source files
  * and the runtime filesystem location.</p>
@@ -84,7 +84,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
 
     /**
      * Assets to deploy. These filenames must match exactly what the RTL eForm's
-     * form_html references via {@code displayImage.do?imagefile=<filename>}.
+     * form_html references via {@code displayImage?imagefile=<filename>}.
      */
     private static final String[] ASSETS = {
         "editControl2.js",

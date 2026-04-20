@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Used by the Add Specialist page to look up Ontario physicians by name and auto-populate
  * contact details (address, phone, fax).</p>
  *
- * <p>Endpoint: {@code CpsoSearch2Action.do?lastName=Smith&firstName=Jo}</p>
+ * <p>Endpoint: {@code CpsoSearch2Action?lastName=Smith&firstName=Jo}</p>
  *
  * @since 2026-03-15
  */
