@@ -155,18 +155,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (imageType == null) {
             return null;
         }
-
-        String normalized = imageType.trim().toLowerCase();
-        if ("jpg".equals(normalized) || "jpeg".equals(normalized) || "image/jpeg".equals(normalized) || "image/jpg".equals(normalized)) {
-            return "jpeg";
-        }
-        if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
-            return "gif";
-        }
-        if ("png".equals(normalized) || "image/png".equals(normalized)) {
-            return "png";
-        }
-        return null;
+        return ClientImage.getRenderableImageType(imageType);
     }
 
     private static byte[] getDefaultImage(HttpServletRequest request) {

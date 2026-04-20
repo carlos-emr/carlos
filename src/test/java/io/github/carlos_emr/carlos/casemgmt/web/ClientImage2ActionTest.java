@@ -166,6 +166,37 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return error when no client is selected")
+    void shouldReturnError_whenClientIdMissing() {
+        request.getSession().removeAttribute("clientId");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(action.getActionErrors()).contains("No client selected.");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @Test
+    @DisplayName("should return error when uploaded file type is not supported")
+    void shouldReturnError_whenUploadedFileTypeNotSupported() throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".png");
+        Files.write(tempUploadFile.toPath(), new byte[]{5, 4, 3, 2});
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn("patient-photo.png");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(action.getActionErrors()).contains("Only GIF and JPG image types are allowed for the client photo.");
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @Test
     @DisplayName("should return error when no image is uploaded")
     void shouldReturnError_whenNoImageUploaded() {
         String result = action.execute();

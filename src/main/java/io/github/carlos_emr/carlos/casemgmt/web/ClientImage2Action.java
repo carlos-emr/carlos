@@ -74,9 +74,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         return saveImage();
     }
 
-    public String saveImage() {
-        validateWritePrivilege();
-
+    private String saveImage() {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
@@ -95,12 +93,12 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         // Get file extension from original filename
         String type = null;
         if (clientImageFileName.contains(".")) {
-            type = normalizeImageType(clientImageFileName.substring(clientImageFileName.lastIndexOf('.') + 1));
+            type = ClientImage.getRenderableImageType(clientImageFileName.substring(clientImageFileName.lastIndexOf('.') + 1));
         }
 
         log.info("extension = " + type);
 
-        if (type == null) {
+        if (!"jpeg".equals(type) && !"gif".equals(type)) {
             addActionError("Only GIF and JPG image types are allowed for the client photo.");
             return ERROR;
         }
@@ -133,24 +131,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         return SUCCESS;
     }
 
-    private String normalizeImageType(String imageType) {
-        if (imageType == null) {
-            return null;
-        }
-
-        String normalized = imageType.trim().toLowerCase();
-        if ("jpg".equals(normalized) || "jpeg".equals(normalized) || "image/jpeg".equals(normalized) || "image/jpg".equals(normalized)) {
-            return "jpeg";
-        }
-        if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
-            return "gif";
-        }
-        return null;
-    }
-
-    public String deleteImage() {
-        validateWritePrivilege();
-
+    private String deleteImage() {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
