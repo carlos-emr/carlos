@@ -73,6 +73,15 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
+    void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+
+        assertThat(struts).contains("<action name=\"eform/displayImage\"");
+        assertThat(struts).contains("<action name=\"eform/displayImage.do\"");
+    }
+
+    @Test
     @DisplayName("struts form config should forward only to internal WEB-INF views, not invented WEB-INF .do routes")
     void strutsFormConfigShouldNotForwardToWebInfDoRoutes() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
