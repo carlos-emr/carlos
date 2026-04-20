@@ -45,13 +45,15 @@ import static org.assertj.core.api.Assertions.*;
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
  * <p>This test class validates the public methods of the SecProviderDao interface.
- * The DAO uses Hibernate Criteria API and HQL as its primary query mechanisms,
- * making thorough testing critical for future Criteria API to JPA migration.</p>
+ * The DAO uses JPQL via {@code JpqlQueryHelper} for its query methods and restricts
+ * property lookups to an {@code ALLOWED_PROPERTIES} whitelist, making thorough
+ * testing critical for future query refactoring.</p>
  *
  * <p><b>Architecture notes:</b></p>
  * <ul>
- *   <li>{@code findByProperty()} is the generic Criteria-based method that all
- *       {@code findByXxx()} delegate methods call</li>
+ *   <li>{@code findByProperty()} is the generic JPQL-based method that all
+ *       {@code findByXxx()} delegate methods call, guarded by an allowed-property
+ *       whitelist</li>
  *   <li>{@code findByExample()} delegates to {@code findAll()} (Example API removed
  *       during JPA migration)</li>
  *   <li>{@code merge()}, {@code attachDirty()}, {@code attachClean()} are JPA
@@ -1848,9 +1850,14 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
             saved.setFirstName("MergedFirst");
             SecProvider merged = secProviderDao.merge(saved);
+            entityManager.flush();
+            entityManager.clear();
+            SecProvider reloaded = secProviderDao.findById(saved.getProviderNo());
 
             assertThat(merged).isNotNull();
             assertThat(merged.getFirstName()).isEqualTo("MergedFirst");
+            assertThat(reloaded).isNotNull();
+            assertThat(reloaded.getFirstName()).isEqualTo("MergedFirst");
         }
 
         @Test
