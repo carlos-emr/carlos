@@ -232,9 +232,9 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Appends the inline logout broadcast and session heartbeat script to the response.
      *
-     * @param delegatingResponse DelegatingServletResponse the wrapped response
-     * @param contextPath String the servlet context path
-     * @param locale Locale the user's locale for i18n message lookup
+     * @param delegatingResponse the wrapped response
+     * @param contextPath the servlet context path
+     * @param locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
     private void appendScript(DelegatingServletResponse delegatingResponse, String contextPath, Locale locale)
