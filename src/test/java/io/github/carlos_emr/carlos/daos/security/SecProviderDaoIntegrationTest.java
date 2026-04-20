@@ -52,16 +52,10 @@ import static org.assertj.core.api.Assertions.*;
  * <ul>
  *   <li>{@code findByProperty()} is the generic Criteria-based method that all
  *       {@code findByXxx()} delegate methods call</li>
- *   <li>{@code findByExample()} uses Hibernate's deprecated {@code Criteria} API
- *       with {@code Example.create()}</li>
- *   <li>{@code merge()}, {@code attachDirty()}, {@code attachClean()} are Hibernate
- *       session lifecycle methods</li>
- *   <li>The DAO interface has a design issue where {@code findByExample()},
- *       {@code merge()}, {@code attachDirty()}, and {@code attachClean()} accept
- *       {@code SecProviderDao} (the interface) instead of {@code SecProvider}
- *       (the entity). Since {@code SecProvider} does not implement {@code SecProviderDao},
- *       these methods are impossible to invoke correctly through the interface.
- *       They are documented here but not tested.</li>
+ *   <li>{@code findByExample()} delegates to {@code findAll()} (Example API removed
+ *       during JPA migration)</li>
+ *   <li>{@code merge()}, {@code attachDirty()}, {@code attachClean()} are JPA
+ *       entity lifecycle methods that accept a {@code SecProvider} entity</li>
  * </ul>
  *
  * @since 2026-02-03
@@ -1830,56 +1824,64 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
-    // API Design Issues - Documented but untestable methods
+    // Entity-typed lifecycle methods (merge, attachDirty, attachClean, findByExample)
     // ========================================================================
 
     /**
-     * The following methods have an interface design issue where they accept
-     * {@code SecProviderDao} (the DAO interface) instead of {@code SecProvider}
-     * (the entity class). Since {@code SecProvider} does not implement
-     * {@code SecProviderDao}, these methods cannot be invoked correctly through
-     * the interface without casting or interface redesign:
-     *
-     * <ul>
-     *   <li>{@code findByExample(SecProviderDao)} - would need {@code SecProvider} for
-     *       {@code Example.create()} to work</li>
-     *   <li>{@code merge(SecProviderDao)} - would need an entity instance for
-     *       {@code session.merge()} to work</li>
-     *   <li>{@code attachDirty(SecProviderDao)} - would need an entity instance for
-     *       {@code session.saveOrUpdate()} to work</li>
-     *   <li>{@code attachClean(SecProviderDao)} - would need an entity instance for
-     *       {@code session.lock()} to work</li>
-     * </ul>
-     *
-     * <p>These methods should be refactored to accept {@code SecProvider} instead
-     * of {@code SecProviderDao}. Until then, they remain untestable through the
-     * public API without type-safety violations.</p>
+     * Tests for the JPA entity lifecycle methods that accept a {@link SecProvider}
+     * entity: {@code merge()}, {@code attachDirty()}, {@code attachClean()}, and
+     * {@code findByExample()}. Prior to the fix for issue #1589, these methods
+     * incorrectly accepted {@code SecProviderDao} (the interface) instead of the
+     * entity class, making them impossible to invoke correctly.
      */
     @Nested
-    @DisplayName("API Design Issues - Documented")
-    class ApiDesignIssues {
+    @DisplayName("Entity lifecycle methods")
+    class EntityLifecycleMethods {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should merge detached SecProvider entity")
+        void shouldMergeDetachedEntity_whenInvokedWithDetachedInstance() {
+            SecProvider saved = createProvider(uniquePrefix + "M1", "MergeFirst", "MergeLast", "1");
+            hibernateTemplate.flush();
+            entityManager.detach(saved);
+
+            saved.setFirstName("MergedFirst");
+            SecProvider merged = secProviderDao.merge(saved);
+
+            assertThat(merged).isNotNull();
+            assertThat(merged.getFirstName()).isEqualTo("MergedFirst");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should attach dirty SecProvider entity without throwing")
+        void shouldAttachDirtyEntity_whenInvokedWithDetachedInstance() {
+            SecProvider saved = createProvider(uniquePrefix + "D1", "DirtyFirst", "DirtyLast", "1");
+            hibernateTemplate.flush();
+            entityManager.detach(saved);
+
+            assertThatCode(() -> secProviderDao.attachDirty(saved)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should attach clean SecProvider entity without throwing")
+        void shouldAttachCleanEntity_whenInvokedWithDetachedInstance() {
+            SecProvider saved = createProvider(uniquePrefix + "C1", "CleanFirst", "CleanLast", "1");
+            hibernateTemplate.flush();
+            entityManager.detach(saved);
+
+            assertThatCode(() -> secProviderDao.attachClean(saved)).doesNotThrowAnyException();
+        }
 
         @Test
         @Tag("read")
-        @DisplayName("should confirm findByExample, merge, attachDirty, attachClean accept wrong type in interface")
-        void shouldDocumentInterfaceDesignIssue_forIncorrectParameterTypes() {
-            // This test documents that 4 methods in SecProviderDao accept SecProviderDao
-            // (the interface) instead of SecProvider (the entity). Since SecProvider does
-            // not implement SecProviderDao, these methods are impossible to call correctly
-            // through the public interface.
-            //
-            // Methods affected:
-            //   - findByExample(SecProviderDao instance)
-            //   - merge(SecProviderDao detachedInstance)
-            //   - attachDirty(SecProviderDao instance)
-            //   - attachClean(SecProviderDao instance)
-            //
-            // The DAO is still functional for the remaining 24 methods.
-            // Verify the DAO is an instance of the expected type and works for normal operations
-            assertThat(secProviderDao).isInstanceOf(SecProviderDao.class);
-            // Verify findById still works, confirming the DAO's core methods are functional
-            // despite the 4 methods with incorrect parameter types
-            assertThat(secProviderDao.findById("NONEXISTENT_PROVIDER")).isNull();
+        @DisplayName("should return results when findByExample is called with a SecProvider entity")
+        void shouldReturnResults_whenFindByExampleCalledWithEntity() {
+            SecProvider example = new SecProvider();
+            List results = secProviderDao.findByExample(example);
+            assertThat(results).isNotNull();
         }
     }
 }
