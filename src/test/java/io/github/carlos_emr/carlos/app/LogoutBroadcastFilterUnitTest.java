@@ -77,8 +77,8 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should append logout script when HTML response is flushed during rendering")
-    void shouldAppendLogoutScript_whenHtmlResponseIsFlushedDuringRendering() throws Exception {
+    @DisplayName("should append logout script when response is flushed during rendering")
+    void shouldAppendLogoutScript_whenResponseIsFlushedDuringRendering() throws Exception {
         String contextPath = "/carlos";
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath(contextPath);
@@ -124,8 +124,8 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
-    @DisplayName("should append logout script when HTML response uses output stream")
-    void shouldAppendLogoutScript_whenHtmlResponseUsesOutputStream() throws Exception {
+    @DisplayName("should append logout script when response uses output stream")
+    void shouldAppendLogoutScript_whenResponseUsesOutputStream() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
         HttpSession session = request.getSession(true);
