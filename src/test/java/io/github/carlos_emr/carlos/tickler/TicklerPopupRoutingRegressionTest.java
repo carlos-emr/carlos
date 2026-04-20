@@ -39,8 +39,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TicklerPopupRoutingRegressionTest {
 
     private static final Path OSCAR_JS = Path.of("src/main/webapp/share/javascript/Oscar.js");
+    // Oscar.js keeps forceWindowPaths as a flat array of string literals; this
+    // regression test intentionally matches that simple structure.
     private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
             "(?:var|let|const)\\s+forceWindowPaths\\s*=\\s*\\[(?<body>[\\s\\S]*?)]\\s*;");
+    private static final Pattern VIEW_ADD_TICKLER_PATTERN = Pattern.compile("['\"`]ViewAddTickler['\"`]");
+    private static final Pattern FORWARD_DEMOGRAPHIC_TICKLER_PATTERN =
+            Pattern.compile("['\"`]ForwardDemographicTickler['\"`]");
 
     @Test
     @DisplayName("should keep opener-dependent tickler add routes in the force-window list")
@@ -53,7 +58,7 @@ class TicklerPopupRoutingRegressionTest {
                 .isTrue();
 
         String forceWindowPathsBody = matcher.group("body");
-        assertThat(forceWindowPathsBody).contains("ViewAddTickler");
-        assertThat(forceWindowPathsBody).contains("ForwardDemographicTickler");
+        assertThat(VIEW_ADD_TICKLER_PATTERN.matcher(forceWindowPathsBody).find()).isTrue();
+        assertThat(FORWARD_DEMOGRAPHIC_TICKLER_PATTERN.matcher(forceWindowPathsBody).find()).isTrue();
     }
 }
