@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
 
 /**
  * Security gate and data loader for the Log Admin Report page.
@@ -206,12 +205,9 @@ public class LogReport2Action extends ActionSupport {
                     prop.setProperty("ip", StringUtils.defaultString(logEntry.getIp()));
                     prop.setProperty("provider_no", StringUtils.defaultString(logEntry.getProviderNo()));
                     prop.setProperty("demographic_no", logEntry.getDemographicId() == null ? "" : logEntry.getDemographicId().toString());
-                    // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
-                    // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
-                    // to preserve the injected markup. The injected <br/> is constant application markup
-                    // and does not include any user-controlled content.
-                    prop.setProperty("data",
-                            Encode.forHtml(StringUtils.defaultString(logEntry.getData())).replace("\n", "<br/>"));
+                    // The view layer handles HTML encoding and newline rendering for the data column.
+                    // Keeping the raw value here avoids double-encoding (e.g. "<br/>" -> "&lt;br/&gt;").
+                    prop.setProperty("data", StringUtils.defaultString(logEntry.getData()));
                     vec.add(prop);
                 }
             } catch (Exception e) {
