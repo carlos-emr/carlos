@@ -142,9 +142,14 @@
 
                 <table width="100%" cellspacing="0" cellpadding="2" border="1"
                        datasrc='#xml_list'>
+                    <%
+                        String encounterReason = (subject != null && subject.length() >= 2)
+                                ? subject.substring(2).replace("|", " ")
+                                : "";
+                    %>
                     <tr>
                         <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>
-                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= subject.substring(2).replaceAll("\\|", " ") %>' context="html"/><br>
+                            <b><fmt:message key="provider.providerencounterprint.reason"/>:</b><carlos:encode value='<%= encounterReason %>' context="html"/><br>
                             <b><fmt:message key="provider.providerencounterprint.content"/>:</b>
                             <div datafld='xml_content'>
                         </td>
