@@ -1,0 +1,3 @@
+## 2024-06-25 - Extracted Dynamic Regex Pattern Compilation
+**Learning:** Code executed frequently during data processing, such as parsing methods in `DSValue.java`, can incur massive performance penalties due to dynamic `Pattern.compile(...)` calls within loops or heavily invoked static methods. `Pattern.compile` is an expensive operation that parses the regex pattern string and builds an internal state machine.
+**Action:** Always extract repeated regex compilations into `private static final Pattern` constants within the class. This ensures the regex is compiled only once when the class is loaded, drastically improving application performance for heavily used utility methods.
