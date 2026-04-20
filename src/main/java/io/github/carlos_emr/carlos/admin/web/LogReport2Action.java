@@ -116,8 +116,8 @@ public class LogReport2Action extends ActionSupport {
             }
 
             providers.sort(Comparator
-                    .comparing(ProviderData::getFirstName, Comparator.nullsFirst(Comparator.naturalOrder()))
-                    .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(Comparator.naturalOrder())));
+                    .comparing(ProviderData::getFirstName,  Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER))
+                    .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
 
             for (ProviderData provider : providers) {
                 String pNo = StringUtils.defaultString(provider.getId());
