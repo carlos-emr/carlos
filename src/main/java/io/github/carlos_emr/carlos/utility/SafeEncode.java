@@ -95,14 +95,14 @@ public final class SafeEncode {
      */
     public static String forHtmlContentWithBreaks(String value) {
         String encoded = forHtmlContent(nz(value));
-        if (encoded.indexOf('\n') < 0 && encoded.indexOf('\r') < 0) {
-            return encoded;
-        }
-
-        StringBuilder builder = new StringBuilder(encoded.length() + 16);
+        StringBuilder builder = null;
         for (int i = 0; i < encoded.length(); i++) {
             char current = encoded.charAt(i);
             if (current == '\r') {
+                if (builder == null) {
+                    builder = new StringBuilder(encoded.length() + 16);
+                    builder.append(encoded, 0, i);
+                }
                 builder.append("<br/>");
                 if (i + 1 < encoded.length() && encoded.charAt(i + 1) == '\n') {
                     i++;
@@ -110,12 +110,18 @@ public final class SafeEncode {
                 continue;
             }
             if (current == '\n') {
+                if (builder == null) {
+                    builder = new StringBuilder(encoded.length() + 16);
+                    builder.append(encoded, 0, i);
+                }
                 builder.append("<br/>");
                 continue;
             }
-            builder.append(current);
+            if (builder != null) {
+                builder.append(current);
+            }
         }
-        return builder.toString();
+        return builder == null ? encoded : builder.toString();
     }
 
     public static void forHtmlContent(Writer out, String value) throws IOException {
