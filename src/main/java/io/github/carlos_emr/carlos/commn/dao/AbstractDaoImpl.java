@@ -60,7 +60,7 @@ import io.github.carlos_emr.carlos.util.ParamAppender;
  *
  * <p>Consequently, if a subclass caches read methods, it <strong>must</strong> override
  * the write methods that perform self-invocation ({@link #batchPersist(List, int)},
- * {@link #batchRemove(List, int)}, {@link #saveEntity(AbstractModel)},
+ * {@link #batchRemove(List, int)}, {@link #saveEntity},
  * {@link #remove(Object)}) and annotate each override with the appropriate
  * {@code @CacheEvict}. Without these overrides, batch and save operations will leave
  * stale entries in the cache.</p>
