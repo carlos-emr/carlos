@@ -193,7 +193,7 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         try {
-            appendScript(response, delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IllegalStateException e) {
             // getWriter() fails if getOutputStream() was already called - skip injection
             logger.debug("Cannot inject logout script - output stream already obtained", e);
@@ -238,24 +238,23 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Appends the inline logout broadcast and session heartbeat script to the response.
      *
-     * @param response ServletResponse the original response for output
      * @param delegatingResponse DelegatingServletResponse the wrapped response
      * @param contextPath String the servlet context path
      * @param locale Locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
-    private void appendScript(ServletResponse response, DelegatingServletResponse delegatingResponse,
-                              String contextPath, Locale locale) throws IOException {
+    private void appendScript(DelegatingServletResponse delegatingResponse, String contextPath, Locale locale)
+            throws IOException {
 
         String script = buildScript(contextPath, locale);
 
         if (delegatingResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
+            delegatingResponse.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
         } else if (delegatingResponse.isResponseWriterObtained()) {
-            response.getWriter().print(script);
+            delegatingResponse.getWriter().print(script);
         }
 
-        response.flushBuffer();
+        delegatingResponse.flushBuffer();
     }
 
     /**

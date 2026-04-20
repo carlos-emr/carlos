@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.http.HttpSession;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -119,5 +120,28 @@ class LogoutBroadcastFilterUnitTest {
         String content = response.getContentAsString();
         assertThat(content).contains("<html><body>login</body></html>");
         assertThat(content).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
+    @Test
+    @DisplayName("should append logout script when authenticated HTML response uses output stream")
+    void shouldAppendLogoutScript_whenAuthenticatedHtmlResponseUsesOutputStream() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        HttpSession session = request.getSession(true);
+        session.setAttribute("user", "123");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getOutputStream().write("<html><body>stream</body></html>".getBytes(StandardCharsets.UTF_8));
+            servletResponse.flushBuffer();
+        };
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getContentAsString();
+        assertThat(content).contains("<html><body>stream</body></html>");
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
     }
 }
