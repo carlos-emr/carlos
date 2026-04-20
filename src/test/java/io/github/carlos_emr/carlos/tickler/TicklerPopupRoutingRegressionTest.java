@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,16 +39,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TicklerPopupRoutingRegressionTest {
 
     private static final Path OSCAR_JS = Path.of("src/main/webapp/share/javascript/Oscar.js");
+    private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
+            "(?:var|let|const)\\s+forceWindowPaths\\s*=\\s*\\[(?<body>[\\s\\S]*?)]\\s*;");
 
     @Test
     @DisplayName("should keep opener-dependent tickler add routes in the force-window list")
     void shouldKeepTicklerAddRoutes_inForceWindowList() throws IOException {
         String oscarJs = Files.readString(OSCAR_JS, StandardCharsets.UTF_8);
+        Matcher matcher = FORCE_WINDOW_PATHS_PATTERN.matcher(oscarJs);
 
-        assertThat(oscarJs)
+        assertThat(matcher.find())
                 .as("Oscar.js should declare the forceWindowPaths list")
-                .contains("forceWindowPaths");
-        assertThat(oscarJs).contains("ViewAddTickler");
-        assertThat(oscarJs).contains("ForwardDemographicTickler");
+                .isTrue();
+
+        String forceWindowPathsBody = matcher.group("body");
+        assertThat(forceWindowPathsBody).contains("ViewAddTickler");
+        assertThat(forceWindowPathsBody).contains("ForwardDemographicTickler");
     }
 }
