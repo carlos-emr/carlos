@@ -31,9 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -53,13 +51,11 @@ class LogoutBroadcastFilterUnitTest {
 
     private LogoutBroadcastFilter filter;
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
-
-    @Mock
     private CarlosProperties carlosProperties;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        carlosProperties = mock(CarlosProperties.class);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
         carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
