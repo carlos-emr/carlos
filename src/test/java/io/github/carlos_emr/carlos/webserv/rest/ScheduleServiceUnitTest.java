@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -70,10 +71,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     private AppointmentSearchDao appointmentSearchDao;
 
     private ScheduleService service;
+    private LoggedInInfo loggedInInfo;
 
     @BeforeEach
     void setUp() {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo = new LoggedInInfo();
         service = new ScheduleService() {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
@@ -97,6 +99,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         assertThat(nullIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
         assertThat(zeroIdResponse.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
         assertThat(zeroIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
         verify(appointmentSearchDao, never()).find(any());
     }
 
@@ -108,6 +111,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         Response response = service.saveSearchConfig(123, new SearchConfigTo1());
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
         verify(appointmentSearchDao, never()).find(any());
     }
 
