@@ -126,10 +126,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Override
-    public List findByExample(SecProviderDao instance) {
+    public List findByExample(SecProvider instance) {
         logger.debug("finding Provider instance by example (delegates to findAll)");
-        // Legacy method signature takes the DAO interface instead of the entity,
-        // making Example.create() non-functional. Delegate to findAll().
+        // Example-based querying is not implemented; delegate to findAll().
         return findAll();
     }
 
@@ -248,10 +247,10 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Override
-    public SecProviderDao merge(SecProviderDao detachedInstance) {
+    public SecProvider merge(SecProvider detachedInstance) {
         logger.debug("merging Provider instance");
         try {
-            SecProviderDao result = (SecProviderDao) entityManager().merge(detachedInstance);
+            SecProvider result = entityManager().merge(detachedInstance);
             logger.debug("merge successful");
             return result;
         } catch (RuntimeException re) {
@@ -261,7 +260,7 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Override
-    public void attachDirty(SecProviderDao instance) {
+    public void attachDirty(SecProvider instance) {
         logger.debug("attaching dirty Provider instance");
         try {
             entityManager().merge(instance);
@@ -273,7 +272,7 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Override
-    public void attachClean(SecProviderDao instance) {
+    public void attachClean(SecProvider instance) {
         logger.debug("attaching clean Provider instance");
         try {
             // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
@@ -281,7 +280,6 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
             // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
             // if the detached state differs from the database row. Callers relying on the old "clean"
             // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
-            // Pre-existing: parameter type should be SecProvider (entity), not SecProviderDao (interface).
             if (!entityManager().contains(instance)) {
                 entityManager().merge(instance);
             }
