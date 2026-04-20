@@ -170,8 +170,7 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(httpResponse);
+        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
         chain.doFilter(request, delegatingResponse);
 
         // Only inject for authenticated sessions
@@ -192,12 +191,7 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        try {
-            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
-        } catch (IllegalStateException e) {
-            // getWriter() fails if getOutputStream() was already called - skip injection
-            logger.debug("Cannot inject logout script - output stream already obtained", e);
-        }
+        appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
     }
 
     /**

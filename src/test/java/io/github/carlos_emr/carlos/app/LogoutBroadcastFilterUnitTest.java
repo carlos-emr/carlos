@@ -79,8 +79,9 @@ class LogoutBroadcastFilterUnitTest {
     @Test
     @DisplayName("should append logout script when authenticated HTML response is flushed during rendering")
     void shouldAppendLogoutScript_whenAuthenticatedHtmlResponseIsFlushedDuringRendering() throws Exception {
+        String contextPath = "/carlos";
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
-        request.setContextPath("/carlos");
+        request.setContextPath(contextPath);
         HttpSession session = request.getSession(true);
         session.setAttribute("user", "123");
 
@@ -98,7 +99,7 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("<html><body>schedule</body></html>");
         assertThat(content).contains("window.__carlosLogoutActive=true;");
         assertThat(content).contains("BroadcastChannel('carlos_logout')");
-        assertThat(content).contains("/carlos/status/SessionHeartbeat?autoRefresh=true");
+        assertThat(content).contains(contextPath + "/status/SessionHeartbeat?autoRefresh=true");
     }
 
     @Test
