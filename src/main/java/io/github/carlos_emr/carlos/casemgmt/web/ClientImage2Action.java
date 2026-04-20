@@ -167,6 +167,13 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         return SUCCESS;
     }
 
+    /**
+     * Validates that the current session has demographic write access before
+     * allowing client photo changes.
+     *
+     * @throws SecurityException if the user session is invalid or lacks
+     *                           {@code _demographic} write privileges
+     */
     private void validateWritePrivilege() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -177,6 +184,12 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         }
     }
 
+    /**
+     * Receives uploaded files from the Struts 7 multipart upload lifecycle and
+     * stores the first validated upload for later processing.
+     *
+     * @param uploadedFiles List<UploadedFile> the uploaded files supplied by Struts
+     */
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {

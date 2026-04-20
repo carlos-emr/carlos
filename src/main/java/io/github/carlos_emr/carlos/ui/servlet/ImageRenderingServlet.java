@@ -151,6 +151,14 @@ public final class ImageRenderingServlet extends HttpServlet {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
+    /**
+     * Determines whether a client image record has renderable binary data and a
+     * supported stored image type.
+     *
+     * @param clientImage ClientImage the stored client image record to inspect
+     * @return String the normalized renderable image subtype, or {@code null}
+     *         when the record is missing, empty, or unsupported
+     */
     private static String getRenderableImageType(ClientImage clientImage) {
         if (clientImage == null || clientImage.getImage_data() == null || clientImage.getImage_data().length == 0) {
             return null;

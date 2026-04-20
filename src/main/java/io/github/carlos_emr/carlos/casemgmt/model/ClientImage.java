@@ -89,6 +89,17 @@ public class ClientImage extends BaseObject {
         return update_date;
     }
 
+    /**
+     * Normalizes legacy client image type values to renderable image subtypes.
+     *
+     * <p>Accepts historical file-extension and MIME-style values used by CARLOS EMR
+     * client photo records, including {@code jpg}, {@code jpeg}, {@code image/jpg},
+     * {@code image/jpeg}, {@code gif}, and {@code image/gif}.</p>
+     *
+     * @param imageType String the stored image type value from the client image record
+     * @return String the normalized renderable subtype ({@code "jpeg"} or {@code "gif"}),
+     *         or {@code null} when the value is unsupported
+     */
     public static String getRenderableImageType(String imageType) {
         if (imageType == null) {
             return null;
