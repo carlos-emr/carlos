@@ -191,7 +191,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
             // records (program/user-type/provider links) associated with the program.
             List<ProgramFunctionalUser> results = programFunctionalUserDAO.getFunctionalUsers(testProgramId1);
             assertThat(results).hasSize(2);
-            assertThat(results).allMatch(pfu -> pfu.getProgramId().equals(testProgramId1));
+            assertThat(results).allMatch(pfu -> testProgramId1.equals(pfu.getProgramId()));
         }
 
         @Test
