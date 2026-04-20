@@ -36,7 +36,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,7 +57,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 
@@ -150,12 +151,12 @@
             <div class="alert alert-success fade show">
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 <h4 class="alert-heading">Success!</h4>
-                <p>Patient set "${e:forHtml(requestScope.setname)}" has been successfully deleted.</p>
+                <p>Patient set "${carlos:forHtml(requestScope.setname)}" has been successfully deleted.</p>
             </div>
             <% } %>
             <div class="row">
                 <div class="col-md-12">
-                    <form class="card card-body bg-body-tertiary form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
+                    <form class="card card-body bg-body-tertiary form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit">
                     <div><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
                             name="patientSet">
                         <option value="-1"><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgOptionSet"/></option>
@@ -171,7 +172,7 @@
                     </form> <%if( request.getAttribute("SET") != null ) {
                    List<Map<String,String>> list = (List<Map<String,String>>) request.getAttribute("SET");
                    String setName = (String) request.getAttribute("setname");%>
-                    <div><form action="${pageContext.request.contextPath}/report/SetEligibility.do" method="post">
+                    <div><form action="${pageContext.request.contextPath}/report/SetEligibility" method="post">
                         <input type="button" class="btn btn-secondary" data-bs-toggle="tooltip"
                                title="<fmt:message key="oscarReport.oscarReportDemoSetEdit.msgIneligible"/>"
                                value="<fmt:message key="oscarReport.oscarReportDemoSetEdit.btnSetIneligible"/>"

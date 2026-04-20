@@ -38,6 +38,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -49,11 +50,13 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
 %>
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none"
-         errorPage="/errorpage.jsp" %>
+         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean"
              scope="session"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -62,7 +65,7 @@
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -100,7 +103,7 @@
         </table>
         <table cellspacing="0" cellpadding="0" width="100%" border="0"
                BGCOLOR="<%=weakcolor%>">
-            <form method="post" action="${pageContext.request.contextPath}/admin/LotNrSearchResults.do" name="searchlotnr"
+            <form method="post" action="${pageContext.request.contextPath}/admin/LotNrSearchResults" name="searchlotnr"
                   onsubmit="return onsub();">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font
@@ -112,7 +115,7 @@
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                         NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                        value="<%=request.getParameter("keyword") != null ? Encode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
+                                                                        value="<%=request.getParameter("keyword") != null ? SafeEncode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
                         <INPUT
                                 TYPE="hidden" NAME="orderby" VALUE="prevention_type"> <INPUT
                                 TYPE="hidden" NAME="dboperation" VALUE="lotnr_search_prevention">
@@ -129,7 +132,7 @@
         <table width="100%" border="0">
             <tr>
                 <td align="left"><i><fmt:message key="admin.search.keywords"/></i>
-                    : <%=Encode.forHtml(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>
+                    : <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
                 </td>
             </tr>
         </table>
@@ -156,10 +159,10 @@
                         nItems++;
                 %>
                 <tr bgcolor="<%=bodd?"white":weakcolor%>">
-                    <td><%=Encode.forHtml(pRec.getPreventionType())%>
+                    <td><carlos:encode value='<%= pRec.getPreventionType() %>' context="html"/>
                     </td>
                     <td><a
-                     href="${pageContext.request.contextPath}/admin/lotnrdeleterecordhtm.jsp?prevention=<%=Encode.forUriComponent(pRec.getPreventionType())%>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><%=Encode.forHtml(pRec.getLotNr())%>
+                     href="${pageContext.request.contextPath}/admin/ViewLotNrDeleteRecordHtm?prevention=<carlos:encode value='<%= pRec.getPreventionType() %>' context="uriComponent"/>&lotnr=<%=URLEncoder.encode(pRec.getLotNr(), StandardCharsets.UTF_8)%>"><carlos:encode value='<%= pRec.getLotNr() %>' context="html"/>
                     </a></td>
                 </tr>
                 <% }
@@ -178,16 +181,16 @@
                 nLastPage = limit1 - limit2;
                 if (nLastPage >= 0) {
             %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nLastPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == limit2) {
         %> <a
-                href="${pageContext.request.contextPath}/admin/LotNrSearchResults.do?keyword=<%=Encode.forUriComponent(request.getParameter("keyword") != null ? request.getParameter("keyword") : "")%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "")%>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="${pageContext.request.contextPath}/admin/LotNrSearchResults?keyword=<carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="uriComponent"/>&search_mode=<carlos:encode value='<%= request.getParameter("search_mode") != null ? request.getParameter("search_mode") : "" %>' context="uriComponent"/>&limit1=<%=nNextPage%>&limit2=<%=limit2%>"><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>
             <br/>
-            <a href="${pageContext.request.contextPath}/admin/lotnraddrecordhtm.jsp">Add new Lot #</a>
+            <a href="${pageContext.request.contextPath}/admin/ViewLotNrAddRecordHtm">Add new Lot #</a>
         </center>
     </body>
 </html>

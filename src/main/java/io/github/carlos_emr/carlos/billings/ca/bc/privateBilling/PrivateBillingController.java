@@ -62,15 +62,20 @@ public class PrivateBillingController extends HttpServlet {
     private ProviderDao providerDao;
 
     /**
-     * Constructs a new PrivateBillingController instance.
+     * Initializes DAO dependencies from the Spring application context.
      * <p>
-     * Initializes the PrivateBillingDAO for database operations and retrieves the ProviderDao
-     * from the Spring application context for provider data access.
+     * Bean lookups are performed in {@code init()} rather than the constructor to
+     * guarantee that the Spring context is fully initialized before the beans are
+     * resolved — the servlet container may instantiate the servlet before the
+     * Spring context listener has finished.
      * </p>
+     *
+     * @throws ServletException if a required Spring bean cannot be resolved
      */
-    public PrivateBillingController() {
-        super();
-        dao = new PrivateBillingDAO();
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        dao = SpringUtils.getBean(PrivateBillingDAO.class);
         providerDao = SpringUtils.getBean(ProviderDao.class);
     }
 
@@ -203,7 +208,7 @@ public class PrivateBillingController extends HttpServlet {
                     map.put("clinicFax", clinic.getClinicFax());
 
                     // get patient invoice items
-                    String strRecipientName = (strRecipientId.isEmpty() || strRecipientId == "") ? "" : map.get("recipientName").toString();
+                    String strRecipientName = strRecipientId.isEmpty() ? "" : map.get("recipientName").toString();
                     List<HashMap<String, String>> invoiceItems = dao.listPrivateBillItems(strDemographicNumber, strRecipientName);
                     map.put("invoiceItems", invoiceItems);
 

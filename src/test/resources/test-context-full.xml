@@ -65,7 +65,6 @@
                 <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
                 <prop key="hibernate.show_sql">false</prop>
                 <prop key="hibernate.generate_statistics">false</prop>
-                <prop key="casemgmt.note.password.enabled">false</prop>
                 <prop key="pmm.refer.temporaryAdmission.enabled">false</prop>
                 <prop key="pmm.client.search.outside.of.domain.enabled">false</prop>
             </props>
@@ -167,6 +166,13 @@
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
                 <!-- Lookup / organization code mappings for LIKE-semantics tests -->
                 <value>com/quatro/model/LstOrgcd.hbm.xml</value>
+                <!-- Lookup DAO entity mappings: LookupDaoImpl was migrated to
+                     AbstractJpaDao (#1559 Task 5), so GetLookupTableDef and
+                     LoadFieldDefList now run HQL against the JPA EntityManager
+                     instead of the Hibernate SessionFactory. The EMF must know
+                     these HBM mappings for HQL to resolve the entities. -->
+                <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+                <value>com/quatro/model/FieldDefValue.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -591,7 +597,7 @@
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
     <!-- ===================================================================== -->
 
-    <!-- DemographicDao (extends AbstractHibernateDao, no @Repository) -->
+    <!-- DemographicDao (extends AbstractJpaDao, no @Repository) -->
     <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
 
     <!-- Other non-@Repository DAOs -->
@@ -599,9 +605,10 @@
     <bean id="drugDao" class="io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl" autowire="byName" />
     <bean id="preventionDao" class="io.github.carlos_emr.carlos.commn.dao.PreventionDaoImpl" autowire="byName" />
     <bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
-    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <!-- PopulationReportDaoImpl was migrated to AbstractJpaDao (#1559 Task 2);
+         it no longer exposes a setSessionFactory setter. Autowire by name uses the
+         shared EntityManager like the other JPA-migrated DAOs. -->
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName" />
 
     <!-- Case Management DAOs (no @Repository) -->
     <bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
@@ -694,7 +701,6 @@
         <property name="roleProgramAccessDAO" ref="RoleProgramAccessDAO" />
         <property name="rolesManager" ref="rolesManager" />
         <property name="admissionManager" ref="admissionManager" />
-        <property name="enabled" value="${casemgmt.note.password.enabled}" />
         <property name="programManager" ref="programManager" />
         <property name="programProviderDao" ref="programProviderDAO" />
         <property name="programAccessDAO" ref="programAccessDAO" />

@@ -16,7 +16,7 @@ This document provides a step-by-step process for refactoring legacy JSP files i
 Before refactoring, understand these non-negotiable constraints:
 
 1. **Preserve ALL field names** - Form field `name` attributes must remain identical
-2. **Preserve form action URLs** - Do not change where forms submit to
+2. **Preserve canonical action URLs** - Keep the real workflow target, but do not introduce or retain public JSP targets or `.do` routes in migrated code
 3. **Preserve hidden fields** - Many forms have hidden state fields that must be maintained
 4. **CSRF tokens are auto-injected** - CSRFGuard 4.5 auto-injects tokens via JavaScript (no manual handling needed)
 5. **Preserve window relationships** - Many pages are popups; don't break `window.opener`
@@ -110,7 +110,7 @@ Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
     <% authed = false; %>
-    <% response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_appointment"); %>
+    <% response.sendRedirect(request.getContextPath() + "/securityError?type=_appointment"); %>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -274,7 +274,7 @@ If JSTL cannot handle the logic, document why:
 
 | Old Pattern (Scriptlet) | New Pattern (JSTL/EL) |
 |-------------------------|------------------|
-| `<%= variable %>` | `${variable}` (for system data) or `<c:out value="${variable}"/>` |
+| `<%= variable %>` | `${e:forHtml(variable)}` |
 | `<%= request.getParameter("x") %>` | `${param.x}` |
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
@@ -283,10 +283,10 @@ If JSTL cannot handle the logic, document why:
 
 **Taglib declaration** (add to taglib block at top of JSP):
 ```jsp
-<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 ```
 
-For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The `encoder-jsp` EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
+For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The Jakarta EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
 
 | Context | EL Function (Preferred) | Scriptlet Alternative |
 |---------|------------------------|----------------------|
@@ -380,7 +380,7 @@ For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate e
 ```jsp
 <c:forEach items="${allStatuses}" var="status" varStatus="loop">
     <option value="${status.status}">
-        <c:out value="${status.description}"/>
+        ${e:forHtml(status.description)}
     </option>
 </c:forEach>
 ```
@@ -422,27 +422,128 @@ Then use in view:
 
 Alternative using `<c:url>` tag (preferred for URLs with parameters):
 ```jsp
-<a href="<c:url value='/appointment/view.do'><c:param name='id' value='${apptId}'/></c:url>">View</a>
+<a href="<c:url value='/appointment/view'><c:param name='id' value='${apptId}'/></c:url>">View</a>
 ```
 
 ### Step 2.6: Internationalization (i18n) Setup
 
-Always include the resource bundle declaration near the top of the view:
+> **Full i18n standards:** [docs/I18N-STANDARDS.md](I18N-STANDARDS.md)
+> **Per-file conversion checklist:** [docs/I18N-CONVERSION-CHECKLIST.md](I18N-CONVERSION-CHECKLIST.md)
+
+#### Bundle Declaration (single, pre-DOCTYPE)
+
+Place **one** `<fmt:setBundle>` declaration after all taglib declarations, immediately
+before `<!DOCTYPE html>`. Never repeat it inline before each `fmt:message`.
 
 ```jsp
+<%@ taglib uri="jakarta.tags.fmt"      prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core"     prefix="c"   %>
+<%@ taglib uri="owasp.encoder.jakarta" prefix="e"   %>
+
+<%-- Single bundle declaration — place here, before DOCTYPE --%>
 <fmt:setBundle basename="oscarResources"/>
+
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
 ```
 
-Then use messages:
+#### HTML lang Attribute
+
+Always use the dynamic locale from the request — **never** hardcode `lang="en"`:
+
 ```jsp
-<label><fmt:message key="Appointment.formDate"/>:</label>
+<%-- CORRECT --%>
+<html lang="${pageContext.request.locale.language}">
+
+<%-- WRONG — breaks screen readers for non-English users --%>
+<html lang="en">
 ```
 
-For messages with parameters:
+#### Key Naming
+
+Keys follow `<domain>.<jspFilename>.<elementDescription>` (see [I18N-STANDARDS.md](I18N-STANDARDS.md)):
+
+```properties
+# appointment/addAppointment.jsp
+appointment.addAppointment.title=Add Appointment
+appointment.addAppointment.labelDate=Date
+appointment.addAppointment.btnAdd=Add Appointment
+```
+
+#### Using fmt:message in HTML
+
 ```jsp
+<title><fmt:message key="appointment.addAppointment.title"/></title>
+<label><fmt:message key="appointment.addAppointment.labelDate"/>:</label>
+```
+
+For attribute values, capture to a variable first:
+
+```jsp
+<fmt:message key="appointment.addAppointment.tooltipHelp" var="tooltipHelp"/>
+<button title="${e:forHtmlAttribute(tooltipHelp)}">?</button>
+```
+
+#### Parameterized Messages
+
+```jsp
+<%-- Properties: appointment.welcome=Welcome, {0}. You have {1} appointments today. --%>
 <fmt:message key="appointment.welcome">
-    <fmt:param value="${providerName}"/>
+    <fmt:param value="${e:forHtml(providerName)}"/>
+    <fmt:param value="${apptCount}"/>
 </fmt:message>
+```
+
+#### JavaScript i18n — Use ResourceBundle + Encode.forJavaScript
+
+**Never** put hardcoded English strings inside `<script>` blocks. Load translated
+strings server-side and encode them with `Encode.forJavaScript()`:
+
+```jsp
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%
+    java.util.ResourceBundle oscarResources =
+        java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
+
+<script>
+    // Pre-computed i18n strings, safely encoded for JavaScript
+    var i18n = {
+        msgConfirmDelete: '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgConfirmDelete")) %>',
+        msgSaveSuccess:   '<%= Encode.forJavaScript(oscarResources.getString("appointment.addAppointment.msgSaveSuccess")) %>',
+        btnCancel:        '<%= Encode.forJavaScript(oscarResources.getString("global.btnCancel")) %>'
+    };
+</script>
+```
+
+Then use in JavaScript:
+```javascript
+if (!confirm(i18n.msgConfirmDelete)) return;
+```
+
+> **Reference implementations:**
+> - `demographic/demographiceditdemographic.jsp` — full `var i18n = {}` object
+> - `tickler/ticklerAdd.jsp` — individual `const` pattern + `alert()` i18n
+
+#### UTF-8 Encoding
+
+Properties files must be saved as valid UTF-8 on Java 21. Direct non-ASCII characters
+are allowed, and existing `\uXXXX` escapes remain valid. See
+[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-21).
+
+#### Legacy Pattern to Avoid
+
+The inline `fmt:setBundle` + `fmt:message` on the same line is a legacy pattern that
+must be cleaned up during conversion:
+
+```jsp
+<%-- LEGACY (do not create, clean up when encountered) --%>
+<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addAppointment.title"/>
+
+<%-- CORRECT (single bundle at top, message inline) --%>
+<fmt:message key="appointment.addAppointment.title"/>
 ```
 
 ### Step 2.7: Encoding Values in JavaScript Context
@@ -570,7 +671,7 @@ CARLOS EMR uses OWASP CSRFGuard 4.5 (configured in `web.xml` and `Owasp.CsrfGuar
 - The injected `csrfguard.js` handles form injection, XHR interception, and dynamic DOM node token injection
 
 ```jsp
-<form id="appointmentForm" action="${ctx}/appointment/addappointment.do" method="post">
+<form id="appointmentForm" action="${ctx}/appointment/addappointment" method="post">
     <%-- CSRF Token - AUTOMATICALLY INJECTED by csrfguard.js
          No taglib or manual hidden input required. The CsrfGuardScriptInjectionFilter
          injects the csrfguard script, which auto-adds the CSRF-TOKEN hidden field
@@ -768,7 +869,7 @@ See `docs/csrf-protection-architecture.md` for full architecture details.
 // csrfguard.js patches XMLHttpRequest — no manual CSRF handling needed
 $.ajax({
     type: "POST",
-    url: contextPath + "/someAction.do",
+    url: contextPath + "/someAction",
     data: { param1: value1 },
     dataType: 'json',
     success: function(data) {
@@ -796,7 +897,7 @@ async function submitData() {
             'CSRF-TOKEN': getCsrfToken()
         });
 
-        const response = await fetch(contextPath + '/someAction.do', {
+        const response = await fetch(contextPath + '/someAction', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -900,7 +1001,7 @@ Legacy code often uses `document.forms['FORMNAME']`. When adding `id`, keep the 
 
 ```html
 <%-- Keep BOTH name and id for backward compatibility --%>
-<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment.do" method="post">
+<form id="appointmentForm" name="ADDAPPT" action="${ctx}/appointment/addappointment" method="post">
 ```
 
 This allows:
@@ -983,7 +1084,7 @@ value='<%=request.getParameter("start_time")%>'
 ${pageContext.request.contextPath}
 
 <%-- JSTL tag --%>
-<c:out value="${ reason.label }"/>
+${e:forHtml(reason.label)}
 ```
 
 #### 3. Table-Based Layout

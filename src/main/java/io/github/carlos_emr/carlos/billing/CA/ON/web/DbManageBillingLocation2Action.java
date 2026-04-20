@@ -48,9 +48,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@link ClinicLocation} for each pair where both the location code is non-null/non-empty
  * and the description is non-empty.
  *
- * <p><strong>Bug fix:</strong> The original JSP used {@code location1 != ""} (reference
- * comparison) which never evaluates correctly in Java. This action uses
- * {@code !location1.isEmpty()} instead.
+ * <p><strong>Bug fix:</strong> The original JSP used {@code location1 != ""}, a reference
+ * comparison that is not reliable for string values in Java. This action uses a
+ * null-safe emptiness check ({@code !location1.isEmpty()} after a null guard) instead.
  *
  * <p>Single-quote characters do not require manual sanitization because the
  * DAO layer uses JPA/Hibernate parameterized queries, which handle quoting safely.
@@ -112,7 +112,7 @@ public class DbManageBillingLocation2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/manageBillingLocation.jsp");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/ManageBillingLocation");
         return NONE;
     }
 

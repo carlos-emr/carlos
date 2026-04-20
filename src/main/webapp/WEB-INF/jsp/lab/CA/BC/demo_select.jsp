@@ -1,0 +1,200 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="r" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@page import="java.util.List" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<%
+
+    String postTo = request.getParameter("postTo");
+    if (null == postTo) {
+        out.println("<script language=\"JavaScript\">javascript:window.close();</SCRIPT>");
+        return;
+    }
+
+
+    String startLimit = Misc.check(request.getParameter("startLimit"), "0");
+    String orderby = Misc.check(request.getParameter("orderby"), "LastName");
+    String column = Misc.check(request.getParameter("column"), null, orderby);
+
+    // Allowlist valid column names to prevent HQL injection in DemographicDao.findByField()
+    List<String> validColumns = List.of(
+        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    );
+    if (!validColumns.contains(orderby)) {
+        orderby = "LastName";
+    }
+    if (column != null && !column.isEmpty() && !validColumns.contains(column)) {
+        column = orderby;
+    }
+
+    Object keyword = Misc.check(request.getParameter("keyword"), "");
+    if (column != null && column.equals("DemographicNo")) {
+        keyword = ConversionUtils.fromIntString(keyword);
+    }
+
+    String url = request.getContextPath() + "/lab/CA/BC/ViewDemoSelect?keyword=" + URLEncoder.encode(String.valueOf(keyword), StandardCharsets.UTF_8) + "&postTo=" + URLEncoder.encode(postTo, StandardCharsets.UTF_8) + (column.equals("") ? "" : "&column=" + URLEncoder.encode(column, StandardCharsets.UTF_8));
+
+    DemographicDao dao = SpringUtils.getBean(DemographicDao.class);
+
+    String keywordForSearch = (keyword == null || "".equals(keyword)) ? "" : keyword + "%";
+    List<Demographic> demographics = dao.findByField(column, (Object) keywordForSearch, orderby, ConversionUtils.fromIntString(startLimit).intValue()); // deepcode ignore SqlInjection: column and orderby validated against validColumns allowlist above; keywordForSearch bound via named parameter in DAO
+%>
+
+<html>
+<head>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <title><fmt:message key="demographic.search.msgSearchPatient"/></title>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/oscar.css">
+    <script language="JavaScript">
+        function PopupReturn(index) {
+            window.opener.location = '<carlos:encode value='<%= postTo.replaceAll("-","&") %>' context="javaScriptBlock"/>' + index;
+            window.opener.focus();
+            window.close();
+        };
+    </SCRIPT>
+</head>
+<body>
+<form method="post" action="<%= request.getContextPath() %>/lab/CA/BC/ViewDemoSelect">
+    <table width="100%" class="DarkBG">
+        <tr>
+            <td height="40" width="25"></td>
+            <td width="90%" align="left"><font color="#4D4D4D"><b><font
+                    size="4">oscar<font size="3"><fmt:message key="demographic.search.msgSearchPatient"/></font></font></b></font></td>
+        </tr>
+    </table>
+    <table>
+        <tr>
+            <td><input type="hidden" name="postTo" value="<carlos:encode value='<%= postTo %>' context="htmlAttribute"/>"/> <input
+                    type="text" name="keyword" value="<carlos:encode value='<%= String.valueOf(keyword) %>' context="htmlAttribute"/>"/> <input
+                    type="submit" value="<fmt:message key='demographic.search.btnSearch'/>"/></td>
+        </tr>
+    </table>
+    <table width="100%" border="0" bgcolor="#ffffff" cellspacing="2"
+           cellpadding="2">
+        <tr>
+            <td width="10%" class="Text"><input type="radio" name="column"
+                                                value="DemographicNo"
+                    <%=(column.equals("DemographicNo") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=DemographicNo" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.demographicId"/></a></td>
+            <td width="20%" class="Text"><input type="radio" name="column"
+                                                value="LastName" <%=(column.equals("LastName") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url %>' context="htmlAttribute"/>"><fmt:message key="demographic.search.formName"/></a></td>
+            <td width="15%" class="Text"><input type="radio" name="column"
+                                                value="FirstName" <%=(column.equals("FirstName") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=FirstName" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.firstName"/></a></td>
+            <td width="10%" class="Text" align="center"><input type="radio"
+                                                               name="column" value="ChartNo"
+                    <%=(column.equals("ChartNo") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=ChartNo" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.optChart"/></a></td>
+            <td width="2%" class="Text" align="center"><input type="radio"
+                                                              name="column"
+                                                              value="Sex" <%=(column.equals("Sex") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=Sex" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.sex"/></a></td>
+            <td width="15%" class="Text" align="center"><input type="radio"
+                                                               name="column" value="YearOfBirth"
+                    <%=(column.equals("YearOfBirth") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=YearOfBirth" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.DOB"/></a></td>
+            <td width="2%" class="Text" align="center"><input type="radio"
+                                                              name="column" value="PatientStatus"
+                    <%=(column.equals("PatientStatus") ? "checked" : "")%> /><a
+                    href="<carlos:encode value='<%= url + "&orderby=PatientStatus" %>' context="htmlAttribute"/>"><fmt:message key="demographic.demographicsearch2apptresults.rosterStatus"/></a></td>
+        </tr>
+        <%
+            boolean other = true;
+            int count = 0;
+            for (Demographic d : demographics) {
+        %>
+        <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
+            <td class="Text" align="center"><a
+                    href="javascript:PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>')">
+                <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
+            </a></td>
+            <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getLastName()) %>' context="html"/>
+            </td>
+            <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getFirstName()) %>' context="html"/>
+            </td>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getChartNo(), "") %>' context="html"/>
+            </td>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getSex(), "") %>' context="html"/>
+            </td>
+            <td class="Text" align="center" nowrap><carlos:encode value='<%= d.getBirthDayAsString() %>' context="html"/>
+            </td>
+            <td class="Text" align="center"><carlos:encode value='<%= Misc.check(d.getPatientStatus(), "") %>' context="html"/>
+            </td>
+        </tr>
+        <%
+                count++;
+                other = !(other);
+            }
+
+            int start = Integer.parseInt(startLimit);
+            String next = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start + 10),
+                    previous = url + "&orderby=" + URLEncoder.encode(orderby, StandardCharsets.UTF_8) + "&startLimit=" + (start - 10);
+        %>
+        <tr>
+            <td width="50%" colspan="3" align="right" class="SmallerText">
+                &nbsp;<%=(start > 0 ? "<a href=\"" + SafeEncode.forHtmlAttribute(previous) + "\">previous</a>" : "")%>
+            </td>
+            <td width="50%" colspan="4" align="left" class="SmallerText">
+                | <%=(count == 10 ? "<a href=\"" + SafeEncode.forHtmlAttribute(next) + "\">next</a>" : "")%>&nbsp;
+            </td>
+        </tr>
+    </table>
+</form>
+</body>
+</html>

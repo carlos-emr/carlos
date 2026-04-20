@@ -843,8 +843,8 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for the {@link SecobjprivilegeDao#update(Secobjprivilege)} method.
      *
-     * <p>The {@code update()} implementation uses {@code HqlQueryHelper.bulkUpdate()}
-     * with the HQL: {@code update Secobjprivilege set providerNo = ?1 where
+     * <p>The {@code update()} implementation uses {@code JpqlQueryHelper.bulkUpdate()}
+     * with the JPQL: {@code update Secobjprivilege set providerNo = ?1 where
      * objectname_code = ?2 and privilege_code = ?3 and roleusergroup = ?4}.
      * It returns the count of rows updated, or 0 if {@code providerNo} is null
      * (early-return guard that routes the caller to {@code save()} instead).</p>

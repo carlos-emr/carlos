@@ -240,7 +240,7 @@ function createCache(options) {
             }
 
             jQuery.ajax({
-                url: "efmformapconfig_lookup.jsp",
+                url: "efmformapconfig_lookup",
                 data: query + "&" + window.location.search.substr(1),
                 success: function (response) {
                     response = jQuery(response);

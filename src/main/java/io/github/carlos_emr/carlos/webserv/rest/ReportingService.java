@@ -168,7 +168,11 @@ public class ReportingService extends AbstractServiceImpl {
 
         EFormReportToolConverter converter = new EFormReportToolConverter();
 
-        eformReportToolManager.addNew(getLoggedInInfo(), converter.getAsDomainObject(getLoggedInInfo(), json));
+        try {
+            eformReportToolManager.addNew(getLoggedInInfo(), converter.getAsDomainObject(getLoggedInInfo(), json));
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
         return RestResponse.successResponse(null);
     }

@@ -21,21 +21,25 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
-import java.sql.ResultSet;
+import java.sql.Timestamp;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.carlos.db.DBPreparedHandler;
-import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -45,9 +49,10 @@ import org.owasp.encoder.Encode;
  *
  * <p>Requires either {@code _admin} or {@code _admin.reporting} read privilege.
  * When the report form is submitted (POST with a non-null {@code submit}
- * parameter), this action executes fully-parameterized SQL queries against the
- * {@code log} table, eliminating the SQL-injection vulnerabilities that existed
- * in the original JSP:
+ * parameter), this action loads providers and audit log entries through the
+ * existing JPA/DAO layer, eliminating the deprecated direct JDBC usage that was
+ * preserved during the original JSP migration. The request filtering still
+ * addresses the SQL-injection vulnerabilities that existed in the original JSP:
  * <ul>
  *   <li>{@code providerNo} was concatenated directly into the query string.</li>
  *   <li>{@code content} was concatenated directly into the query string.</li>
@@ -80,6 +85,8 @@ import org.owasp.encoder.Encode;
 public class LogReport2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
+    private OscarLogDao oscarLogDao = SpringUtils.getBean(OscarLogDao.class);
 
     @Override
     public String execute() throws Exception {
@@ -97,44 +104,38 @@ public class LogReport2Action extends ActionSupport {
         boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_site_access_privacy", "r", null);
 
-        // Build the provider list for the dropdown using parameterized queries.
-        DBPreparedHandler dbObj = new DBPreparedHandler();
         Properties propName = new Properties();
         Vector<Properties> vecProvider = new Vector<>();
+        List<ProviderData> providers;
 
         try {
-            ResultSet rs;
             if (isSiteAccessPrivacy) {
-                // Filter providers to those sharing at least one site with the current user.
-                String sql = "select p.* from provider p"
-                        + " INNER JOIN providersite s ON p.provider_no = s.provider_no"
-                        + " WHERE s.site_id IN"
-                        + " (SELECT site_id FROM providersite WHERE provider_no = ?)"
-                        + " order by p.first_name, p.last_name";
-                DBPreparedHandlerParam[] providerParams = {new DBPreparedHandlerParam(curUser_no)};
-                rs = dbObj.queryResults(sql, providerParams);
+                providers = providerDataDao.findByProviderSite(curUser_no);
             } else {
-                rs = dbObj.queryResults(
-                    "select * from provider p order by p.first_name, p.last_name",
-                        new DBPreparedHandlerParam[0]);
+                providers = providerDataDao.findAllOrderByLastName();
             }
 
-            try {
-                while (rs.next()) {
-                    String pNo = Misc.getString(rs, "provider_no");
-                    String fullName = Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name");
-                    propName.setProperty(pNo, fullName);
+            providers.sort(Comparator
+                    .comparing(ProviderData::getFirstName, Comparator.nullsFirst(Comparator.naturalOrder()))
+                    .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(Comparator.naturalOrder())));
 
-                    Properties prop = new Properties();
-                    prop.setProperty("providerNo", pNo);
-                    prop.setProperty("name", fullName);
-                    vecProvider.add(prop);
-                }
-            } finally {
-                rs.close();
+            for (ProviderData provider : providers) {
+                String pNo = StringUtils.defaultString(provider.getId());
+                String fullName = (StringUtils.defaultString(provider.getFirstName()) + " " + StringUtils.defaultString(provider.getLastName())).trim();
+                propName.setProperty(pNo, fullName);
+
+                Properties prop = new Properties();
+                prop.setProperty("providerNo", pNo);
+                prop.setProperty("name", fullName);
+                vecProvider.add(prop);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to load provider list for log report", e);
+            // Fail closed: if we cannot determine the allowed provider set for site-restricted users,
+            // use an empty list so no cross-site log rows are returned.
+            providers = List.of();
+            propName = new Properties();
+            vecProvider = new Vector<>();
         }
 
         request.setAttribute("vecProvider", vecProvider);
@@ -166,74 +167,52 @@ public class LogReport2Action extends ActionSupport {
                 request.setAttribute("dateError", "Invalid date format. Please use YYYY-MM-DD.");
                 return SUCCESS;
             }
-            DBPreparedHandlerParam endDateParam = new DBPreparedHandlerParam(parsedEnd);
-            DBPreparedHandlerParam startDateParam = new DBPreparedHandlerParam(parsedStart);
+            // Build the allowed provider set for all site-restricted requests so both the
+            // all-providers and specific-provider report paths enforce the same privacy boundary.
+            List<String> siteRestrictedProviderNos = isSiteAccessPrivacy
+                    ? providers.stream()
+                            .map(ProviderData::getId)
+                            .filter(StringUtils::isNotBlank)
+                            .distinct()
+                            .toList()
+                    : null;
 
-            String sql;
-            DBPreparedHandlerParam[] params;
-
-            if (bAll) {
-                if (isSiteAccessPrivacy) {
-                    // All providers, but constrained to the current user's sites.
-                    sql = "select * from log force index (datetime)"
-                            + " where dateTime <= ? and dateTime >= ? and content like ?"
-                            + " and provider_no IN"
-                            + " (SELECT provider_no FROM providersite WHERE site_id IN"
-                            + " (SELECT site_id FROM providersite WHERE provider_no = ?))"
-                            + " order by dateTime desc";
-                    params = new DBPreparedHandlerParam[]{
-                            endDateParam,
-                            startDateParam,
-                            new DBPreparedHandlerParam(content),
-                            new DBPreparedHandlerParam(curUser_no)
-                    };
-                } else {
-                    sql = "select * from log force index (datetime)"
-                            + " where dateTime <= ? and dateTime >= ? and content like ?"
-                            + " order by dateTime desc";
-                    params = new DBPreparedHandlerParam[]{
-                            endDateParam,
-                            startDateParam,
-                            new DBPreparedHandlerParam(content)
-                    };
-                }
-            } else {
-                // Specific provider — providerNo bound as a parameter.
-                sql = "select * from log force index (datetime)"
-                        + " where provider_no = ? and dateTime <= ? and dateTime >= ?"
-                        + " and content like ? order by dateTime desc";
-                params = new DBPreparedHandlerParam[]{
-                        new DBPreparedHandlerParam(providerNo),
-                        endDateParam,
-                        startDateParam,
-                        new DBPreparedHandlerParam(content)
-                };
+            if (isUnauthorizedSiteRestrictedProviderRequest(isSiteAccessPrivacy, bAll, providerNo, siteRestrictedProviderNos)) {
+                request.setAttribute("vec", new Vector<Properties>());
+                request.setAttribute("bAll", bAll);
+                request.setAttribute("providerNo", providerNo);
+                request.setAttribute("startDate", sDate);
+                request.setAttribute("endDate", eDate);
+                return SUCCESS;
             }
 
             Vector<Properties> vec = new Vector<>();
             try {
-                ResultSet logRs = dbObj.queryResults(sql, params);
-                try {
-                    while (logRs.next()) {
-                        Properties prop = new Properties();
-                        prop.setProperty("dateTime", "" + logRs.getTimestamp("dateTime"));
-                        // Do not pre-encode these string fields — the view layer is responsible for output encoding.
-                        // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
-                        prop.setProperty("action", Misc.getString(logRs, "action"));
-                        prop.setProperty("content", Misc.getString(logRs, "content"));
-                        prop.setProperty("contentId", Misc.getString(logRs, "contentId"));
-                        prop.setProperty("ip", Misc.getString(logRs, "ip"));
-                        prop.setProperty("provider_no", Misc.getString(logRs, "provider_no"));
-                        prop.setProperty("demographic_no", Misc.getString(logRs, "demographic_no"));
-                        // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
-                        // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
-                        // to preserve the injected markup.
-                        prop.setProperty("data",
-                                Encode.forHtml(Misc.getString(logRs, "data")).replaceAll("\n", "<br/>"));
-                        vec.add(prop);
-                    }
-                } finally {
-                    logRs.close();
+                List<OscarLog> logEntries = oscarLogDao.findForReport(
+                        parsedStart,
+                        parsedEnd,
+                        content,
+                        bAll ? null : providerNo,
+                        siteRestrictedProviderNos);
+
+                for (OscarLog logEntry : logEntries) {
+                    Properties prop = new Properties();
+                    prop.setProperty("dateTime", formatTimestamp(logEntry.getCreated()));
+                    // Do not pre-encode these string fields — the view layer is responsible for output encoding.
+                    // Pre-encoding here would cause double-encoding (e.g. "<" → "&amp;lt;").
+                    prop.setProperty("action", StringUtils.defaultString(logEntry.getAction()));
+                    prop.setProperty("content", StringUtils.defaultString(logEntry.getContent()));
+                    prop.setProperty("contentId", StringUtils.defaultString(logEntry.getContentId()));
+                    prop.setProperty("ip", StringUtils.defaultString(logEntry.getIp()));
+                    prop.setProperty("provider_no", StringUtils.defaultString(logEntry.getProviderNo()));
+                    prop.setProperty("demographic_no", logEntry.getDemographicId() == null ? "" : logEntry.getDemographicId().toString());
+                    // For 'data' we inject <br/> line-break tags, so we must encode HTML-special chars
+                    // first and then add the <br/> tags. The JSP outputs this field raw (not via <c:out>)
+                    // to preserve the injected markup. The injected <br/> is constant application markup
+                    // and does not include any user-controlled content.
+                    prop.setProperty("data",
+                            Encode.forHtml(StringUtils.defaultString(logEntry.getData())).replace("\n", "<br/>"));
+                    vec.add(prop);
                 }
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Failed to execute log report query", e);
@@ -247,5 +226,15 @@ public class LogReport2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    private boolean isUnauthorizedSiteRestrictedProviderRequest(boolean isSiteAccessPrivacy, boolean bAll,
+                                                                String providerNo, List<String> siteRestrictedProviderNos) {
+        return isSiteAccessPrivacy && !bAll
+                && (providerNo == null || siteRestrictedProviderNos == null || !siteRestrictedProviderNos.contains(providerNo));
+    }
+
+    private String formatTimestamp(java.util.Date value) {
+        return value == null ? "" : new Timestamp(value.getTime()).toString();
     }
 }

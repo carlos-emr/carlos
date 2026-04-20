@@ -467,7 +467,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for getCurrentTeamProviders(String providerNo).
      *
-     * <p>This method uses parameterized HQL via {@code HqlQueryHelper.find()} to find
+     * <p>This method uses parameterized JPQL via {@code JpqlQueryHelper.find()} to find
      * active providers with non-empty OHIP numbers on the same team as the given provider.
      * Parameters are bound via {@code ?1} and {@code ?2} positional syntax.</p>
      */

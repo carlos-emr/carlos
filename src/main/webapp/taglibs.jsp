@@ -27,11 +27,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@ taglib uri="http://displaytag.sf.net" prefix="display-el" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>

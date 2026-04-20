@@ -51,12 +51,15 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Hibernate;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.EncounterUtil;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -724,5 +727,104 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
             issueIdList.add(Long.parseLong(id.trim()));
         }
         return issueIdList;
+    }
+
+    /**
+     * Returns lightweight case management note list DTOs for a demographic, ordered by
+     * observation date descending. Pre-joins provider name (HBM PascalCase:
+     * {@code p.LastName}, {@code p.FirstName}) via LEFT JOIN. Eliminates 3 {@code lazy=false}
+     * collections on the full {@code CaseManagementNote} entity.
+     *
+     * @param demographicNo String the demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending; empty if none found
+     * @throws org.hibernate.HibernateException if the underlying query fails
+     * @since 2026-04-11
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo) {
+        // HBM-mapped Provider uses PascalCase property names (ProviderNo, LastName,
+        // FirstName) per Provider.hbm.xml; HQL must reference the HBM name attribute.
+        TypedQuery<CaseManagementNoteListDTO> query = entityManager().createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO(
+                    cmn.id, cmn.update_date, cmn.observation_date, cmn.demographic_no,
+                    cmn.signed, cmn.providerNo, cmn.signing_provider_no, cmn.encounter_type,
+                    cmn.billing_code, cmn.program_no, cmn.uuid,
+                    cmn.locked, cmn.archived, cmn.appointmentNo,
+                    p.LastName, p.FirstName)
+                FROM CaseManagementNote cmn
+                LEFT JOIN Provider p ON p.ProviderNo = cmn.providerNo
+                WHERE cmn.demographic_no = :demoNo
+                ORDER BY cmn.observation_date DESC
+                """,
+                CaseManagementNoteListDTO.class);
+        query.setParameter("demoNo", demographicNo);
+        return query.getResultList();
+    }
+
+    /**
+     * Returns encounter counts grouped by {@link EncounterUtil.EncounterType} for the
+     * notes in the given role (and optionally program) in the date range.
+     *
+     * <p>Migrated from the legacy static JDBC helper on {@link CaseManagementNoteDAO}:
+     * converting to an instance method lets this query participate in the Spring
+     * {@link Transactional @Transactional} context via {@link #entityManager()},
+     * rather than running outside Spring transactions on an autoCommit connection.</p>
+     *
+     * @param programId Integer the program number, or {@code null} to span all programs
+     * @param roleId int the reporter_caisi_role to match
+     * @param startDate Date inclusive lower bound on observation_date
+     * @param endDate Date exclusive upper bound on observation_date
+     * @return EncounterCounts non-null aggregate, zero-initialised for types with no matches
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
+                                                                           Date startDate, Date endDate) {
+        EncounterCounts results = new EncounterCounts();
+
+        // Broken down by encounter type
+        String breakdownSql = String.join(" ",
+                "select encounter_type, count(demographic_no), count(distinct demographic_no)",
+                "from casemgmt_note",
+                "where reporter_caisi_role = :roleId",
+                "and observation_date >= :startDate",
+                "and observation_date < :endDate",
+                (programId == null ? "" : "and program_no = :programId"),
+                "group by encounter_type");
+
+        Query breakdownQuery = entityManager().createNativeQuery(breakdownSql);
+        breakdownQuery.setParameter("roleId", roleId);
+        breakdownQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
+        breakdownQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
+        if (programId != null) breakdownQuery.setParameter("programId", programId);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> breakdownRows = breakdownQuery.getResultList();
+        for (Object[] row : breakdownRows) {
+            EncounterUtil.EncounterType encounterType = EncounterUtil
+                    .getEncounterTypeFromOldDbValue((String) row[0]);
+            results.nonUniqueCounts.put(encounterType, ((Number) row[1]).intValue());
+            results.uniqueCounts.put(encounterType, ((Number) row[2]).intValue());
+        }
+
+        // Total unique count (not broken down)
+        String totalSql = String.join(" ",
+                "select count(distinct demographic_no)",
+                "from casemgmt_note",
+                "where reporter_caisi_role = :roleId",
+                "and observation_date >= :startDate",
+                "and observation_date < :endDate",
+                (programId == null ? "" : "and program_no = :programId"));
+
+        Query totalQuery = entityManager().createNativeQuery(totalSql);
+        totalQuery.setParameter("roleId", roleId);
+        totalQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
+        totalQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
+        if (programId != null) totalQuery.setParameter("programId", programId);
+
+        results.totalUniqueCount = ((Number) totalQuery.getSingleResult()).intValue();
+
+        return results;
     }
 }

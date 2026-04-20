@@ -43,10 +43,12 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +56,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,6 +67,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -149,6 +153,9 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     @Mock
     private DocumentManager mockDocumentManager;
 
+    @Mock
+    private FormsManager mockFormsManager;
+
     // --- Infrastructure Mocks ---
     @Mock
     private LoggedInInfo mockLoggedInInfo;
@@ -180,6 +187,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DemographicManager.class, mockDemographicManager);
         registerMock(DocumentManager.class, mockDocumentManager);
+        registerMock(FormsManager.class, mockFormsManager);
 
         // Security manager returns true for all privilege checks in unit tests
         lenient().when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
@@ -203,6 +211,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         injectDependency(consultationManager, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(consultationManager, "demographicManager", mockDemographicManager);
         injectDependency(consultationManager, "documentManager", mockDocumentManager);
+        injectDependency(consultationManager, "formsManager", mockFormsManager);
     }
 
     // =========================================================================
@@ -564,6 +573,73 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
             // Then - extras should be batch persisted since they are new
             verify(mockConsultationRequestExtDao).batchPersist(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Attached Documents")
+    @Tag("read")
+    class AttachedDocuments {
+
+        @Test
+        @DisplayName("should return only attached forms in attachment order")
+        void shouldReturnOnlyAttachedForms_whenFilteringForms() {
+            // Given
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 130, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO)));
+            when(mockFormsManager.getEncounterFormsbyDemographicNumber(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, true, true))
+                    .thenReturn(List.of(
+                            new EctFormData.PatientForm("Form 130", 130, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 999", 999, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 120", 120, TEST_DEMOGRAPHIC_NO, new Date(), new Date())));
+
+            // When
+            List<EctFormData.PatientForm> result =
+                    consultationManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO);
+
+            // Then
+            assertThat(result).extracting(EctFormData.PatientForm::getFormId).containsExactly("120", "130");
+        }
+
+        @Test
+        @DisplayName("should match attached HRM documents by Integer value")
+        void shouldMatchAttachedHrmDocuments_whenIdsExceedIntegerCacheRange() {
+            // Given
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 128, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 5, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO)));
+
+            List<HashMap<String, ? extends Object>> allHrmDocuments = new ArrayList<>();
+            allHrmDocuments.add(createHrmDocument(128));
+            allHrmDocuments.add(createHrmDocument(999));
+            allHrmDocuments.add(createHrmDocument(5));
+
+            try (MockedStatic<HRMUtil> hrmUtilMock = Mockito.mockStatic(HRMUtil.class)) {
+                hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, TEST_DEMOGRAPHIC_NO.toString(), false))
+                        .thenReturn(allHrmDocuments);
+
+                // When
+                ArrayList<HashMap<String, ? extends Object>> result =
+                        consultationManager.getAttachedHRMDocuments(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString());
+
+                // Then
+                assertThat(result).extracting(map -> (Integer) map.get("id")).containsExactly(128, 5);
+            }
+        }
+
+        /**
+         * Creates a minimal HRM document row keyed by ID for attachment filtering tests.
+         *
+         * @param id Integer the HRM document identifier to expose in the map
+         * @return HashMap<String, Object> the simulated HRM document row
+         */
+        private HashMap<String, Object> createHrmDocument(Integer id) {
+            HashMap<String, Object> hrmDocument = new HashMap<>();
+            hrmDocument.put("id", id);
+            return hrmDocument;
         }
     }
 

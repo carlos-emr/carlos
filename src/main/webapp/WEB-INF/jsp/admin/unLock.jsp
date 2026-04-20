@@ -30,12 +30,11 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
@@ -48,7 +47,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.unlockAccount" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin&type=_admin.unlockAccount");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -91,6 +90,8 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -116,17 +117,17 @@
         </div>
     </div>
 
-    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock.do">
+    <form method="post" name="baseurl" action="${pageContext.request.contextPath}/admin/UnLock">
         <% if (!msg.isEmpty()) { %>
         <div class="alert alert-success">
-            <%= Encode.forHtml(msg) %>
+            <carlos:encode value='<%= msg %>' context="html"/>
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">
             <b><fmt:message key="admin.providersearchresults.ID"/></b>
             <select name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>
-                <option value="<%=Encode.forHtmlAttribute((String) vec.get(i))%>"><%=Encode.forHtmlContent((String) vec.get(i))%>
+                <option value="<carlos:encode value='<%= (String) vec.get(i) %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) vec.get(i) %>' context="html"/>
                 </option>
                 <% } %>
             </select> <input type="submit" name="submit" class="btn btn-primary"

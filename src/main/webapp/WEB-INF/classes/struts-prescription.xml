@@ -28,143 +28,220 @@
 <struts>
     <package name="prescription" namespace="/" extends="struts-default">
 
-        <action name="oscarRx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
+        <action name="rx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
         </action>
-        <action name="oscarRx/searchDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchDrug2Action">
-            <result name="success">/oscarRx/ChooseDrug.jsp</result>
-            <result name="error">/500.jsp</result>
+        <action name="rx/searchDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchDrug2Action">
+            <result name="success">/WEB-INF/jsp/rx/ChooseDrug.jsp</result>
+            <result name="error">/WEB-INF/jsp/error/500.jsp</result>
         </action>
-        <action name="oscarRx/chooseDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action">
-            <result name="success">/oscarRx/WriteScript.jsp</result>
+        <action name="rx/chooseDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action">
+            <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
         </action>
-        <action name="oscarRx/viewScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxViewScript2Action">
-            <result name="viewScript">/oscarRx/ViewScript2.jsp</result>
+        <action name="rx/viewScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxViewScript2Action">
+            <result name="viewScript">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
         </action>
-        <action name="oscarRx/WriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
-            <result name="newRx">/oscarRx/prescribe.jsp</result>
-            <result name="refresh">/oscarRx/WriteScript.jsp</result>
-            <result name="addAnother">/oscarRx/SearchDrug3.jsp</result>
-            <result name="viewScript">/oscarRx/ViewScript2.jsp</result>
+        <action name="rx/WriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
+            <result name="newRx">/WEB-INF/jsp/rx/prescribe.jsp</result>
+            <result name="refresh">/WEB-INF/jsp/rx/WriteScript.jsp</result>
+            <result name="addAnother">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="viewScript">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
         </action>
-        <action name="oscarRx/writeScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
-            <result name="refresh">/oscarRx/WriteScript.jsp</result>
-            <result name="addAnother">/oscarRx/SearchDrug3.jsp</result>
-            <result name="viewScript">/oscarRx/ViewScript2.jsp</result>
+        <action name="rx/writeScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
+            <result name="refresh">/WEB-INF/jsp/rx/WriteScript.jsp</result>
+            <result name="addAnother">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="viewScript">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
         </action>
-        <action name="oscarRx/stash" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action">
-            <result name="success">/oscarRx/WriteScript.jsp</result>
+        <action name="rx/stash" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action">
+            <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
         </action>
-        <action name="oscarRx/rxStashDelete" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
+        <action name="rx/rxStashDelete" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
         </action>
-        <action name="oscarRx/UpdateScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"/>
-        <action name="oscarRx/useFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action">
-            <result name="success">/oscarRx/WriteScript.jsp</result>
-            <result name="useFav2">/oscarRx/prescribe.jsp</result>
+        <action name="rx/UpdateScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"/>
+        <action name="rx/useFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
+            <result name="useFav2">/WEB-INF/jsp/rx/prescribe.jsp</result>
         </action>
-        <action name="oscarRx/addFavoriteStaticScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
-            <result name="success">/oscarRx/StaticScript2.jsp</result>
+        <action name="rx/addFavoriteStaticScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/StaticScript2.jsp</result>
+        </action>
+        <action name="rx/ViewStaticScript2" class="io.github.carlos_emr.carlos.prescript.gate.ViewStaticScript2Action">
+            <result name="success">/WEB-INF/jsp/rx/StaticScript2.jsp</result>
+        </action>
+
+
+        <action name="rx/addFavoriteWriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
+        </action>
+        <action name="rx/addFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action"/>
+        <action name="rx/updateFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
+        </action>
+        <action name="rx/updateFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
+        </action>
+        <action name="rx/deleteFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
+        </action>
+        <action name="rx/deleteFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action">
+            <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
+        </action>
+        <action name="rx/rePrescribe" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action">
+            <result name="success">/WEB-INF/jsp/rx/WriteScript.jsp</result>
+            <result name="reprint">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
+        </action>
+        <action name="rx/rePrescribe2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="repcbLongTerm">/WEB-INF/jsp/rx/prescribe.jsp</result>
+            <result name="represcribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
+        </action>
+        <action name="rx/search" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
+            <result name="prescribe">/WEB-INF/jsp/rx/prescribe.jsp</result>
+        </action>
+        <action name="rx/saveDigitalSignature" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action" method="saveDigitalSignature">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+        </action>
+        <action name="rx/deleteRx" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="successClearStash">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+        </action>
+        <action name="rx/clearPending" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="close">/rx/close.html</result>
+        </action>
+        <action name="rx/searchAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchAllergy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ChooseAllergy2.jsp</result>
+        </action>
+        <action name="rx/searchAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchAllergy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ChooseAllergy2.jsp</result>
+        </action>
+        <action name="rx/addAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
+            <result name="success" type="redirect">/rx/showAllergy?demographicNo=${#session.Patient.demographicNo}</result>
+        </action>
+        <action name="rx/addAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
+            <result name="success" type="redirect">/rx/showAllergy?demographicNo=${#session.Patient.demographicNo}</result>
+        </action>
+        <action name="rx/addReaction" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
+            <result name="success">/WEB-INF/jsp/rx/AddReaction2.jsp</result>
+        </action>
+        <action name="rx/addReaction2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
+            <result name="success">/WEB-INF/jsp/rx/AddReaction2.jsp</result>
+        </action>
+        <action name="rx/deleteAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
+        </action>
+        <action name="rx/deleteAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
+        </action>
+        <action name="rx/showAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ShowAllergies2.jsp</result>
+            <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
+        </action>
+        <action name="rx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
+            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+        </action>
+        <action name="rx/managePharmacy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
+            <result name="success">/WEB-INF/jsp/rx/SelectPharmacy2.jsp</result>
+        </action>
+        <action name="rx/managePharmacy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
+            <result name="success">/WEB-INF/jsp/rx/SelectPharmacy2.jsp</result>
+        </action>
+        <action name="rx/RxReason" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action">
+            <result name="close">/rx/close.html</result>
+            <result name="success">/WEB-INF/jsp/rx/SelectReason.jsp</result>
+        </action>
+        <action name="rx/GetRxPageSizeInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRxPageSizeInfo2Action">
+            <result name="success">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
+        </action>
+        <action name="rx/WriteToEncounter" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action">
+            <result name="success">/WEB-INF/jsp/rx/ViewScript2.jsp</result>
+        </action>
+        <action name="rx/updateDrugrefDB" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action"/>
+        <action name="rx/copyFavorite" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
+        </action>
+        <action name="rx/hideCpp" class="io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action"/>
+        <action name="rx/reorderDrug" class="io.github.carlos_emr.carlos.prescript.web.RxReorder2Action"/>
+        <action name="rx/copyFavorite2" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
+            <result name="success">/WEB-INF/jsp/rx/CopyFavorites2.jsp</result>
+            <result name="edit">/WEB-INF/jsp/appointment/appointmentstatusedit.jsp</result>
         </action>
 
 
-        <action name="oscarRx/addFavoriteWriteScript" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action">
-            <result name="success">/oscarRx/WriteScript.jsp</result>
+        <!-- ===== rx (formerly oscarRx) JSP gating actions (migration) ===== -->
+        <action name="rx/ViewAddRxComment" class="io.github.carlos_emr.carlos.prescript.gate.ViewAddRxComment2Action">
+            <result name="success">/WEB-INF/jsp/rx/AddRxComment.jsp</result>
         </action>
-        <action name="oscarRx/addFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action"/>
-        <action name="oscarRx/updateFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action">
-            <result name="success">/oscarRx/EditFavorites2.jsp</result>
+        <action name="rx/ViewDisplayRxRecord" class="io.github.carlos_emr.carlos.prescript.gate.ViewDisplayRxRecord2Action">
+            <result name="success">/WEB-INF/jsp/rx/DisplayRxRecord.jsp</result>
         </action>
-        <action name="oscarRx/updateFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action">
-            <result name="success">/oscarRx/EditFavorites2.jsp</result>
+        <action name="rx/ViewDrugPrice" class="io.github.carlos_emr.carlos.prescript.gate.ViewDrugPrice2Action">
+            <result name="success">/WEB-INF/jsp/rx/DrugPrice.jsp</result>
         </action>
-        <action name="oscarRx/deleteFavorite2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action">
-            <result name="success">/oscarRx/EditFavorites2.jsp</result>
+        <action name="rx/ViewInteractionDisplay" class="io.github.carlos_emr.carlos.prescript.gate.ViewInteractionDisplay2Action">
+            <result name="success">/WEB-INF/jsp/rx/InteractionDisplay.jsp</result>
         </action>
-        <action name="oscarRx/deleteFavorite" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action">
-            <result name="success">/oscarRx/EditFavorites2.jsp</result>
+        <action name="rx/ViewLimitedUseCode" class="io.github.carlos_emr.carlos.prescript.gate.ViewLimitedUseCode2Action">
+            <result name="success">/WEB-INF/jsp/rx/LimitedUseCode.jsp</result>
         </action>
-        <action name="oscarRx/rePrescribe" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action">
-            <result name="success">/oscarRx/WriteScript.jsp</result>
-            <result name="reprint">/oscarRx/ViewScript2.jsp</result>
+        <action name="rx/ViewListDrugs" class="io.github.carlos_emr.carlos.prescript.gate.ViewListDrugs2Action">
+            <result name="success">/WEB-INF/jsp/rx/ListDrugs.jsp</result>
         </action>
-        <action name="oscarRx/rePrescribe2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
-            <result name="repcbLongTerm">/oscarRx/prescribe.jsp</result>
-            <result name="represcribe">/oscarRx/prescribe.jsp</result>
+        <action name="rx/ViewManagePharmacy2" class="io.github.carlos_emr.carlos.prescript.gate.ViewManagePharmacy22Action">
+            <result name="success">/WEB-INF/jsp/rx/ManagePharmacy2.jsp</result>
         </action>
-        <action name="oscarRx/search" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action">
-            <result name="prescribe">/oscarRx/prescribe.jsp</result>
+        <action name="rx/ViewPreview2" class="io.github.carlos_emr.carlos.prescript.gate.ViewPreview22Action">
+            <result name="success">/WEB-INF/jsp/rx/Preview2.jsp</result>
         </action>
-        <action name="oscarRx/saveDigitalSignature" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action" method="saveDigitalSignature">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
+        <action name="rx/ViewPrint" class="io.github.carlos_emr.carlos.prescript.gate.ViewPrint2Action">
+            <result name="success">/WEB-INF/jsp/rx/Print.jsp</result>
         </action>
-        <action name="oscarRx/deleteRx" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
-            <result name="successClearStash">/oscarRx/SearchDrug3.jsp</result>
+        <action name="rx/ViewPrintDrugProfile2" class="io.github.carlos_emr.carlos.prescript.gate.ViewPrintDrugProfile22Action">
+            <result name="success">/WEB-INF/jsp/rx/PrintDrugProfile2.jsp</result>
         </action>
-        <action name="oscarRx/clearPending" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
-            <result name="close">/oscarRx/close.html</result>
+        <action name="rx/ViewRenalDosing" class="io.github.carlos_emr.carlos.prescript.gate.ViewRenalDosing2Action">
+            <result name="success">/WEB-INF/jsp/rx/RenalDosing.jsp</result>
         </action>
-        <action name="oscarRx/searchAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchAllergy2Action">
-            <result name="success">/oscarRx/ChooseAllergy2.jsp</result>
+        <action name="rx/ViewShowPreviousPrints" class="io.github.carlos_emr.carlos.prescript.gate.ViewShowPreviousPrints2Action">
+            <result name="success">/WEB-INF/jsp/rx/ShowPreviousPrints.jsp</result>
         </action>
-        <action name="oscarRx/searchAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchAllergy2Action">
-            <result name="success">/oscarRx/ChooseAllergy2.jsp</result>
+        <action name="rx/ViewSideLinksEditFavorites2" class="io.github.carlos_emr.carlos.prescript.gate.ViewSideLinksEditFavorites22Action">
+            <result name="success">/WEB-INF/jsp/rx/SideLinksEditFavorites2.jsp</result>
         </action>
-        <action name="oscarRx/addAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/oscarRx/ShowAllergies2.jsp</result>
+        <action name="rx/ViewSideLinksNoEditFavorites" class="io.github.carlos_emr.carlos.prescript.gate.ViewSideLinksNoEditFavorites2Action">
+            <result name="success">/WEB-INF/jsp/rx/SideLinksNoEditFavorites.jsp</result>
         </action>
-        <action name="oscarRx/addAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action">
-            <result name="success" type="redirect">/oscarRx/ShowAllergies2.jsp</result>
+        <action name="rx/ViewSideLinksNoEditFavorites2" class="io.github.carlos_emr.carlos.prescript.gate.ViewSideLinksNoEditFavorites22Action">
+            <result name="success">/WEB-INF/jsp/rx/SideLinksNoEditFavorites2.jsp</result>
         </action>
-        <action name="oscarRx/addReaction" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
-            <result name="success">/oscarRx/AddReaction2.jsp</result>
+        <action name="rx/ViewTopLinks" class="io.github.carlos_emr.carlos.prescript.gate.ViewTopLinks2Action">
+            <result name="success">/WEB-INF/jsp/rx/TopLinks.jsp</result>
         </action>
-        <action name="oscarRx/addReaction2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxAddReaction2Action">
-            <result name="success">/oscarRx/AddReaction2.jsp</result>
+        <action name="rx/ViewUpdateInteractingDrugs" class="io.github.carlos_emr.carlos.prescript.gate.ViewUpdateInteractingDrugs2Action">
+            <result name="success">/WEB-INF/jsp/rx/UpdateInteractingDrugs.jsp</result>
         </action>
-        <action name="oscarRx/deleteAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action">
-            <result name="success">/oscarRx/ShowAllergies2.jsp</result>
+        <action name="rx/ViewViewPharmacy" class="io.github.carlos_emr.carlos.prescript.gate.ViewViewPharmacy2Action">
+            <result name="success">/WEB-INF/jsp/rx/ViewPharmacy.jsp</result>
         </action>
-        <action name="oscarRx/deleteAllergy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action">
-            <result name="success">/oscarRx/ShowAllergies2.jsp</result>
+        <action name="rx/ViewChartDrugProfile" class="io.github.carlos_emr.carlos.prescript.gate.ViewChartDrugProfile2Action">
+            <result name="success">/WEB-INF/jsp/rx/chartDrugProfile.jsp</result>
         </action>
-        <action name="oscarRx/showAllergy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action">
-            <result name="success">/oscarRx/ShowAllergies2.jsp</result>
-            <result name="failure">/errorpage.jsp</result>
+        <action name="rx/ViewCompleteMedRec" class="io.github.carlos_emr.carlos.prescript.gate.ViewCompleteMedRec2Action">
+            <result name="success">/WEB-INF/jsp/rx/completeMedRec.jsp</result>
         </action>
-        <action name="oscarRx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
-            <result name="success">/oscarRx/SearchDrug3.jsp</result>
+        <action name="rx/ViewDisplayMedHistory" class="io.github.carlos_emr.carlos.prescript.gate.ViewDisplayMedHistory2Action">
+            <result name="success">/WEB-INF/jsp/rx/displayMedHistory.jsp</result>
         </action>
-        <action name="oscarRx/managePharmacy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
-            <result name="success">/oscarRx/SelectPharmacy2.jsp</result>
+        <action name="rx/ViewSetDefaultAddr" class="io.github.carlos_emr.carlos.prescript.gate.ViewSetDefaultAddr2Action">
+            <result name="success">/WEB-INF/jsp/rx/setDefaultAddr.jsp</result>
         </action>
-        <action name="oscarRx/managePharmacy" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
-            <result name="success">/oscarRx/SelectPharmacy2.jsp</result>
+        <action name="rx/ViewUpdateForm" class="io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action">
+            <result name="success">/WEB-INF/jsp/rx/updateForm.jsp</result>
         </action>
-        <action name="oscarRx/RxReason" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action">
-            <result name="close">/oscarRx/close.html</result>
-            <result name="success">/oscarRx/SelectReason.jsp</result>
+        <action name="rx/ViewUpdateHiddenResources" class="io.github.carlos_emr.carlos.prescript.gate.ViewUpdateHiddenResources2Action">
+            <result name="success">/WEB-INF/jsp/rx/updateHiddenResources.jsp</result>
         </action>
-        <action name="oscarRx/GetRxPageSizeInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxRxPageSizeInfo2Action">
-            <result name="success">/oscarRx/ViewScript2.jsp</result>
-        </action>
-        <action name="oscarRx/WriteToEncounter" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action">
-            <result name="success">/oscarRx/ViewScript2.jsp</result>
-        </action>
-        <action name="oscarRx/updateDrugrefDB" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateDrugref2Action"/>
-        <action name="oscarRx/copyFavorite" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
-            <result name="success">/oscarRx/CopyFavorites2.jsp</result>
-            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
-        </action>
-        <action name="oscarRx/hideCpp" class="io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action"/>
-        <action name="oscarRx/reorderDrug" class="io.github.carlos_emr.carlos.prescript.web.RxReorder2Action"/>
-        <action name="oscarRx/copyFavorite2" class="io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action" method="execute">
-            <result name="success">/oscarRx/CopyFavorites2.jsp</result>
-            <result name="edit">/appointment/appointmentstatusedit.jsp</result>
-        </action>
-
     </package>
 </struts>

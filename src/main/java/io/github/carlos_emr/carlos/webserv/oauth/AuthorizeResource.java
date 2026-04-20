@@ -90,8 +90,10 @@ public class AuthorizeResource {
 
         request.setAttribute("oauthData", od);
 
-        // Correct servlet forward
-        RequestDispatcher rd = request.getRequestDispatcher("/login/3rdpartyLogin.jsp");
+        // Correct servlet forward. JSP now lives behind /WEB-INF/jsp/ since
+        // the tail-interactive migration; RequestDispatcher can still reach
+        // it via internal dispatch (see follow-up validation ticket #1731).
+        RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
         rd.forward(request, response); // response committed by forward
     }
 

@@ -61,8 +61,16 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingCreateBilling2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+
+    /** Validation-failure redirect target — the Struts entry for the billing form. */
+    private static final String BILLING_REDIRECT = "/billing";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,6 +80,11 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private ArrayList<String> patientDX = new ArrayList<String>(); //List of disease codes for current patient
 
     public String execute() throws IOException, ServletException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         List<String> errors = new ArrayList<>();
         BillingBillingManager bmanager = new BillingBillingManager();
 
@@ -175,20 +188,20 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
         }
@@ -211,7 +224,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     if (errs != null && errs.size() > 0) {
                         request.setAttribute("WCBcode", sc);
                         request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
+                        response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                         return NONE;
                     }
                 } else {
@@ -221,7 +234,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
                 request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingBC.jsp");
+                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
                 return NONE;
             }
         }

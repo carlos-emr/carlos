@@ -42,9 +42,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="java.net.URLEncoder" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -106,8 +106,8 @@
     <span style="color:red;">
         <fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
     <fmt:message key="demographic.msgDuplicatedHINDetail"/>
-    <a href="DemographicEdit.do?demographic_no=<%= Encode.forUriComponent(hinDuplicateDemo.getDemographicNo().toString()) %>">
-        <%= Encode.forHtml(hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName()) %></a><br><br>
+    <a href="DemographicEdit?demographic_no=<carlos:encode value='<%= hinDuplicateDemo.getDemographicNo().toString() %>' context="uriComponent"/>">
+        <carlos:encode value='<%= hinDuplicateDemo.getLastName() + ", " + hinDuplicateDemo.getFirstName() %>' context="html"/></a><br><br>
     <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
         <fmt:message key="global.btnBack"/></b></a>
     <% } else { %>
@@ -120,7 +120,7 @@
                  (A-Za-z0-9-._~ and %XX hex sequences) contains no JS-unsafe characters,
                  making this encoding sufficient for both the URL parameter context and
                  the containing JS string. See Encode.forUriComponent() JavaDoc. --%>
-            document.addappt.action = "<%= request.getContextPath() %>/appointment/addappointment.jsp?user_id=<%=Encode.forUriComponent(creator != null ? creator : "")%>&provider_no=<%=Encode.forUriComponent(provider_no2 != null ? provider_no2 : "")%>&bFirstDisp=<%=Encode.forUriComponent(bFirstDisp2 != null ? bFirstDisp2 : "")%>&appointment_date=<%=Encode.forUriComponent(appointmentDate != null ? appointmentDate : "")%>&year=<%=Encode.forUriComponent(year2 != null ? year2 : "")%>&month=<%=Encode.forUriComponent(month2 != null ? month2 : "")%>&day=<%=Encode.forUriComponent(day2 != null ? day2 : "")%>&start_time=<%=Encode.forUriComponent(start_time2 != null ? start_time2 : "")%>&end_time=<%=Encode.forUriComponent(end_time2 != null ? end_time2 : "")%>&duration=<%=Encode.forUriComponent(duration2 != null ? duration2 : "")%>&name=<%=URLEncoder.encode(bufName != null ? bufName : "", StandardCharsets.UTF_8)%>&chart_no=<%=URLEncoder.encode(bufChart != null ? bufChart : "", StandardCharsets.UTF_8)%>&demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>&messageID=<%=Encode.forUriComponent(messageId != null ? messageId : "")%>&doctor_no=<%=Encode.forUriComponent(bufDoctorNo != null ? bufDoctorNo : "")%>&notes=<%=Encode.forUriComponent(notes != null ? notes : "")%>&reason=<%=Encode.forUriComponent(reason != null ? reason : "")%>&location=<%=Encode.forUriComponent(location != null ? location : "")%>&resources=<%=Encode.forUriComponent(resources != null ? resources : "")%>&type=<%=Encode.forUriComponent(type != null ? type : "")%>&style=<%=Encode.forUriComponent(style != null ? style : "")%>&billing=<%=Encode.forUriComponent(billing != null ? billing : "")%>&status=<%=Encode.forUriComponent(status != null ? status : "")%>&createdatetime=<%=Encode.forUriComponent(createdatetime != null ? createdatetime : "")%>&creator=<%=Encode.forUriComponent(creator != null ? creator : "")%>&remarks=<%=Encode.forUriComponent(remarks != null ? remarks : "")%>";
+            document.addappt.action = "<%= request.getContextPath() %>/appointment/addappointment?user_id=<carlos:encode value='<%= creator != null ? creator : "" %>' context="uriComponent"/>&provider_no=<carlos:encode value='<%= provider_no2 != null ? provider_no2 : "" %>' context="uriComponent"/>&bFirstDisp=<carlos:encode value='<%= bFirstDisp2 != null ? bFirstDisp2 : "" %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= appointmentDate != null ? appointmentDate : "" %>' context="uriComponent"/>&year=<carlos:encode value='<%= year2 != null ? year2 : "" %>' context="uriComponent"/>&month=<carlos:encode value='<%= month2 != null ? month2 : "" %>' context="uriComponent"/>&day=<carlos:encode value='<%= day2 != null ? day2 : "" %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= start_time2 != null ? start_time2 : "" %>' context="uriComponent"/>&end_time=<carlos:encode value='<%= end_time2 != null ? end_time2 : "" %>' context="uriComponent"/>&duration=<carlos:encode value='<%= duration2 != null ? duration2 : "" %>' context="uriComponent"/>&name=<carlos:encode value='<%= bufName != null ? bufName : "" %>' context="uriComponent"/>&chart_no=<carlos:encode value='<%= bufChart != null ? bufChart : "" %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= dem != null ? dem : "" %>' context="uriComponent"/>&messageID=<carlos:encode value='<%= messageId != null ? messageId : "" %>' context="uriComponent"/>&doctor_no=<carlos:encode value='<%= bufDoctorNo != null ? bufDoctorNo : "" %>' context="uriComponent"/>&notes=<carlos:encode value='<%= notes != null ? notes : "" %>' context="uriComponent"/>&reason=<carlos:encode value='<%= reason != null ? reason : "" %>' context="uriComponent"/>&location=<carlos:encode value='<%= location != null ? location : "" %>' context="uriComponent"/>&resources=<carlos:encode value='<%= resources != null ? resources : "" %>' context="uriComponent"/>&type=<carlos:encode value='<%= type != null ? type : "" %>' context="uriComponent"/>&style=<carlos:encode value='<%= style != null ? style : "" %>' context="uriComponent"/>&billing=<carlos:encode value='<%= billing != null ? billing : "" %>' context="uriComponent"/>&status=<carlos:encode value='<%= status != null ? status : "" %>' context="uriComponent"/>&createdatetime=<carlos:encode value='<%= createdatetime != null ? createdatetime : "" %>' context="uriComponent"/>&creator=<carlos:encode value='<%= creator != null ? creator : "" %>' context="uriComponent"/>&remarks=<carlos:encode value='<%= remarks != null ? remarks : "" %>' context="uriComponent"/>";
             document.addappt.submit();
         </script>
     </form>
@@ -131,20 +131,20 @@
         <h2>
             <fmt:message key="demographic.demographicaddarecord.msgSuccessful"/></h2>
 
-        <a href="DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
+        <a href="DemographicEdit?demographic_no=<carlos:encode value='<%= dem != null ? dem : "" %>' context="uriComponent"/>">
             <fmt:message key="demographic.demographicaddarecord.goToRecord"/></a>
 
         <caisi:isModuleLoad moduleName="caisi">
             <br/>
-            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager.do?id=<%=Encode.forUriComponent(dem != null ? dem : "")%>">
+            <a href="<%= request.getContextPath() %>/PMmodule/ClientManager?id=<carlos:encode value='<%= dem != null ? dem : "" %>' context="uriComponent"/>">
                 <fmt:message key="demographic.demographicaddarecord.goToCaisiRecord"/></a>
-            (<a href="#" onclick="popup(700,1027,'DemographicEdit.do?demographic_no=<%=Encode.forUriComponent(dem != null ? dem : "")%>')">New Window</a>)
+            (<a href="#" onclick="popup(700,1027,'DemographicEdit?demographic_no=<carlos:encode value='<%= dem != null ? dem : "" %>' context="uriComponent"/>')">New Window</a>)
         </caisi:isModuleLoad>
 
     </p>
     <% } %>
 
-    <%@ include file="/demographic/footer.jsp" %>
+    <%@ include file="/WEB-INF/jsp/demographic/footer.jsp" %>
 </div>
 </body>
 </html>

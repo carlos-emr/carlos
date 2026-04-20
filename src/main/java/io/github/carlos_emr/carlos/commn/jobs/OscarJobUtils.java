@@ -126,6 +126,7 @@ public class OscarJobUtils {
         ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
         if (future != null) {
             future.cancel(false);
+            OscarJobExecutingManager.getFutures().remove(job.getId());
         }
 
         if (!job.isEnabled()) {
@@ -165,6 +166,7 @@ public class OscarJobUtils {
         //cancel,isCancelled, isDone
 
         OscarJobExecutingManager.getFutures().put(job.getId(), schedulefuture);
+        OscarJobExecutingManager.purgeCompletedFutures();
 
         return true;
     }

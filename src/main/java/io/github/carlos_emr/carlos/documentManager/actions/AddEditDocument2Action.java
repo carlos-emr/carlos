@@ -254,7 +254,7 @@ public class AddEditDocument2Action extends ActionSupport {
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 String contextPath = request.getContextPath();
-                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/documentReport.jsp");
+                StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
                 redirect.append("&function=").append(request.getParameter("function"));
                 redirect.append("&functionid=").append(request.getParameter("functionid"));
@@ -399,7 +399,6 @@ public class AddEditDocument2Action extends ActionSupport {
                 cmn.setReporter_caisi_role(doctorRole.getId().toString());
 
                 cmn.setReporter_program_team("0");
-                cmn.setPassword("NULL");
                 cmn.setLocked(false);
                 cmn.setHistory(strNote);
                 cmn.setPosition(0);

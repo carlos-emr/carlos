@@ -68,7 +68,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     String getHl7Type() {
-        logger.warn("DefaultHandler.getHl7Type: Returning hl7Type = " + hl7Type);
+        logger.debug("DefaultHandler.getHl7Type: Returning hl7Type = {}", LogSanitizer.sanitize(hl7Type));
         return hl7Type;
     }
 
@@ -90,8 +90,9 @@ public class DefaultHandler implements MessageHandler {
 
                     if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
                         msgCount++;
-                        logger.debug("using xml HL7 Type " + getHl7Type());
-                        MessageUploader.routeReport(loggedInInfo, serviceName, getHl7Type(), hl7Body, fileId);
+                        String currentHl7Type = getHl7Type();
+                        logger.debug("using xml HL7 Type {}", LogSanitizer.sanitize(currentHl7Type));
+                        MessageUploader.routeReport(loggedInInfo, serviceName, currentHl7Type, hl7Body, fileId);
                     }
                 }
             } catch (Exception e) {
@@ -105,8 +106,12 @@ public class DefaultHandler implements MessageHandler {
                 ArrayList<String> messages = Utilities.separateMessages(fileName);
                 for (i = 0; i < messages.size(); i++) {
                     String msg = messages.get(i);
-                    String typeToUse = getHl7Type() != null ? getHl7Type() : serviceName;
-                    logger.info("using HL7 Type " + typeToUse + " (original: " + getHl7Type() + ", serviceName: " + serviceName + ")");
+                    String currentHl7Type = getHl7Type();
+                    String typeToUse = currentHl7Type != null ? currentHl7Type : serviceName;
+                    logger.info("using HL7 Type {} (original: {}, serviceName: {})",
+                            LogSanitizer.sanitize(typeToUse),
+                            LogSanitizer.sanitize(currentHl7Type),
+                            LogSanitizer.sanitize(serviceName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     MessageUploader.routeReport(loggedInInfo, serviceName, typeToUse, msg, fileId);
                 }
             } catch (Exception e) {
@@ -127,12 +132,6 @@ public class DefaultHandler implements MessageHandler {
             // Validate the file path using PathValidationUtils
             File file = new File(fileName);
 
-            // Ensure the file exists and is a regular file
-            if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
-                return null;
-            }
-
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
@@ -141,16 +140,22 @@ public class DefaultHandler implements MessageHandler {
                 file = PathValidationUtils.validateExistingPath(file, docDir);
             }
 
+            // Ensure the file exists and is a regular file
+            if (!file.exists() || !file.isFile()) {
+                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                return null;
+            }
+
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
             // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
-            // Re-throw security exceptions from path validation
         } catch (SecurityException e) {
-            throw e;
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: " + fileName, e);
+            logger.error("Error parsing XML file: {}", LogSanitizer.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return (null);
         }
     }

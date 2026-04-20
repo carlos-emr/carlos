@@ -86,23 +86,23 @@ public class EctDisplayAction extends ActionSupport {
         super();
         if (Actions == null) {
             Actions = new HashMap<String, String>();
-            Actions.put("labs", "/encounter/displayLabs.do");
-            Actions.put("forms", "/encounter/displayForms.do");
-            Actions.put("msgs", "/encounter/displayMessages.do");
-            Actions.put("eforms", "/encounter/displayEForms.do");
-            Actions.put("docs", "/encounter/displayDocuments.do");
-            Actions.put("measurements", "/encounter/displayMeasurements.do");
-            Actions.put("tickler", "/encounter/displayTickler.do");
-            Actions.put("Dx", "/encounter/displayDisease.do");
-            Actions.put("preventions", "/encounter/displayPrevention.do");
-            Actions.put("consultation", "/encounter/displayConsultation.do");
-            Actions.put("allergies", "/encounter/displayAllergy.do");
-            Actions.put("unresolvedIssues", "/encounter/displayIssues.do");
-            Actions.put("resolvedIssues", "/encounter/displayIssues.do");
-            Actions.put("Rx", "/encounter/displayRx.do");
-            Actions.put("success", "/encounter/LeftNavBarDisplay.jsp");
-            Actions.put("error", "/encounter/LeftNavBarError.jsp");
-            Actions.put("HRM", "/encounter/displayHRM.do");
+            Actions.put("labs", "/encounter/displayLabs");
+            Actions.put("forms", "/encounter/displayForms");
+            Actions.put("msgs", "/encounter/displayMessages");
+            Actions.put("eforms", "/encounter/displayEForms");
+            Actions.put("docs", "/encounter/displayDocuments");
+            Actions.put("measurements", "/encounter/displayMeasurements");
+            Actions.put("tickler", "/encounter/displayTickler");
+            Actions.put("Dx", "/encounter/displayDisease");
+            Actions.put("preventions", "/encounter/displayPrevention");
+            Actions.put("consultation", "/encounter/displayConsultation");
+            Actions.put("allergies", "/encounter/displayAllergy");
+            Actions.put("unresolvedIssues", "/encounter/displayIssues");
+            Actions.put("resolvedIssues", "/encounter/displayIssues");
+            Actions.put("Rx", "/encounter/displayRx");
+            Actions.put("success", "/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp");
+            Actions.put("error", "/WEB-INF/jsp/encounter/LeftNavBarError.jsp");
+            Actions.put("HRM", "/encounter/displayHRM");
 
             if (logger.isDebugEnabled()) {
                 logger.debug("Instantiated encounter display actions: " + Actions);

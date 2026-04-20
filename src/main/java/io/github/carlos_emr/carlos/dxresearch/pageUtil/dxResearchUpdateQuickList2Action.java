@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDaoImpl;
@@ -55,13 +57,18 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  */
 public class dxResearchUpdateQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
 
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
-    public String execute() {
+    public String execute() throws IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
-            throw new SecurityException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch w)");
         }
 
         String codingSystem = this.getSelectedCodingSystem();

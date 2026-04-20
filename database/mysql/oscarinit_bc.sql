@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS billingmaster (
   oin_address2 varchar(25) default '',
   oin_address3 varchar(25) default '',
   oin_address4 varchar(25) default '',
-  oin_postalcode varchar(6) default '',
+  oin_postalcode varchar(7) default '',
   paymentMethod int(11) default '6',
   wcb_id int(10) default NULL,
   PRIMARY KEY  (billingmaster_no),

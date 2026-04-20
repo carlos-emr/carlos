@@ -58,7 +58,7 @@ import java.io.OutputStream;
  * <p>Returns HTTP 401 if not authenticated, 404 if the signature file does not exist,
  * or 500 on internal error. On success, streams the PNG image inline.</p>
  *
- * <p>URL: {@code /provider/providerSignatureImage.do}</p>
+ * <p>URL: {@code /provider/providerSignatureImage}</p>
  *
  * @since 2026-03-13
  */

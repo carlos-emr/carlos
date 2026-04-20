@@ -12,8 +12,9 @@
     Rendered by BillingONSave2Action when workload management routing is active.
     @since 2026
 --%>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page contentType="text/html;charset=UTF-8" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String workloadUrlBack = (String) request.getAttribute("workloadUrlBack");
 %>
@@ -26,7 +27,7 @@
 <script type="text/javascript">
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
     <% if (workloadUrlBack != null && !workloadUrlBack.isEmpty()) { %>
-    self.location.href = "<%= Encode.forJavaScript(workloadUrlBack) %>";
+    self.location.href = "<carlos:encode value='<%= workloadUrlBack %>' context="javaScriptBlock"/>";
     <% } else { %>
     self.close();
     <% } %>

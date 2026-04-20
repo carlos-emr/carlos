@@ -286,7 +286,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
             String contextPath = request.getContextPath();
 
-            url = bsurl + contextPath + "/billing.do?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
+            url = bsurl + contextPath + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
                     + "&providerview=" + bean.curProviderNo + "&user_no=" + bean.providerNo + "&apptProvider_no=" + bean.curProviderNo + "&bNewForm=1&status=t";
 
             session.setAttribute("billing_url", url); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -477,7 +477,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (!note.isIncludeissue()) cform.setIncludeIssue("off");
         else cform.setIncludeIssue("on");
 
-        boolean passwd = caseManagementMgr.getEnabled();
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
@@ -505,11 +504,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String fwd, finalFwd = null;
         if (chain != null && chain.length() > 0) {
-            session.setAttribute("passwordEnabled", passwd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             fwd = chain;
         } else {
-            request.setAttribute("passwordEnabled", passwd);
-
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
                 fwd = "issueList_ajax";
@@ -1259,7 +1255,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
-        this.setReloadUrl("/CaseManagementView.do?" + reloadUrl);
+        this.setReloadUrl("/CaseManagementView?" + reloadUrl);
         return "listCPPNotes";
     }
 
@@ -1303,22 +1299,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
-        if (hourOfEncounterTime != null && hourOfEncounterTime != "") {
+        if (StringUtils.isNotEmpty(hourOfEncounterTime)) {
             note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
         }
 
         String minuteOfEncounterTime = request.getParameter("minuteOfEncounterTime");
-        if (minuteOfEncounterTime != null && minuteOfEncounterTime != "") {
+        if (StringUtils.isNotEmpty(minuteOfEncounterTime)) {
             note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
         }
 
         String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (hourOfEncTransportationTime != null && hourOfEncTransportationTime != "") {
+        if (StringUtils.isNotEmpty(hourOfEncTransportationTime)) {
             note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
         }
 
         String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (minuteOfEncTransportationTime != null && minuteOfEncTransportationTime != "") {
+        if (StringUtils.isNotEmpty(minuteOfEncTransportationTime)) {
             note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
         }
 
@@ -1450,13 +1446,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
             verify = true;
-        }
-
-        // update password
-        String passwd = this.getCaseNote().getPassword();
-        if (passwd != null && passwd.trim().length() > 0) {
-            note.setPassword(passwd);
-            note.setLocked(true);
         }
 
         Date now = new Date();
@@ -2006,7 +1995,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
 
             String contextPath = request.getContextPath();
-            String url = contextPath + "/billing.do?billRegion=" + region
+            String url = contextPath + "/billing?billRegion=" + region
                     + "&billForm=" + defaultView
                     + "&hotclick=&appointment_no="
                     + appointmentNo
@@ -2025,9 +2014,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // Validate the redirect URL to prevent open redirect vulnerability
+            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
+            // relative-only OR same-scheme+host+port match; rejects protocol-relative (//evil),
+            // backslash, userinfo (@evil), and suffix (host.evil) bypasses.
             if (isValidInternalRedirect(chain, request)) {
-                response.sendRedirect(chain);
+                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
@@ -2860,16 +2851,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String programId = (String) session.getAttribute("case_program_id");
-        Map unlockedNotesMap = this.getUnlockedNotesMap(request);
-        return caseManagementMgr.getLastSaved(programId, demono, providerNo, unlockedNotesMap);
-    }
-
-    protected Map getUnlockedNotesMap(HttpServletRequest request) {
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
+        return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
     /*

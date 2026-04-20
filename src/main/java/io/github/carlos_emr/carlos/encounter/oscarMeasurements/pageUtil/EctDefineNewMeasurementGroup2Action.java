@@ -31,6 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +44,8 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.owasp.encoder.Encode;
 
 
 import org.apache.struts2.ActionSupport;
@@ -62,18 +66,26 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
             EctValidation validate = new EctValidation();
             String regExp = validate.getRegCharacterExp();
-            String contextPath = request.getContextPath();
+
+            // Error-bundle entries (e.g. errors.invalid) contain embedded HTML
+            // (<li>...</li>) and the target JSP renders actionErrors unencoded,
+            // so the {0} substitution must be HTML-encoded here to prevent the
+            // tainted groupName from breaking out of the list-item context.
+            String safeGroupName = Encode.forHtml(groupName);
 
             if (!validate.matchRegExp(regExp, groupName)) {
-                addActionError(getText("errors.invalid", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
-                return NONE;
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("errors.invalid", new String[]{safeGroupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             //Write the new groupName to the database if there's no duplication
             if (!write2Database(groupName, styleSheet)) {
-                addActionError(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{groupName}));
-                response.sendRedirect(contextPath + "/encounter/oscarMeasurements/DefineNewMeasurementGroup.jsp");
+                List<String> errors = new ArrayList<>();
+                errors.add(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{safeGroupName}));
+                request.setAttribute("actionErrors", errors);
+                return "error";
             }
 
             HttpSession session = request.getSession();
