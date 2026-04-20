@@ -144,7 +144,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         String normalized = imageType.trim().toLowerCase();
         if ("jpg".equals(normalized) || "jpeg".equals(normalized) || "image/jpeg".equals(normalized) || "image/jpg".equals(normalized)) {
-            return "jpg";
+            return "jpeg";
         }
         if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
             return "gif";

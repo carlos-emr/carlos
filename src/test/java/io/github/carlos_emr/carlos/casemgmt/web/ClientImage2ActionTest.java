@@ -136,9 +136,33 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         ClientImage savedImage = imageCaptor.getValue();
         assertThat(result).isEqualTo("success");
         assertThat(savedImage.getDemographic_no()).isEqualTo(123);
-        assertThat(savedImage.getImage_type()).isEqualTo("jpg");
+        assertThat(savedImage.getImage_type()).isEqualTo("jpeg");
         assertThat(savedImage.getImage_data()).isEqualTo(expectedBytes);
         assertThat(request.getAttribute("success")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("should save client image when GIF is uploaded")
+    void shouldSaveClientImage_whenGifUploaded() throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".gif");
+        byte[] expectedBytes = new byte[]{9, 8, 7, 6};
+        Files.write(tempUploadFile.toPath(), expectedBytes);
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn("patient-photo.gif");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        ArgumentCaptor<ClientImage> imageCaptor = ArgumentCaptor.forClass(ClientImage.class);
+        verify(clientImageManager).saveClientImage(imageCaptor.capture());
+
+        ClientImage savedImage = imageCaptor.getValue();
+        assertThat(result).isEqualTo("success");
+        assertThat(savedImage.getImage_type()).isEqualTo("gif");
+        assertThat(savedImage.getImage_data()).isEqualTo(expectedBytes);
     }
 
     @Test
