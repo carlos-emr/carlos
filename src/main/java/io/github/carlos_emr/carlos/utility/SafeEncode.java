@@ -38,10 +38,12 @@ import org.owasp.encoder.Encode;
  * {@link Encode} method — this is a strict safety strengthening, not a semantic
  * change.
  *
- * <p>All methods mirror {@link Encode} exactly — same name, same argument order,
- * same thrown checked exceptions. Call sites can migrate with a one-line import
- * swap ({@code import org.owasp.encoder.Encode} → {@code import SafeEncode}) and
- * a find-and-replace of the type name.
+ * <p>Nearly all methods mirror {@link Encode} exactly — same name, same argument
+ * order, same thrown checked exceptions. Call sites can migrate with a one-line
+ * import swap ({@code import org.owasp.encoder.Encode} → {@code import SafeEncode})
+ * and a find-and-replace of the type name. CARLOS-specific helpers may be added
+ * where the view layer needs a safe convenience not provided by OWASP directly,
+ * such as newline-to-{@code <br/>} rendering for preformatted table cells.
  *
  * <p>Prefer this class for any encoded output where the source value can be
  * {@code null} (DAO getters, {@code request.getParameter}, session attributes,
@@ -77,6 +79,25 @@ public final class SafeEncode {
 
     public static String forHtmlContent(String value) {
         return Encode.forHtmlContent(nz(value));
+    }
+
+    /**
+     * Encode HTML content and render line breaks as literal {@code <br/>} tags.
+     *
+     * <p>User-controlled content is HTML-encoded first, then normalized line
+     * endings ({@code \r\n}, {@code \r}) are converted to {@code \n} and finally
+     * each newline is replaced with the constant application markup
+     * {@code <br/>}. This preserves visible multi-line formatting without
+     * allowing user-supplied HTML markup through.
+     *
+     * @param value String the untrusted HTML content to encode
+     * @return String the HTML-encoded content with newline characters rendered as {@code <br/>}
+     */
+    public static String forHtmlContentWithBreaks(String value) {
+        return forHtmlContent(nz(value))
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .replace("\n", "<br/>");
     }
 
     public static void forHtmlContent(Writer out, String value) throws IOException {
