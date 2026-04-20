@@ -72,7 +72,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicExtDao demographicExtDao;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
+    @PersistenceContext(unitName = "testPersistenceUnit")
     private EntityManager entityManager;
 
     private Demographic demo1, demo2, demo3, demo4;
