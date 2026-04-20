@@ -2543,13 +2543,13 @@ function updateCPPNote() {
         Event.stop(e);
         if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
             if (confirm(closeWithoutSaveMsg)) {
-                var frm = document.forms["caseManagementEntryForm"];
-                origCaseNote = $F(caseNote);
-                frm.method.value = "cancel";
-                frm.submit();
+                clearAutoSaveTimer();
+                window.close();
             }
-        } else
+        } else {
+            clearAutoSaveTimer();
             window.close();
+        }
 
         return false;
     }
@@ -2804,6 +2804,7 @@ function updateCPPNote() {
 var month=new Array(12);
 var msgDraftSaved;
 var lostNoteLock = false;
+var autoSaveXhr = null;
 function autoSave() {
     sanitizeElementByPattern(document.getElementById(caseNote), CONTROL_CHAR_PATTERN_2);
     var url = ctx + "/CaseManagementEntry";
@@ -2813,10 +2814,12 @@ function autoSave() {
     var nId = cmeFrm.noteId.value < 0 ? 0 : cmeFrm.noteId.value;
     var params = "method=autosave&demographicNo=" + demoNo + "&programId=" + programId + "&note_id=" + nId + "&note=" + encodeURIComponent($F(caseNote));
 
-        CarlosAjax.request(url, {
+        autoSaveXhr = CarlosAjax.request(url, {
                 method: 'post',
                 postBody: params,
                 onSuccess: function (req) {
+                    var statusEl = $("autosaveTime");
+                    if (!statusEl) { return; }
                     var d = new Date();
                     var min = d.getMinutes();
                     min = min < 10 ? "0" + min : min;
@@ -2825,14 +2828,27 @@ function autoSave() {
                     seconds = seconds < 10 ? "0" + seconds : seconds;
 
                     var fmtDate = "<i>" + msgDraftSaved + " " + d.getDate() + "-" + month[d.getMonth()] + "-" + d.getFullYear() + " " + d.getHours() + ":" + min + ":" + seconds + "<\/i>";
-                    $("autosaveTime").update(fmtDate);
+                    statusEl.update(fmtDate);
                 },
                 onFailure: function (req) {
+                    // status 0 = aborted by clearAutoSaveTimer during window close; not an error
+                    if (req.status === 0) { return; }
                     if (req.status == 409) {
                         lostNoteLock = true;
-                        var msg = "<i>Autosave cancelled due to note being edited in another window</i>";
-                        $("autosaveTime").update(msg);
+                        var lockEl = $("autosaveTime");
+                        if (lockEl) {
+                            lockEl.update("<i>Autosave cancelled due to note being edited in another window</i>");
+                        }
+                        return;
                     }
+                    // Non-409 failures were previously silently swallowed. Log so they
+                    // surface in browser consoles and remote logging (Sentry, etc.).
+                    if (typeof console !== "undefined" && console.error) {
+                        console.error("CaseManagement autoSave failed", req.status, req.statusText);
+                    }
+                },
+                onComplete: function () {
+                    autoSaveXhr = null;
                 }
             }
         );
@@ -2858,6 +2874,13 @@ function autoSave() {
 
     function clearAutoSaveTimer() {
         clearTimeout(autoSaveTimer);
+        // Abort any in-flight autosave so a late-landing POST cannot write a draft
+        // the user never consented to (e.g., firing at T=4999ms then window.close()
+        // at T=5000ms). See carlos-emr/carlos#1890.
+        if (autoSaveXhr && typeof autoSaveXhr.abort === "function") {
+            try { autoSaveXhr.abort(); } catch (ignored) { /* already done */ }
+            autoSaveXhr = null;
+        }
     }
 
     var unsavedNoteMsg;

@@ -178,6 +178,9 @@ var CarlosAjax = (function () {
      *
      * @param {string} url - Request URL
      * @param {Object} [options] - Request options
+     * @returns {XMLHttpRequest|Object} The underlying XHR (async) or a transport
+     *   object (sync). Callers can capture the async XHR to call .abort() if the
+     *   request becomes stale before it resolves (e.g., window close mid-autosave).
      */
     function request(url, options) {
         options = options || {};
@@ -356,6 +359,7 @@ var CarlosAjax = (function () {
         };
 
         xhr.send(body);
+        return xhr;
     }
 
     /**
