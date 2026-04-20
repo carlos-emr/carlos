@@ -34,6 +34,8 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 
 /**
  * Implementation of {@link AppointmentStatusMgr} that delegates directly to
@@ -43,8 +45,9 @@ import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
  * <p>The static methods {@link #getCachedActiveStatuses()},
  * {@link #setCachedActiveStatuses(List)}, {@link #setCacheIsDirty(boolean)}, and
  * {@link #isCacheIsDirty()} are retained for backward compatibility with callers
- * such as {@code ApptStatusData} and the {@code AppointmentStatus} JPA callback,
- * but they now delegate to the DAO (which is cached) or are no-ops.</p>
+ * such as {@code ApptStatusData} and the {@code AppointmentStatus} JPA callback.
+ * The callback path now evicts the Spring cache directly so legacy JPA writes
+ * cannot leave stale appointment-status entries pinned until TTL expiry.</p>
  */
 
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
@@ -72,8 +75,11 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     /**
-     * No-op. Retained for backward compatibility with {@code AppointmentStatus.on_jpa_update()}.
-     * Cache invalidation is handled by {@code @CacheEvict} on the DAO write methods.
+     * Returns the legacy dirty-flag state.
+     *
+     * <p>The manager no longer keeps an in-memory list, so the flag is never set
+     * locally. The Spring cache is evicted immediately when
+     * {@link #setCacheIsDirty(boolean)} is called.</p>
      *
      * @return always {@code false}
      */
@@ -82,13 +88,25 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     /**
-     * No-op. Retained for backward compatibility with {@code AppointmentStatus.on_jpa_update()}.
-     * Cache invalidation is handled by {@code @CacheEvict} on the DAO write methods.
+     * Evicts the {@code appointmentStatuses} Spring cache for backward compatibility
+     * with {@code AppointmentStatus.on_jpa_update()}.
      *
-     * @param cacheIsDirty ignored
+     * <p>Legacy JPA writes may bypass the cached DAO methods. When the entity
+     * callback signals the cache is dirty, clear the Spring cache directly via the
+     * transaction-aware {@link CacheManager} so later reads reload fresh data.</p>
+     *
+     * @param cacheIsDirty whether the legacy callback detected a write
      */
     public static void setCacheIsDirty(boolean cacheIsDirty) {
-        // No-op: DAO-level Spring cache handles invalidation
+        if (!cacheIsDirty) {
+            return;
+        }
+
+        CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
+        Cache cache = cacheManager.getCache("appointmentStatuses");
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     public List<AppointmentStatus> getAllStatus() {

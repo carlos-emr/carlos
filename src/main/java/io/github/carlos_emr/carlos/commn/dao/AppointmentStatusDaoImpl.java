@@ -61,7 +61,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     @Cacheable(value = "appointmentStatuses", key = "'active'")
     @Override
     public List<AppointmentStatus> findActive() {
-        Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1");
+        Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1 order by a.id");
         q.setParameter(1, 1);
 
         @SuppressWarnings("unchecked")

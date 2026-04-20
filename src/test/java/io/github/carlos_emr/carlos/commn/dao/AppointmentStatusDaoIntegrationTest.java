@@ -109,5 +109,26 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
             long count = appointmentStatusDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active statuses ordered by ID")
+        void shouldReturnActiveStatuses_orderedById() {
+            AppointmentStatus first = createStatus("L", "Late", "late.gif");
+
+            AppointmentStatus inactive = createStatus("I", "Inactive", "inactive.gif");
+            inactive.setActive(0);
+
+            AppointmentStatus second = createStatus("N", "Next", "next.gif");
+
+            List<AppointmentStatus> activeStatuses = appointmentStatusDao.findActive();
+
+            assertThat(activeStatuses)
+                    .extracting(AppointmentStatus::getId)
+                    .containsSubsequence(first.getId(), second.getId());
+            assertThat(activeStatuses)
+                    .filteredOn(status -> status.getId().equals(inactive.getId()))
+                    .isEmpty();
+        }
     }
 }
