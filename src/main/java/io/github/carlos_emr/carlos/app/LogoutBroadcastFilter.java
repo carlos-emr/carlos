@@ -193,8 +193,11 @@ public class LogoutBroadcastFilter implements Filter {
 
         try {
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
-        } catch (IOException | IllegalStateException e) {
-            logger.debug("Skipping logout broadcast script injection because the response could not be modified.", e);
+        } catch (IOException e) {
+            logger.debug("Skipping logout broadcast script injection because the script could not be written.", e);
+            return;
+        } catch (IllegalStateException e) {
+            logger.debug("Skipping logout broadcast script injection because neither response writer nor output stream was available.", e);
             return;
         }
     }
@@ -256,18 +259,42 @@ public class LogoutBroadcastFilter implements Filter {
         }
     }
 
+    /**
+     * Writes the injected script through the servlet output stream path.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if the output stream write fails
+     */
     private void writeScriptToOutputStream(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         delegatingResponse.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
         delegatingResponse.flushBuffer();
     }
 
+    /**
+     * Writes the injected script through the servlet writer path.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if the writer flush fails
+     */
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         delegatingResponse.getWriter().print(script);
         delegatingResponse.flushBuffer();
     }
 
+    /**
+     * Writes the injected script using the best available output mechanism.
+     *
+     * <p>This method prefers the writer path for standard HTML rendering and falls back
+     * to the output stream when the writer is unavailable due to mixed response state.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if writing fails for the selected output path
+     */
     private void writeScriptWithBestAvailableOutput(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         try {

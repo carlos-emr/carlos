@@ -168,6 +168,8 @@ class LogoutBroadcastFilterUnitTest {
 
     /**
      * Mock response that refuses writer access so the filter must fall back to the output stream.
+     *
+     * @since 2026-04-20
      */
     private static class WriterUnavailableMockHttpServletResponse extends MockHttpServletResponse {
 
