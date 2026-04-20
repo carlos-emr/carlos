@@ -911,6 +911,10 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
+        if (filename != null && (filename.contains("/") || filename.contains("\\"))) {
+            throw new IllegalStateException("Invalid document filename for eDoc (ID " + d.getId() + ")");
+        }
+
         Path file = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR)).toPath();
 
         if (!Files.exists(file)) {

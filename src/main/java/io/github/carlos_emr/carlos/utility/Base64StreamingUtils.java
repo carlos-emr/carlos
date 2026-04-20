@@ -53,7 +53,7 @@ public final class Base64StreamingUtils {
      */
     public static String encode(Path path) throws IOException {
         try (InputStream inputStream = Files.newInputStream(path)) {
-            return encode(inputStream);
+            return encode(inputStream, estimateEncodedSize(Files.size(path)));
         }
     }
 
