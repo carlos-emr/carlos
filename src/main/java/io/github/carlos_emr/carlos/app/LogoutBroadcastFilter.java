@@ -170,11 +170,9 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        // Pass through without wrapping - Tomcat 11's RequestDispatcher.forward()
-        // is incompatible with response wrappers that suppress flush/close.
-        // The script is injected by CsrfGuardScriptInjectionFilter instead,
-        // or appended directly after the chain completes.
-        chain.doFilter(request, response);
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse(httpResponse);
+        chain.doFilter(request, delegatingResponse);
 
         // Only inject for authenticated sessions
         HttpSession session = httpRequest.getSession(false);
@@ -182,10 +180,8 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-
         // Only inject for HTML responses
-        String contentType = httpResponse.getContentType();
+        String contentType = delegatingResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
             return;
         }
@@ -196,14 +192,8 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        // Don't inject if response is already committed (forward/redirect already sent)
-        if (httpResponse.isCommitted()) {
-            return;
-        }
-
         try {
-            String script = buildScript(httpRequest.getContextPath(), httpRequest.getLocale());
-            httpResponse.getWriter().print(script);
+            appendScript(response, delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
         } catch (IllegalStateException e) {
             // getWriter() fails if getOutputStream() was already called - skip injection
             logger.debug("Cannot inject logout script - output stream already obtained", e);
