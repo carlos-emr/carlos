@@ -451,12 +451,6 @@
                 </c:if>
             </caisi:isModuleLoad>
 
-            <caisi:isModuleLoad moduleName="casemgmt.note.password.enabled">
-                <tr>
-                    <td class="fieldTitle"><fmt:message key="casemanagementEntry.password"/></td>
-                    <td class="fieldValue"><input type="password" name="password" id="password"/></td>
-                </tr>
-            </caisi:isModuleLoad>
             <tr>
                 <td class="fieldValue" colspan="2">
                     <input type="submit" value="Save"

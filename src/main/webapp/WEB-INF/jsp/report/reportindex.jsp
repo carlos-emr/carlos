@@ -147,6 +147,13 @@
           .date-inline-group .form-control {
             width: 140px; /* compact width close to date length */
           }
+          /* Keep the date input and its calendar trigger button on the same line.
+             Bootstrap 5 .input-group defaults to flex-wrap: wrap, which causes the
+             trigger button to drop below the input when the input-group is sized
+             to its content (width: auto) next to a fixed-width .form-control. */
+          .date-inline-group .input-group {
+            flex-wrap: nowrap;
+          }
         </style>
 
         <script>

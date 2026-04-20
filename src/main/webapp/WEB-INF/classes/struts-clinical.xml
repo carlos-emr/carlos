@@ -153,9 +153,6 @@
             <result name="page.newcasemgmt.view">/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp</result>
             <result name="domain-error">/WEB-INF/jsp/casemgmt/domain-error.jsp</result>
             <result name="clientNeverInTheProgramError">/WEB-INF/jsp/casemgmt/clientNeverInTheProgramError.jsp</result>
-            <result name="unlockForm">/WEB-INF/jsp/casemgmt/unlockNoteForm.jsp</result>
-            <result name="unlockSuccess">/WEB-INF/jsp/casemgmt/unlockNoteSuccess.jsp</result>
-            <result name="unlock_ajax">/WEB-INF/jsp/casemgmt/unlockAjax.jsp</result>
             <result name="expired">/WEB-INF/jsp/casemgmt/expired.jsp</result>
             <result name="listNotes">/WEB-INF/jsp/casemgmt/viewNotes.jsp</result>
             <result name="displayNote">/WEB-INF/jsp/casemgmt/displayNote.jsp</result>
@@ -585,15 +582,6 @@
         </action>
         <action name="casemgmt/ViewTicklers" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/ticklers.jsp</result>
-        </action>
-        <action name="casemgmt/ViewUnlockAjax" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/unlockAjax.jsp</result>
-        </action>
-        <action name="casemgmt/ViewUnlockNoteForm" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/unlockNoteForm.jsp</result>
-        </action>
-        <action name="casemgmt/ViewUnlockNoteSuccess" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/unlockNoteSuccess.jsp</result>
         </action>
         <action name="casemgmt/ViewUploadimage" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/uploadimage.jsp</result>

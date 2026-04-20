@@ -86,7 +86,7 @@
     String target = opToFileDict.getDef(operation, "");
     if (target.isEmpty()) {
         MiscUtils.getLogger().warn("appointmentcontrol.jsp: unrecognized displaymode: {}",
-                org.owasp.encoder.SafeEncode.forJava(operation));
+                SafeEncode.forJava(operation));
         response.sendError(HttpServletResponse.SC_BAD_REQUEST,
                 "Unrecognized appointment operation");
         return;

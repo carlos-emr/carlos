@@ -399,7 +399,6 @@ public class AddEditDocument2Action extends ActionSupport {
                 cmn.setReporter_caisi_role(doctorRole.getId().toString());
 
                 cmn.setReporter_program_team("0");
-                cmn.setPassword("NULL");
                 cmn.setLocked(false);
                 cmn.setHistory(strNote);
                 cmn.setPosition(0);

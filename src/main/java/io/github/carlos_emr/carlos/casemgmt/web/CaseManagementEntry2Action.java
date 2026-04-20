@@ -477,7 +477,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (!note.isIncludeissue()) cform.setIncludeIssue("off");
         else cform.setIncludeIssue("on");
 
-        boolean passwd = caseManagementMgr.getEnabled();
         String chain = request.getParameter("chain");
 
         current = System.currentTimeMillis();
@@ -505,11 +504,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String fwd, finalFwd = null;
         if (chain != null && chain.length() > 0) {
-            session.setAttribute("passwordEnabled", passwd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             fwd = chain;
         } else {
-            request.setAttribute("passwordEnabled", passwd);
-
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
                 fwd = "issueList_ajax";
@@ -1450,13 +1446,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
             verify = true;
-        }
-
-        // update password
-        String passwd = this.getCaseNote().getPassword();
-        if (passwd != null && passwd.trim().length() > 0) {
-            note.setPassword(passwd);
-            note.setLocked(true);
         }
 
         Date now = new Date();
@@ -2862,16 +2851,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String programId = (String) session.getAttribute("case_program_id");
-        Map unlockedNotesMap = this.getUnlockedNotesMap(request);
-        return caseManagementMgr.getLastSaved(programId, demono, providerNo, unlockedNotesMap);
-    }
-
-    protected Map getUnlockedNotesMap(HttpServletRequest request) {
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
+        return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
     /*

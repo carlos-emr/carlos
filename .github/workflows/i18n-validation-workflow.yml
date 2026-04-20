@@ -1,0 +1,217 @@
+# CI Workflow: i18n Validation
+#
+# PURPOSE: Validate i18n key parity and UTF-8 encoding compliance on every PR.
+#
+# LOCATION:
+#   This workflow lives in .github/workflows/ and is active in this repository.
+#
+# What this workflow checks:
+#   1. All locale files (es, fr, pl, pt_BR) have all English keys (no missing translations)
+#   2. No locale file has orphaned keys absent from English
+#   3. All .properties files are valid UTF-8
+#   4. Any JSP using fmt:message has a fmt:setBundle declaration
+
+name: i18n Validation
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/resources/oscarResources_*.properties'
+      - 'src/main/webapp/**/*.jsp'
+      - 'src/main/webapp/**/*.jspf'
+      - 'scripts/check-i18n-properties.sh'
+      - 'scripts/audit-i18n-coverage.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  i18n-key-parity:
+    name: Properties Key Parity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/check-i18n-properties.sh scripts/audit-i18n-coverage.sh
+
+      - name: Run properties key parity check
+        id: parity_check
+        run: |
+          set +e
+          ./scripts/check-i18n-properties.sh --output /tmp/i18n-parity-report.txt
+          EXIT_CODE=$?
+          set -e
+          cat /tmp/i18n-parity-report.txt
+          exit $EXIT_CODE
+
+      - name: Upload parity report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-parity-report
+          path: /tmp/i18n-parity-report.txt
+          retention-days: 7
+
+  i18n-new-key-parity:
+    name: New Key Parity (PR diff only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract keys added to English in this PR
+        id: new_keys
+        run: |
+          # Find keys added to English properties in this PR
+          NEW_EN_KEYS=$(git diff origin/${{ github.base_ref }}...HEAD \
+            -- src/main/resources/oscarResources_en.properties \
+            | grep '^+' | grep -v '^+++' | grep -Ev '^+[[:space:]]*[#!]' \
+            | sed 's/^+//' | sed -E 's/[[:space:]]*[=:].*//' | sed 's/[[:space:]]*$//' \
+            | grep -v '^$' | sort -u)
+
+          if [ -z "$NEW_EN_KEYS" ]; then
+            echo "No new English keys in this PR — skipping parity check."
+            echo "has_new_keys=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New keys added to English: $(echo "$NEW_EN_KEYS" | wc -l)"
+            echo "$NEW_EN_KEYS"
+            echo "has_new_keys=true" >> "$GITHUB_OUTPUT"
+            echo "$NEW_EN_KEYS" > /tmp/new_en_keys.txt
+          fi
+
+      - name: Verify new English keys exist in all locale files
+        if: steps.new_keys.outputs.has_new_keys == 'true'
+        run: |
+          FAILED=false
+          LOCALES="es fr pl pt_BR"
+          RESOURCES="src/main/resources"
+
+          while IFS= read -r key; do
+            # Escape regex metacharacters in key to avoid false matches (e.g. '.' matching any char)
+            escaped_key=$(printf '%s' "$key" | sed 's/[.[\^$*+?{}|()/\\]/\\&/g')
+            for locale in $LOCALES; do
+              locale_file="${RESOURCES}/oscarResources_${locale}.properties"
+              if ! grep -qE "^[[:space:]]*${escaped_key}([[:space:]]*[=:]|[[:space:]]|$)" "$locale_file"; then
+                echo "MISSING: key '$key' not found in ${locale_file}"
+                FAILED=true
+              fi
+            done
+          done < /tmp/new_en_keys.txt
+
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "Fix: Add the missing keys to all locale files."
+            echo "Use English value as placeholder with # TODO: translate comment."
+            echo "See: docs/I18N-STANDARDS.md#step-5-create-new-keys-in-properties-files"
+            exit 1
+          fi
+          echo "All new English keys are present in all locale files."
+
+  i18n-encoding:
+    name: UTF-8 Encoding Compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check properties files are valid UTF-8
+        run: |
+          FAILED=false
+          for f in src/main/resources/oscarResources_*.properties; do
+            if ! iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then
+              echo "ENCODING VIOLATION: $f is not valid UTF-8"
+              echo "Fix: Ensure the file is saved with UTF-8 encoding in your editor/IDE"
+              FAILED=true
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "See: docs/I18N-STANDARDS.md#utf-8-encoding-requirements-java-21"
+            exit 1
+          fi
+          echo "All properties files are valid UTF-8."
+
+  i18n-jsp-bundle:
+    name: JSP fmt:setBundle Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check new/modified JSPs for missing fmt:setBundle
+        run: |
+          has_inherited_bundle() {
+            local jsp="$1"
+            local include_path resolved_path
+
+            while IFS= read -r include_path; do
+              if [[ "$include_path" = /* ]]; then
+                resolved_path="src/main/webapp${include_path}"
+              else
+                resolved_path="$(dirname "$jsp")/$include_path"
+              fi
+
+              if [ -f "$resolved_path" ] && grep -q 'fmt:setBundle' "$resolved_path"; then
+                return 0
+              fi
+            done < <(
+              sed -E '/<!--/,/-->/d; /<%--/,/--%>/d' "$jsp" \
+                | grep -oE '<%@[[:space:]]*include[^>]+file[[:space:]]*=[[:space:]]*"[^"]+"|<jsp:include[^>]+page[[:space:]]*=[[:space:]]*"[^"]+"' \
+                | sed -E 's/.*(file|page)[[:space:]]*=[[:space:]]*"([^"]+)"/\2/'
+            )
+
+            return 1
+          }
+
+          # Only check JSP files changed in this PR
+          CHANGED_JSPS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '\.jspf?$' | grep -v '^test' || true)
+
+          if [ -z "$CHANGED_JSPS" ]; then
+            echo "No JSP files changed in this PR."
+            exit 0
+          fi
+
+          FAILED=false
+          for jsp in $CHANGED_JSPS; do
+            [ ! -f "$jsp" ] && continue
+            # If the file uses fmt:message but has no fmt:setBundle locally or via a direct include, flag it.
+            if grep -q 'fmt:message' "$jsp" && \
+               ! grep -q 'fmt:setBundle' "$jsp" && \
+               ! has_inherited_bundle "$jsp"; then
+              echo "MISSING fmt:setBundle: $jsp"
+              echo "  Fix: Add <fmt:setBundle basename=\"oscarResources\"/> after taglib declarations."
+              echo "  Or ensure a directly included header declares the bundle."
+              FAILED=true
+            fi
+          done
+
+          # Check for hardcoded lang="en" on html tag
+          for jsp in $CHANGED_JSPS; do
+            [ ! -f "$jsp" ] && continue
+            if grep -qE '<html[^>]+lang="en"[^>]*>' "$jsp"; then
+              echo "HARDCODED lang attribute: $jsp"
+              echo "  Fix: Change to <html lang=\"\${pageContext.request.locale.language}\">"
+              FAILED=true
+            fi
+          done
+
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "See: docs/I18N-STANDARDS.md and docs/I18N-CONVERSION-CHECKLIST.md"
+            exit 1
+          fi
+          echo "All changed JSP files pass i18n structural checks."

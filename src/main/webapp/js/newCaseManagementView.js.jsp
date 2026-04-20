@@ -43,7 +43,6 @@
     var demographicNo;
     var case_program_id;
     var caisiEnabled = false;
-    var passwordEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
     var makeIssue;
@@ -1336,15 +1335,6 @@ function updateCPPNote() {
 
         Element.remove(Event.element(e).id);
         Event.stop(e);
-
-        if (error)
-            Element.remove("passwdError");
-
-        if (frm)
-            Element.remove("passwdPara");
-
-        //$(parent).insertAdjacentHTML('afterbegin', img);
-        Element.observe(parent, 'click', unlockNote);
     }
 
     function removeLock(id) {
@@ -1397,10 +1387,6 @@ function updateCPPNote() {
         //clear auto save
         clearTimeout(autoSaveTimer);
         deleteAutoSave();
-
-        if ($("notePasswd") != null) {
-            Element.remove("notePasswd");
-        }
 
     jQuery('#' + id).off('keyup', monitorCaseNote);
     jQuery('#' + caseNote).off('paste');
@@ -1779,7 +1765,6 @@ function updateCPPNote() {
         if (txt == "") txt = Event.element(e).parentNode.parentNode.id;
 
         payload = $(caseNote).value;
-        Element.remove("notePasswd");
         Element.remove(caseNote);
 
         payload = payload.replace(/^\s+|\s+$/g, "");
@@ -1792,70 +1777,10 @@ function updateCPPNote() {
 
     }
 
-// send password to server for auth to display locked Note
     var sessionExpiredError;
-    var unlockNoteError;
-    function unlock_ajax(id) {
-        var url = ctx + "/CaseManagementView";
-        var noteId = id.substr(1);
-        var params = "method=do_unlock_ajax&noteId=" + noteId + "&password=" + encodeURIComponent($F("passwd"));
 
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    var html = request.responseText;
-                    $(id).update(html);
-                },
-                onFailure: function (request) {
-                    if (request.status == 403)
-                        alert(sessionExpiredError);
-                    else
-                        alert(request.status + " " + unlockNoteError);
-                }
-            }
-        );
-        return false;
-    }
-
-//display unlock note password text field and submit button
-    var msgPasswd;
-    var btnMsgUnlock;
-    function unlockNote(e) {
-        var txt;
-        var el;
-
-        el = Event.element(e);
-
-        //get id for parent div
-        if (el.id.search(/^n/) > -1)
-            txt = el.id;
-        else {
-            var level = 0;
-            var ancestor = $(el).up('div', level);
-            while (ancestor && ancestor.id.search(/^n/) === -1) {
-                ++level;
-                ancestor = $(el).up('div', level);
-            }
-            if (!ancestor) return;
-            txt = ancestor.id;
-        }
-
-        var passwd = "passwd";
-        var nId = txt.substr(1);
-        var img = "<img id='quitImg" + nId + "' onclick='resetView(true, false, event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-        $(txt).insertAdjacentHTML('afterbegin', img);
-        var lockForm = "<p id='passwdPara' class='passwd'>" + msgPasswd + ":&nbsp;<input onkeypress=\"return grabEnter('btnUnlock', event);\" type='password' id='" + passwd + "' size='16'>&nbsp;<input id='btnUnlock' type='button' onclick=\"return unlock_ajax('" + txt + "');\" value='" + btnMsgUnlock + "'><\/p>";
-        $(txt).insertAdjacentHTML('beforeend', lockForm);
-
-        $(txt).style.height = "auto";
-        $(passwd).focus();
-        Element.stopObserving(txt, 'click', unlockNote);
-    }
-
+// Check whether another provider currently has this note open for editing.
+// Returns the server's edit-lock status as JSON-derived string ("true"/"false"/"").
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
@@ -2004,11 +1929,6 @@ function updateCPPNote() {
         enableNotePassthroughScroll(jQuery('#' + caseNote));
         initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
-
-        if (passwordEnabled) {
-            input = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-            $(txt).insertAdjacentHTML('beforeend', input);
-        }
 
         //we check if we are dealing with a new note or not
         if (strNid.charAt(0) == "0") {
@@ -2618,17 +2538,6 @@ function updateCPPNote() {
         return false;
     }
 
-    function toggleNotePasswd() {
-        if (passwordEnabled) {
-            Element.toggle('notePasswd');
-            if ($('notePasswd').style.display != "none")
-                document.forms['caseManagementEntryForm'].elements['caseNote.password'].focus();
-            else
-                document.forms['caseManagementEntryForm'].elements[caseNote].focus();
-        }
-        return false;
-    }
-
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
@@ -2820,27 +2729,25 @@ function updateCPPNote() {
 
         ++newNoteCounter;
         var newNoteIdx = "0" + newNoteCounter;
-        var id = "nc" + newNoteIdx;
-        var sigId = "sig" + newNoteIdx;
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + newNoteIdx + "'>" + reason + "<\/textarea>";
-        var passwd = "";
-        if (passwordEnabled) {
-            passwd = "<p style='background-color:#CCCCFF; display:none; margin:0;' id='notePasswd'>Password:&nbsp;<input type='password' name='caseNote.password'/><\/p>";
-        }
-
+        var safeNewNoteIdx = newNoteIdx.replace(/\s+/g, "");
+        var safeNoteIdSuffix = safeNewNoteIdx.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var id = "nc" + safeNewNoteIdx;
+        var sigId = "sig" + safeNewNoteIdx;
+        var safeSigId = sigId.replace(/[^A-Za-z0-9\-_:.]/g, "");
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='hard' class='txtArea boxsizingBorder' style='line-height:1.0em;' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + reason + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
-        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + newNoteIdx + "' value='false'><input type='hidden' id='editWarn" + newNoteIdx + "' value='false'><div id='n" + newNoteIdx + "'><input type='hidden' id='full" + newNoteIdx + "' value='true'>" +
-            "<input type='hidden' id='bgColour" + newNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + sigId + "'><\/div>" + passwd + "<\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
+        var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
+            "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
 
 
         if (changeToView(caseNote)) {
 
-            caseNote = "caseNote_note" + newNoteIdx;
+            caseNote = "caseNote_note" + safeNoteIdSuffix;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
             document.getElementById("encMainDiv").insertAdjacentHTML('beforeend', div);
-            $(sigId).addClassName("sig");
+            $(safeSigId).addClassName("sig");
             <%--Rounded("div#"+id,"all","transparent","#CCCCCC","big border #000000");--%>
             $(caseNote).focus();
             adjustCaseNote();
@@ -2858,8 +2765,8 @@ function updateCPPNote() {
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
-            ajaxUpdateIssues("edit", sigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, sigId);
+            ajaxUpdateIssues("edit", safeSigId);
+            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
             if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
@@ -3500,10 +3407,6 @@ function autoSave() {
             clearTimeout(autoSaveTimer);
             deleteAutoSave();
 
-            if ($("notePasswd") != null) {
-                Element.remove("notePasswd");
-            }
-
                 jQuery('#' + caseNote).off('keyup', monitorCaseNote);
                 jQuery('#' + caseNote).off('paste');
             Element.stopObserving(caseNote, 'click', getActiveText);
@@ -3768,4 +3671,3 @@ function autoSave() {
             activeCCWindows[x].close();
         }
     });
-
