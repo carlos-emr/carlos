@@ -88,7 +88,8 @@ class EFormJspMigrationRegressionTest {
     void shouldNormalizeFidToString_whenReadingLoadEFormImplementation() throws IOException {
         String eformUtil = Files.readString(EFORM_UTIL, StandardCharsets.UTF_8);
 
-        assertThat(eformUtil).contains("curht.put(\"fid\", eform.getId().toString());");
+        assertThat(eformUtil).containsPattern(
+                "curht\\.put\\(\\s*\"fid\"\\s*,\\s*(?:eform\\.getId\\(\\)\\.toString\\(\\)|String\\.valueOf\\(\\s*eform\\.getId\\(\\)\\s*\\))\\s*\\);");
     }
 
     @Test
