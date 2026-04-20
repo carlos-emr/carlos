@@ -197,7 +197,7 @@ public class LogoutBroadcastFilter implements Filter {
             logger.debug("Skipping logout broadcast script injection because the script could not be written.", e);
             return;
         } catch (IllegalStateException e) {
-            logger.debug("Skipping logout broadcast script injection because neither response writer nor output stream was available.", e);
+            logger.debug("Skipping logout broadcast script injection because the response writer was unavailable and output stream fallback did not complete.", e);
             return;
         }
     }
@@ -300,6 +300,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             writeScriptToWriter(delegatingResponse, script);
         } catch (IllegalStateException e) {
+            logger.debug("Response writer unavailable during logout script injection; retrying with output stream.", e);
             writeScriptToOutputStream(delegatingResponse, script);
         }
     }

@@ -206,7 +206,7 @@ class LogoutBroadcastFilterUnitTest {
          *
          * @return String response body captured by the mock output stream
          */
-        private String getBodyAsString() {
+        String getBodyAsString() {
             return body.toString(StandardCharsets.UTF_8);
         }
     }
