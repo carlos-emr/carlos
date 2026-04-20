@@ -85,7 +85,7 @@
 %>
 <c:set var="flatpickrLanguage" value="${pageContext.request.locale.language == 'es' || pageContext.request.locale.language == 'fr' || pageContext.request.locale.language == 'pl' || pageContext.request.locale.language == 'pt' ? pageContext.request.locale.language : 'en'}"/>
 <!DOCTYPE html>
-<html lang="${flatpickrLanguage}">
+<html lang="${requestLanguageTag}">
 <head>
     <meta charset="UTF-8">
     <title>
