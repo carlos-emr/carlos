@@ -150,6 +150,13 @@ public final class Login2Action extends ActionSupport {
     /** Log message prefix for authentication-related log entries */
     private static final String LOG_PRE = "Login!@#$: ";
 
+    /**
+     * Session attribute name holding an opaque random token that references credential
+     * material stashed in {@link LoginCredentialCache}. The token itself contains no
+     * credential information; credential hashes and PINs are never placed in the session.
+     */
+    private static final String LOGIN_CREDENTIALS_TOKEN_ATTR = "loginCredentialsToken";
+
     /** Spring-managed service for provider data access and management */
     private final ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
@@ -361,27 +368,41 @@ public final class Login2Action extends ActionSupport {
         // >> 2. Forced Password Change Handling
         if (request.getParameter("forcedpasswordchange") != null
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")) {
-            // Coming back from force password change.
-            userName = (String) request.getSession().getAttribute("userName");
+            // Coming back from force password change. Credentials are held in the
+            // server-side LoginCredentialCache, referenced by an opaque one-time token
+            // in the session (the credentials themselves are NEVER placed in the session).
+            String credsToken = (String) request.getSession().getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+            LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(credsToken);
+            if (cached == null) {
+                // Token missing or expired (>5 min, or already consumed). Treat as a
+                // session-timeout and send the user back to the login screen rather than
+                // proceeding with empty credentials.
+                logger.info("Forced password reset submitted without valid credential-cache token; redirecting to login");
+                removeAttributesFromSession(request);
+                response.sendRedirect(request.getContextPath() + "/loginfailed?errormsg=Session expired. Please log in again.");
+                return NONE;
+            }
+
+            userName = cached.getUserName();
 
             // Username is only letters and numbers
             if (userName == null || !Pattern.matches("[a-zA-Z0-9]{1,10}", userName)) {
                 userName = "Invalid Username";
             }
 
-            password = (String) request.getSession().getAttribute("password");
+            password = cached.getEncodedPassword();
 
-            pin = (String) request.getSession().getAttribute("pin");
+            pin = cached.getPin();
 
             // pins are integers only
             if (pin == null || !Pattern.matches("[0-9]{4}", pin)) {
                 pin = "";
             }
-            nextPage = (String) request.getSession().getAttribute("nextPage");
-            // Validate nextPage retrieved from session to prevent open redirect (CWE-601 defense in depth)
+            nextPage = cached.getNextPage();
+            // Validate nextPage retrieved from cache to prevent open redirect (CWE-601 defense in depth)
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from session: {}", LogSanitizer.sanitize(nextPage));
+                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSanitizer.sanitize(nextPage));
                 }
                 nextPage = null;
             }
@@ -904,73 +925,96 @@ public final class Login2Action extends ActionSupport {
     }
 
     /**
-     * Removes authentication-related attributes from the session.
+     * Removes authentication-related attributes from the session and invalidates
+     * any cached credential material.
      *
      * <p>This method is called when cleaning up after a forced password reset flow
      * or when login fails and sensitive data must be cleared from the session.
      *
-     * <p>Attributes removed:
-     * <ul>
-     *   <li>userName - The authenticated username</li>
-     *   <li>password - The encoded password hash</li>
-     *   <li>pin - The provider PIN code</li>
-     *   <li>nextPage - The post-authentication redirect target</li>
-     * </ul>
+     * <p>The session attribute removed is the opaque credential-cache token (see
+     * {@link LoginCredentialCache}); if it is present the corresponding cache entry is
+     * also invalidated so that credential material cannot outlive the login attempt.
+     * The {@code nextPage} attribute is also cleared.
      *
      * @param request HttpServletRequest containing the session to clean
      */
     private void removeAttributesFromSession(HttpServletRequest request) {
-        request.getSession().removeAttribute("userName");
-        request.getSession().removeAttribute("password");
-        request.getSession().removeAttribute("pin");
-        request.getSession().removeAttribute("nextPage");
+        HttpSession session = request.getSession();
+        Object tokenAttr = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (tokenAttr instanceof String) {
+            LoginCredentialCache.getInstance().invalidate((String) tokenAttr);
+        }
+        session.removeAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        session.removeAttribute("nextPage");
     }
 
     /**
-     * Stores user authentication information in the session for forced password reset flow.
+     * Stores user authentication information in a short-lived server-side cache for the
+     * forced password reset and MFA flows, and records only an opaque one-time token in
+     * the session.
      *
-     * <p>During the forced password reset process, the user's credentials are temporarily
-     * stored in the session so they can be re-authenticated after successfully changing
-     * their password. The password is encoded before storage for security.
+     * <p>During multi-step login (MFA verification or forced password reset), the user's
+     * credentials are needed on a subsequent request. Rather than placing password hash
+     * and PIN material in the HTTP session — where it could be serialised, replicated,
+     * or exposed via debug dumps — this method stashes the credentials in
+     * {@link LoginCredentialCache} (a Caffeine cache with a 5-minute TTL, one-time-use
+     * semantics, and 256-bit random tokens). Only the opaque token is placed in the
+     * session. The companion retrieval path (see the forced-password-change branch in
+     * {@link #execute()}) consumes the token to atomically read and remove the credentials.
      *
      * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
-     * being stored. Any value that is absolute, protocol-relative, or contains backslash
+     * being cached. Any value that is absolute, protocol-relative, or contains backslash
      * bypasses is rejected and stored as {@code null} (defense in depth).
+     *
+     * <p>If a prior token is already attached to the session, its cache entry is invalidated
+     * before a new one is issued, ensuring stale credential material does not outlive the
+     * current login attempt.
      *
      * <p>Session attributes set:
      * <ul>
-     *   <li>userName - String the authenticated username (validated alphanumeric)</li>
-     *   <li>password - String the SHA-encoded password hash</li>
-     *   <li>pin - String the 4-digit provider PIN</li>
-     *   <li>nextPage - String the validated relative URL, or null if invalid/absent</li>
+     *   <li>{@value #LOGIN_CREDENTIALS_TOKEN_ATTR} — opaque random token referencing the
+     *       cached credentials; NOT credential material</li>
      * </ul>
      *
      * @param request HttpServletRequest to access the session
      * @param userName String the username (must match [a-zA-Z0-9]{1,10} pattern)
-     * @param password String the plain-text password (will be encoded before storage)
+     * @param password String the plain-text password (will be encoded before caching)
      * @param pin String the 4-digit PIN (must match [0-9]{4} pattern)
-     * @param nextPage String the relative URL to redirect to after password reset (validated before storage)
+     * @param nextPage String the relative URL to redirect to after password reset (validated before caching)
      * @throws Exception if password encoding fails
      * @see #encodePassword for password encoding algorithm
      * @see #removeAttributesFromSession for cleanup after password reset
      * @see RedirectValidationUtils#isValidRelativeRedirect for redirect URL validation logic
+     * @see LoginCredentialCache for the server-side credential store
      */
     private void setUserInfoToSession(HttpServletRequest request, String userName, String password, String pin,
                                       String nextPage) throws Exception {
-        // Login credentials stored temporarily for forced password change flow; cleared after login via removeAttributesFromSession()
-        request.getSession().setAttribute("userName", userName); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [a-zA-Z0-9]{1,10} at login entry; temporary storage for MFA flow
-        request.getSession().setAttribute("password", encodePassword(password)); // nosemgrep: tainted-session-from-http-request -- SHA-1 hashed via encodePassword() before session storage; never stored as plaintext
-        request.getSession().setAttribute("pin", pin); // nosemgrep: tainted-session-from-http-request -- validated via Pattern [0-9]{4} at login entry; temporary storage for MFA flow
-        // Validate nextPage before session storage to prevent open redirect via session (CWE-601 defense in depth)
+        // Validate nextPage before caching to prevent open redirect (CWE-601 defense in depth)
         if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
             if (nextPage != null) {
-                logger.warn("Rejected invalid nextPage before session storage: {}", LogSanitizer.sanitize(nextPage));
+                logger.warn("Rejected invalid nextPage before credential cache: {}", LogSanitizer.sanitize(nextPage));
             }
             nextPage = null;
         }
-        // nextPage validated via RedirectValidationUtils above
-        request.getSession().setAttribute("nextPage", nextPage); // nosemgrep: tainted-session-from-http-request
 
+        // SECURITY: Do NOT place credential material (password hash, PIN) in the HTTP session.
+        // Sessions can be serialized to disk, replicated across nodes, dumped for debugging,
+        // or read by any session-aware code. Instead, stash credentials in a short-lived
+        // server-side cache keyed by a cryptographically random one-time token, and store
+        // only the opaque token in the session. See LoginCredentialCache for details.
+        LoginCredentialCache.LoginCredentials credentials = new LoginCredentialCache.LoginCredentials(
+                userName, encodePassword(password), pin, nextPage);
+
+        // Invalidate any previously issued token on this session before minting a new one,
+        // so that stale cache entries do not outlive the current login attempt.
+        HttpSession session = request.getSession();
+        Object existingToken = session.getAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR);
+        if (existingToken instanceof String) {
+            LoginCredentialCache.getInstance().invalidate((String) existingToken);
+        }
+
+        String token = LoginCredentialCache.getInstance().store(credentials);
+        session.setAttribute(LOGIN_CREDENTIALS_TOKEN_ATTR, token); // nosemgrep: tainted-session-from-http-request -- opaque random token, not user-controlled; no credential material in session
     }
 
     /**
