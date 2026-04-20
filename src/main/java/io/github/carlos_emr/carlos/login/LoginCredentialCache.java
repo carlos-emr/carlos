@@ -50,7 +50,8 @@ import java.util.Objects;
  *   <li><b>Unguessable tokens</b> — tokens are 256 bits of entropy from {@link SecureRandom},
  *       URL-safe Base64 encoded.</li>
  *   <li><b>Bounded</b> — capped at 10,000 entries to prevent memory-exhaustion via forged
- *       login attempts; oldest entries evicted first.</li>
+ *       login attempts; entries may be evicted when the maximum size is exceeded according
+ *       to Caffeine's eviction policy.</li>
  * </ul>
  *
  * <p>This class is thread-safe and intended to be used as a process-wide singleton via
@@ -128,13 +129,11 @@ public final class LoginCredentialCache {
         if (token == null || token.isEmpty()) {
             return null;
         }
-        LoginCredentials creds = cache.getIfPresent(token);
-        // Invalidate unconditionally (regardless of presence/absence) to (a) enforce
-        // one-time-use semantics and prevent replay of a leaked or observed token, and
-        // (b) normalise timing so that a caller cannot distinguish hit-then-evict from
-        // miss by observing side effects.
-        cache.invalidate(token);
-        return creds;
+        // Atomically remove and return the cached value so that only one concurrent
+        // caller can ever redeem a token. Caffeine's asMap().remove(key) is a single
+        // atomic operation; getIfPresent + invalidate would allow two threads to both
+        // observe a value before either evicted it.
+        return cache.asMap().remove(token);
     }
 
     /**

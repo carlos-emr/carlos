@@ -343,6 +343,12 @@ public final class Login2Action extends ActionSupport {
                         throw new RuntimeException(e);
                     }
                 }
+                // MFA verification succeeded: the original login credentials are no longer
+                // needed on subsequent requests, so invalidate the credential-cache entry
+                // and clear the session token. This ensures credential material cannot
+                // outlive the successful login (it would otherwise sit in the cache until
+                // its 5-minute TTL expired).
+                removeAttributesFromSession(request);
                 // Continue with post-authentication flow after successful MFA
                 return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
             } else {
@@ -957,10 +963,13 @@ public final class Login2Action extends ActionSupport {
      * credentials are needed on a subsequent request. Rather than placing password hash
      * and PIN material in the HTTP session — where it could be serialised, replicated,
      * or exposed via debug dumps — this method stashes the credentials in
-     * {@link LoginCredentialCache} (a Caffeine cache with a 5-minute TTL, one-time-use
-     * semantics, and 256-bit random tokens). Only the opaque token is placed in the
-     * session. The companion retrieval path (see the forced-password-change branch in
-     * {@link #execute()}) consumes the token to atomically read and remove the credentials.
+     * {@link LoginCredentialCache} (a Caffeine cache with a 5-minute TTL, opaque random
+     * tokens, and explicit invalidation on terminal outcomes). Only the opaque token is
+     * placed in the session. The companion retrieval path (see the forced-password-change
+     * branch in {@link #execute()}) may use {@link LoginCredentialCache#peek(String)} for
+     * retryable flows so the cached credentials remain available across validation retries;
+     * terminal success or failure paths invalidate the cache entry via
+     * {@link #removeAttributesFromSession(HttpServletRequest)}.
      *
      * <p>The {@code nextPage} parameter is validated against open redirect (CWE-601) before
      * being cached. Any value that is absolute, protocol-relative, or contains backslash
