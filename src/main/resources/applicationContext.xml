@@ -39,6 +39,11 @@
 	<aop:aspectj-autoproxy proxy-target-class="true"/>
 
 	<bean class="io.github.carlos_emr.carlos.config.ServletContextConfig"/>
+	<!-- Registers the @Configuration class that declares @EnableCaching and the
+	     Caffeine-backed CacheManager bean. Without this explicit registration
+	     the @Configuration class is not processed and every @Cacheable /
+	     @CacheEvict annotation in the application becomes a silent no-op. -->
+	<bean class="io.github.carlos_emr.carlos.config.CacheConfig"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">

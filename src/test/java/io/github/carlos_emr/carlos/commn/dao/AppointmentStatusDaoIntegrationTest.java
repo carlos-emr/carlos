@@ -93,8 +93,8 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should find all appointment statuses")
-        void shouldFindAllStatuses() {
+        @DisplayName("should find all appointment statuses when multiple exist")
+        void shouldFindAllStatuses_whenMultipleExist() {
             createStatus("A", "Active", "active.gif");
             createStatus("C", "Cancelled", "cancel.gif");
             List<AppointmentStatus> all = appointmentStatusDao.findAll(0, 100);
@@ -103,8 +103,8 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all statuses")
-        void shouldCountAllStatuses() {
+        @DisplayName("should count all statuses when at least one exists")
+        void shouldCountAllStatuses_whenAtLeastOneExists() {
             createStatus("Z", "Test Count", "z.gif");
             long count = appointmentStatusDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

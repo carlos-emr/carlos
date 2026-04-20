@@ -299,6 +299,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames",           allEntries = true),
+        @CacheEvict(value = "activeProviders",         allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
     @Override
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
@@ -306,8 +311,8 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
             // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
             // If the entity is already managed, there is nothing to do. If it is detached, merge() is
             // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
-            // if the detached state differs from the database row. Callers relying on the old "clean"
-            // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            // if the detached state differs from the database row, so this method evicts the provider
+            // caches alongside the other mutating methods.
             // Pre-existing: parameter type should be SecProvider (entity), not SecProviderDao (interface).
             if (!entityManager().contains(instance)) {
                 entityManager().merge(instance);

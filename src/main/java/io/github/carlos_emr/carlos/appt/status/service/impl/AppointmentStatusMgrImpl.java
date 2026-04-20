@@ -36,8 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import org.springframework.beans.BeansException;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Implementation of {@link AppointmentStatusMgr} that delegates directly to
@@ -110,8 +113,16 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
      * with {@code AppointmentStatus.on_jpa_update()}.
      *
      * <p>Legacy JPA writes may bypass the cached DAO methods. When the entity
-     * callback signals the cache is dirty, clear the Spring cache directly via the
+     * callback signals the cache is dirty, clear the Spring cache via the
      * transaction-aware {@link CacheManager} so later reads reload fresh data.</p>
+     *
+     * <p>If a transaction is active, the clear is deferred until after commit —
+     * {@code TransactionAwareCacheManagerProxy} defers {@code put}/{@code evict}
+     * but not {@code clear()}, so without this hook a {@code @PostUpdate}-triggered
+     * clear would fire mid-transaction and remain in effect even if the originating
+     * write later rolled back. A missing or misconfigured {@link CacheManager} is
+     * logged and swallowed so a cache-configuration fault never aborts a legitimate
+     * appointment-status write from inside a JPA lifecycle callback.</p>
      *
      * @param cacheIsDirty whether the legacy callback detected a write
      */
@@ -120,11 +131,27 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
             return;
         }
 
-        Cache cache = getCacheManager().getCache("appointmentStatuses");
-        if (cache != null) {
-            cache.clear();
-        } else {
+        final Cache cache;
+        try {
+            cache = getCacheManager().getCache("appointmentStatuses");
+        } catch (BeansException e) {
+            logger.warn("Appointment status cache invalidation skipped: CacheManager bean unavailable", e);
+            return;
+        }
+        if (cache == null) {
             logger.warn("Appointment status cache invalidation requested but cache 'appointmentStatuses' is not configured");
+            return;
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cache.clear();
+                }
+            });
+        } else {
+            cache.clear();
         }
     }
 
