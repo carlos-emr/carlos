@@ -55,7 +55,7 @@ class OscarResourcesBundleParseTest {
 
     @Test
     @DisplayName("should parse every oscarResources locale file without IllegalArgumentException")
-    void shouldParseEveryLocaleFileWithoutIllegalArgumentException() {
+    void shouldParseAllLocaleBundles_withoutException() {
         for (String locale : LOCALES) {
             String resource = "/oscarResources_" + locale + ".properties";
             assertThatCode(() -> {
@@ -72,7 +72,7 @@ class OscarResourcesBundleParseTest {
 
     @Test
     @DisplayName("should load Polish bundle even when JVM default locale is Polish")
-    void shouldLoadPolishBundleEvenWhenDefaultLocaleIsPolish() {
+    void shouldLoadPolishBundle_whenDefaultLocaleIsPolish() {
         Locale originalDefault = Locale.getDefault();
         try {
             Locale.setDefault(new Locale("pl"));
