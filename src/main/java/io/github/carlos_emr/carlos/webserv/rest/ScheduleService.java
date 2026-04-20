@@ -105,6 +105,8 @@ import org.w3c.dom.Document;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ScheduleService extends AbstractServiceImpl {
 
+    private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
+
     Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -602,7 +604,9 @@ public class ScheduleService extends AbstractServiceImpl {
         }
 
         if (id == null || id.intValue() == 0) {
-            return null;
+            return Response.status(Status.BAD_REQUEST)
+                    .entity("Invalid search configuration id")
+                    .build();
         }
 
 
@@ -663,8 +667,10 @@ public class ScheduleService extends AbstractServiceImpl {
             logger.info("searchConfig\n" + XmlUtils.toString(d, true));
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
+            return Response.status(Status.INTERNAL_SERVER_ERROR)
+                    .entity("Internal server error")
+                    .build();
         }
-
 
         return Response.ok(forNewId).build();
     }
@@ -678,25 +684,32 @@ public class ScheduleService extends AbstractServiceImpl {
         if (searchConfig == null) {
             return null;
         }
-        List<FilterDefinition> topLevel = searchConfig.getFilters();
-        if (topLevel != null) {
-            for (FilterDefinition fd : topLevel) {
-                if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
-                    return fd.getFilterClassName();
-                }
-            }
+        String unknownFilter = findUnknownFilter(searchConfig.getFilters());
+        if (unknownFilter != null) {
+            return unknownFilter;
         }
         Map<String, Provider> providers = searchConfig.getProviders();
         if (providers != null) {
             for (Provider provider : providers.values()) {
-                List<FilterDefinition> providerFilters = provider.getFilter();
-                if (providerFilters != null) {
-                    for (FilterDefinition fd : providerFilters) {
-                        if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
-                            return fd.getFilterClassName();
-                        }
-                    }
+                unknownFilter = findUnknownFilter(provider == null ? null : provider.getFilter());
+                if (unknownFilter != null) {
+                    return unknownFilter;
                 }
+            }
+        }
+        return null;
+    }
+
+    private String findUnknownFilter(List<FilterDefinition> filters) {
+        if (filters == null) {
+            return null;
+        }
+        for (FilterDefinition fd : filters) {
+            if (fd == null || fd.getFilterClassName() == null) {
+                return MISSING_FILTER_KEY_SENTINEL;
+            }
+            if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
+                return fd.getFilterClassName();
             }
         }
         return null;
