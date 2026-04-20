@@ -101,9 +101,6 @@ public class ClientImage extends BaseObject {
         if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
             return "gif";
         }
-        if ("png".equals(normalized) || "image/png".equals(normalized)) {
-            return "png";
-        }
         return null;
     }
 

@@ -136,7 +136,12 @@ public final class ImageRenderingServlet extends HttpServlet {
                     renderImage(response, clientImage.getImage_data(), imageType);
                     return;
                 } else {
-                    renderImage(response, getDefaultImage(request), "jpeg");
+                    byte[] defaultImage = getDefaultImage(request);
+                    if (defaultImage == null) {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    renderImage(response, defaultImage, "jpeg");
                     return;
                 }
             } catch (Exception e) {

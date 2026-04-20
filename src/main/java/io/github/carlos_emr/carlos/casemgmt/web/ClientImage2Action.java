@@ -69,12 +69,17 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         String method = request.getParameter("method");
         if ("deleteImage".equals(method)) {
-            return deleteImage();
+            return doDeleteImage();
         }
-        return saveImage();
+        return doSaveImage();
     }
 
-    private String saveImage() {
+    public String saveImage() {
+        validateWritePrivilege();
+        return doSaveImage();
+    }
+
+    private String doSaveImage() {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
@@ -131,7 +136,12 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         return SUCCESS;
     }
 
-    private String deleteImage() {
+    public String deleteImage() {
+        validateWritePrivilege();
+        return doDeleteImage();
+    }
+
+    private String doDeleteImage() {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 

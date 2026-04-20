@@ -178,14 +178,14 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return error when uploaded file type is not supported")
-    void shouldReturnError_whenUploadedFileTypeNotSupported() throws Exception {
-        tempUploadFile = File.createTempFile("client-image", ".png");
+    @DisplayName("should return error when uploaded file extension is not supported")
+    void shouldReturnError_whenUploadedFileExtensionNotSupported() throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".bmp");
         Files.write(tempUploadFile.toPath(), new byte[]{5, 4, 3, 2});
 
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
-        when(uploadedFile.getOriginalName()).thenReturn("patient-photo.png");
+        when(uploadedFile.getOriginalName()).thenReturn("patient-photo.bmp");
 
         action.withUploadedFiles(List.of(uploadedFile));
 
