@@ -119,6 +119,7 @@
             <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/displayImage.do" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
 
     </package>
