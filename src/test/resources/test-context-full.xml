@@ -597,7 +597,7 @@
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
     <!-- ===================================================================== -->
 
-    <!-- DemographicDao (extends AbstractHibernateDao, no @Repository) -->
+    <!-- DemographicDao (extends AbstractJpaDao, no @Repository) -->
     <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
 
     <!-- Other non-@Repository DAOs -->

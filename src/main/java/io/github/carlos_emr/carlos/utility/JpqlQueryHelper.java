@@ -40,20 +40,23 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.QueryTimeoutException;
 
 /**
- * JPA counterpart to {@link HqlQueryHelper} that uses {@link EntityManager}
- * instead of Hibernate {@code Session}.
+ * JPA query helper that provides concise method signatures for parameterized
+ * {@link EntityManager} queries.
  *
- * <p>Provides the same six method signatures as {@code HqlQueryHelper},
- * enabling a mechanical migration: replace
- * {@code HqlQueryHelper.find(currentSession(), hql, params)} with
- * {@code JpqlQueryHelper.find(entityManager(), hql, params)}.</p>
+ * <p>Typical usage from a DAO extending
+ * {@link io.github.carlos_emr.carlos.dao.AbstractJpaDao}:</p>
+ * <pre>
+ *     List&lt;Foo&gt; results = (List&lt;Foo&gt;) JpqlQueryHelper.find(
+ *             entityManager(), "FROM Foo f WHERE f.bar = ?1", bar);
+ * </pre>
  *
- * <p>All JPQL strings from the Hibernate-based DAOs work unchanged because
- * Hibernate is the JPA provider. JPA exceptions are translated to Spring's
- * {@code DataAccessException} hierarchy to preserve the same contract.</p>
+ * <p>Historical note: this class replaced a legacy {@code HqlQueryHelper} that
+ * wrapped a Hibernate {@code Session}. JPQL strings authored against the old
+ * helper work unchanged because Hibernate is the JPA provider. JPA exceptions
+ * are translated to Spring's {@code DataAccessException} hierarchy to preserve
+ * the same contract.</p>
  *
  * @since 2026-04-11
- * @see HqlQueryHelper
  * @see io.github.carlos_emr.carlos.dao.AbstractJpaDao
  */
 public final class JpqlQueryHelper {
@@ -64,8 +67,8 @@ public final class JpqlQueryHelper {
     /**
      * Execute a JPQL query with 1-based positional parameter binding.
      *
-     * <p>Returns {@code List<?>} to match {@code HqlQueryHelper.find()} signature,
-     * allowing existing {@code (List<SomeType>)} casts to work unchanged.</p>
+     * <p>Returns {@code List<?>} so existing {@code (List<SomeType>)} casts at
+     * call sites work unchanged.</p>
      *
      * @param em the EntityManager from {@code entityManager()}
      * @param jpql the JPQL query string using 1-based positional parameters ({@code ?1}, {@code ?2}, etc.)
@@ -168,8 +171,6 @@ public final class JpqlQueryHelper {
     /**
      * Execute a JPQL bulk update/delete with 1-based positional parameter binding.
      *
-     * <p>Drop-in replacement for {@code HqlQueryHelper.bulkUpdate()}.</p>
-     *
      * @param em the EntityManager from {@code entityManager()}
      * @param jpql the JPQL update/delete string using 1-based positional parameters ({@code ?1}, {@code ?2}, etc.)
      * @param params the parameter values, bound to {@code ?1}, {@code ?2}, etc. in order
@@ -245,7 +246,7 @@ public final class JpqlQueryHelper {
 
     /**
      * Translates a {@link PersistenceException} to Spring's {@link DataAccessException}
-     * hierarchy, preserving the same contract as {@link HqlQueryHelper}.
+     * hierarchy.
      *
      * <p>Checks JPA-standard subtypes first, then unwraps Hibernate-specific
      * exceptions from the immediate cause ({@code e.getCause()} — one level only)
