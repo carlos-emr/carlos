@@ -92,24 +92,38 @@
         return;
     }
     out.clearBuffer();
-    // Struts actions require FORWARD dispatch — the Struts filter does not
-    // intercept INCLUDE dispatches, so extensionless action targets must use
-    // forward() instead of include().
-    if (!(target.endsWith(".jsp") || target.endsWith(".jspf") || target.endsWith(".html"))) {
+    // Dispatch to the operation-specific target.
+    //
+    // Internal view fragments (.jsp / .jspf / .html) are rendered via include()
+    // so their output is composed into the current response.
+    //
+    // Extensionless Struts action targets are reached via sendRedirect() rather
+    // than forward(). A JSP forward into a Struts action produces a nested
+    // dispatch chain (Struts action → JSP → JSP forward → Struts action → JSP)
+    // that passes twice through CsrfGuardScriptInjectionFilter's
+    // CaptureResponseWrapper. Under Tomcat 11 that nested-wrapper/forward
+    // combination drops the body of the innermost JSP, producing a blank page
+    // (HTTP 200, 0 bytes) — the exact symptom of "Editappointment fails". A
+    // 302 hands the browser a fresh URL that is processed on a single dispatch
+    // path, so the target action's security gate runs cleanly and the
+    // response body reaches the client. Query string is preserved so the
+    // target action sees the original appointment_no / demographic_no /
+    // provider_no / displaymode / dboperation parameters.
+    if (target.endsWith(".jsp") || target.endsWith(".jspf") || target.endsWith(".html")) {
+        request.getRequestDispatcher(target).include(request, response);
+    } else {
         if (response.isCommitted()) {
             // Defensive: nothing in the preceding scriptlet writes body bytes,
             // so this path should be unreachable in practice. If we do land
             // here, the response has already been flushed — sendError() would
-            // fail (can't set status on committed response) and throwing would
-            // mix a stack trace into the committed body. Log-and-return is the
-            // only non-destructive option. This is noted as a defensive
-            // no-op, not a silent success — the client sees whatever partial
-            // bytes were flushed and the error is visible in server logs.
-            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot forward to {} — response already committed; returning without further output", target);
+            // fail and throwing would mix a stack trace into the committed
+            // body. Log-and-return is the only non-destructive option.
+            MiscUtils.getLogger().error("appointmentcontrol.jsp: cannot redirect to {} — response already committed; returning without further output", target);
             return;
         }
-        request.getRequestDispatcher(target).forward(request, response);
-    } else {
-        request.getRequestDispatcher(target).include(request, response);
+        String queryString = request.getQueryString();
+        String redirectUrl = request.getContextPath() + target
+                + (queryString != null && !queryString.isEmpty() ? "?" + queryString : "");
+        response.sendRedirect(redirectUrl);
     }
 %>

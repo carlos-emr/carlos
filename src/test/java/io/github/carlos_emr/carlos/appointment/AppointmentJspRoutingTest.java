@@ -66,6 +66,46 @@ class AppointmentJspRoutingTest {
         assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
     }
 
+    /**
+     * Regression test for the "Editappointment fails" blank-page bug.
+     *
+     * <p>{@code appointmentcontrol.jsp} is the dispatcher that routes each
+     * {@code displaymode} (edit / Add Appointment / Copy / ...) to its
+     * per-operation target. For extensionless Struts action targets it must
+     * use {@code response.sendRedirect()} — not {@code RequestDispatcher.forward()}.
+     * A JSP forward into a Struts action produces a nested dispatch chain that
+     * is captured twice by {@code CsrfGuardScriptInjectionFilter}'s response
+     * wrapper; under Tomcat 11 the nested-wrapper/forward combination drops
+     * the innermost JSP's body and the popup opens blank (HTTP 200, 0 bytes).
+     * {@code sendRedirect} (302) sidesteps the nested-forward case entirely,
+     * so the target action runs on a fresh dispatch and the response body
+     * reaches the client. Internal JSP/JSPF/HTML fragments must still be
+     * composed via {@code include()}.</p>
+     */
+    @Test
+    void shouldUseSendRedirect_forExtensionlessActionTargetsInAppointmentControl() throws IOException {
+        String appointmentControl = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentcontrol.jsp");
+
+        // Edit dispatch must still target the extensionless Struts action
+        assertThat(appointmentControl).contains("\"edit\"");
+        assertThat(appointmentControl).contains("/appointment/editappointment");
+
+        // Must redirect — not forward — to extensionless action targets so that
+        // the nested-forward-through-CsrfGuard-wrapper issue cannot drop the body
+        assertThat(appointmentControl).contains("response.sendRedirect(");
+        assertThat(appointmentControl)
+                .as("appointmentcontrol.jsp must not forward to extensionless Struts actions; "
+                        + "nested forward through CsrfGuardScriptInjectionFilter drops the response body")
+                .doesNotContain("request.getRequestDispatcher(target).forward(");
+
+        // Query string must be preserved so the target action sees the original
+        // appointment_no / demographic_no / provider_no / displaymode / dboperation params
+        assertThat(appointmentControl).contains("request.getQueryString()");
+
+        // include() must remain available for internal JSP/JSPF/HTML fragments
+        assertThat(appointmentControl).contains("request.getRequestDispatcher(target).include(");
+    }
+
     private String readJspContent(String path) throws IOException {
         return Files.readString(Path.of(path), StandardCharsets.UTF_8);
     }
