@@ -38,10 +38,9 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
  * @deprecated Use JPA via {@link jakarta.persistence.EntityManager#createNativeQuery(String)}
- * instead. In DAO code, obtain the entity manager from
- * {@code AbstractJpaDao#entityManager()} before creating the native query. No
- * new code should be written against this class. Scheduled for removal once
- * remaining callers migrate.
+ * instead. Inject or otherwise obtain an {@link jakarta.persistence.EntityManager}
+ * and create a native query from it. No new code should be written against this
+ * class. Scheduled for removal once remaining callers migrate.
  */
 @Deprecated(forRemoval = true)
 public final class DBHandler {
