@@ -145,6 +145,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     @SuppressWarnings("unchecked")
     ArrayList<NoteDisplay> notesToDisplay = (ArrayList<NoteDisplay>) request.getAttribute("notesToDisplay");
+    if (notesToDisplay == null) {
+        MiscUtils.getLogger().warn("notesToDisplay request attribute missing for demographic " + demographicNo);
+    }
     int noteSize = notesToDisplay == null ? 0 : notesToDisplay.size();
 
     SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
@@ -779,30 +782,27 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 											Email Note
 										</div>
 										<%}%>
-                    <%
-                        if (note.getNoteId() != null && note.getNoteId() != savedId
-                                && !fulltxt && !note.isDocument() && !note.isEformData()
-                                && !note.isEncounterForm() && !note.isRxAnnotation()
-                                && !note.isInvoice() && !note.isEmailNote()) {
-                            unLockedNotes.add(note.getNoteId());
-                        }
-                    %>
                 </div> <!-- end of div summary<%=globalNoteId%> -->
             </div> <!-- end of div sig<%=globalNoteId%> -->
             <%
                         } // end of if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice())
+                    }
+
+                    // Collect note ids for deferred fullView click-listener attachment
+                    // emitted once at the end of this page. CPP notes must stay eligible
+                    // (see cursorStyle assignment above), so this sits outside the
+                    // !isCpp type-guard above.
+                    if (note.getNoteId() != null && note.getNoteId() != savedId
+                            && !fulltxt && !note.isDocument() && !note.isEformData()
+                            && !note.isEncounterForm() && !note.isRxAnnotation()
+                            && !note.isInvoice() && !note.isEmailNote()) {
+                        unLockedNotes.add(note.getNoteId());
                     }
                 }
             %>
         </div><!-- end of note contents -->
     </div>
     <!-- end of note wrapper -->
-
-    <%--		<% if (request.getAttribute("moreNotes") != null && ((Boolean) request.getAttribute("moreNotes"))) { %>--%>
-    <%--		<script type="text/javascript">--%>
-    <%--		setupOneNote('<%=offset%><%=idx+1%>');--%>
-    <%--		</script>--%>
-    <%--		<% } %>--%>
 <% } %> <%-- END OF "not empty notesToDisplay" --%>
 
 
@@ -871,144 +871,146 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     }
 %>
 <script type="text/javascript">
-    if (<%= renderMoreNotesScript %>) {
-        caseNote = "caseNote_note" + "<%=savedId%>";
-        //save initial note to determine whether save is necessary
-        if (document.getElementById(caseNote)) {
-            origCaseNote = document.getElementById(caseNote).value;
-        }
-
-        if (<%= noteLocked %>) {
-            alert("Another user is currently editing this note.  Please try again later.");
-        }
-
-        if (<%= noteLockedBySameUser %>) {
-            var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= casemgmtNoteLock.getIpAddress() %>' context="javaScript"/>.\nDo you wish to continue?");
-            if (viewEditedNote) {
-                doscroll();
-                var params = "method=updateNoteLock&demographicNo=" + demographicNo;
-                jQuery.ajax({
-                    type: "POST",
-                    url: "<%=ctx%>/CaseManagementEntry",
-                    data: params,
-                    success: function () {
-                        //force save when exiting chart in case we loaded edited note in other chart
-                        origCaseNote += ".";
-                        tmpSaveNeeded = true;
-                    }
-                });
-            } else {
-                window.close();
+    // Attach fullView click listeners to collapsed notes. Runs on every render
+    // (initial load and paginated "load more"), so this sits outside the
+    // moreNotes-gated block below.
+    var unLockedNoteIds = [<%
+        for (Iterator<Integer> iterator = unLockedNotes.iterator(); iterator.hasNext();) {
+            Integer num = iterator.next();
+            out.print(num);
+            if (iterator.hasNext()) {
+                out.print(", ");
             }
         }
+    %>];
+    unLockedNoteIds.forEach(function(id) {
+        var el = document.getElementById('n' + id);
+        if (el) el.addEventListener('click', fullView);
+    });
+</script>
 
-        jQuery(document).ready(function () {
-            if ('<%=singleLineFormat%>' == 'true') {
-                var staleIds = new Array();
+<% if (renderMoreNotesScript) { %>
+<script type="text/javascript">
+    caseNote = "caseNote_note" + "<%=savedId%>";
+    //save initial note to determine whether save is necessary
+    if (document.getElementById(caseNote)) {
+        origCaseNote = document.getElementById(caseNote).value;
+    }
 
-                jQuery("img[id^='quitImg']").each(function () {
-                    if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
-                        var iid = jQuery(this).attr('id');
-                        jQuery(this).trigger('click');
-                        staleIds.push(iid);
-                    }
-                });
+    if (<%= noteLocked %>) {
+        alert("Another user is currently editing this note.  Please try again later.");
+    }
 
-                for (var i = 0; i < staleIds.length; i++) {
-                    jQuery("#" + staleIds[i]).trigger('click');
+    if (<%= noteLockedBySameUser %>) {
+        var viewEditedNote = confirm("You have started to edit this note in another window at <carlos:encode value='<%= casemgmtNoteLock.getIpAddress() %>' context="javaScript"/>.\nDo you wish to continue?");
+        if (viewEditedNote) {
+            doscroll();
+            var params = "method=updateNoteLock&demographicNo=" + demographicNo;
+            jQuery.ajax({
+                type: "POST",
+                url: "<%=ctx%>/CaseManagementEntry",
+                data: params,
+                success: function () {
+                    //force save when exiting chart in case we loaded edited note in other chart
+                    origCaseNote += ".";
+                    tmpSaveNeeded = true;
                 }
-            }
-        });
-
-        document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
-
-        if (<%= hasOscarMsg %>) {
-            document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= oscarMsg %>' context="javaScript"/>";
-        }
-<% if (noteBody != null) { %>
-        document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= noteBody %>' context="javaScript"/>";
-<% } %>
-
-        if (<%= !found %>) {
-            document.forms["caseManagementEntryForm"].newNoteIdx.value = <%=savedId%>;
-        }
-
-        if (<%= found %>) {
-            document.forms["caseManagementEntryForm"].note_edit.value = "existing";
-        }
-
-        setupNotes();
-        jQuery('#' + caseNote).on('keyup', monitorCaseNote);
-        jQuery('#' + caseNote).on('paste', function(e) {
-            // Let the paste happen first, then resize
-            setTimeout(adjustCaseNote, 0);
-        });
-
-        document.getElementById(caseNote).addEventListener('click', getActiveText);
-
-        var unLockedNoteIds = [<%
-            for (Iterator<Integer> iterator = unLockedNotes.iterator(); iterator.hasNext();) {
-                Integer num = iterator.next();
-                out.print(num);
-                if (iterator.hasNext()) {
-                    out.print(", ");
-                }
-            }
-        %>];
-        unLockedNoteIds.forEach(function(id) {
-            document.getElementById('n' + id).addEventListener('click', fullView);
-        });
-
-        //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
-        var submitIssues = false;
-        //AutoCompleter for Issues
-        <%--    <c:url value="/CaseManagementEntry?method=issueList&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}" var="issueURL" />--%>
-        <%--    let issueAutoCompleter = new Ajax.Autocompleter("issueAutocomplete", "issueAutocompleteList", "${e:forJavaScript(issueURL)}", {minChars: 3, indicator: 'busy', afterUpdateElement: saveIssueId, onShow: autoCompleteShowMenu, onHide: autoCompleteHideMenu});--%>
-
-<%
-        int MaxLen = 20;
-        int TruncLen = 17;
-        String ellipses = "...";
-        for (int j = 0; j < bean.templateNames.size(); j++) {
-            String encounterTmp = bean.templateNames.get(j);
-            encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
-            encounterTmp = SafeEncode.forJavaScript(encounterTmp);
-%>
-        autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
-        autoCompList.push("<%=encounterTmp%>");
-        itemColours["<%=encounterTmp%>"] = "99CCCC";
-<%
-        }
-%>
-        //set default event for assigning issues
-        //we do this here so we can change event listener when changing diagnosis
-        var obj = {};
-        makeIssue = "makeIssue";
-        defaultDiv = "sig<%=savedId%>";
-        changeIssueFunc;  //set in changeDiagnosis function above
-        addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
-        if (document.getElementById('asgnIssues')) {
-            document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
-        }
-        try {
-             new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
-                 colours: itemColours,
-                 afterUpdateElement: menuAction
-             });
-        } catch (error) {
-            console.error("Failed to initialize Autocompleter.Local:", error);
-        }
-
-        //start timer for autosave
-        setTimer();
-
-        reason = "<%=insertReason(request)%>";    //function defined bottom of file
-
-        if (typeof messagesLoaded == 'function') {
-            messagesLoaded('<%=savedId%>');
+            });
+        } else {
+            window.close();
         }
     }
+
+    jQuery(document).ready(function () {
+        if ('<%=singleLineFormat%>' == 'true') {
+            var staleIds = new Array();
+
+            jQuery("img[id^='quitImg']").each(function () {
+                if (jQuery(this).attr('src').indexOf('/encounter/graphics/triangle_down.gif') != -1) {
+                    var iid = jQuery(this).attr('id');
+                    jQuery(this).trigger('click');
+                    staleIds.push(iid);
+                }
+            });
+
+            for (var i = 0; i < staleIds.length; i++) {
+                jQuery("#" + staleIds[i]).trigger('click');
+            }
+        }
+    });
+
+    document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
+
+    if (<%= hasOscarMsg %>) {
+        document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= oscarMsg %>' context="javaScript"/>";
+    }
+<% if (noteBody != null) { %>
+    document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= noteBody %>' context="javaScript"/>";
+<% } %>
+
+    // Existing note: flag note_edit as "existing". New note: init newNoteIdx.
+    if (<%= found %>) {
+        document.forms["caseManagementEntryForm"].note_edit.value = "existing";
+    } else {
+        document.forms["caseManagementEntryForm"].newNoteIdx.value = <%=savedId%>;
+    }
+
+    setupNotes();
+    jQuery('#' + caseNote).on('keyup', monitorCaseNote);
+    jQuery('#' + caseNote).on('paste', function(e) {
+        // Let the paste happen first, then resize
+        setTimeout(adjustCaseNote, 0);
+    });
+
+    document.getElementById(caseNote).addEventListener('click', getActiveText);
+
+    //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
+    var submitIssues = false;
+
+<%
+    int MaxLen = 20;
+    int TruncLen = 17;
+    String ellipses = "...";
+    for (int j = 0; j < bean.templateNames.size(); j++) {
+        String encounterTmp = bean.templateNames.get(j);
+        encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
+        encounterTmp = SafeEncode.forJavaScript(encounterTmp);
+%>
+    autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
+    autoCompList.push("<%=encounterTmp%>");
+    itemColours["<%=encounterTmp%>"] = "99CCCC";
+<%
+    }
+%>
+    //set default event for assigning issues
+    //we do this here so we can change event listener when changing diagnosis
+    var obj = {};
+    makeIssue = "makeIssue";
+    defaultDiv = "sig<%=savedId%>";
+    changeIssueFunc;  //set in changeDiagnosis function above
+    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
+    if (document.getElementById('asgnIssues')) {
+        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
+    }
+    try {
+         new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
+             colours: itemColours,
+             afterUpdateElement: menuAction
+         });
+    } catch (error) {
+        console.error("Failed to initialize Autocompleter.Local:", error);
+    }
+
+    //start timer for autosave
+    setTimer();
+
+    reason = "<%=insertReason(request)%>";    //function defined bottom of file
+
+    if (typeof messagesLoaded == 'function') {
+        messagesLoaded('<%=savedId%>');
+    }
 </script>
+<% } %>
 
 <%!
     /*
