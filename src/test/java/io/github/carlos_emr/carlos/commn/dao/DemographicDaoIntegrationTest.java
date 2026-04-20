@@ -25,8 +25,6 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.DemographicCriterion;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -71,9 +69,6 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DemographicExtDao demographicExtDao;
-
-    @PersistenceContext(unitName = "testPersistenceUnit")
-    private EntityManager entityManager;
 
     private Demographic demo1, demo2, demo3, demo4;
     private String uniquePrefix;
@@ -156,7 +151,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
      */
     private void createDemographicExt(Integer demographicNo, String key, String value) {
         demographicExtDao.saveDemographicExt(demographicNo, key, value);
-        entityManager.flush();
+        demographicExtDao.flush();
     }
 
     /**
