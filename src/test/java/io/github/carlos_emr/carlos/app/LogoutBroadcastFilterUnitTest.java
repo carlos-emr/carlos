@@ -22,9 +22,14 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.CarlosProperties;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.http.HttpSession;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,5 +145,59 @@ class LogoutBroadcastFilterUnitTest {
         String content = response.getContentAsString();
         assertThat(content).contains("<html><body>stream</body></html>");
         assertThat(content).contains("window.__carlosLogoutActive=true;");
+    }
+
+    @Test
+    @DisplayName("should append logout script when writer is unavailable during injection")
+    void shouldAppendLogoutScript_whenWriterIsUnavailableDuringInjection() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        HttpSession session = request.getSession(true);
+        session.setAttribute("user", "123");
+
+        WriterUnavailableMockHttpServletResponse response = new WriterUnavailableMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) ->
+                servletResponse.setContentType("text/html;charset=UTF-8");
+
+        filter.doFilter(request, response, chain);
+
+        String content = response.getBodyAsString();
+        assertThat(content).contains("window.__carlosLogoutActive=true;");
+    }
+
+    private static class WriterUnavailableMockHttpServletResponse extends MockHttpServletResponse {
+
+        private final ByteArrayOutputStream body = new ByteArrayOutputStream();
+
+        private final ServletOutputStream outputStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+            }
+
+            @Override
+            public void write(int b) throws IOException {
+                body.write(b);
+            }
+        };
+
+        @Override
+        public PrintWriter getWriter() {
+            throw new IllegalStateException("Writer unavailable");
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return outputStream;
+        }
+
+        String getBodyAsString() {
+            return body.toString(StandardCharsets.UTF_8);
+        }
     }
 }

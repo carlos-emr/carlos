@@ -191,7 +191,12 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+        try {
+            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+        } catch (IOException | IllegalStateException e) {
+            logger.debug("Skipping logout broadcast script injection because the response could not be modified.", e);
+            return;
+        }
     }
 
     /**
@@ -243,12 +248,33 @@ public class LogoutBroadcastFilter implements Filter {
         String script = buildScript(contextPath, locale);
 
         if (delegatingResponse.isResponseOutputStreamObtained()) {
-            delegatingResponse.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
+            writeScriptToOutputStream(delegatingResponse, script);
         } else if (delegatingResponse.isResponseWriterObtained()) {
-            delegatingResponse.getWriter().print(script);
+            writeScriptToWriter(delegatingResponse, script);
+        } else {
+            writeScriptWithBestAvailableOutput(delegatingResponse, script);
         }
+    }
 
+    private void writeScriptToOutputStream(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        delegatingResponse.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
         delegatingResponse.flushBuffer();
+    }
+
+    private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        delegatingResponse.getWriter().print(script);
+        delegatingResponse.flushBuffer();
+    }
+
+    private void writeScriptWithBestAvailableOutput(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        try {
+            writeScriptToWriter(delegatingResponse, script);
+        } catch (IllegalStateException e) {
+            writeScriptToOutputStream(delegatingResponse, script);
+        }
     }
 
     /**
