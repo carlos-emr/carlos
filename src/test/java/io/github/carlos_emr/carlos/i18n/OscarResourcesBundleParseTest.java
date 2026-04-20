@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  * Regression tests guarding against malformed entries in the {@code oscarResources_*.properties}
  * bundles.
  *
- * <p>Background: a malformed {@code \uxxxx} escape in {@code oscarResources_pl.properties}
+ * <p>Background: a malformed {@code \\uxxxx} escape in {@code oscarResources_pl.properties}
  * caused {@link Properties#load(InputStream)} to throw
  * {@link IllegalArgumentException}. When a Tomcat JVM was started with a Polish default locale
  * (e.g. {@code -Duser.language=pl}), the exception propagated out of
