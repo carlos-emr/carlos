@@ -100,7 +100,7 @@ public final class SafeEncode {
             char current = encoded.charAt(i);
             if (current == '\r') {
                 if (builder == null) {
-                    builder = new StringBuilder(encoded.length() + 16);
+                    builder = new StringBuilder(encoded.length());
                     builder.append(encoded, 0, i);
                 }
                 builder.append("<br/>");
@@ -111,7 +111,7 @@ public final class SafeEncode {
             }
             if (current == '\n') {
                 if (builder == null) {
-                    builder = new StringBuilder(encoded.length() + 16);
+                    builder = new StringBuilder(encoded.length());
                     builder.append(encoded, 0, i);
                 }
                 builder.append("<br/>");
