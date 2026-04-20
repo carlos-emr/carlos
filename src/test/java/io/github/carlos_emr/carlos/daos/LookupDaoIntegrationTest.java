@@ -1038,8 +1038,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             insertOrgCode("CHILD", "Child Org", "PARENTCHILD", "PARENT,CHILD,");
             hibernateTemplate.flush();
 
-            // When — the fixed implementation uses HqlQueryHelper with "%" + orgCode
-            // as the parameter value, which is valid HQL and executes without error.
+            // When — the fixed implementation uses JpqlQueryHelper with "%" + orgCode
+            // as the parameter value, which is valid JPQL and executes without error.
             // "PARENTCHILD".indexOf("PARENT") >= 0 → true (CHILD is within PARENT).
             boolean result = lookupDao.inOrg("PARENT", "CHILD");
 

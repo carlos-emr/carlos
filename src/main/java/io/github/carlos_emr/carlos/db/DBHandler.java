@@ -37,9 +37,11 @@ import java.sql.Types;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * @deprecated Use JPA instead, no new code should be written against this class.
+ * @deprecated Use JPA ({@code entityManager().createNativeQuery(...)}) instead;
+ * no new code should be written against this class. Scheduled for removal once
+ * remaining callers migrate.
  */
-@Deprecated
+@Deprecated(forRemoval = true)
 public final class DBHandler {
 
     private DBHandler() {

@@ -48,9 +48,11 @@
 	</bean>
 
 	<!-- JPA -->
-	<!-- primary="true" resolves ambiguity: Hibernate 7's SessionFactory also implements
-	     EntityManagerFactory, so @PersistenceContext without unitName would otherwise
-	     match both this bean and the 'sessionFactory' bean in spring_hibernate.xml. -->
+	<!-- primary="true" retained historically to resolve ambiguity against a legacy
+	     Hibernate {@code sessionFactory} bean; that bean has since been retired
+	     along with {@code spring_hibernate.xml}. The annotation is kept as a no-op
+	     guard so tests that still define a {@code sessionFactory} bean don't
+	     re-introduce the ambiguity. -->
 	<bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<!-- Hibernate 7 requires the EMF to know about ALL entity types referenced

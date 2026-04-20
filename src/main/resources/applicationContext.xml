@@ -52,9 +52,6 @@
 	<!-- setup JPA -->
 	<import resource="classpath:spring_jpa.xml" />
 
-	<!-- setup hibernate -->
-	<import resource="classpath:spring_hibernate.xml" />
-
 	<!-- setup managers -->
 	<import resource="classpath:spring_managers.xml" />
 
