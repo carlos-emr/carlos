@@ -2543,13 +2543,13 @@ function updateCPPNote() {
         Event.stop(e);
         if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
             if (confirm(closeWithoutSaveMsg)) {
-                var frm = document.forms["caseManagementEntryForm"];
-                origCaseNote = $F(caseNote);
-                frm.method.value = "cancel";
-                frm.submit();
+                clearAutoSaveTimer();
+                window.close();
             }
-        } else
+        } else {
+            clearAutoSaveTimer();
             window.close();
+        }
 
         return false;
     }
