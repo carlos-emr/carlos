@@ -56,6 +56,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
+    private static CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
 
     /**
      * Returns the active appointment statuses, backed by the DAO-level Spring cache.
@@ -105,7 +106,6 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
             return;
         }
 
-        CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
         Cache cache = cacheManager.getCache("appointmentStatuses");
         if (cache != null) {
             cache.clear();
