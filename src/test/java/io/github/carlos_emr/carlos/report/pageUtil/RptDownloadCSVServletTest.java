@@ -36,7 +36,6 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
@@ -61,7 +60,6 @@ class RptDownloadCSVServletTest {
     private final ResultSet emptyResultSet = mock(ResultSet.class);
 
     private MockedStatic<DBHelp> dbHelpMock;
-    private String previousDemographicExt;
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -71,21 +69,12 @@ class RptDownloadCSVServletTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        previousDemographicExt = CarlosProperties.getInstance().containsKey("demographicExt")
-                ? CarlosProperties.getInstance().getProperty("demographicExt")
-                : null;
-        CarlosProperties.getInstance().setProperty("demographicExt", "prefer_language");
         when(emptyResultSet.next()).thenReturn(false);
         dbHelpMock = mockStatic(DBHelp.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (previousDemographicExt != null) {
-            CarlosProperties.getInstance().setProperty("demographicExt", previousDemographicExt);
-        } else {
-            CarlosProperties.getInstance().remove("demographicExt");
-        }
         if (dbHelpMock != null) {
             dbHelpMock.close();
             dbHelpMock = null;
@@ -210,8 +199,6 @@ class RptDownloadCSVServletTest {
         dbHelpMock.when(() -> DBHelp.searchDBRecord(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
-        dbHelpMock.when(() -> DBHelp.searchDBRecord(org.mockito.ArgumentMatchers.anyString()))
                 .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
 
         try {
