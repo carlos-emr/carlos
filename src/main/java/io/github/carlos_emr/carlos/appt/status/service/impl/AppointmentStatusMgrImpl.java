@@ -29,8 +29,10 @@ package io.github.carlos_emr.carlos.appt.status.service.impl;
 
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
@@ -52,6 +54,7 @@ import org.springframework.cache.CacheManager;
 
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
+    private static final Logger logger = MiscUtils.getLogger();
     private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
 
     /**
@@ -106,6 +109,8 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         Cache cache = cacheManager.getCache("appointmentStatuses");
         if (cache != null) {
             cache.clear();
+        } else {
+            logger.warn("Appointment status cache invalidation requested but cache 'appointmentStatuses' is not configured");
         }
     }
 

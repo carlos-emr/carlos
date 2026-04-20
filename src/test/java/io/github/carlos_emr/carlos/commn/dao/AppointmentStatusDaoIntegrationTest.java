@@ -120,6 +120,7 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
             inactive.setActive(0);
 
             AppointmentStatus second = createStatus("N", "Next", "next.gif");
+            appointmentStatusDao.flush();
 
             List<AppointmentStatus> activeStatuses = appointmentStatusDao.findActive();
 
