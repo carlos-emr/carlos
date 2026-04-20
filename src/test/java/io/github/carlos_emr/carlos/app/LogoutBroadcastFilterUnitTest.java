@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.CarlosProperties;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
 import jakarta.servlet.FilterChain;
@@ -59,7 +60,7 @@ class LogoutBroadcastFilterUnitTest {
     private CarlosProperties carlosProperties;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws ServletException {
         carlosProperties = mock(CarlosProperties.class);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
@@ -100,7 +101,10 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("<html><body>schedule</body></html>");
         assertThat(content).contains("window.__carlosLogoutActive=true;");
         assertThat(content).contains("BroadcastChannel('carlos_logout')");
-        assertThat(content).contains(contextPath + "/status/SessionHeartbeat?autoRefresh=true");
+        // The injected script stores the context path in a `cp` variable and concatenates it
+        // onto the heartbeat URL at runtime. OWASP JS-encoding escapes the leading slash as \/.
+        assertThat(content).contains("var cp='" + contextPath.replace("/", "\\/") + "';");
+        assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
     }
 
     @Test
