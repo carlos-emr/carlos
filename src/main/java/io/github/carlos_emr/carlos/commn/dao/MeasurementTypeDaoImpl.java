@@ -30,10 +30,15 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -44,28 +49,31 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         super(MeasurementType.class);
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allByType'")
     @Override
     public List<MeasurementType> findAll() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.type";
         Query query = entityManager.createQuery(sqlCommand);
         List<MeasurementType> results = query.getResultList();
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allByName'")
     @Override
     public List<MeasurementType> findAllOrderByName() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.typeDisplayName";
         Query query = entityManager.createQuery(sqlCommand);
         List<MeasurementType> results = query.getResultList();
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
+    @Cacheable(value = "measurementTypes", key = "'allById'")
     @Override
     public List<MeasurementType> findAllOrderById() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.id";
         Query query = entityManager.createQuery(sqlCommand);
         List<MeasurementType> results = query.getResultList();
-        return (results);
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
     @Override
@@ -112,4 +120,24 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @Override
+    public MeasurementType saveEntity(MeasurementType entity) { return super.saveEntity(entity); }
 }

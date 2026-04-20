@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.LookupList;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -58,6 +59,7 @@ public class LookupListManager {
         return lookupListDao.findByName(name);
     }
 
+    @CacheEvict(value = "lookupLists", allEntries = true)
     public LookupList addLookupList(LoggedInInfo loggedInInfo, LookupList lookupList) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
@@ -75,6 +77,7 @@ public class LookupListManager {
      * Add a new lookupListItem
      * Ensure that the lookupListItem is associated to a list entry of the LookupList table.
      */
+    @CacheEvict(value = "lookupLists", allEntries = true)
     public LookupListItem addLookupListItem(LoggedInInfo loggedInInfo, LookupListItem lookupListItem) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
@@ -114,6 +117,7 @@ public class LookupListManager {
     /**
      * Update a lookupListItem that has been edited.
      */
+    @CacheEvict(value = "lookupLists", allEntries = true)
     public Integer updateLookupListItem(LoggedInInfo loggedInInfo, LookupListItem lookupListItem) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.UPDATE, null)) {
@@ -130,6 +134,7 @@ public class LookupListManager {
     /**
      * Remove a lookupListItem by it's id.
      */
+    @CacheEvict(value = "lookupLists", allEntries = true)
     public boolean removeLookupListItem(LoggedInInfo loggedInInfo, int lookupListItemId) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.DELETE, null)) {
@@ -153,6 +158,7 @@ public class LookupListManager {
      *
      * @param lookupListItemId
      */
+    @CacheEvict(value = "lookupLists", allEntries = true)
     public boolean updateLookupListItemDisplayOrder(LoggedInInfo loggedInInfo, int lookupListItemId, int lookupListItemDisplayOrder) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.UPDATE, null)) {

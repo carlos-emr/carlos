@@ -49,6 +49,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
+/**
+ * Base DAO implementation providing common CRUD operations for JPA entities.
+ *
+ * <p><strong>AOP / caching caveat:</strong> Several methods in this class delegate to
+ * other public methods via {@code this.xxx()} (self-invocation). Because Spring AOP
+ * proxies are method-level interceptors on the proxy object, self-invocations bypass
+ * the proxy entirely. This means {@code @Cacheable} or {@code @CacheEvict} annotations
+ * on the target of the self-call are <em>never triggered</em>.</p>
+ *
+ * <p>Consequently, if a subclass caches read methods, it <strong>must</strong> override
+ * the write methods that perform self-invocation ({@link #batchPersist(List, int)},
+ * {@link #batchRemove(List, int)}, {@link #saveEntity(AbstractModel)},
+ * {@link #remove(Object)}) and annotate each override with the appropriate
+ * {@code @CacheEvict}. Without these overrides, batch and save operations will leave
+ * stale entries in the cache.</p>
+ *
+ * @param <T> the entity type managed by this DAO
+ */
 @Transactional
 public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements AbstractDao<T> {
 
@@ -92,6 +110,16 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         batchPersist(oList, 25);
     }
 
+    /**
+     * Persists a list of entities in batches.
+     *
+     * <p><strong>AOP caveat:</strong> This method creates its own {@link EntityManager} and
+     * calls {@code persist()} on it directly — it does <em>not</em> delegate through the
+     * Spring proxy. If a subclass annotates {@link #persist(AbstractModel)} with
+     * {@code @CacheEvict}, that eviction will <strong>not</strong> be triggered by this
+     * method. Subclasses that cache reads must override this method and add appropriate
+     * {@code @CacheEvict} annotations.</p>
+     */
     @Override
     public void batchPersist(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
@@ -137,6 +165,16 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
         batchRemove(oList, 25);
     }
 
+    /**
+     * Removes a list of entities in batches.
+     *
+     * <p><strong>AOP caveat:</strong> This method creates its own {@link EntityManager} and
+     * calls {@code remove()} on it directly — it does <em>not</em> delegate through the
+     * Spring proxy. If a subclass annotates {@link #remove(AbstractModel)} with
+     * {@code @CacheEvict}, that eviction will <strong>not</strong> be triggered by this
+     * method. Subclasses that cache reads must override this method and add appropriate
+     * {@code @CacheEvict} annotations.</p>
+     */
     @Override
     public void batchRemove(List<T> oList, int batchSize) {
         EntityManager batchEntityManager = null;
@@ -258,7 +296,14 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
-     * Removes an entity based on the ID
+     * Removes an entity based on the ID.
+     *
+     * <p><strong>AOP caveat:</strong> This method delegates to {@link #find(Object)} and
+     * {@link #remove(AbstractModel)} via {@code this.xxx()} (self-invocation), which
+     * bypasses the Spring AOP proxy. If a subclass annotates those methods with
+     * {@code @CacheEvict}, the evictions will <strong>not</strong> be triggered through
+     * this path. Subclasses that cache reads must override this method and add
+     * appropriate {@code @CacheEvict} annotations.</p>
      *
      * @param id ID of the entity to be removed
      * @return Returns true if entity has been removed and false otherwise
@@ -434,6 +479,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     /**
      * Saves or updates the entity based on depending if it's persistent, as
      * determined by {@link AbstractModel#isPersistent()}
+     *
+     * <p><strong>AOP caveat:</strong> This method delegates to {@link #merge(AbstractModel)}
+     * or {@link #persist(AbstractModel)} via {@code this.xxx()} (self-invocation), which
+     * bypasses the Spring AOP proxy. If a subclass annotates those methods with
+     * {@code @CacheEvict}, the evictions will <strong>not</strong> be triggered through
+     * this path. Subclasses that cache reads must override this method and add
+     * appropriate {@code @CacheEvict} annotations.</p>
      *
      * @param entity Entity to be saved or updated
      * @return Returns the entity

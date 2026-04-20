@@ -31,11 +31,16 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -45,13 +50,15 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         super(AppointmentStatus.class);
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'all'")
     @SuppressWarnings("unchecked")
     @Override
     public List<AppointmentStatus> findAll() {
         Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
-        return query.getResultList();
+        return Collections.unmodifiableList(new ArrayList<>(query.getResultList()));
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'active'")
     @Override
     public List<AppointmentStatus> findActive() {
         Query q = entityManager.createQuery("select a from AppointmentStatus a where a.active=?1");
@@ -60,9 +67,10 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         @SuppressWarnings("unchecked")
         List<AppointmentStatus> results = q.getResultList();
 
-        return results;
+        return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
+    @Cacheable(value = "appointmentStatuses", key = "'status:' + #status")
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {
@@ -84,6 +92,7 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return null;
     }
 
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
     @Override
     public void modifyStatus(int ID, String strDesc, String strColor) {
         AppointmentStatus appts = find(ID);
@@ -93,12 +102,33 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         }
     }
 
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
     public void changeStatus(int ID, int iActive) {
         AppointmentStatus appts = find(ID);
         if (appts != null) {
             appts.setActive(iActive);
         }
     }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = "appointmentStatuses", allEntries = true)
+    @Override
+    public AppointmentStatus saveEntity(AppointmentStatus entity) { return super.saveEntity(entity); }
 
     /**
      * I don't know about this one...but i'm just converting it to a JPA entity for

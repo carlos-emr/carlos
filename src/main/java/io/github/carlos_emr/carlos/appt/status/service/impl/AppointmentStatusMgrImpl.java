@@ -27,8 +27,6 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
@@ -38,36 +36,59 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
 
 /**
- * @author toby
+ * Implementation of {@link AppointmentStatusMgr} that delegates directly to
+ * {@link AppointmentStatusDao}. The DAO layer is now cached via Spring Cache /
+ * Caffeine, so this class no longer maintains its own in-memory list.
+ *
+ * <p>The static methods {@link #getCachedActiveStatuses()},
+ * {@link #setCachedActiveStatuses(List)}, {@link #setCacheIsDirty(boolean)}, and
+ * {@link #isCacheIsDirty()} are retained for backward compatibility with callers
+ * such as {@code ApptStatusData} and the {@code AppointmentStatus} JPA callback,
+ * but they now delegate to the DAO (which is cached) or are no-ops.</p>
  */
 
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
 
-    private static List<AppointmentStatus> cachedActiveStatuses = null;
-    private static boolean cacheIsDirty = false;
-
+    /**
+     * Returns the active appointment statuses, backed by the DAO-level Spring cache.
+     *
+     * @return List of active AppointmentStatus instances (unmodifiable, from cache)
+     */
     public static List<AppointmentStatus> getCachedActiveStatuses() {
-        if (cachedActiveStatuses == null || cacheIsDirty) {
-            cachedActiveStatuses = appointStatusDao.findActive();
-        }
-        return cachedActiveStatuses;
+        return appointStatusDao.findActive();
     }
 
+    /**
+     * No-op. Retained for backward compatibility. The DAO-level Spring cache
+     * handles sort order and invalidation.
+     *
+     * @param cachedActiveStatuses ignored
+     */
     @SuppressWarnings("unchecked")
     public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
-        Collections.sort(cachedActiveStatuses, Comparator.comparing(AppointmentStatus::getId));
-        AppointmentStatusMgrImpl.cachedActiveStatuses = cachedActiveStatuses;
+        // No-op: DAO-level Spring cache handles this
     }
 
-
+    /**
+     * No-op. Retained for backward compatibility with {@code AppointmentStatus.on_jpa_update()}.
+     * Cache invalidation is handled by {@code @CacheEvict} on the DAO write methods.
+     *
+     * @return always {@code false}
+     */
     public static boolean isCacheIsDirty() {
-        return cacheIsDirty;
+        return false;
     }
 
+    /**
+     * No-op. Retained for backward compatibility with {@code AppointmentStatus.on_jpa_update()}.
+     * Cache invalidation is handled by {@code @CacheEvict} on the DAO write methods.
+     *
+     * @param cacheIsDirty ignored
+     */
     public static void setCacheIsDirty(boolean cacheIsDirty) {
-        AppointmentStatusMgrImpl.cacheIsDirty = cacheIsDirty;
+        // No-op: DAO-level Spring cache handles invalidation
     }
 
     public List<AppointmentStatus> getAllStatus() {
@@ -75,10 +96,6 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     public List<AppointmentStatus> getAllActiveStatus() {
-        if (cacheIsDirty) {
-            setCachedActiveStatuses(appointStatusDao.findActive());
-            cacheIsDirty = false;
-        }
         return appointStatusDao.findActive();
     }
 
