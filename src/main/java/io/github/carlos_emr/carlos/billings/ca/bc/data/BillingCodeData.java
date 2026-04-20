@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * @author root
  */
 public final class BillingCodeData implements Comparable {
-    private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
+    private final BillingServiceDao billingServiceDao;
   
 
   /*
@@ -79,6 +79,11 @@ public final class BillingCodeData implements Comparable {
      * Creates a new instance of BillingCodeData
      */
     public BillingCodeData() {
+        this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
+    }
+
+    BillingCodeData(BillingServiceDao billingServiceDao) {
+        this.billingServiceDao = billingServiceDao;
     }
 
     //public BillingCodeData(ResultSet rs) throws {
@@ -125,10 +130,6 @@ public final class BillingCodeData implements Comparable {
 
         billingServiceDao.remove(billingService.getId());
         return true;
-    }
-
-    static void setBillingServiceDao(BillingServiceDao billingServiceDao) {
-        BillingCodeData.billingServiceDao = billingServiceDao;
     }
 
     public boolean addBillingCode(String code, String desc, String val) {

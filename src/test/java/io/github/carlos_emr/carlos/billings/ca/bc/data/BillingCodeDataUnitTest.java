@@ -57,9 +57,7 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         registerMock(BillingServiceDao.class, mockBillingServiceDao);
-        BillingCodeData.setBillingServiceDao(mockBillingServiceDao);
-
-        billingCodeData = new BillingCodeData();
+        billingCodeData = new BillingCodeData(mockBillingServiceDao);
     }
 
     @Test
