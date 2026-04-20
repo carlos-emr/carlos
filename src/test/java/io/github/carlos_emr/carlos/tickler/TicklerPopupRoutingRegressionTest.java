@@ -44,7 +44,7 @@ class TicklerPopupRoutingRegressionTest {
 
     @Test
     @DisplayName("should keep opener-dependent tickler add routes in the force-window list")
-    void shouldKeepTicklerAddRoutes_inTheForceWindowList() throws IOException {
+    void shouldKeepTicklerAddRoutes_inForceWindowList() throws IOException {
         String oscarJs = Files.readString(OSCAR_JS, StandardCharsets.UTF_8);
         Matcher matcher = FORCE_WINDOW_PATHS_PATTERN.matcher(oscarJs);
 
