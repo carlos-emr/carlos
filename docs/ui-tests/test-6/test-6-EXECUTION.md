@@ -229,12 +229,112 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-6"
 
 ---
 
+### Phase 9: Autosave Draft Survival Regression (issue #1873)
+
+**Purpose**: End-to-end regression guard for PR #1887. Ensures that exiting an encounter
+without saving does **not** delete the autosaved draft, so reopening the encounter
+restores the unsaved text instead of losing it.
+
+**Pre-requisite**: a clean `casemgmt_tmpsave` state for the test patient+provider. Run:
+```bash
+mysql -h db -uroot -ppassword oscar -e "
+DELETE FROM casemgmt_tmpsave
+WHERE demographic_no = '1'
+  AND provider_no = (SELECT provider_no FROM provider WHERE user_name = 'carlosdoc' LIMIT 1);"
+```
+
+#### Step 23: Create fresh encounter and type probe text
+**Action**:
+1. From the E-Chart for patient `demographicNo=1`, open a new encounter using the
+   `IncomingEncounter.do` pattern (see "E-Chart Navigation" section above).
+2. Generate a unique probe token: `PROBE="AUTOSAVE-PROBE-$TIMESTAMP"`.
+3. Type the probe token into the encounter note textarea (element id `caseNote`).
+4. Wait **≥ 7 seconds** so the 5-second autosave timer fires and `autoSave()` POSTs
+   to `/oscar/CaseManagementEntry?method=autosave`. The "draft saved" timestamp
+   should appear next to the textarea (`#autosaveTime`).
+
+**Screenshot**: `test-6-23-probe-typed-autosaved.png`
+**Expected**: Note contains probe token; `#autosaveTime` shows recent draft-saved
+timestamp.
+
+**Optional DB assertion** (skip if `mysql` unavailable in runner):
+```bash
+mysql -h db -uroot -ppassword oscar -e "
+SELECT note FROM casemgmt_tmpsave
+WHERE demographic_no='1'
+ORDER BY update_date DESC LIMIT 1;" | grep -q "$PROBE" \
+  && echo "DRAFT PERSISTED" || echo "FAIL: probe not in casemgmt_tmpsave"
+```
+
+#### Step 24: Exit without save
+**Action**:
+1. Register a dialog handler to accept the `closeWithoutSaveMsg` confirm:
+   `browser_handle_dialog(accept=true)`.
+2. Click the Exit control (the element that invokes `closeEnc(e)` — usually the
+   encounter window close button or "Exit" link).
+3. After the dialog is accepted, navigate back to the patient search / dashboard
+   (because `window.close()` has no effect when the tab was not script-opened;
+   the test drives the navigation explicitly).
+
+**Screenshot**: `test-6-24-exit-without-save.png`
+**Expected**: Tab returned to dashboard/patient search; no network POST with
+`method=cancel` was issued (verify via `browser_network_requests` — assert the
+request list contains no entry whose URL includes `CaseManagementEntry` AND whose
+body contains `method=cancel`).
+
+**DB assertion** (required for this step — the behavioral contract of #1873):
+```bash
+mysql -h db -uroot -ppassword oscar -e "
+SELECT note FROM casemgmt_tmpsave
+WHERE demographic_no='1'
+ORDER BY update_date DESC LIMIT 1;" | grep -q "$PROBE" \
+  && echo "PASS: draft survives Exit" \
+  || { echo "FAIL: #1873 regression — draft was deleted on Exit"; exit 1; }
+```
+
+#### Step 25: Reopen encounter and confirm draft is restored
+**Action**:
+1. Reopen a new encounter for the same patient (same `IncomingEncounter.do` flow).
+2. The server-side flow detects the tmpsave row and prompts with
+   `unsavedNoteMsg` — register another dialog handler to accept it.
+3. After the restore submits, read the note textarea's value via
+   `browser_evaluate` on `document.getElementById('caseNote').value`.
+
+**Screenshot**: `test-6-25-draft-restored.png`
+**Expected**: The textarea contains the `$PROBE` token that was typed in step 23.
+
+#### Step 26: Negative control — explicit Cancel still clears the draft
+**Purpose**: Prove the explicit Cancel button (not the Exit / `closeEnc` path) still
+invokes `method=cancel` → `deleteTmpSave`. This guards against over-correcting and
+breaking intentional cancel behavior.
+
+**Action**:
+1. In the restored encounter, click the explicit **Cancel** button (the one defined
+   at `src/main/webapp/WEB-INF/jsp/casemgmt/CaseManagementEntry.jsp:462`, which
+   sets `frm.method.value='cancel'` and submits the form).
+2. Accept any resulting dialog.
+
+**Screenshot**: `test-6-26-cancel-button-clears.png`
+**Expected**: DB assertion passes:
+```bash
+mysql -h db -uroot -ppassword oscar -e "
+SELECT COUNT(*) AS remaining_drafts
+FROM casemgmt_tmpsave
+WHERE demographic_no='1' AND note LIKE '%$PROBE%';"
+# remaining_drafts should be 0
+```
+
+If `remaining_drafts > 0`, the explicit Cancel path is broken — an over-correction
+from #1873 / PR #1887 has leaked into the wrong handler.
+
+---
+
 ## Post-Test Verification
 
 ### 1. Screenshot Count
 ```bash
 ls -1 ui-test-runs/$TIMESTAMP/test-6/screenshots/test-6-*.png | wc -l
-# Should show: 22
+# Should show: 26
 ```
 
 ### 2. Database Verification
@@ -252,6 +352,18 @@ SELECT id, type, dataField, dateObserved
 FROM measurements
 WHERE demographicNo = 1
 ORDER BY id DESC LIMIT 5;"
+```
+
+### 2b. Autosave Draft Survival Check (Phase 9)
+```bash
+# After Phase 9 Step 24, before Step 26, this must hold:
+mysql -h db -uroot -ppassword oscar -e "
+SELECT COUNT(*) AS draft_rows FROM casemgmt_tmpsave
+WHERE demographic_no='1' AND note LIKE '%AUTOSAVE-PROBE-%';"
+# draft_rows must be >= 1 between steps 24 and 26.
+
+# After Phase 9 Step 26, this must hold:
+# draft_rows for matching $PROBE must be 0 (explicit cancel cleaned up).
 ```
 
 ### 3. Console Warnings Check
