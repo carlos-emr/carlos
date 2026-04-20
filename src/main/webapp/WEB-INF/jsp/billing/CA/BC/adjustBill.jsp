@@ -51,6 +51,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.bc.data.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext,org.springframework.web.context.support.WebApplicationContextUtils, io.github.carlos_emr.carlos.entities.*" %>
@@ -75,6 +76,7 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 
@@ -172,7 +174,7 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <script language="JavaScript">
-        if ('<e:forJavaScriptBlock value='<%= StringUtils.noNull((String) request.getAttribute("close")) %>' />' == 'true') {
+        if ('<carlos:encode value='<%= StringUtils.noNull((String) request.getAttribute("close")) %>' context="javaScriptBlock"/>' == 'true') {
             window.close();
         }
 
@@ -455,14 +457,14 @@
             <fmt:message key='billing.billingCorrection.msgOfficeClaimNo'/>
         </td>
         <td class="bCellData">
-            <e:forHtmlContent value='<%= billingmasterNo != null ? billingmasterNo : "" %>' />
+            <carlos:encode value='<%= billingmasterNo != null ? billingmasterNo : "" %>' context="html"/>
         </td>
         <td align="left" class="bCellData">
-            <font color="#000000"><fmt:message key='billing.billingCorrection.msgLastUpdate'/>: <e:forHtmlContent value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' />
+            <font color="#000000"><fmt:message key='billing.billingCorrection.msgLastUpdate'/>: <carlos:encode value='<%= MyDateFormat.getMyStandardDate(bill.getUpdateDate()) %>' context="html"/>
             </font>
         </td>
         <td align="right" class="bCellData">
-            <fmt:message key='billing.billingCorrection.msgCreator'/>:  <e:forHtmlContent value='<%= providerBean.getProperty(bill.getCreator(), bill.getCreator()) %>' />
+            <fmt:message key='billing.billingCorrection.msgCreator'/>:  <carlos:encode value='<%= providerBean.getProperty(bill.getCreator(), bill.getCreator()) %>' context="html"/>
         </td>
     </tr>
 
@@ -488,7 +490,7 @@
             String rejReason = (String) li.get(i);
     %>
     <tr>
-        <td><e:forHtmlContent value='<%= rejReason %>' />
+        <td><carlos:encode value='<%= rejReason %>' context="html"/>
         </td>
     </tr>
 
@@ -536,18 +538,18 @@
 
 %>
 <form style="reprocessBilling" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill" method="post" onsubmit="return checkSubmitType()">
-    <input type="hidden" name="update_date" value="<e:forHtmlAttribute value='<%= UpdateDate %>' />"/>
-    <input type="hidden" name="demoNo" value="<e:forHtmlAttribute value='<%= DemoNo %>' />"/>
-    <input type="hidden" name="billNumber" value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingNo", "") %>' />"/>
+    <input type="hidden" name="update_date" value="<carlos:encode value='<%= UpdateDate %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= DemoNo %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="billNumber" value="<carlos:encode value='<%= allFields.getProperty("billingNo", "") %>' context="htmlAttribute"/>"/>
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td height="21" colspan="2" class="bCellData"><fmt:message key='billing.billingCorrection.msgPatientInformation'/><input type="hidden" name="billingmasterNo"
-                                                                                    value="<e:forHtmlAttribute value='<%= billingmasterNo %>' />"/>
-                   <c:set var="__enc_1"><e:forUriComponent value='<%= StringUtils.noNull((String) request.getAttribute("invoiceNo")) %>' /></c:set>
+                                                                                    value="<carlos:encode value='<%= billingmasterNo %>' context="htmlAttribute"/>"/>
+                   <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull((String) request.getAttribute("invoiceNo")) %>' context="uriComponent"/></c:set>
 
                 <%if (BillType.equals("A") || BillType.equals("P")) {%>
                 <a href="#"
-                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<e:forJavaScriptAttribute value='${__enc_1}' />&receipt=yes')">View
+                   onClick="popupPage(800,800, '<%=request.getContextPath()%>/billing/CA/BC/billingView?billing_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&receipt=yes')">View
                     Invoice</a>
                 <%}%>
             </td>
@@ -556,53 +558,53 @@
         <tr>
             <td width="54%" class="bCellData">
                 Patient Name:
-                   <c:set var="__enc_2"><e:forUriComponent value='<%= DemoNo %>' /></c:set>
+                   <c:set var="__enc_2"><carlos:encode value='<%= DemoNo %>' context="uriComponent"/></c:set>
                 <a href=#
-                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_2}' />');return false;"
+                   onClick="popupPage2('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');return false;"
                    title="<fmt:message key='provider.appointmentProviderAdminDay.msgMasterFile'/>">
-                    <e:forHtmlContent value='<%= DemoName %>' />
+                    <carlos:encode value='<%= DemoName %>' context="html"/>
                 </a>
-                <input type="hidden" name="demo_name" value="<e:forHtmlAttribute value='<%= DemoName %>' />">
+                <input type="hidden" name="demo_name" value="<carlos:encode value='<%= DemoName %>' context="htmlAttribute"/>">
             </td>
             <td width="46%" class="bCellData">Health# :
                 <% if (HCTYPE != null && HCTYPE.equals("BC")) { %>
-                <e:forHtmlContent value='<%= allFields.getProperty("phn", "") %>' />
+                <carlos:encode value='<%= allFields.getProperty("phn", "") %>' context="html"/>
                 <%} else {%>
-                <e:forHtmlContent value='<%= allFields.getProperty("oinRegistrationNo", "") %>' />
+                <carlos:encode value='<%= allFields.getProperty("oinRegistrationNo", "") %>' context="html"/>
                 <%}%>
                 Type
-                <e:forHtmlContent value='<%= HCTYPE %>' />
+                <carlos:encode value='<%= HCTYPE %>' context="html"/>
             </td>
         </tr>
         <tr bgcolor="#EEEEFF">
             <td class="bCellData">
-                Sex: <e:forHtmlContent value='<%= DemoSex %>' />
-                <input type="hidden" name="demo_sex" value="<e:forHtmlAttribute value='<%= DemoSex %>' />">
-                <input type="hidden" name="hc_sex" value="<e:forHtmlAttribute value='<%= HCSex %>' />">
+                Sex: <carlos:encode value='<%= DemoSex %>' context="html"/>
+                <input type="hidden" name="demo_sex" value="<carlos:encode value='<%= DemoSex %>' context="htmlAttribute"/>">
+                <input type="hidden" name="hc_sex" value="<carlos:encode value='<%= HCSex %>' context="htmlAttribute"/>">
             </td>
             <td class="bCellData">
-                D.O.B. : <e:forHtmlContent value='<%= DemoDOB %>' />
-                <input type="hidden" name="xml_dob" value="<e:forHtmlAttribute value='<%= DemoDOB %>' />">
+                D.O.B. : <carlos:encode value='<%= DemoDOB %>' context="html"/>
+                <input type="hidden" name="xml_dob" value="<carlos:encode value='<%= DemoDOB %>' context="htmlAttribute"/>">
             </td>
         </tr>
         <tr>
             <td class="bCellData">
-                Address: <e:forHtmlContent value='<%= DemoAddress %>' />
-                <input type="hidden" name="demo_address" value="<e:forHtmlAttribute value='<%= DemoAddress %>' />">
+                Address: <carlos:encode value='<%= DemoAddress %>' context="html"/>
+                <input type="hidden" name="demo_address" value="<carlos:encode value='<%= DemoAddress %>' context="htmlAttribute"/>">
             </td>
             <td class="bCellData">
-                City: <e:forHtmlContent value='<%= DemoCity %>' />
-                <input type="hidden" name="demo_city" value="<e:forHtmlAttribute value='<%= DemoCity %>' />">
+                City: <carlos:encode value='<%= DemoCity %>' context="html"/>
+                <input type="hidden" name="demo_city" value="<carlos:encode value='<%= DemoCity %>' context="htmlAttribute"/>">
             </td>
         </tr>
         <tr bgcolor="#EEEEFF">
             <td class="bCellData">
-                Province: <e:forHtmlContent value='<%= DemoProvince %>' />
-                <input type="hidden" name="demo_province" value="<e:forHtmlAttribute value='<%= DemoProvince %>' />">
+                Province: <carlos:encode value='<%= DemoProvince %>' context="html"/>
+                <input type="hidden" name="demo_province" value="<carlos:encode value='<%= DemoProvince %>' context="htmlAttribute"/>">
             </td>
             <td class="bCellData">
-                Postal Code: <e:forHtmlContent value='<%= DemoPostal %>' />
-                <input type="hidden" name="demo_postal" value="<e:forHtmlAttribute value='<%= DemoPostal %>' />">
+                Postal Code: <carlos:encode value='<%= DemoPostal %>' context="html"/>
+                <input type="hidden" name="demo_postal" value="<carlos:encode value='<%= DemoPostal %>' context="htmlAttribute"/>">
             </td>
         </tr>
     </table>
@@ -611,10 +613,10 @@
     <table width="100%" border="0">
         <tr bgcolor="#CCCCFF">
             <td colspan="2" class="bCellData">
-                <fmt:message key='billing.billingCorrection.msgBillingInf'/> Data Center <e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' /> Payee
-                Number: <e:forHtmlContent value='<%= allFields.getProperty("payeeNo", "") %>' /> Practitioner
-                Number: <e:forHtmlContent value='<%= allFields.getProperty("practitionerNo", "") %>' />
-                Bill Type: <e:forHtmlContent value='<%= StringUtils.noNull(bill.getBillingtype()) %>' />
+                <fmt:message key='billing.billingCorrection.msgBillingInf'/> Data Center <carlos:encode value='<%= allFields.getProperty("datacenter", "") %>' context="html"/> Payee
+                Number: <carlos:encode value='<%= allFields.getProperty("payeeNo", "") %>' context="html"/> Practitioner
+                Number: <carlos:encode value='<%= allFields.getProperty("practitionerNo", "") %>' context="html"/>
+                Bill Type: <carlos:encode value='<%= StringUtils.noNull(bill.getBillingtype()) %>' context="html"/>
             </td>
         </tr>
 
@@ -641,11 +643,11 @@
                     <tr>
                         <td>
                             <input type="text" style="font-size:80%;" id="serviceDate" name="serviceDate"
-                                   value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceDate", "") %>' />">
+                                   value="<carlos:encode value='<%= allFields.getProperty("serviceDate", "") %>' context="htmlAttribute"/>">
                             <%--<%=allFields.getProperty("serviceDate")%>"/><%=BillDate%>--%>
                         </td>
                         <td>
-                            <input type="text" name="serviceToDay" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceToDay", "") %>' />"
+                            <input type="text" name="serviceToDay" value="<carlos:encode value='<%= allFields.getProperty("serviceToDay", "") %>' context="htmlAttribute"/>"
                                    size="2" maxlength="2"/>
                         </td>
                     </tr>
@@ -655,7 +657,7 @@
         <tr bgcolor="#EEEEFF">
             <td width="54%" class="bCellData">
                 Clarification Code:
-                <input type="text" name="locationVisit" value="<e:forHtmlAttribute value='<%= allFields.getProperty("clarificationCode", "") %>' />"
+                <input type="text" name="locationVisit" value="<carlos:encode value='<%= allFields.getProperty("clarificationCode", "") %>' context="htmlAttribute"/>"
                        maxlength="2" size="2"/>
             </td>
             <td width="46%" class="bCellData">
@@ -673,24 +675,24 @@
                     proOHIP = p.getProviderNo();
 
             %>
-                    <option value="<e:forHtmlAttribute value='<%= proOHIP %>' />" <%=Provider.equals(proOHIP) ? "selected" : ""%>><e:forHtmlContent value='<%= proOHIP %>' />
-                        | <e:forHtmlContent value='<%= proLast + ", " + proFirst %>' />
+                    <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>" <%=Provider.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proOHIP %>' context="html"/>
+                        | <carlos:encode value='<%= proLast + ", " + proFirst %>' context="html"/>
                     </option>
                             <% } }%>
-                    <input type="hidden" name="xml_provider_no" value="<e:forHtmlAttribute value='<%= Provider %>' />">
+                    <input type="hidden" name="xml_provider_no" value="<carlos:encode value='<%= Provider %>' context="htmlAttribute"/>">
             </td>
         </tr>
         <tr>
             <%visittype = allFields.getProperty("serviceLocation");%>
             <td width="54%" class="bCellData">
                 Visit Type:
-                <input type="hidden" name="xml_visittype" value="<e:forHtmlAttribute value='<%= visittype %>' />">
+                <input type="hidden" name="xml_visittype" value="<carlos:encode value='<%= visittype %>' context="htmlAttribute"/>">
                 <select name="serviceLocation" style="font-size:80%;max-width:300px;">
                     <%
                         for (BillingFormData.BillingVisit billingVisit : billvisit) {
                             String selected = serviceLocation.equals(billingVisit.getVisitType()) ? "selected" : "";
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= billingVisit.getVisitType() %>' />" <%=selected%>><e:forHtmlContent value='<%= billingVisit.getDisplayName() %>' />
+                    <option value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= billingVisit.getDisplayName() %>' context="html"/>
                     </option>
                     <%
                         }
@@ -700,12 +702,12 @@
 
             </td>
             <td width="46%" class="bCellData">
-                <input type="hidden" name="xml_visitdate" value="<e:forHtmlAttribute value='<%= visitdate %>' />">
+                <input type="hidden" name="xml_visitdate" value="<carlos:encode value='<%= visitdate %>' context="htmlAttribute"/>">
                 <a href="#"
-                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?year=<e:forJavaScriptAttribute value='<%= String.valueOf(curYear) %>' />&month=<e:forJavaScriptAttribute value='<%= String.valueOf(curMonth) %>' />&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
+                   onClick='rs("billingcalendar","<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?year=<carlos:encode value='<%= String.valueOf(curYear) %>' context="javaScriptAttribute"/>&month=<carlos:encode value='<%= String.valueOf(curMonth) %>' context="javaScriptAttribute"/>&type=&returnForm=serviceform&returnItem=xml_vdate","380","300","0")'>
                     Admission Date:
                 </a>
-                <input type="text" style="font-size:80%;" name="xml_vdate" value="<e:forHtmlAttribute value='<%= visitdate %>' />">
+                <input type="text" style="font-size:80%;" name="xml_vdate" value="<carlos:encode value='<%= visitdate %>' context="htmlAttribute"/>">
             </td>
         </tr>
         <tr>
@@ -718,7 +720,7 @@
                 </select>
             </td>
             <td class="bCellData">New Program Ind:
-                <input type="text" name="newProgram" value="<e:forHtmlAttribute value='<%= allFields.getProperty("newProgram", "") %>' />" size="2"
+                <input type="text" name="newProgram" value="<carlos:encode value='<%= allFields.getProperty("newProgram", "") %>' context="htmlAttribute"/>" size="2"
                        maxlength="2"/>
             </td>
         </tr>
@@ -737,20 +739,20 @@
                 </select>
             </td>
             <td class="bCellData">Time Call Received<!--TIME-CALL-RECVD-SRV-->
-                <input type="text" name="timeCallRec" value="<e:forHtmlAttribute value='<%= allFields.getProperty("timeCall", "") %>' />" size="4"
+                <input type="text" name="timeCallRec" value="<carlos:encode value='<%= allFields.getProperty("timeCall", "") %>' context="htmlAttribute"/>" size="4"
                        maxlength="4"/>
-                <input type="hidden" name="anatomicalArea" value="<e:forHtmlAttribute value='<%= allFields.getProperty("anatomicalArea", "") %>' />"/>
+                <input type="hidden" name="anatomicalArea" value="<carlos:encode value='<%= allFields.getProperty("anatomicalArea", "") %>' context="htmlAttribute"/>"/>
             </td>
         </tr>
 
         <tr>
 
             <td class="bCellData">Service Time Start<%! /*SERVICE-TIME-START*/ %>
-                <input type="text" name="startTime" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceStartTime", "") %>' />" size="4"
+                <input type="text" name="startTime" value="<carlos:encode value='<%= allFields.getProperty("serviceStartTime", "") %>' context="htmlAttribute"/>" size="4"
                        maxlength="4"/></td>
 
             <td class="bCellData">Service Time Finish <%! /*SERVICE-TIME-FINISH*/ %>
-                <input type="text" name="finishTime" value="<e:forHtmlAttribute value='<%= allFields.getProperty("serviceEndTime", "") %>' />" size="4"
+                <input type="text" name="finishTime" value="<carlos:encode value='<%= allFields.getProperty("serviceEndTime", "") %>' context="htmlAttribute"/>" size="4"
                        maxlength="4"/></td>
 
         </tr>
@@ -764,18 +766,18 @@
                 </select>
             </td>
             <td class="bCellData">ICBC Claim Num:
-                <input type="text" name="icbcClaim" value="<e:forHtmlAttribute value='<%= allFields.getProperty("icbcClaimNo", "") %>' />" size="8"
+                <input type="text" name="icbcClaim" value="<carlos:encode value='<%= allFields.getProperty("icbcClaimNo", "") %>' context="htmlAttribute"/>" size="8"
                        maxlength="8"/></td>
         </tr>
         <tr>
 
 
             <td class="bCellData">Facility Number
-                <input type="text" name="facilityNum" value="<e:forHtmlAttribute value='<%= allFields.getProperty("facilityNo", "") %>' />" size="5"
+                <input type="text" name="facilityNum" value="<carlos:encode value='<%= allFields.getProperty("facilityNo", "") %>' context="htmlAttribute"/>" size="5"
                        maxlength="5"/></td>
 
             <td class="bCellData">Facility Sub Number
-                <input type="text" name="facilitySubNum" value="<e:forHtmlAttribute value='<%= allFields.getProperty("facilitySubNo", "") %>' />" size="5"
+                <input type="text" name="facilitySubNum" value="<carlos:encode value='<%= allFields.getProperty("facilitySubNo", "") %>' context="htmlAttribute"/>" size="5"
                        maxlength="5"/></td>
         </tr>
     </table>
@@ -803,32 +805,32 @@
             <td class="bCellData">
 
                 <input type="text" style="font-size:80%;" name="service_code"
-                       value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingCode", "") %>' />" size="10">
+                       value="<carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="htmlAttribute"/>" size="10">
                 <input type="button"
                        onClick="javascript:popFeeItemList('reprocessBilling','service_code');return false;"
                        value="<fmt:message key='billing.billingCorrection.btnSearchUpdate'/>"/>
             </td>
             <td width="50%" class="bCellData">
-                <span id="description"><e:forHtmlContent value='<%= billform.getServiceDesc(allFields.getProperty("billingCode"), billRegion) %>' /></span>
-                ($<span id="valueDisplay"><e:forHtmlContent value='<%= billValue %>' /></span>)
-                <input type="hidden" value="<e:forHtmlAttribute value='<%= billValue %>' />" id="billValue"/>
+                <span id="description"><carlos:encode value='<%= billform.getServiceDesc(allFields.getProperty("billingCode"), billRegion) %>' context="html"/></span>
+                ($<span id="valueDisplay"><carlos:encode value='<%= billValue %>' context="html"/></span>)
+                <input type="hidden" value="<carlos:encode value='<%= billValue %>' context="htmlAttribute"/>" id="billValue"/>
                 <input type="hidden" value="<%=gstFlag%>" id="isGst"/>
                 <input type="button" value="<fmt:message key='billing.billingCorrection.btnRecalculate'/>" onclick="calculateFee()"/>
                 <small style="float: right; display: <%=gstFlag? "" : "none"%>"
-                       id="currentGST"><%=("+ " + Encode.forHtml(gstPercent) + "% GST")%>
+                       id="currentGST"><%=("+ " + SafeEncode.forHtml(gstPercent) + "% GST")%>
                 </small>
-                <input type="hidden" name="gstTotal" id="gstTotal" value="<e:forHtmlAttribute value='<%= allFields.getProperty("gst", "0.00") %>' />"/>
+                <input type="hidden" name="gstTotal" id="gstTotal" value="<carlos:encode value='<%= allFields.getProperty("gst", "0.00") %>' context="htmlAttribute"/>"/>
             </td>
             <td class="bCellData">
-                <input type="hidden" name="billing_unit" value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingUnit", "") %>' />">
+                <input type="hidden" name="billing_unit" value="<carlos:encode value='<%= allFields.getProperty("billingUnit", "") %>' context="htmlAttribute"/>">
                 <input type="text" style="font-size:80%;" name="billingUnit"
-                       value="<e:forHtmlAttribute value='<%= allFields.getProperty("billingUnit", "") %>' />" size="6" maxlength="6" id="billingUnit">
+                       value="<carlos:encode value='<%= allFields.getProperty("billingUnit", "") %>' context="htmlAttribute"/>" size="6" maxlength="6" id="billingUnit">
             </td>
             <td class="bCellData" nowrap>
                 <div align="right">
-                    <input type="hidden" name="billing_amount" value="<e:forHtmlAttribute value='<%= allFields.getProperty("bilAmount", "") %>' />">
+                    <input type="hidden" name="billing_amount" value="<carlos:encode value='<%= allFields.getProperty("bilAmount", "") %>' context="htmlAttribute"/>">
                     <input type="text" style="font-size:80%;" size="8" maxlength="8" name="billingAmount"
-                           value="<e:forHtmlAttribute value='<%= allFields.getProperty("billAmount", "") %>' />"
+                           value="<carlos:encode value='<%= allFields.getProperty("billAmount", "") %>' context="htmlAttribute"/>"
                            onChange="javascript:validateNum(this); calculateGst()" id="billingAmount">
                 </div>
             </td>
@@ -860,30 +862,30 @@
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx1')"><fmt:message key="billing.billingCorrection.dx1"/></a><input type="text" name="dx1"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode1", "") %>' />"
+                                                                                    value="<carlos:encode value='<%= allFields.getProperty("dxCode1", "") %>' context="htmlAttribute"/>"
                                                                                     size="10">
                         </td>
-                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode1"), billRegion) %>' />
+                        <td><carlos:encode value='<%= billform.getDiagDesc(allFields.getProperty("dxCode1"), billRegion) %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx2')"><fmt:message key="billing.billingCorrection.dx2"/></a><input type="text" name="dx2"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode2", "") %>' />"
+                                                                                    value="<carlos:encode value='<%= allFields.getProperty("dxCode2", "") %>' context="htmlAttribute"/>"
                                                                                     size="10">
                         </td>
-                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode2"), billRegion) %>' />
+                        <td><carlos:encode value='<%= billform.getDiagDesc(allFields.getProperty("dxCode2"), billRegion) %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
                         <td class="bCellData">
                             <a href="javascript:ScriptAttach('dx3')"><fmt:message key="billing.billingCorrection.dx3"/></a><input type="text" name="dx3"
                                                                                     onClick="checkSubmitType()"
-                                                                                    value="<e:forHtmlAttribute value='<%= allFields.getProperty("dxCode3", "") %>' />"
+                                                                                    value="<carlos:encode value='<%= allFields.getProperty("dxCode3", "") %>' context="htmlAttribute"/>"
                                                                                     size="10">
                         </td>
-                        <td><e:forHtmlContent value='<%= billform.getDiagDesc(allFields.getProperty("dxCode3"), billRegion) %>' />
+                        <td><carlos:encode value='<%= billform.getDiagDesc(allFields.getProperty("dxCode3"), billRegion) %>' context="html"/>
                         </td>
                     </tr>
                 </table>
@@ -917,7 +919,7 @@
                         <td class="bCellData">
                             <input type="button" onClick="javascript:ReferralScriptAttach('referalPrac1')"
                                    value="Search"/>
-                            <input type="text" name="referalPrac1" value="<e:forHtmlAttribute value='<%= allFields.getProperty("referralNo1", "") %>' />"
+                            <input type="text" name="referalPrac1" value="<carlos:encode value='<%= allFields.getProperty("referralNo1", "") %>' context="htmlAttribute"/>"
                                    size="5" maxlength="5"/>
                         </td>
                     </tr>
@@ -932,7 +934,7 @@
                         <td class="bCellData">
                             <input type="button" onClick="javascript:ReferralScriptAttach('referalPrac2')"
                                    value="Search"/>
-                            <input type="text" name="referalPrac2" value="<e:forHtmlAttribute value='<%= allFields.getProperty("referralNo2", "") %>' />"
+                            <input type="text" name="referalPrac2" value="<carlos:encode value='<%= allFields.getProperty("referralNo2", "") %>' context="htmlAttribute"/>"
                                    size="5" maxlength="5"/>
                         </td>
                     </tr>
@@ -1013,10 +1015,10 @@
                 <div id="DEBITREQUEST">
                     Select sequence number you would like to debit <input name="debitRequestSeqNum" type="text"
                                                                           maxlength="7" size="7"
-                                                                          value="<e:forHtmlAttribute value='<%= getDebitRequestSeqNum(allFields.getProperty("originalClaim")) %>' />"/>
+                                                                          value="<carlos:encode value='<%= getDebitRequestSeqNum(allFields.getProperty("originalClaim")) %>' context="htmlAttribute"/>"/>
                     </br><fmt:message key="billing.billingCorrection.msgSelectMSPReceivedDate"/> <input
                         id="debitRequestDate" name="debitRequestDate" type="text" maxlength="8" size="8"
-                        value="<e:forHtmlAttribute value='<%= getDebitRequestDate(allFields.getProperty("originalClaim")) %>' />"/>
+                        value="<carlos:encode value='<%= getDebitRequestDate(allFields.getProperty("originalClaim")) %>' context="htmlAttribute"/>"/>
                     <a id="hlADate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     <!--Date Received MSP <input type="text" />-->
                 </div>
@@ -1061,13 +1063,13 @@
         </tr>
         <tr>
             <td class="bCellData">Claim Short Comment</td><!--CLAIM-SHORT-COMMENT-->
-            <td><input type="text" name="shortComment" value="<e:forHtmlAttribute value='<%= allFields.getProperty("claimComment", "") %>' />" size="20"
+            <td><input type="text" name="shortComment" value="<carlos:encode value='<%= allFields.getProperty("claimComment", "") %>' context="htmlAttribute"/>" size="20"
                        maxlength="20"/></td>
             <td class="bCellData">Note</td>
             <td>
                 <div id="CORRESPONDENCENOTE">
                     <textarea cols="60" rows="5" name="notes"
-                              onKeyUp="checkTextLimit(this.form.notes,400);"><e:forHtmlContent value='<%= StringUtils.noNull(corrNote) %>' /></textarea>
+                              onKeyUp="checkTextLimit(this.form.notes,400);"><carlos:encode value='<%= StringUtils.noNull(corrNote) %>' context="html"/></textarea>
                 </div>
             </td>
 
@@ -1082,10 +1084,10 @@
 
                         <!--CLAIM-SHORT-COMMENT-->
                         <td colspan="3">
-                            <c:set var="__enc_3"><e:forUriComponent value='<%= String.valueOf(bill.getDemographicNo()) %>' /></c:set>
-                            <c:set var="__enc_4"><e:forUriComponent value='<%= allFields.getProperty("billingCode", "") %>' /></c:set>
-                            <textarea cols="60" rows="5" name="messageNotes"><e:forHtmlContent value="            
-<%= StringUtils.noNull(messageNotes) %>" /></textarea>
+                            <c:set var="__enc_3"><carlos:encode value='<%= String.valueOf(bill.getDemographicNo()) %>' context="uriComponent"/></c:set>
+                            <c:set var="__enc_4"><carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="uriComponent"/></c:set>
+                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value="            
+<%= StringUtils.noNull(messageNotes) %>" context="html"/></textarea>
                         </td>
                         <td></td>
 
@@ -1103,7 +1105,7 @@
         function callReplacementWebService(url, id) {
             var ran_number = Math.round(Math.random() * 1000000);
             // forUriComponent encodes URL parameter values, forJavaScript wraps for JS string context; rand busts cache
-            var params = "demographicNo=<e:forJavaScript value='${__enc_3}' />&wcb=&billingcode=<e:forJavaScript value='${__enc_4}' />&rand=" + ran_number;
+            var params = "demographicNo=<carlos:encode value='${__enc_3}' context="javaScript"/>&wcb=&billingcode=<carlos:encode value='${__enc_4}' context="javaScript"/>&rand=" + ran_number;
             CarlosAjax.updater(id, url, {method: 'get', parameters: params});
         }
 
@@ -1130,7 +1132,7 @@
 
         <%if(bill.getBillingtype().equals("WCB")){ %>
         oscarLog("DOES THIS LOG");
-        replaceWCB('<e:forJavaScriptBlock value='<%= String.valueOf(billingmaster.getWcbId()) %>' />');
+        replaceWCB('<carlos:encode value='<%= String.valueOf(billingmaster.getWcbId()) %>' context="javaScriptBlock"/>');
 
         <%}%>
     </script>
@@ -1230,7 +1232,7 @@
         <tr>
             <!--REC-CODE-IN-->
             <td>Data-Center</td><!--DATA-CENTRE-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("datacenter", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("datacenter", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1239,21 +1241,21 @@
 
             <!--DATA-CENTER-SEQNUM-->
             <td>PAYEE-NUM</td><!--PAYEE-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("payeeNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("payeeNo", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Practitioner Number</td><!--PRACTITIONER-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("practitionerNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("practitionerNo", "") %>' context="html"/>
             </td><!--MSP PHN-->
             <td>5</td>
             <td></td>
         </tr>
         <tr>
             <td>PHN</td><!--PRACTITIONER-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("phn", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("phn", "") %>' context="html"/>
             </td><!--MSP PHN-->
             <td>10</td>
             <td>Y</td>
@@ -1261,7 +1263,7 @@
         <tr>
 
             <td>Name Verify</td><!--NAME-VERIFY-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("nameVerify", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("nameVerify", "") %>' context="html"/>
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1269,7 +1271,7 @@
         <tr>
 
             <td>Dependent Number</td><!--DEPENDENT-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("dependentNum", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("dependentNum", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1277,7 +1279,7 @@
         <tr>
 
             <td>Billed Units</td><!--BILLED-SRV-UNITS-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("billingUnit", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("billingUnit", "") %>' context="html"/>
             </td>
             <td>3</td>
             <td>Y</td>
@@ -1285,7 +1287,7 @@
         <tr>
 
             <td>Service Clarification code</td><!--SERVICE CLARIFICATION CODE-->
-            <Td><e:forHtmlContent value='<%= allFields.getProperty("clarificationCode", "") %>' />
+            <Td><carlos:encode value='<%= allFields.getProperty("clarificationCode", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1293,7 +1295,7 @@
         <tr>
 
             <td>Anatomical Area</td><!--MSP SERVICE ANATOMICAL AREA-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("anatomicalArea", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("anatomicalArea", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1301,7 +1303,7 @@
         <tr>
 
             <td>After Hours</td><!--AFTER HOURS SERVICE IND-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("afterHour", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("afterHour", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1309,7 +1311,7 @@
         <tr>
 
             <td>New Program Ind</td><!--NEW PROGRAM IND-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("newProgram", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("newProgram", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
@@ -1317,7 +1319,7 @@
         <tr>
 
             <td>Billed Fee Item</td><!--BILLED-FEE-ITEM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("billingCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1325,35 +1327,35 @@
         <tr>
 
             <td>Billed Amount</td><!--BILLED-AMOUNT-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("billAmount", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("billAmount", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Payment Mode</td><!--PAYMENT MODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("paymentMode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("paymentMode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Service Date</td><!--SERVICE-DATE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceDate", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("serviceDate", "") %>' context="html"/>
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Service to Day</td><!--SERVICE-TO-DAY-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceToDay", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("serviceToDay", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Submission Code</td><!--SUBMISSION-CODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("submissionCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("submissionCode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1361,7 +1363,7 @@
         <tr>
 
             <td>Ex Submission Code</td><!--EXTENDED SUBMISSION CODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("extendedSubmissionCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("extendedSubmissionCode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td></td>
@@ -1369,7 +1371,7 @@
         <tr>
 
             <td>Diag Code 1</td><!--DIAGNOSTIC-CODE-1-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode1", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("dxCode1", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1377,7 +1379,7 @@
         <tr>
 
             <td>Diag Code 2</td><!--DIAGNOSTIC-CODE-2-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode2", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("dxCode2", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1385,7 +1387,7 @@
         <tr>
 
             <td>Diag Code 3</td><!--DIAGNOSTIC-CODE-3-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("dxCode3", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("dxCode3", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1393,7 +1395,7 @@
         <tr>
 
             <td>Diag Expansion</td><!--DIAGNOSTIC EXPANSION-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("dxExpansion", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("dxExpansion", "") %>' context="html"/>
             </td>
             <td>15</td>
             <td></td>
@@ -1401,7 +1403,7 @@
         <tr>
 
             <td>Service Location</td><!--SERVICE-LOCATION-CD-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceLocation", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("serviceLocation", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td></td>
@@ -1409,7 +1411,7 @@
         <tr>
 
             <td>Referal Practitioner CD</td><!--REF-PRACT-1-CD-->
-            <Td><e:forHtmlContent value='<%= allFields.getProperty("referralFlag1", "") %>' />
+            <Td><carlos:encode value='<%= allFields.getProperty("referralFlag1", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1417,7 +1419,7 @@
         <tr>
 
             <td>Referal Practitioner</td><!--REF-PRACT-1-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("referralNo1", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("referralNo1", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
@@ -1425,7 +1427,7 @@
         <tr>
 
             <td>Referal Practitioner CD</td><!--REF-PRACT-2-CD-->
-            <Td><e:forHtmlContent value='<%= allFields.getProperty("referralFlag2", "") %>' />
+            <Td><carlos:encode value='<%= allFields.getProperty("referralFlag2", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1433,14 +1435,14 @@
         <tr>
 
             <td>Referal Practitioner</td><!--REF-PRACT-2-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("referralNo2", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("referralNo2", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Time Call Received</td><!--TIME-CALL-RECVD-SRV-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("timeCall", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("timeCall", "") %>' context="html"/>
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1448,7 +1450,7 @@
         <tr>
 
             <td>Service Time Start</td><!--SERVICE-TIME-START-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceStartTime", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("serviceStartTime", "") %>' context="html"/>
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1456,7 +1458,7 @@
         <tr>
 
             <td>Service Time Finish</td><!--SERVICE-TIME-FINISH-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("serviceEndTime", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("serviceEndTime", "") %>' context="html"/>
             </td>
             <td>4</td>
             <td>Y</td>
@@ -1464,7 +1466,7 @@
         <tr>
 
             <td>Birth Date</td><!--BIRTH-DATE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("birthDate", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("birthDate", "") %>' context="html"/>
             </td>
             <td>8</td>
             <td>Y</td>
@@ -1472,7 +1474,7 @@
         <tr>
 
             <td>Office Number</td><!--OFFICE-FOLIO-NUMBER-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("officeNumber", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("officeNumber", "") %>' context="html"/>
             </td>
             <td>7</td>
             <td>Y</td>
@@ -1480,7 +1482,7 @@
         <tr>
 
             <td>Correspondence Code</td><!--CORRESPONDENCE-CODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("correspondenceCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("correspondenceCode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1488,7 +1490,7 @@
         <tr>
 
             <td>Claim Short Comment</td><!--CLAIM-SHORT-COMMENT-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("claimComment", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("claimComment", "") %>' context="html"/>
             </td>
             <td>20</td>
             <td>Y</td>
@@ -1496,7 +1498,7 @@
         <tr>
 
             <td>MVA Claim Code</td><!--MVA-CLAIM-CODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("mvaClaimCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("mvaClaimCode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1504,63 +1506,63 @@
         <tr>
 
             <td>ICBC Claim Num</td><!--ICBC-CLAIM-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("icbcClaimNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("icbcClaimNo", "") %>' context="html"/>
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>MSP File Num</td><!--ORG-MSP-FILE-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("originalClaim", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("originalClaim", "") %>' context="html"/>
             </td>
             <td>20</td>
             <td></td>
         </tr>
         <tr>
             <td>Facility Num</td><!--FACILITY-NUM-->facility_no
-            <td><e:forHtmlContent value='<%= allFields.getProperty("facilityNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("facilityNo", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Facility Sub Num</td><!--FACILITY-SUB-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("facilitySubNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("facilitySubNo", "") %>' context="html"/>
             </td>
             <td>5</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Insurer Code</td><!--OIN-INSURER-C0DE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinInsurerCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinInsurerCode", "") %>' context="html"/>
             </td>
             <td>2</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Registration Num</td><!--OIN-REGISTRATION-NUM-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinRegistrationNo", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinRegistrationNo", "") %>' context="html"/>
             </td>
             <td>12</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Birth date</td><!--OIN-BIRTHDATE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinBirthdate", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinBirthdate", "") %>' context="html"/>
             </td>
             <td>8</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>First Name</td><!--OIN-FIRST-NAME-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinFirstName", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinFirstName", "") %>' context="html"/>
             </td>
             <td>12</td>
             <td>Y</td>
         </tr>
         <tr>
             <td>Second Name</td><!--OIN-SECOND-NAME-INITIAL-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSecondName", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinSecondName", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1568,7 +1570,7 @@
         <tr>
 
             <td>Surname</td><!--OIN-SURNAME-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSurname", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinSurname", "") %>' context="html"/>
             </td>
             <td>18</td>
             <td>Y</td>
@@ -1576,7 +1578,7 @@
         <tr>
 
             <td>SEX</td>
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinSexCode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinSexCode", "") %>' context="html"/>
             </td>
             <td>1</td>
             <td>Y</td>
@@ -1584,7 +1586,7 @@
         <tr>
 
             <td>Address 1 WCB Date Of Injury</td><!--OIN-ADDRESS-1		WCB DATE OF INJURY-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinAddress", "") %>' context="html"/>
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1592,7 +1594,7 @@
         <tr>
 
             <td>Address 2 WCB AREA OF INJURY</td><!--OIN-ADDRESS-2 WCB AREA OF INJURY ANATOMICAL-POSITION-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress2", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinAddress2", "") %>' context="html"/>
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1600,7 +1602,7 @@
         <tr>
 
             <Td>Address 3 WCB NATURE OF INJURY</td><!--OIN-ADDRESS-3 WCB NATURE OF INJURY-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress3", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinAddress3", "") %>' context="html"/>
             </td>
             <td>25</td>
             <td>Y</td>
@@ -1608,7 +1610,7 @@
         <tr>
 
             <td>Address 4 WCB Claim Number</td><!--OIN-ADDRESS-4 WCB CLAIM NUMBER-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinAddress4", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinAddress4", "") %>' context="html"/>
             </td>
             <td>25</td>
             a
@@ -1617,7 +1619,7 @@
         <tr>
 
             <td>Postal Code</td><!--OIN-POSTAL-CODE-->
-            <td><e:forHtmlContent value='<%= allFields.getProperty("oinPostalcode", "") %>' />
+            <td><carlos:encode value='<%= allFields.getProperty("oinPostalcode", "") %>' context="html"/>
             </td>
             <td>6</td>
             <td>Y</td>

@@ -24,6 +24,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -62,6 +63,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 
 <%
@@ -448,9 +450,9 @@
     <div id="reportViewer">
         <div id="hrmReportContent">
             <div id="hrmHeader"><b>Demographic Info:</b><br/>
-                <e:forHtmlContent value='<%= Objects.toString(hrmReport.getLegalName(), "") %>' /> <br/>
-                <e:forHtmlContent value='<%= Objects.toString(hrmReport.getHCN(), "") %>' /> &nbsp; <e:forHtmlContent value='<%= Objects.toString(hrmReport.getHCNVersion(), "") %>' /> &nbsp; <e:forHtmlContent value='<%= Objects.toString(hrmReport.getGender(), "") %>' /><br/>
-                <b>DOB:</b><e:forHtmlContent value='<%= Objects.toString(hrmReport.getDateOfBirthAsString(), "") %>' />
+                <carlos:encode value='<%= Objects.toString(hrmReport.getLegalName(), "") %>' context="html"/> <br/>
+                <carlos:encode value='<%= Objects.toString(hrmReport.getHCN(), "") %>' context="html"/> &nbsp; <carlos:encode value='<%= Objects.toString(hrmReport.getHCNVersion(), "") %>' context="html"/> &nbsp; <carlos:encode value='<%= Objects.toString(hrmReport.getGender(), "") %>' context="html"/><br/>
+                <b>DOB:</b><carlos:encode value='<%= Objects.toString(hrmReport.getDateOfBirthAsString(), "") %>' context="html"/>
             </div>
 
 
@@ -521,7 +523,7 @@
             } else {
 
             %>
-            <%= Encode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
+            <%= SafeEncode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
             <% } %>
 
@@ -529,7 +531,7 @@
                 if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
             %>
             <hr/>
-            <em><strong>Provider Confidentiality Statement</strong><br/><e:forHtmlContent value='<%= confidentialityStatement %>' />
+            <em><strong>Provider Confidentiality Statement</strong><br/><carlos:encode value='<%= confidentialityStatement %>' context="html"/>
             </em>
             <% } %>
         </div>
@@ -545,10 +547,10 @@
                 <tr>
                     <th>Demographic Info:</th>
                     <td>
-                        <e:forHtmlContent value='<%= Objects.toString(hrmReport.getLegalName(), "") %>' /><br/>
-                        <e:forHtmlContent value='<%= Objects.toString(hrmReport.getAddressLine1(), "") %>' /><br/>
-                        <e:forHtmlContent value='<%= Objects.toString(hrmReport.getAddressLine2(), "") %>' /><br/>
-                        <e:forHtmlContent value='<%= Objects.toString(hrmReport.getAddressCity(), "") %>' />
+                        <carlos:encode value='<%= Objects.toString(hrmReport.getLegalName(), "") %>' context="html"/><br/>
+                        <carlos:encode value='<%= Objects.toString(hrmReport.getAddressLine1(), "") %>' context="html"/><br/>
+                        <carlos:encode value='<%= Objects.toString(hrmReport.getAddressLine2(), "") %>' context="html"/><br/>
+                        <carlos:encode value='<%= Objects.toString(hrmReport.getAddressCity(), "") %>' context="html"/>
                     </td>
                 </tr>
 
@@ -657,10 +659,10 @@
                                     String signedOffDisplay = "";
                                     if (p.getSignedOff() != null && p.getSignedOff() == 1) {
                                         String ts = Objects.toString(p.getSignedOffTimestamp(), "");
-                                        signedOffDisplay = "<abbr title='" + Encode.forHtmlAttribute(ts) + "'>(Signed-Off " + Encode.forHtml(ts) + ")</abbr>";
+                                        signedOffDisplay = "<abbr title='" + SafeEncode.forHtmlAttribute(ts) + "'>(Signed-Off " + SafeEncode.forHtml(ts) + ")</abbr>";
                                     }
                         %>
-                        <e:forHtmlContent value='<%= providerDao.getProviderName(p.getProviderNo()) %>' /> <%=signedOffDisplay%>
+                        <carlos:encode value='<%= providerDao.getProviderName(p.getProviderNo()) %>' context="html"/> <%=signedOffDisplay%>
                         <a href="#"
                            onclick="removeProvFromHrm('<%=p.getId() %>', '<%=hrmReportId %>')">(remove)</a><br/>
                         <% }
@@ -671,7 +673,7 @@
                         <% if (document.getUnmatchedProviders() != null && document.getUnmatchedProviders().trim().length() >= 1) {
                             String[] unmatchedProviders = document.getUnmatchedProviders().substring(1).split("\\|");
                             for (String unmatchedProvider : unmatchedProviders) { %>
-                        <i><abbr title="From the HRM document"><e:forHtmlContent value='<%= unmatchedProvider %>' />
+                        <i><abbr title="From the HRM document"><carlos:encode value='<%= unmatchedProvider %>' context="html"/>
                         </abbr></i><br/>
                         <% }
                         } %>
@@ -754,7 +756,7 @@
 						<%
                             if (category != null) {
                         %>
-						<e:forHtmlContent value='<%= category.getCategoryName() %>' />
+						<carlos:encode value='<%= category.getCategoryName() %>' context="html"/>
 						<% }%>
 					</span>
 
@@ -848,7 +850,7 @@
 
         Add a description:
         <input type="text" id="descriptionField_<%=hrmReportId %>_hrm" size="100"
-               value="<e:forHtmlAttribute value='<%= document.getDescription() %>' />"/><br/>
+               value="<carlos:encode value='<%= document.getDescription() %>' context="htmlAttribute"/>"/><br/>
 
         <div class="boxButton">
             <input type="button" onClick="setDescription('<%=hrmReportId %>')" value="Set Description"/><span
@@ -872,9 +874,9 @@
         <% for (HRMDocumentComment comment : documentComments) {
             String commentTime = comment.getCommentTime() != null ? " on " + comment.getCommentTime().toString() : ""; %>
         <div class="documentComment">
-            <strong><e:forHtmlContent value='<%= providerDao.getProviderName(comment.getProviderNo()) %>' /><%=commentTime%>
+            <strong><carlos:encode value='<%= providerDao.getProviderName(comment.getProviderNo()) %>' context="html"/><%=commentTime%>
                 wrote...</strong><br/>
-            <e:forHtmlContent value='<%= comment.getComment() %>' /><br/>
+            <carlos:encode value='<%= comment.getComment() %>' context="html"/><br/>
             <a href="#" onClick="deleteComment('<%=comment.getId() %>', '<%=hrmReportId %>'); return false;">(Delete
                 this comment)</a></div>
         <% }
@@ -981,20 +983,20 @@
                     }
             %>
             <tr>
-                <td><e:forHtmlContent value='<%= String.valueOf(parsedId) %>' />
+                <td><carlos:encode value='<%= String.valueOf(parsedId) %>' context="html"/>
                 </td>
-                                    <c:set var="__enc_1"><e:forUriComponent value='<%= tempId %>' /></c:set>
-                           <c:set var="__enc_2"><e:forUriComponent value='<%= tempId %>' /></c:set>
-                           <c:set var="__enc_3"><e:forUriComponent value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' /></c:set>
-                           <c:set var="__enc_4"><e:forUriComponent value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' /></c:set>
-                           <c:set var="__enc_5"><e:forUriComponent value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' /></c:set>
-                           <c:set var="__enc_6"><e:forUriComponent value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' /></c:set>
+                                    <c:set var="__enc_1"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_2"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set>
        <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
                 <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>
                 </td>
                 <td><input type="button" value="Open Report"
-                           onclick="window.open('?id=<e:forJavaScriptAttribute value='${__enc_1}' />&segmentId=<e:forJavaScriptAttribute value='${__enc_2}' />&providerNo=<e:forJavaScriptAttribute value='${__enc_3}' />&searchProviderNo=<e:forJavaScriptAttribute value='${__enc_4}' />&status=<e:forJavaScriptAttribute value='${__enc_5}' />&demoName=<e:forJavaScriptAttribute value='${__enc_6}' />', null)"/>
+                           onclick="window.open('?id=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&segmentId=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&status=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&demoName=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>', null)"/>
                 </td>
             </tr>
 

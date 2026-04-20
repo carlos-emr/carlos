@@ -34,6 +34,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>
@@ -120,9 +121,9 @@
 </table>
 <form name="servicecode" id="servicecode" method="post"
       action="<%= request.getContextPath() %>/billing/CA/BC/BillingDigNewUpdate"><input type="hidden"
-                                              name="formName" value="<e:forHtmlAttribute value='<%= formName %>' />"/> <input type="hidden"
+                                              name="formName" value="<carlos:encode value='<%= formName %>' context="htmlAttribute"/>"/> <input type="hidden"
                                                                                              name="formElement"
-                                                                                             value="<e:forHtmlAttribute value='<%= formElement %>' />"/>
+                                                                                             value="<carlos:encode value='<%= formElement %>' context="htmlAttribute"/>"/>
     <div style="height: 600; overflow: auto">
         <table width="800" border="1">
             <tr bgcolor="#CCCCFF">
@@ -160,13 +161,13 @@
             <tr bgcolor="<%=color%>">
                 <td><font face="Arial, Helvetica, sans-serif"
                           size="2"><%if (Dcode.compareTo(xcodeName) == 0 || Dcode.compareTo(xcodeName1) == 0 || Dcode.compareTo(xcodeName2) == 0) { %>
-                    <input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />" checked> <%} else { %>
-                    <input type="checkbox" name="code_<e:forHtmlAttribute value='<%= Dcode %>' />"> <%} %> <e:forHtmlContent value='<%= Dcode %>' />
+                    <input type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>" checked> <%} else { %>
+                    <input type="checkbox" name="code_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"> <%} %> <carlos:encode value='<%= Dcode %>' context="html"/>
                 </font></td>
                 <td><font face="Arial, Helvetica, sans-serif" size="2"> <input
-                        type="hidden" name="codedesc_<e:forHtmlAttribute value='<%= Dcode %>' />" value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />">
-                    <input type="text" name="<e:forHtmlAttribute value='<%= Dcode %>' />" value="<e:forHtmlAttribute value='<%= DcodeDesc %>' />" size="80">
-                    <input type="submit" name="update" value="update <e:forHtmlAttribute value='<%= Dcode %>' />">
+                        type="hidden" name="codedesc_<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>">
+                    <input type="text" name="<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>" size="80">
+                    <input type="submit" name="update" value="update <carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>">
                 </font></td>
             </tr>
             <%}%>
@@ -180,7 +181,7 @@
             <script LANGUAGE="JavaScript">
                 <!--
 
-                CodeAttach('<e:forJavaScriptBlock value='<%= Dcode %>' />');
+                CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScriptBlock"/>');
                 -->
 
             </script>

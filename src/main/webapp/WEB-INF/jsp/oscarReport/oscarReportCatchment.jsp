@@ -31,6 +31,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -135,19 +136,19 @@
             nItems++;
     %>
     <tr>
-        <td><e:forHtmlContent value='<%= d.getLastName() %>' />,<e:forHtmlContent value='<%= d.getFirstName() %>' />
+        <td><carlos:encode value='<%= d.getLastName() %>' context="html"/>,<carlos:encode value='<%= d.getFirstName() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getSex() %>' />
+        <td><carlos:encode value='<%= d.getSex() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getDateOfBirth() %>' />-<e:forHtmlContent value='<%= d.getMonthOfBirth() %>' />-<e:forHtmlContent value='<%= d.getYearOfBirth() %>' />
+        <td><carlos:encode value='<%= d.getDateOfBirth() %>' context="html"/>-<carlos:encode value='<%= d.getMonthOfBirth() %>' context="html"/>-<carlos:encode value='<%= d.getYearOfBirth() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getCity() %>' />
+        <td><carlos:encode value='<%= d.getCity() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getProvince() %>' />
+        <td><carlos:encode value='<%= d.getProvince() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getPostal() %>' />
+        <td><carlos:encode value='<%= d.getPostal() %>' context="html"/>
         </td>
-        <td><e:forHtmlContent value='<%= d.getPatientStatus() %>' />
+        <td><carlos:encode value='<%= d.getPatientStatus() %>' context="html"/>
         </td>
     </tr>
     <%
@@ -166,13 +167,13 @@
 <nav>
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
-            href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<e:forUriComponent value='<%= strLimit2 %>' />"
+            href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>"
             class="page-link contentLink"> &larr; Previous Page
     </a></li>
     <li
             class="page-item <%=nItems == Integer.parseInt(strLimit2) ? "" : "disabled"%>">
         <a
-                href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nNextPage%>&limit2=<e:forUriComponent value='<%= strLimit2 %>' />"
+                href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>"
                 class="page-link contentLink"> <fmt:message key="oscarReport.oscarReportCatchment.msgNextPage"/> &rarr;
         </a>
     </li>

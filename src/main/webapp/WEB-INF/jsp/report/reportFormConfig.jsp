@@ -22,6 +22,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
     String SAVE_AS = "default";
@@ -90,6 +91,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
     <head>
@@ -115,7 +117,7 @@
             }
 
             function goCaption() {
-                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />";
+                //self.location.href = "<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>";
             }
 
             function goPage(id) {
@@ -131,9 +133,9 @@
     <center></center>
     <table BORDER="0" CELLPADDING="0" CELLSPACING="0" WIDTH="100%">
         <tr BGCOLOR="#CCCCFF">
-            <td><e:forHtmlContent value='<%= reportName %>' /> <fmt:message key="report.reportFormConfig.heading"/></td>
+            <td><carlos:encode value='<%= reportName %>' context="html"/> <fmt:message key="report.reportFormConfig.heading"/></td>
             <td width="10%" align="right" nowrap><a
-                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<e:forUriComponent value='<%= reportId %>' />"><fmt:message key="report.reportFormConfig.backToReport"/></a></td>
+                    href="<%= request.getContextPath() %>/report/ViewReportFilter?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>"><fmt:message key="report.reportFormConfig.backToReport"/></a></td>
         </tr>
     </table>
 
@@ -156,7 +158,7 @@
             <% } %>
             <tr bgcolor="<%="#EEEEFF"%>">
                 <td align="center" width="45%"><fmt:message key="report.reportFormConfig.label.form"/> | <a
-                        href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<%="demographic"%>&formTableName=<e:forUriComponent value='<%= tableName %>' />&configTableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormConfig.label.patientProfile"/></a> <br/>
+                        href="<%= request.getContextPath() %>/report/ViewReportFormDemoConfig?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<%="demographic"%>&formTableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>&configTableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormConfig.label.patientProfile"/></a> <br/>
                     <select size=28 name="selField" ondblclick="javascript:onSelField();">
                         <%
                             String strMatchConfig = "";
@@ -167,15 +169,15 @@
                                 String color = i % 2 == 0 ? "#EEEEFF" : "";
                                 String captionName = (String) vecTableField.get(i);
                                 if (captionName.matches(strMatchConfig)) continue;
-                                String captionNameAttr = Encode.forHtmlAttribute(captionName);
-                                String captionNameHtml = Encode.forHtml(captionName);
+                                String captionNameAttr = SafeEncode.forHtmlAttribute(captionName);
+                                String captionNameHtml = SafeEncode.forHtml(captionName);
                         %>
                         <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                         </option>
                         <% } %>
                     </select> <br>
                     <a
-                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<e:forUriComponent value='<%= reportId %>' />&tableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormConfig.linkAddCaption"/></a></td>
+                            href="<%= request.getContextPath() %>/report/ViewReportFormCaption?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormConfig.linkAddCaption"/></a></td>
 
                 <td align="center" width="20%" nowrap valign="top">
                     <table width="100%" border="0" cellspacing="0" cellpadding="2">
@@ -193,17 +195,17 @@
                                                        ondblclick="javascript:onSelField();">
                     <% for (int i = 0; i < vecConfigField.size(); i++) {
                         String captionName = (String) vecConfigField.get(i);
-                        String captionNameAttr = Encode.forHtmlAttribute(captionName);
-                        String captionNameHtml = Encode.forHtml(captionName);
+                        String captionNameAttr = SafeEncode.forHtmlAttribute(captionName);
+                        String captionNameHtml = SafeEncode.forHtml(captionName);
                     %>
                     <option value="<%=captionNameAttr%>"><%=captionNameHtml%>
                     </option>
                     <% } %>
                 </select> <br>
                     <a
-                            href="<%= request.getContextPath() %>/report/ViewReportFormOrder?id=<e:forUriComponent value='<%= reportId %>' />&save=<%=SAVE_AS%>&tableName=<e:forUriComponent value='<%= tableName %>' />"><fmt:message key="report.reportFormConfig.linkChangeOrder"/></a> <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= reportId %>' />"> <input
-                            type="hidden" name="tableName" value="<e:forHtmlAttribute value='<%= tableName %>' />"> <input
-                            type="hidden" name="configTableName" value="<e:forHtmlAttribute value='<%= tableName %>' />">
+                            href="<%= request.getContextPath() %>/report/ViewReportFormOrder?id=<carlos:encode value='<%= reportId %>' context="uriComponent"/>&save=<%=SAVE_AS%>&tableName=<carlos:encode value='<%= tableName %>' context="uriComponent"/>"><fmt:message key="report.reportFormConfig.linkChangeOrder"/></a> <input type="hidden" name="id" value="<carlos:encode value='<%= reportId %>' context="htmlAttribute"/>"> <input
+                            type="hidden" name="tableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>"> <input
+                            type="hidden" name="configTableName" value="<carlos:encode value='<%= tableName %>' context="htmlAttribute"/>">
                 </td>
             </tr>
         </form>

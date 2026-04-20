@@ -52,6 +52,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.DataExport" %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <%
@@ -182,7 +183,7 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='${e:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<%=file%>'><%=file %>
                     </a></td>
                 <td><%=dataExport.getUser()%>
                 <td><%=dataExport.getType()%>

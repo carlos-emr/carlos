@@ -80,42 +80,73 @@ gh pr create                 # GitHub pull request creation
 
 ### OWASP Encoding — XSS Prevention
 
-The project includes two OWASP Encoder libraries (`pom.xml`):
-- **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
-- **`encoder-jakarta-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc. (Jakarta EE edition)
+CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappers for all new code.**
 
-**Taglib declaration** (required once per JSP that uses EL functions):
+**Why the CARLOS wrapper?** `Encode.forHtmlContent(null)` returns the literal 4-character string `"null"` — `<e:forHtmlContent value='<%= x %>'/>` renders the word `null` in every cell where `x` is a nullable DB field. JSTL `<c:out>` rendered null as empty; the mass `<c:out>` → OWASP migration silently broke this. `<carlos:encode>`, `${carlos:forXxx(...)}`, and `SafeEncode.forXxx(...)` coalesce null to empty before delegating to OWASP.
+
+**CI enforces this.** `scripts/lint/check-encoder-null-safety.sh` runs on every PR and fails if new code uses `<e:forXxx>`, `${e:forXxx(...)}`, or `<%= Encode.forXxx(...) %>`.
+
+**Taglib declaration** (once per JSP that uses the tag or EL functions):
 ```jsp
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 ```
-
-> **Note**: The project uses `encoder-jakarta-jsp` (Jakarta EE), **not** the legacy `encoder-jsp`.
-> The Jakarta edition registers its TLD under `owasp.encoder.jakarta`, not the legacy URI
-> `https://www.owasp.org/index.php/OWASP_Java_Encoder_Project`. Using the wrong URI will
-> cause JSPC compilation failures in CI.
 
 **Quick-Reference — All Encoding Contexts:**
 
-| Context | EL Function (preferred in JSP) | Java / Scriptlet |
-|---------|-------------------------------|------------------|
-| HTML body | `${e:forHtml(value)}` | `Encode.forHtml(value)` |
-| HTML attribute | `${e:forHtmlAttribute(value)}` | `Encode.forHtmlAttribute(value)` |
-| JavaScript string | `${e:forJavaScript(value)}` | `Encode.forJavaScript(value)` |
-| JS in HTML attr | `${e:forJavaScriptAttribute(value)}` | `Encode.forJavaScriptAttribute(value)` |
-| CSS string | `${e:forCssString(value)}` | `Encode.forCssString(value)` |
-| URL path | `${e:forUri(value)}` | `Encode.forUri(value)` |
-| URL parameter | `${e:forUriComponent(value)}` | `Encode.forUriComponent(value)` |
+| Context | JSP Tag (preferred) | EL Function | Java / Scriptlet |
+|---------|--------------------|-------------|------------------|
+| HTML body | `<carlos:encode value="${v}"/>` | `${carlos:forHtmlContent(v)}` | `SafeEncode.forHtmlContent(v)` |
+| HTML attribute | `<carlos:encode value="${v}" context="htmlAttribute"/>` | `${carlos:forHtmlAttribute(v)}` | `SafeEncode.forHtmlAttribute(v)` |
+| JavaScript string | `<carlos:encode value="${v}" context="javaScript"/>` | `${carlos:forJavaScript(v)}` | `SafeEncode.forJavaScript(v)` |
+| JS in HTML attr | `<carlos:encode value="${v}" context="javaScriptAttribute"/>` | `${carlos:forJavaScriptAttribute(v)}` | `SafeEncode.forJavaScriptAttribute(v)` |
+| CSS string | `<carlos:encode value="${v}" context="cssString"/>` | `${carlos:forCssString(v)}` | `SafeEncode.forCssString(v)` |
+| URL path | `<carlos:encode value="${v}" context="uri"/>` | `${carlos:forUri(v)}` | `SafeEncode.forUri(v)` |
+| URL parameter | `<carlos:encode value="${v}" context="uriComponent"/>` | `${carlos:forUriComponent(v)}` | `SafeEncode.forUriComponent(v)` |
+
+`<carlos:encode>` supports the full OWASP context set. Default `context="html"` (forHtmlContent). See `src/main/webapp/WEB-INF/carlos-tag.tld` for the complete list.
 
 **When to use which:**
-- **JSP with JSTL/EL** (preferred): `${e:forHtml(value)}` — clean, no scriptlet needed, context-aware
-- **JSP with heavy scriptlets**: `<%= Encode.forHtml(value) %>` — when already in scriptlet context
-- **Java code** (Actions, Managers): `Encode.forHtml(value)` — direct static method call
+- **JSP tag** (preferred): `<carlos:encode value="${v}"/>` — declarative, null-safe, XSS-safe, context-selectable.
+- **EL function** (inline in attribute strings, URL components, JSON): `href="?id=${carlos:forUriComponent(v)}"` — use where a tag element can't fit.
+- **Java code / scriptlets**: `SafeEncode.forHtmlContent(v)` — drop-in replacement for `Encode.forHtmlContent(v)` with null-safety.
 
-**`${e:forHtml()}` replaces `<c:out>` and `fn:escapeXml()`:**
-- `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
-- `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases and provides context-specific variants for attributes, JS, CSS, URLs
-- `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
-- **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
+**Legacy forms — DO NOT use in new code:**
+- `<e:forHtmlContent>` and friends (renders null as literal `"null"`; silently drops if the taglib isn't declared).
+- `${e:forXxx(...)}` EL functions (same null bug).
+- `Encode.forXxx(...)` static calls (same null bug).
+- `<c:out>` and `fn:escapeXml()` (only basic XML entity escaping; not context-aware).
+
+The null-safe wrappers live in:
+- `src/main/java/io/github/carlos_emr/carlos/utility/SafeEncode.java`
+- `src/main/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTag.java`
+- `src/main/webapp/WEB-INF/carlos-tag.tld`
+
+Unit tests: `src/test/java/io/github/carlos_emr/carlos/utility/SafeEncodeUnitTest.java` and `CarlosEncodeTagUnitTest.java`.
+
+A migration codemod script is kept at `scripts/migrate-to-carlos-encode.py` for rewriting any future `<e:...>` / `${e:...}` / `Encode.*` drift.
+
+### CSRF Token Bootstrapping on AJAX JSPs
+
+CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` into a `<form>` whose `action` attribute is a real URL and whose method is non-GET. Pages that read the token via `document.querySelector('input[name="CSRF-TOKEN"]')` from AJAX (fetch/XHR) POSTs **will silently fail** if the page has no such form — the token comes out empty, the request is rejected with an HTML error page, and `response.json()` throws into a catch block the user never sees.
+
+**Rule:** any JSP that does AJAX POSTs reading `input[name="CSRF-TOKEN"]` must satisfy ONE of:
+- **(a)** contain at least one `<form action="<real URL>" method="post">` on the rendered page, OR
+- **(b)** include the canonical bootstrap fragment:
+
+  ```jsp
+  <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+  ```
+
+  Place the include inside `<body>`. It pulls in `share/javascript/csrfTokenFetch.js`, adds a hidden CSRF-TOKEN input, and calls `fetchCsrfToken(contextPath)` on DOMContentLoaded.
+
+Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
+
+- **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+- **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
+
+Header validation takes precedence over body-parameter validation when both are present.
+
+Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
 ### PathValidationUtils - File Path Security
 
@@ -377,7 +408,7 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
-- OWASP Encoder for all JSP outputs — prefer `${e:forHtml()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
+- Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
@@ -466,7 +497,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 ### Security Libraries
 - **OWASP CSRFGuard 4.5 (Jakarta edition)**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
-- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding (taglib URI: `owasp.encoder.jakarta`)
+- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): underlying tag library behind the CARLOS null-safe wrapper (TLD URI `owasp.encoder.jakarta.advanced`). Do not reference `<e:forXxx>` / `${e:forXxx()}` directly in new code — use `<carlos:encode>` / `${carlos:forXxx()}`.
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
@@ -637,14 +668,14 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 - Log security violations appropriately
 
 **2. Error Handling**
-- Use context-appropriate OWASP encoding when outputting user data:
-  - `Encode.forHtml()` / `${e:forHtml()}` - HTML body content
-  - `Encode.forHtmlAttribute()` / `${e:forHtmlAttribute()}` - HTML attribute values
-  - `Encode.forJavaScript()` / `${e:forJavaScript()}` - JavaScript string contexts
-  - `Encode.forJavaScriptAttribute()` / `${e:forJavaScriptAttribute()}` - JS in HTML attributes
-  - `Encode.forCssString()` / `${e:forCssString()}` - CSS string values
-  - `Encode.forUri()` / `${e:forUri()}` and `Encode.forUriComponent()` / `${e:forUriComponent()}` - URL paths/parameters
-- In JSP views, prefer the `${e:...}` EL functions over scriptlet calls (see [OWASP Encoding](#owasp-encoding--xss-prevention))
+- Use context-appropriate CARLOS null-safe encoding when outputting user data:
+  - `SafeEncode.forHtmlContent()` / `${carlos:forHtmlContent()}` / `<carlos:encode value="..."/>` - HTML body content
+  - `SafeEncode.forHtmlAttribute()` / `${carlos:forHtmlAttribute()}` / `<carlos:encode value="..." context="htmlAttribute"/>` - HTML attribute values
+  - `SafeEncode.forJavaScript()` / `${carlos:forJavaScript()}` / `<carlos:encode value="..." context="javaScript"/>` - JavaScript string contexts
+  - `SafeEncode.forJavaScriptAttribute()` / `${carlos:forJavaScriptAttribute()}` - JS in HTML attributes
+  - `SafeEncode.forCssString()` / `${carlos:forCssString()}` - CSS string values
+  - `SafeEncode.forUri()` / `${carlos:forUri()}` and `SafeEncode.forUriComponent()` / `${carlos:forUriComponent()}` - URL paths/parameters
+- In JSP views, prefer `<carlos:encode>` tag; use `${carlos:forXxx()}` EL functions for inline use inside attribute strings or URLs (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Implement proper exception handling
 - Return appropriate result strings
 

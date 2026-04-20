@@ -94,6 +94,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -102,6 +103,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
 
@@ -357,7 +359,7 @@
 
             function onButRepeat() {
                 if (calculateEndTime()) {
-                    document.forms[0].action = "appointmenteditrepeatbooking.jsp";
+                    document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking";
                     document.forms[0].submit();
                 }
             }
@@ -569,16 +571,16 @@
                 //else {
                 //   warnMsgId.style.display = "none";
                 //}
-                document.EDITAPPT.status.value = "<e:forJavaScriptBlock value='<%= apptObj.getStatus() %>' />";
-                document.EDITAPPT.duration.value = "<e:forJavaScriptBlock value='<%= apptObj.getDuration() %>' />";
-                document.EDITAPPT.chart_no.value = "<e:forJavaScriptBlock value='<%= apptObj.getChart_no() %>' />";
-                document.EDITAPPT.keyword.value = "<e:forJavaScriptBlock value='<%= apptObj.getName() %>' />";
-                document.EDITAPPT.demographic_no.value = "<e:forJavaScriptBlock value='<%= apptObj.getDemographic_no() %>' />";
-                document.forms[0].reason.value = "<e:forJavaScriptBlock value='<%= apptObj.getReason() %>' />";
-                document.forms[0].notes.value = "<e:forJavaScriptBlock value='<%= apptObj.getNotes() %>' />";
-                document.EDITAPPT.location.value = "<e:forJavaScriptBlock value='<%= apptObj.getLocation() %>' />";
-                document.EDITAPPT.resources.value = "<e:forJavaScriptBlock value='<%= apptObj.getResources() %>' />";
-                document.EDITAPPT.type.value = "<e:forJavaScriptBlock value='<%= apptObj.getType() %>' />";
+                document.EDITAPPT.status.value = "<carlos:encode value='<%= apptObj.getStatus() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.duration.value = "<carlos:encode value='<%= apptObj.getDuration() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
+                document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
+                document.EDITAPPT.type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 if ('<%=apptObj.getUrgency()%>' === 'critical') {
                     document.EDITAPPT.urgency.checked = "checked";
                 }
@@ -828,7 +830,7 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/appointmentcontrol" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
@@ -845,14 +847,14 @@
     %>
     <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
-         data-roster-label="${e:forHtmlAttribute(rosterStatusLabel)}"
+         data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
+        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
     <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
-        <span id="patientAlertText"><e:forHtmlContent value='<%= alert != null ? alert : "" %>' /></span>
+        <span id="patientAlertText"><carlos:encode value='<%= alert != null ? alert : "" %>' context="html"/></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <div class="page-header-bar time" id="header">
@@ -870,7 +872,7 @@
                                     String providerName = prov.getLastName() + ", " + prov.getFirstName();
                     %>
 
-                    <%="".equals(providerName) ? "" : "(" + Encode.forHtmlContent(providerName) + ")"%>
+                    <%="".equals(providerName) ? "" : "(" + SafeEncode.forHtmlContent(providerName) + ")"%>
 
                     <% }
                     }
@@ -955,7 +957,7 @@
                     </td>
                     <td>
                 <input type="date" class="form-control" name="appointment_date" id="date"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate %>' />"
+                               value="<carlos:encode value='<%= bFirstDisp?ConversionUtils.toDateString(appt.getAppointmentDate()):strApptDate %>' context="htmlAttribute"/>"
                         >
                     </td>
                 </tr>
@@ -965,7 +967,7 @@
                     </td>
                     <td>
                 <input type="time" name="start_time" class="form-control"
-                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
+                               value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getStartTime()):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")))%>"
                                onChange="checkTimeTypeIn(this);updateTime();">
                     </td>
                 </tr>
@@ -997,11 +999,11 @@
                                 }
                             }
                         %> <input type="hidden" name="end_time"
-                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
+                                  value="<%=bFirstDisp?ConversionUtils.toTimeStringNoSeconds(appt.getEndTime()):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("end_time")))%>"
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
-                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :Encode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
                                onblur="calculateEndTime();">
                     </td>
                 </tr>
@@ -1014,7 +1016,7 @@
                             }
                         %>
                         <input type="hidden" name="orderby" value="last_name, first_name">
-                        <input type="hidden" name="search_mode" id="search_mode" value="<e:forHtmlAttribute value='<%= searchMode %>' />">
+                        <input type="hidden" name="search_mode" id="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
                         <input type="hidden" name="originalpage"
                                value="<%=request.getContextPath() %>/appointment/editappointment">
                         <input type="hidden" name="limit1" value="0">
@@ -1026,7 +1028,7 @@
                     </td>
                     <td>
             	<input type="text" name="keyword" id="keyword" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' />"
+                               value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
@@ -1047,7 +1049,7 @@
                                         <c:if test="${ reason.active }">
                                             <option value="${ reason.id }"
                                                     id="${ reason.value }" ${ rCode eq reason.id ? 'selected="selected"' : '' } >
-                                                ${e:forHtml(reason.label)}
+                                                ${carlos:forHtml(reason.label)}
                                             </option>
                                         </c:if>
                                     </c:forEach>
@@ -1061,7 +1063,7 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><e:forHtmlContent value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' /></textarea>
+				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
@@ -1086,12 +1088,12 @@
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
                                     if (s.getName().equals(loc)) isSiteSelected = true;
-                                    sb.append("<option value=\"").append(Encode.forHtmlAttribute(s.getName())).append("\" class=\"").append(Encode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(Encode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(Encode.forHtml(s.getName())).append("</option>");
+                                    sb.append("<option value=\"").append(SafeEncode.forHtmlAttribute(s.getName())).append("\" class=\"").append(SafeEncode.forHtmlAttribute(s.getShortName())).append("\" style=\"background-color: ").append(SafeEncode.forCssString(s.getBgColor())).append("\" ").append(s.getName().equals(loc) ? "selected" : "").append(">").append(SafeEncode.forHtml(s.getName())).append("</option>");
                                 }
                                 if (isSiteSelected) {
                                     out.println(sb.toString());
                                 } else {
-                                    out.println("<option value='" + Encode.forHtmlAttribute(loc) + "'>" + Encode.forHtml(loc) + "</option>");
+                                    out.println("<option value='" + SafeEncode.forHtmlAttribute(loc) + "'>" + SafeEncode.forHtml(loc) + "</option>");
                                 }
                             %>
 
@@ -1102,12 +1104,12 @@
                         %>
 		<select name="location" class="form-select">
                             <%
-                                String location = Encode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
+                                String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
                                     for (Program program : programs) {
                                         String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
                             %>
-                            <option value="<%=program.getId()%>" <%=(program.getId().toString().equals(location) ? "selected='selected'" : "") %>><e:forHtmlContent value='<%= description %>' />
+                            <option value="<%=program.getId()%>" <%=(program.getId().toString().equals(location) ? "selected='selected'" : "") %>><carlos:encode value='<%= description %>' context="html"/>
                             </option>
 
                             <% }
@@ -1116,7 +1118,7 @@
                         </select>
                         <% } else { %>
 		        <input type="text" class="form-control" name="location" tabindex="4"
-                       value="<e:forHtmlAttribute value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' />" >
+                       value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
                     </td>
@@ -1127,7 +1129,7 @@
                     </td>
                     <td>
                         <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
-                <input type="text" class="form-control" name="user_id" value="<e:forHtmlAttribute value='<%= lastCreatorNo %>' />" readonly >
+                <input type="text" class="form-control" name="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
                     </td>
                 </tr>
                 <%
@@ -1164,8 +1166,8 @@
                     <td>
                 <div class="card">
                     <div class="card-body">
-                        <input type="hidden" class="form-control" name="createDate" value="<e:forHtmlAttribute value='<%= origDate %>' />">
-                        <e:forHtmlContent value='<%= dateString1 %>' />
+                        <input type="hidden" class="form-control" name="createDate" value="<carlos:encode value='<%= origDate %>' context="htmlAttribute"/>">
+                        <carlos:encode value='<%= dateString1 %>' context="html"/>
                     </div>
                 </div>
                     </td>
@@ -1177,7 +1179,7 @@
                         <label for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                     </td>
                     <td>
-                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:Encode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
+                <input type="text" class="form-control" name="appt_mc_number" id="appt_mc_number" value="<%=bFirstDisp?mcNumber:SafeEncode.forHtmlAttribute(request.getParameter("appt_mc_number") != null ? request.getParameter("appt_mc_number") : "")%>" />
                     </td>
                 </tr>
                 <% } %>
@@ -1196,21 +1198,21 @@
 
                             if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
 
-                <select name="status" class="form-select" style="background-color:<e:forCssString value='<%= ((AppointmentStatus)allStatus.get(curSelect)).getColor() %>' />" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <select name="status" class="form-select" style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(curSelect)).getColor() %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
-                            <option class="<e:forHtmlAttribute value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus() %>' />"
-                                    style="background-color:<e:forCssString value='<%= ((AppointmentStatus)allStatus.get(i)).getColor() %>' />"
-                                    value="<e:forHtmlAttribute value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify %>' />"
-                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><e:forHtmlContent value='<%= ((AppointmentStatus) allStatus.get(i)).getDescription() %>' />
+                            <option class="<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
+                                    style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getColor() %>' context="cssString"/>"
+                                    value="<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus()+signOrVerify %>' context="htmlAttribute"/>"
+                                    <%=((AppointmentStatus) allStatus.get(i)).getStatus().equals(statusCode) ? "SELECTED" : ""%>><carlos:encode value='<%= ((AppointmentStatus) allStatus.get(i)).getDescription() %>' context="html"/>
                             </option>
                             <% } %>
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" value="<e:forHtmlAttribute value='<%= statusCode %>' />" > <%
+              	<input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" value="<e:forHtmlAttribute value='<%= statusCode %>' />" >
-                <input type="text"  class="form-control" TITLE="Imported Status" value="<e:forHtmlAttribute value='<%= importedStatus %>' />" readonly> <%
+                <input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
+                <input type="text"  class="form-control" TITLE="Imported Status" value="<carlos:encode value='<%= importedStatus %>' context="htmlAttribute"/>" readonly> <%
                             }
                         }
                     %>
@@ -1231,12 +1233,12 @@
                 for(AppointmentType type : types) {
                             %>
                     <option data-dur="<%= type.getDuration() %>"
-                            data-reason="<e:forHtmlAttribute value='<%= type.getReason() %>' />"
-                            data-loc="<e:forHtmlAttribute value='<%= type.getLocation() %>' />"
-                            data-notes="<e:forHtmlAttribute value='<%= type.getNotes() %>' />"
-                            data-resources="<e:forHtmlAttribute value='<%= type.getResources() %>' />"
+                            data-reason="<carlos:encode value='<%= type.getReason() %>' context="htmlAttribute"/>"
+                            data-loc="<carlos:encode value='<%= type.getLocation() %>' context="htmlAttribute"/>"
+                            data-notes="<carlos:encode value='<%= type.getNotes() %>' context="htmlAttribute"/>"
+                            data-resources="<carlos:encode value='<%= type.getResources() %>' context="htmlAttribute"/>"
                             <%= type.getName().equalsIgnoreCase(currentType) ? "selected" : ""%>>
-                        <e:forHtmlContent value='<%= type.getName() %>' />
+                        <carlos:encode value='<%= type.getName() %>' context="html"/>
                             </option>
                             <% } %>
                         </select>
@@ -1248,7 +1250,7 @@
                     </td>
                     <td>
                 <input type="text" readonly name="doctorNo" id="mrp" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= providerBean.getProperty(doctorNo,"") %>' />">
+                               value="<carlos:encode value='<%= providerBean.getProperty(doctorNo,"") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
                 <tr>
@@ -1260,7 +1262,7 @@
                     <td>
                 <input type="text" name="demographic_no" id="demographic_no" class="form-control"
                                ONFOCUS="onBlockFieldFocus(this)" readonly
-                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):Encode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
+                               value="<%=bFirstDisp?( (appt.getDemographicNo())==0?"":(""+appt.getDemographicNo()) ):SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")))%>">
                     </td>
                 </tr>
                 <tr>
@@ -1269,7 +1271,7 @@
                     </td>
                     <td>
                 <input type="text" name="chart_no" class="form-control"
-                    readonly value="<e:forHtmlAttribute value='<%= bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")) %>' />"
+                    readonly value="<carlos:encode value='<%= bFirstDisp?StringUtils.trimToEmpty(chartno):io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("chart_no")) %>' context="htmlAttribute"/>"
                         >
                     </td>
                 </tr>
@@ -1278,7 +1280,7 @@
                         <label><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><e:forHtmlContent value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' /></textarea>
+				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1287,7 +1289,7 @@
                     </td>
                     <td>
                 <input type="text" name="resources" tabindex="5" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' />">
+                               value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
                 <tr>
@@ -1307,7 +1309,7 @@
                                 }
                             }
                         %>
-                <input type="text" readonly class="form-control" value="<e:forHtmlAttribute value='<%= lastCreatorNo %>' />" >
+                <input type="text" readonly class="form-control" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" >
                     </td>
                 </tr>
                 <tr>
@@ -1318,15 +1320,15 @@
                 <div class="card">
                     <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
-                               value="<e:forHtmlAttribute value='<%= bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : "") %>' />"
-                        > <e:forHtmlContent value='<%= dateString2 %>' />
+                               value="<carlos:encode value='<%= bFirstDisp?lastDateTime:(request.getParameter("lastcreatedatetime") != null ? request.getParameter("lastcreatedatetime") : "") %>' context="htmlAttribute"/>"
+                        > <carlos:encode value='<%= dateString2 %>' context="html"/>
                         <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
-                        <input type="hidden" name="provider_no" value="<e:forHtmlAttribute value='<%= curProvider_no %>' />">
+                        <input type="hidden" name="provider_no" value="<carlos:encode value='<%= curProvider_no %>' context="htmlAttribute"/>">
                         <input type="hidden" name="dboperation" value="">
                         <input type="hidden" name="creator"
-                               value="<e:forHtmlAttribute value='<%= userlastname+", "+userfirstname %>' />">
-                        <input type="hidden" name="remarks" value="<e:forHtmlAttribute value='<%= remarks %>' />">
-                        <input type="hidden" name="appointment_no" value="<e:forHtmlAttribute value='<%= appointment_no %>' />">
+                               value="<carlos:encode value='<%= userlastname+", "+userfirstname %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="remarks" value="<carlos:encode value='<%= remarks %>' context="htmlAttribute"/>">
+                        <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appointment_no %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                     </td>
@@ -1401,7 +1403,7 @@
                            onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a class="btn"
-                       onClick="window.location='appointmentcontrol.jsp?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
+                       onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentcontrol?displaymode=PrintCard&appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
@@ -1431,9 +1433,9 @@
     <div id="bottomInfo">
         <table style="width:95%;">
             <tr>
-                <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <e:forHtmlContent value='<%= StringUtils.trimToEmpty(phone) %>' />
+                <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(phone) %>' context="html"/>
                     <br>
-                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <e:forHtmlContent value='<%= StringUtils.trimToEmpty(rosterstatus) %>' />
+                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(rosterstatus) %>' context="html"/>
                 </td>
             </tr>
         </table>
@@ -1531,7 +1533,7 @@
         <% } %>
 
         <tr style="background-color:#c0c0c0; text-align:left">
-            <th style="padding-right: 20px">${e:forHtml(formName)}:</th>
+            <th style="padding-right: 20px">${carlos:forHtml(formName)}:</th>
             <% if (formComplete) { %>
             <td><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
             <% } else { %>

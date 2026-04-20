@@ -48,8 +48,10 @@
         import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
@@ -74,7 +76,7 @@
                     chgRefused(false);
                     setCurrent(frm.givenYear, frm.givenMonth, frm.givenDay);
                     if (frm.provider.value < 1) {
-                        frm.provider.value = "<e:forJavaScriptBlock value='<%= bean.providerNo %>' />";
+                        frm.provider.value = "<carlos:encode value='<%= bean.providerNo %>' context="javaScriptBlock"/>";
                     }
 
                     frm.lot.focus();
@@ -182,11 +184,11 @@
 
         function loadPage() {
             var frm = window.opener.document.forms[0];
-            var vGivenDate = frm['<e:forJavaScriptBlock value='<%= node + "_givenDate" %>' />'].value;
-            var vLot = frm['<e:forJavaScriptBlock value='<%= node + "_lot" %>' />'].value;
-            var vProvider = frm['<e:forJavaScriptBlock value='<%= node + "_provider" %>' />'].value;
-            var vRefusedDate = frm['<e:forJavaScriptBlock value='<%= node + "_refusedDate" %>' />'].value;
-            var vComments = frm['<e:forJavaScriptBlock value='<%= node + "_comments" %>' />'].value;
+            var vGivenDate = frm['<carlos:encode value='<%= node + "_givenDate" %>' context="javaScriptBlock"/>'].value;
+            var vLot = frm['<carlos:encode value='<%= node + "_lot" %>' context="javaScriptBlock"/>'].value;
+            var vProvider = frm['<carlos:encode value='<%= node + "_provider" %>' context="javaScriptBlock"/>'].value;
+            var vRefusedDate = frm['<carlos:encode value='<%= node + "_refusedDate" %>' context="javaScriptBlock"/>'].value;
+            var vComments = frm['<carlos:encode value='<%= node + "_comments" %>' context="javaScriptBlock"/>'].value;
             var editFrm = document.forms[0];
 
             if (vGivenDate.length > 0) {
@@ -215,7 +217,7 @@
         }
 
         function saveClose() {
-            var node = '<e:forJavaScriptBlock value='<%= node %>' />';
+            var node = '<carlos:encode value='<%= node %>' context="javaScriptBlock"/>';
             var frm = document.forms[0];
             var vGivenDate = '';
             var vRefusedDate = '';
@@ -266,8 +268,8 @@
                 <tr>
                     <td class="Header"
                         style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
-                        NOWRAP><e:forHtmlContent value='<%= bean.patientLastName %>' />, <e:forHtmlContent value='<%= bean.patientFirstName %>' />
-                        <e:forHtmlContent value='<%= bean.patientSex %>' /> <e:forHtmlContent value='<%= bean.patientAge %>' />
+                        NOWRAP><carlos:encode value='<%= bean.patientLastName %>' context="html"/>, <carlos:encode value='<%= bean.patientFirstName %>' context="html"/>
+                        <carlos:encode value='<%= bean.patientSex %>' context="html"/> <carlos:encode value='<%= bean.patientAge %>' context="html"/>
                     </td>
                     <td></td>
                     <td style="text-align: right" NOWRAP> |</td>
@@ -281,7 +283,7 @@
             <form name="<%=request.getContextPath() %>/encounter/scheduleEdit">
                 <table>
                     <tr>
-                        <td style="font-weight: bold">&nbsp;<e:forHtmlContent value='<%= immName %>' />
+                        <td style="font-weight: bold">&nbsp;<carlos:encode value='<%= immName %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
@@ -395,7 +397,7 @@
                         String sVal = prov[i].split("/")[0];
                         String sTxt = prov[i].split("/")[1];
 
-                        sb.append("<option value='" + Encode.forHtmlAttribute(sVal) + "'>" + Encode.forHtml(sTxt) + "</option>");
+                        sb.append("<option value='" + SafeEncode.forHtmlAttribute(sVal) + "'>" + SafeEncode.forHtml(sTxt) + "</option>");
                     }
                     return new String(sb);
                 }

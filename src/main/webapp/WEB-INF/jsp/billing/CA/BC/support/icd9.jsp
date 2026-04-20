@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -62,7 +63,7 @@
     return;
     <%} else {%>
     self.close();
-    opener.document["<e:forJavaScriptBlock value='<%= form %>' />"]["<e:forJavaScriptBlock value='<%= field %>' />"].value = index;
+    opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
     opener.document.focus();
     <%}%>
     }
@@ -92,9 +93,9 @@
     <tr <%=((color) ? "bgcolor=\"#F6F6F6\"" : "")%> align="left"
     valign="top">
     <td class="SmallerText"><a href=#
-    onClick="posttoText('<e:forJavaScriptAttribute value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' />');"><e:forHtmlContent value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' /></a>
+    onClick="posttoText('<carlos:encode value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' context="javaScriptAttribute"/>');"><carlos:encode value='<%= StringUtils.noNull(dcode.getDiagnosticCode()) %>' context="html"/></a>
     </td>
-    <td class="SmallerText"><e:forHtmlContent value='<%= StringUtils.noNull(dcode.getDescription()) %>' /></td>
+    <td class="SmallerText"><carlos:encode value='<%= StringUtils.noNull(dcode.getDescription()) %>' context="html"/></td>
     </tr>
     <%
             color = !(color);

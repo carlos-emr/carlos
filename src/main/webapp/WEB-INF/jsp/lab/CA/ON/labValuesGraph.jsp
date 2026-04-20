@@ -49,6 +49,7 @@
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
 
@@ -71,7 +72,7 @@
         String[] drugs = request.getParameterValues("drug");
 
         for (String d : drugs) {
-            sb.append("&drug=" + Encode.forUriComponent(d));
+            sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
         }
         drugForGraph = sb.toString();
@@ -85,6 +86,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -134,24 +136,24 @@
                                                        width="50%">
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <e:forHtmlContent value='<%= demographic.getLastName() %>' />
+                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong> <carlos:encode value='<%= demographic.getLastName() %>' context="html"/>
                                                                 ,
-                                                                <e:forHtmlContent value='<%= demographic.getFirstName() %>' />
+                                                                <carlos:encode value='<%= demographic.getFirstName() %>' context="html"/>
                                                             </div>
 
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><e:forHtmlContent value='<%= demographic.getSex() %>' />
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong><carlos:encode value='<%= demographic.getSex() %>' context="html"/>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                     <tr>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <e:forHtmlContent value='<%= DemographicData.getDob(demographic, "-") %>' />
+                                                            <div class="FieldData"><strong><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong> <carlos:encode value='<%= DemographicData.getDob(demographic, "-") %>' context="html"/>
                                                             </div>
                                                         </td>
                                                         <td colspan="2" nowrap>
-                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><e:forHtmlContent value='<%= String.valueOf(demographic.getAge()) %>' />
+                                                            <div class="FieldData" nowrap="nowrap"><strong><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong><carlos:encode value='<%= String.valueOf(demographic.getAge()) %>' context="html"/>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -207,7 +209,7 @@
                             </tr-->
             </table>
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<e:forUriComponent value='<%= demographicNo %>' />&labType=<e:forUriComponent value='<%= labType %>' />&identifier=<e:forUriComponent value='<%= identifier %>' />&testName=<e:forUriComponent value='<%= testName %>' /><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/><%=drugForGraph%>"/>
 
 
             <table width="100%" border="0" cellspacing="0" cellpadding="3"
@@ -223,10 +225,10 @@
                 </tr>
             </table>
             <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph">
-                <input type="hidden" name="labType" value="<e:forHtmlAttribute value='<%= labType %>' />"/>
-                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
-                <input type="hidden" name="testName" value="<e:forHtmlAttribute value='<%= testName %>' />"/>
-                <input type="hidden" name="identifier" value="<e:forHtmlAttribute value='<%= identifier %>' />"/>
+                <input type="hidden" name="labType" value="<carlos:encode value='<%= labType %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"/>
                 <ul>
                     <%
                         RxPrescriptionData prescriptData = new RxPrescriptionData();
@@ -253,7 +255,7 @@
                             }
                     %>
                     <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                               value="<e:forHtmlAttribute value='<%= drug.getRegionalIdentifier() %>' />"/> <e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
+                               value="<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                     </li>
                     <%
                         }

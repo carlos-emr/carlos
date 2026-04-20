@@ -50,10 +50,12 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message var="previewAction" key="encounter.oscarConsultationRequest.AttachDocPopup.previewAction"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <!DOCTYPE html >
 <html>
@@ -303,7 +305,7 @@
             <table id="attachDocumentsPanel">
                 <c:if test="${not empty allEForms }">
                     <tr>
-                        <td><h2>eForms (excluding attachments)</h2></td>
+                        <td><h2><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.eFormsExcludingAttachments"/></h2></td>
                     </tr>
                     <tr>
                         <td>
@@ -312,25 +314,25 @@
                                     <input id="selectAllEForms" type="checkbox"
                                            onclick="toggleSelectAll(this, 'eForm_');" value="eForm_check"
                                            title="Select/un-select all eForms."/>
-                                    <label for="selectAllEForms">Select all</label>
-                                    <button class="show-all-button ${allEForms.size() > 5 ? '' : 'd-none'}" type="button"
-                                            title="Show ${allEForms.size() - 5} More eForms"
-                                            onclick="showAll(this, 'eForm')">Show ${allEForms.size() - 5} More eForms
-                                    </button>
-                                </li>
-                                <c:forEach items="${ allEForms }" var="eForm" varStatus="loop">
-                                    <li class="eForm ${loop.index > 4 ? 'd-none' : ''}">
-                                        <input class="eForm_check" type="checkbox" name="eFormNo"
-                                               id="eFormNo${ eForm.id }" value="${eForm.id}" title="${eForm.formName}"/>
-                                        <label for="eFormNo${eForm.id}">
-                                            ${e:forHtml(eForm.subject.length() > 0 ? eForm.subject : eForm.formName)} ${e:forHtml(eForm.getFormDate())}
-                                        </label>
-                                        <button class="preview-button" type="button" title="Preview"
-                                                onclick="getPdf('EFORM', '${eForm.id}', 'method=renderEFormPDF&eFormId=${eForm.id}')">
-                                            Preview
-                                        </button>
-                                    </li>
-                                </c:forEach>
+                                     <label for="selectAllEForms"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label>
+                                     <button class="show-all-button ${allEForms.size() > 5 ? '' : 'd-none'}" type="button"
+                                             onclick="showAll(this, 'eForm')"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.showMoreEForms"><fmt:param value="${allEForms.size() - 5}"/></fmt:message>
+                                     </button>
+                                 </li>
+                                 <c:forEach items="${ allEForms }" var="eForm" varStatus="loop">
+                                     <li class="eForm ${loop.index > 4 ? 'd-none' : ''}">
+                                         <c:set var="eFormDisplayName" value="${empty eForm.subject ? eForm.formName : eForm.subject}"/>
+                                         <input class="eForm_check" type="checkbox" name="eFormNo"
+                                                id="eFormNo${ eForm.id }" value="${eForm.id}" title="${carlos:forHtmlAttribute(eForm.formName)}"/>
+                                         <label for="eFormNo${eForm.id}">
+                                             ${carlos:forHtml(eFormDisplayName)} ${carlos:forHtml(eForm.getFormDate())}
+                                         </label>
+                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                 onclick="getPdf('EFORM', '${eForm.id}', 'method=renderEFormPDF&eFormId=${eForm.id}')">
+                                             ${carlos:forHtmlContent(previewAction)}
+                                         </button>
+                                     </li>
+                                 </c:forEach>
                             </ul>
                         </td>
                     </tr>
@@ -338,7 +340,7 @@
 
                 <c:if test="${not empty allDocuments }">
                     <tr>
-                        <td><h2>Documents</h2></td>
+                        <td><h2><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionDocuments"/></h2></td>
                     </tr>
                     <tr>
                         <td>
@@ -347,22 +349,21 @@
                                     <input id="selectAllDocuments" type="checkbox"
                                            onclick="toggleSelectAll(this, 'document_');" value="document_check"
                                            title="Select/un-select all documents."/>
-                                    <label for="selectAllDocuments">Select all</label>
+                                    <label for="selectAllDocuments"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label>
                                     <button class="show-all-button ${allDocuments.size() > 20 ? '' : 'd-none'}"
-                                            type="button" title="Show ${allDocuments.size() - 20} More Documents"
-                                            onclick="showAll(this, 'doc')">Show ${allDocuments.size() - 20} More
-                                        Documents
+                                            type="button"
+                                            onclick="showAll(this, 'doc')"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.showMoreDocuments"><fmt:param value="${allDocuments.size() - 20}"/></fmt:message>
                                     </button>
                                 </li>
                                 <c:forEach items="${ allDocuments }" var="document" varStatus="loop">
                                     <li class="doc ${loop.index > 19 ? 'd-none' : ''}">
                                         <input class="document_check" type="checkbox" name="docNo"
                                                id="docNo${document.docId}" value="${document.docId}"
-                                               title="${ document.description }"/>
-                                        <label for="docNo${document.docId}">${e:forHtml(document.description)} ${e:forHtml(document.observationDate)}</label>
-                                        <button class="preview-button" type="button" title="Preview"
-                                                onclick="getPdf('DOC', '${document.docId}', 'method=renderEDocPDF&eDocId=${document.docId}')">
-                                            Preview
+                                                title="${ carlos:forHtmlAttribute(document.description) }"/>
+                                        <label for="docNo${document.docId}">${carlos:forHtml(document.description)} ${carlos:forHtml(document.observationDate)}</label>
+                                        <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                 onclick="getPdf('DOC', '${document.docId}', 'method=renderEDocPDF&eDocId=${document.docId}')">
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
@@ -373,7 +374,7 @@
 
                 <c:if test="${not empty allLabsSortedByVersions }">
                     <tr>
-                        <td><h2>Labs</h2></td>
+                        <td><h2><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionLabs"/></h2></td>
                     </tr>
                     <tr>
                         <td>
@@ -381,11 +382,10 @@
                                 <li class="selectAllHeading ${allLabsSortedByVersions.size() > 20 ? 'flex' : ''}">
                                     <input id="selectAllLabs" type="checkbox" onclick="toggleSelectAll(this, 'lab_');"
                                            value="lab_check" title="Select/un-select all documents."/>
-                                    <label for="selectAllLabs">Select all</label>
+                                    <label for="selectAllLabs"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label>
                                     <button class="show-all-button ${allLabsSortedByVersions.size() > 20 ? '' : 'd-none'}"
-                                            type="button" title="Show ${allLabsSortedByVersions.size() - 20} More Labs"
-                                            onclick="showAll(this, 'lab')">Show ${allLabsSortedByVersions.size() - 20}
-                                        More Labs
+                                            type="button"
+                                            onclick="showAll(this, 'lab')"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.showMoreLabs"><fmt:param value="${allLabsSortedByVersions.size() - 20}"/></fmt:message>
                                     </button>
                                 </li>
                                 <c:forEach items="${ allLabsSortedByVersions }" var="lab" varStatus="loop">
@@ -394,16 +394,16 @@
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
                                         <input class="lab_check" type="checkbox" name="labNo"
                                                id="labNo${ lab.segmentID }" value="${lab.segmentID}"
-                                               title="${e:forHtmlAttribute(labName)}"/>
-                                        <label for="labNo${lab.segmentID}" title="${e:forHtmlAttribute(labName)}">${e:forHtml(labName)}&nbsp;</label>
+                                               title="${carlos:forHtmlAttribute(labName)}"/>
+                                        <label for="labNo${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
                                         <label for="labNo${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
                                             &nbsp;<i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
                                         </c:if>
-                                        <button class="preview-button" type="button" title="Preview"
-                                                onclick="getPdf('LAB', '${lab.segmentID}', 'method=renderLabPDF&segmentId=${lab.segmentID}')">
-                                            Preview
+                                        <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                 onclick="getPdf('LAB', '${lab.segmentID}', 'method=renderLabPDF&segmentId=${lab.segmentID}')">
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                         <ul class="collapsible-content" style="list-style-type: none;padding:0px;">
                                             <c:forEach items="${ lab.labVersionIds }" var="version"
@@ -417,15 +417,18 @@
                                                     <em>
                                                         <label for="labNo${version.key}"
                                                                title="v${totalVersions - versionLoop.index} ${ labName }">
-                                                            Earlier Version ${e:forHtml(totalVersions - versionLoop.index)} of ${ totalVersions + 1 }&nbsp;
-                                                        </label>
+                                                             <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
+                                                                 <fmt:param value="${totalVersions - versionLoop.index}"/>
+                                                                 <fmt:param value="${totalVersions + 1}"/>
+                                                             </fmt:message>&nbsp;
+                                                         </label>
                                                         <label for="labNo${version.key}"
                                                                class="lab-date">(${version.value})</label>
                                                     </em>
-                                                    <button class="preview-button" type="button" title="Preview"
-                                                            onclick="getPdf('LAB', '${version.key}', 'method=renderLabPDF&segmentId=${version.key}')">
-                                                        Preview
-                                                    </button>
+                                                     <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                             onclick="getPdf('LAB', '${version.key}', 'method=renderLabPDF&segmentId=${version.key}')">
+                                                         ${carlos:forHtmlContent(previewAction)}
+                                                     </button>
                                                 </li>
                                             </c:forEach>
                                         </ul>
@@ -438,7 +441,7 @@
 
                 <c:if test="${not empty allHRMDocuments }">
                     <tr>
-                        <td><h2>HRM</h2></td>
+                        <td><h2><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h2></td>
                     </tr>
                     <tr>
                         <td>
@@ -446,22 +449,22 @@
                                 <li class="selectAllHeading ${allHRMDocuments.size() > 20 ? 'flex' : ''}">
                                     <input id="selectAllHRMS" type="checkbox" onclick="toggleSelectAll(this, 'hrm_');"
                                            value="hrm_check" title="Select/un-select all HRM documents."/>
-                                    <label for="selectAllHRMS">Select all</label>
+                                    <label for="selectAllHRMS"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label>
                                     <button class="show-all-button ${allHRMDocuments.size() > 20 ? '' : 'd-none'}"
-                                            type="button" title="Show ${allHRMDocuments.size() - 20} More HRM"
-                                            onclick="showAll(this, 'hrm')">Show ${allHRMDocuments.size() - 20} More HRM
-                                    </button>
-                                </li>
+                                            type="button"
+                                            onclick="showAll(this, 'hrm')"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.showMoreHRM"><fmt:param value="${allHRMDocuments.size() - 20}"/></fmt:message>
+                                     </button>
+                                 </li>
                                 <c:forEach items="${ allHRMDocuments }" var="hrm" varStatus="loop">
                                     <li class="hrm ${loop.index > 19 ? 'd-none' : ''}">
                                         <input class="hrm_check" type="checkbox" name="hrmNo" id="hrmNo${ hrm['id'] }"
-                                               value="${hrm['id']}" title="${hrm['name']}"/>
+                                               value="${hrm['id']}" title="${carlos:forHtmlAttribute(hrm['name'])}"/>
                                         <label for="hrmNo${hrm['id']}">
-                                            ${e:forHtml(hrm['name'])} ${e:forHtml(hrm['report_date'])}
+                                            ${carlos:forHtml(hrm['name'])} ${carlos:forHtml(hrm['report_date'])}
                                         </label>
-                                        <button class="preview-button" type="button" title="Preview"
-                                                onclick="getPdf('HRM', '${hrm.id}', 'method=renderHrmPDF&hrmId=${hrm.id}')">
-                                            Preview
+                                        <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                 onclick="getPdf('HRM', '${hrm.id}', 'method=renderHrmPDF&hrmId=${hrm.id}')">
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
@@ -472,7 +475,7 @@
 
                 <c:if test="${not empty allForms }">
                     <tr>
-                        <td><h2>Forms (current only)</h2></td>
+                        <td><h2><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.formsCurrentOnly"/></h2></td>
                     </tr>
                     <tr>
                         <td>
@@ -480,23 +483,22 @@
                                 <li class="selectAllHeading ${allForms.size() > 20 ? 'flex' : ''}">
                                     <input id="selectAllForms" type="checkbox" onclick="toggleSelectAll(this, 'form_');"
                                            value="form_check" title="Select/un-select all forms."/>
-                                    <label for="selectAllForms">Select all</label>
+                                    <label for="selectAllForms"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label>
                                     <button class="show-all-button ${allForms.size() > 20 ? '' : 'd-none'}" type="button"
-                                            title="Show ${allForms.size() - 20} More Forms"
-                                            onclick="showAll(this, 'form')">Show ${allForms.size() - 20} More Forms
+                                            onclick="showAll(this, 'form')"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.showMoreForms"><fmt:param value="${allForms.size() - 20}"/></fmt:message>
                                     </button>
                                 </li>
                                 <c:forEach items="${ allForms }" var="form" varStatus="loop">
                                     <li class="form ${loop.index > 19 ? 'd-none' : ''}">
-                                        <input class="form_check" type="checkbox" name="formNo"
-                                               id="formNo${ form.formId }" value="${form.formId}"
-                                               title="${form.formName}"/>
+                                         <input class="form_check" type="checkbox" name="formNo"
+                                                id="formNo${ form.formId }" value="${form.formId}"
+                                                title="${carlos:forHtmlAttribute(form.formName)}"/>
                                         <label for="formNo${form.formId}">
-                                            ${e:forHtml(form.formName)} ${e:forHtml(form.getEdited())}
+                                            ${carlos:forHtml(form.formName)} ${carlos:forHtml(form.getEdited())}
                                         </label>
-                                        <button class="preview-button" type="button" title="Preview"
+                                        <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                 onclick="getPdf('FORM', '${form.formId}', 'method=renderFormPDF&formId=${form.formId}&formName=${form.formName}&demographicNo=${form.getDemoNo()}')">
-                                            Preview
+                                            ${carlos:forHtmlContent(previewAction)}
                                         </button>
                                     </li>
                                 </c:forEach>
@@ -511,7 +513,7 @@
             <object id="pdfObject" class="d-none" type="application/pdf" data="">
             </object>
             <div id="preview-filler" class="preview-filler">
-                Click any item to preview
+                <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>
             </div>
         </div>
     </div>

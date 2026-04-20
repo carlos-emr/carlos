@@ -36,6 +36,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <link rel="stylesheet" type="text/css"
@@ -86,8 +87,7 @@
         }
     </script>
     <body class="BodyStyle" vlink="#0000FF">
-    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
-    <form id="csrfForm" method="post" style="display:none;"></form>
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
@@ -97,7 +97,7 @@
                     <tr>
                         <td>
                             <c:if test="${not empty demoInfo}">
-                                ${e:forHtml(demoInfo)} <fmt:message key='global.years'/>
+                                ${carlos:forHtml(demoInfo)} <fmt:message key='global.years'/>
                             </c:if>
                         </td>
                     </tr>
@@ -106,7 +106,7 @@
         </tr>
         <tr>
             <td class="MainTableLeftColumn"><a
-                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${e:forHtmlAttribute(demographicNo)}"><fmt:message key='global.btnBack'/>&nbsp;</a></td>
+                    href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forHtmlAttribute(demographicNo)}"><fmt:message key='global.btnBack'/>&nbsp;</a></td>
             <td class="MainTableRightColumn">
                 <table border=0 cellspacing=4 width=700>
                     <tr>
@@ -124,13 +124,13 @@
                                 </tr>
                                 <c:forEach var="waitingListBean" items="${patientWaitingList.patientWaitingList}">
                                 <tr class="data">
-                                    <td width="100">${e:forHtml(waitingListBean.waitingList)}</td>
-                                    <td width="50">${e:forHtml(waitingListBean.position)}</td>
-                                    <td width="100">${e:forHtml(waitingListBean.note)}</td>
-                                    <td width="100">${e:forHtml(waitingListBean.onListSince)}</td>
+                                    <td width="100">${carlos:forHtml(waitingListBean.waitingList)}</td>
+                                    <td width="50">${carlos:forHtml(waitingListBean.position)}</td>
+                                    <td width="100">${carlos:forHtml(waitingListBean.note)}</td>
+                                    <td width="100">${carlos:forHtml(waitingListBean.onListSince)}</td>
                                     <td><a href="#"
-                                           onClick="removePatient('${e:forJavaScript(waitingListBean.demographicNo)}',
-                                           '${e:forJavaScript(waitingListBean.waitingListID)}');"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.remove'/></a>
+                                           onClick="removePatient('${carlos:forJavaScript(waitingListBean.demographicNo)}',
+                                           '${carlos:forJavaScript(waitingListBean.waitingListID)}');"><fmt:message key='oscarwaitinglist.displayPatientWaitingList.remove'/></a>
                                     </td>
                                 </tr>
                                 </c:forEach>

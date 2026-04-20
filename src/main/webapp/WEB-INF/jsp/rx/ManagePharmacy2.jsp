@@ -37,6 +37,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     RxSessionBean bean = null;
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -69,11 +70,11 @@
 <%
  if (request.getParameter("ID") != null && type != null && type.equals("Edit")){ %>
 	$(function() {
-		var data = "pharmacyId=<e:forJavaScript value='<%= StringUtils.noNull(request.getParameter("ID")) %>' />";
+		var data = "pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("ID")) %>' context="javaScript"/>";
 		$.post("<%=request.getContextPath()%>/rx/managePharmacy?method=getPharmacyInfo",
 				  data, function( data ) {
 			if(data.name) {
-			  $('#pharmacyId').val('<e:forJavaScriptBlock value='<%= StringUtils.noNull(request.getParameter("ID")) %>' />');
+			  $('#pharmacyId').val('<carlos:encode value='<%= StringUtils.noNull(request.getParameter("ID")) %>' context="javaScriptBlock"/>');
 			  $('#pharmacyName').val(data.name);
 			  $('#pharmacyAddress').val(data.address);
 			  $('#pharmacyCity').val(data.city);

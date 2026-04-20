@@ -38,6 +38,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -192,7 +193,7 @@
             <option value="Wipe">Wipe</option>
 
         </select>
-        <input type="hidden" name="id" value="<e:forHtmlAttribute value='<%= id %>' />"/>
+        <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>

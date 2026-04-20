@@ -52,6 +52,7 @@
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Properties" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
 
     String msg = "Enter contact details.";
@@ -136,7 +137,7 @@
         </table>
     </center>
     <form action="${pageContext.request.contextPath}/demographic/Contact" method="post">
-        <input type="hidden" name="contact.id" value="${e:forHtmlAttribute(contact.id)}"/>
+        <input type="hidden" name="contact.id" value="${carlos:forHtmlAttribute(contact.id)}"/>
         <input type="hidden" name="method" value="saveContact"/>
         <table width="100%" border="0" cellspacing="2" cellpadding="2">
             <tr>
@@ -145,31 +146,31 @@
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.lastName"/></b></td>
                 <td>
-                    <input type="text" name="contact.lastName" value="${e:forHtmlAttribute(contact.lastName)}" size="30">
+                    <input type="text" name="contact.lastName" value="${carlos:forHtmlAttribute(contact.lastName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.firstName"/></b></td>
                 <td>
-                    <input type="text" name="contact.firstName" value="${e:forHtmlAttribute(contact.firstName)}" size="30">
+                    <input type="text" name="contact.firstName" value="${carlos:forHtmlAttribute(contact.firstName)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.address"/></b></td>
                 <td>
-                    <input type="text" name="contact.address" value="${e:forHtmlAttribute(contact.address)}" size="50">
+                    <input type="text" name="contact.address" value="${carlos:forHtmlAttribute(contact.address)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.address2"/></b></td>
                 <td>
-                    <input type="text" name="contact.address2" value="${e:forHtmlAttribute(contact.address2)}" size="50">
+                    <input type="text" name="contact.address2" value="${carlos:forHtmlAttribute(contact.address2)}" size="50">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.city"/></b></td>
                 <td>
-                    <input type="text" name="contact.city" value="${e:forHtmlAttribute(contact.city)}" size="30">
+                    <input type="text" name="contact.city" value="${carlos:forHtmlAttribute(contact.city)}" size="30">
                 </td>
             </tr>
             <tr bgcolor="#EEEEFF">
@@ -193,54 +194,54 @@
                     <option value="YT" <%=region.equals("YT") ? " selected" : ""%>><fmt:message key="admin.sitesAdminDetail.province.YT"/></option>
                     <option value="US" <%=region.equals("US") ? " selected" : ""%>><fmt:message key="demographic.contactForm.usResident"/></option>
                 </select> <fmt:message key="demographic.contactForm.country"/>
-                    <input type="text" name="contact.country" value="${e:forHtmlAttribute(contact.country)}" size="2"
+                    <input type="text" name="contact.country" value="${carlos:forHtmlAttribute(contact.country)}" size="2"
                            maxlength="2">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.postal"/></b></td>
                 <td>
-                    <input type="text" name="contact.postal" value="${e:forHtmlAttribute(contact.postal)}" size="30">
+                    <input type="text" name="contact.postal" value="${carlos:forHtmlAttribute(contact.postal)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.resPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.residencePhone" value="${e:forHtmlAttribute(contact.residencePhone)}"
+                    <input type="text" name="contact.residencePhone" value="${carlos:forHtmlAttribute(contact.residencePhone)}"
                            size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.cellPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.cellPhone" value="${e:forHtmlAttribute(contact.cellPhone)}" size="30">
+                    <input type="text" name="contact.cellPhone" value="${carlos:forHtmlAttribute(contact.cellPhone)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.workPhone"/></b></td>
                 <td>
-                    <input type="text" name="contact.workPhone" value="${e:forHtmlAttribute(contact.workPhone)}"
+                    <input type="text" name="contact.workPhone" value="${carlos:forHtmlAttribute(contact.workPhone)}"
                            size="15"/>
                     <fmt:message key="demographic.contactForm.ext"/> <input type="text" name="contact.workPhoneExtension"
-                                value="${e:forHtmlAttribute(contact.workPhoneExtension)}" size="10"/>
+                                value="${carlos:forHtmlAttribute(contact.workPhoneExtension)}" size="10"/>
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.fax"/></b></td>
                 <td>
-                    <input type="text" name="contact.fax" value="${e:forHtmlAttribute(contact.fax)}" size="30">
+                    <input type="text" name="contact.fax" value="${carlos:forHtmlAttribute(contact.fax)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.email"/></b></td>
                 <td>
-                    <input type="text" name="contact.email" value="${e:forHtmlAttribute(contact.email)}" size="30">
+                    <input type="text" name="contact.email" value="${carlos:forHtmlAttribute(contact.email)}" size="30">
                 </td>
             </tr>
             <tr>
                 <td align="right"><b><fmt:message key="demographic.contactForm.note"/></b></td>
                 <td>
-                    <input type="text" name="contact.note" value="${e:forHtmlAttribute(contact.note)}" size="30">
+                    <input type="text" name="contact.note" value="${carlos:forHtmlAttribute(contact.note)}" size="30">
                 </td>
             </tr>
             <tr>

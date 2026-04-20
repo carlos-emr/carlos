@@ -79,6 +79,7 @@
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
@@ -123,6 +124,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
 <jsp:useBean id="displayServiceUtil" scope="request"
@@ -232,7 +234,7 @@
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
-        alert('<e:forJavaScriptBlock value='<%= errorMessage %>' />');
+        alert('<carlos:encode value='<%= errorMessage %>' context="javaScriptBlock"/>');
     </SCRIPT>
     <%
         }
@@ -531,10 +533,10 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <script>
             var ctx = '<%=request.getContextPath()%>';
-            var requestId = '<e:forJavaScriptBlock value='<%= requestId %>' />';
-            var demographicNo = '<e:forJavaScriptBlock value='<%= demo %>' />';
-            var demoNo = '<e:forJavaScriptBlock value='<%= demo %>' />';
-            var appointmentNo = '<e:forJavaScriptBlock value='<%= appNo %>' />';
+            var requestId = '<carlos:encode value='<%= requestId %>' context="javaScriptBlock"/>';
+            var demographicNo = '<carlos:encode value='<%= demo %>' context="javaScriptBlock"/>';
+            var demoNo = '<carlos:encode value='<%= demo %>' context="javaScriptBlock"/>';
+            var appointmentNo = '<carlos:encode value='<%= appNo %>' context="javaScriptBlock"/>';
         </script>
 
         <script type="text/javascript"
@@ -548,7 +550,7 @@
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/conreq.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host="<e:forHtmlAttribute value='<%= props.getProperty("ocean_host") %>' />"></script>
+                ocean-host="<carlos:encode value='<%= props.getProperty("ocean_host") %>' context="htmlAttribute"/>"></script>
         <% } %>
         <link rel="stylesheet" type="text/css" href="${ pageContext.request.contextPath }/css/healthCareTeam.css"/>
 
@@ -1228,7 +1230,7 @@
                 var data = new Object();
                 var target = "#" + this.id.split("_")[1];
                 data.method = this.id.split("_")[0];
-                data.demographicNo = <e:forJavaScript value='<%= demo %>' />;
+                data.demographicNo = <carlos:encode value='<%= demo %>' context="javaScript"/>;
                 getClinicalData(data, target)
             });
 
@@ -1237,7 +1239,7 @@
                 var target = "#" + this.id.split("_")[1];
                 data.method = "fetchIssueNote";
                 data.issueType = this.id.split("_")[0];
-                data.demographicNo = <e:forJavaScript value='<%= demo %>' />;
+                data.demographicNo = <carlos:encode value='<%= demo %>' context="javaScript"/>;
                 getClinicalData(data, target)
             });
 
@@ -1245,7 +1247,7 @@
             <% if (requestId == null && demo != null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
-                autoImportClinicalHistory(<e:forJavaScript value='<%= demo %>' />);
+                autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
             }
             <% } %>
         })
@@ -1456,9 +1458,9 @@
 
             // load the text fields with phone fax and address for past consult review even if spec has been removed from service list
             <%if(requestId!=null && ! "null".equals( consultUtil.specialist ) ){ %>
-            form.phone.value = '<e:forJavaScriptBlock value='<%= consultUtil.specPhone %>' />';
-            form.fax.value = '<e:forJavaScriptBlock value='<%= consultUtil.specFax %>' />';
-            form.address.value = '<e:forJavaScriptBlock value='<%= consultUtil.specAddr %>' />';
+            form.phone.value = '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>';
+            form.fax.value = '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>';
+            form.address.value = '<carlos:encode value='<%= consultUtil.specAddr %>' context="javaScriptBlock"/>';
 
             //make sure this dislaimer is displayed
             document.getElementById("consult-disclaimer").style.display = 'inline';
@@ -1492,7 +1494,7 @@
                     );
 
                     break;
-                  <c:set var="__enc_1"><e:forUriComponent value='<%= demo %>' /></c:set>
+                  <c:set var="__enc_1"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
               }
             }//spec loop
 
@@ -1500,7 +1502,7 @@
 
         function updateEFormLink(eformID) {
             if (eformID > 0) {
-                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data?fid=' + eformID + '&demographic_no=<e:forJavaScript value='${__enc_1}' />&appointment=null';
+                let eFormURL = '<%=request.getContextPath()%>/eform/efmformadd_data?fid=' + eformID + '&demographic_no=<carlos:encode value='${__enc_1}' context="javaScript"/>&appointment=null';
                 document.getElementById("eFormButton").style.display = "inline";
                 document.getElementById("eFormButton").onclick = function () {
                     popup(eFormURL);
@@ -1742,31 +1744,31 @@
 
         const providerData = {};
 
-        providerData['<e:forJavaScriptBlock value='<%= clinic.getClinicName() %>' />'] = {};
+        providerData['<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>'] = {};
 
         let addr, ph, fx;
 
         <% if (consultUtil.letterheadAddress != null) { %>
-        addr = '<e:forJavaScriptBlock value='<%= consultUtil.letterheadAddress.replaceAll("\\n", " ") %>' />';
+        addr = '<carlos:encode value='<%= consultUtil.letterheadAddress.replaceAll("\\n", " ") %>' context="javaScriptBlock"/>';
         <%} else {%>
-        addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+        addr = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
-        ph = '<e:forJavaScriptBlock value='<%= consultUtil.letterheadPhone.replaceAll("\\n", " ") %>' />';
+        ph = '<carlos:encode value='<%= consultUtil.letterheadPhone.replaceAll("\\n", " ") %>' context="javaScriptBlock"/>';
         <%} else { %>
-        ph = '<e:forJavaScriptBlock value='<%= clinic.getClinicPhone() %>' />';
+        ph = '<carlos:encode value='<%= clinic.getClinicPhone() %>' context="javaScriptBlock"/>';
         <% }%>
 
         <%if(consultUtil.letterheadFax != null) { %>
-        fx = '<e:forJavaScriptBlock value='<%= consultUtil.letterheadFax %>' />';
+        fx = '<carlos:encode value='<%= consultUtil.letterheadFax %>' context="javaScriptBlock"/>';
         <% } else {%>
-        fx = '<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />';
+        fx = '<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>';
         <% } %>
 
-        providerData['<e:forJavaScriptBlock value='<%= clinic.getClinicName() %>' />'].address = addr;
-        providerData['<e:forJavaScriptBlock value='<%= clinic.getClinicName() %>' />'].phone = ph;
-        providerData['<e:forJavaScriptBlock value='<%= clinic.getClinicName() %>' />'].fax = fx;
+        providerData['<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>'].address = addr;
+        providerData['<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>'].phone = ph;
+        providerData['<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>'].fax = fx;
 
 
         <%
@@ -1777,9 +1779,9 @@ for (Provider providerItem: prList) {
 		%>
         providerData['<%=prov_no%>'] = {};
 
-        providerData['<%=prov_no%>'].address = "<e:forJavaScriptBlock value='<%= providerItem.getFullAddress() %>' />";
-        providerData['<%=prov_no%>'].phone = "<e:forJavaScriptBlock value='<%= providerItem.getClinicPhone() %>' />";
-        providerData['<%=prov_no%>'].fax = "<e:forJavaScriptBlock value='<%= providerItem.getClinicFax() %>' />";
+        providerData['<%=prov_no%>'].address = "<carlos:encode value='<%= providerItem.getFullAddress() %>' context="javaScriptBlock"/>";
+        providerData['<%=prov_no%>'].phone = "<carlos:encode value='<%= providerItem.getClinicPhone() %>' context="javaScriptBlock"/>";
+        providerData['<%=prov_no%>'].fax = "<carlos:encode value='<%= providerItem.getClinicFax() %>' context="javaScriptBlock"/>";
 
         <%	}
 }
@@ -1793,9 +1795,9 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 			String progNo = "prog_" + program.getId();
 %>
         providerData['<%=progNo %>'] = {};
-        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
-        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
-        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
+        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getAddress()) : (SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal())) %>';
+        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getPhone()) : SafeEncode.forJavaScript(clinic.getClinicPhone()) %>';
+        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? SafeEncode.forJavaScript(program.getFax()) : SafeEncode.forJavaScript(clinic.getClinicFax()) %>';
         <%
 		}
 	}
@@ -1804,21 +1806,21 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
         function switchProvider(value) {
             if (value === -1) {
                 document.getElementById("letterheadName").value = value;
-                document.getElementById("letterheadAddress").value = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadPhone").value = "<e:forJavaScriptBlock value='<%= clinic.getClinicPhone() %>' />";
-                document.getElementById("letterheadPhoneSpan").textContent = "<e:forJavaScriptBlock value='<%= clinic.getClinicPhone() %>' />";
-                document.getElementById("letterheadFax").value = "<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />";
+                document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadPhone").value = "<carlos:encode value='<%= clinic.getClinicPhone() %>' context="javaScriptBlock"/>";
+                document.getElementById("letterheadPhoneSpan").textContent = "<carlos:encode value='<%= clinic.getClinicPhone() %>' context="javaScriptBlock"/>";
+                document.getElementById("letterheadFax").value = "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>";
 
-                document.getElementById("letterheadFaxSpan").textContent = "<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />";
+                document.getElementById("letterheadFaxSpan").textContent = "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>";
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
-                    faxAccountOptions.value = "<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />".replace(/[^0-9.]/g, '');
+                    faxAccountOptions.value = "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>".replace(/[^0-9.]/g, '');
                     for(let i = 0; i < faxAccountOptions.options.length; i++) {
                         let option = faxAccountOptions.options[i];
-                        if(option.value === "<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />".replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = "<e:forJavaScriptBlock value='<%= clinic.getClinicFax() %>' />".replace(/[^0-9.]/g, '');
+                        if(option.value === "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>".replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = "<carlos:encode value='<%= clinic.getClinicFax() %>' context="javaScriptBlock"/>".replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
@@ -2062,7 +2064,7 @@ if (userAgent != null) {
     <div class="alert alert-danger m-2">
         <ul class="mb-0">
             <% for (String error : actionErrors) { %>
-                <li><e:forHtmlContent value='<%= error %>' /></li>
+                <li><carlos:encode value='<%= error %>' context="html"/></li>
             <% } %>
         </ul>
     </div>
@@ -2127,11 +2129,11 @@ if (userAgent != null) {
         <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
-        <input type="hidden" name="demographicNo" id="demographicNo" value="<e:forHtmlAttribute value='<%= demo %>' />">
-        <input type="hidden" name="requestId" id="requestId" value="<e:forHtmlAttribute value='<%= requestId %>' />">
-        <input type="hidden" name="ext_appNo" value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("appNo")) %>' />">
+        <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demo %>' context="htmlAttribute"/>">
+        <input type="hidden" name="requestId" id="requestId" value="<carlos:encode value='<%= requestId %>' context="htmlAttribute"/>">
+        <input type="hidden" name="ext_appNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("appNo")) %>' context="htmlAttribute"/>">
         <input type="hidden" name="source"
-               value="<e:forHtmlAttribute value='<%= (requestId!=null)?thisForm.getSource():StringUtils.noNull(request.getParameter("source")) %>' />">
+               value="<carlos:encode value='<%= (requestId!=null)?thisForm.getSource():StringUtils.noNull(request.getParameter("source")) %>' context="htmlAttribute"/>">
         <input type="hidden" name="submission" value="">
         <input type="hidden" id="saved" value="false">
         <input type="hidden" id="contextPath" value="${pageContext.request.contextPath}">
@@ -2143,7 +2145,7 @@ if (userAgent != null) {
             </h4>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
-                    <e:forHtmlContent value='<%= thisForm.getPatientName() %>' /> &mdash; <e:forHtmlContent value='<%= thisForm.getPatientSex() %>' /> <e:forHtmlContent value='<%= thisForm.getPatientAge() %>' />
+                    <carlos:encode value='<%= thisForm.getPatientName() %>' context="html"/> &mdash; <carlos:encode value='<%= thisForm.getPatientSex() %>' context="html"/> <carlos:encode value='<%= thisForm.getPatientAge() %>' context="html"/>
                 </span>
                 <% if ("ocean".equals(props.get("cme_js"))) { %>
                     <span id="ocean" style="display:none"></span>
@@ -2166,7 +2168,7 @@ if (userAgent != null) {
                     <div class="card mb-2">
                         <div class="card-body p-2">
                             <small class="text-muted d-block"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgCreated"/></small>
-                            <small class="fw-semibold"><e:forHtmlContent value='<%= thisForm.getProviderName() %>' /></small>
+                            <small class="fw-semibold"><carlos:encode value='<%= thisForm.getProviderName() %>' context="html"/></small>
                         </div>
                     </div>
 
@@ -2206,27 +2208,28 @@ if (userAgent != null) {
                                     <tr>
                                         <td>
 
-                                                                                        <c:set var="__enc_2"><e:forUriComponent value='<%= demo %>' /></c:set>
-                                               <c:set var="__enc_3"><e:forUriComponent value='<%= requestId %>' /></c:set>
-   <%
+                                                                                        <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
+                                               <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                            <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
+    <%
                                                 if (thisForm.iseReferral()) {
                                             %>
                                                 <%-- <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.attachDoc"/> --%>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<e:forHtmlAttribute value='${__enc_2}' />&amp;requestId=<e:forHtmlAttribute value='${__enc_3}' />">
-                                                Manage Attachments
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
-                                                                                      <c:set var="__enc_4"><e:forUriComponent value='<%= demo %>' /></c:set>
-                                               <c:set var="__enc_5"><e:forUriComponent value='<%= requestId %>' /></c:set>
+                                                                                      <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
+                                               <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
      <input type="hidden" id="isOceanEReferral"
                                                    value="<%=thisForm.iseReferral()%>"/>
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
-                                               title="Add Attachment"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<e:forHtmlAttribute value='${__enc_4}' />&amp;requestId=<e:forHtmlAttribute value='${__enc_5}' />">
-                                                Manage Attachments
+                                               title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
                                             <% } %>
@@ -2238,12 +2241,12 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedEFormsTable">
                                                 <tr>
-                                                    <td><h3>eForms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionEForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedEForms }" var="attachedEForm">
                                                     <tr id="entry_eFormNo${ attachedEForm.id }">
                                                         <td>
-                                                            ${e:forHtml(attachedEForm.formName)}
+                                                            ${carlos:forHtml(attachedEForm.formName)}
                                                             <input name="eFormNo" value="${ attachedEForm.id }"
                                                                    id="delegate_eFormNo${ attachedEForm.id }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2258,12 +2261,12 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedDocumentsTable">
                                                 <tr>
-                                                    <td><h3>Documents</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionDocuments"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedDocuments }" var="attachedDocument">
                                                     <tr id="entry_docNo${ attachedDocument.docId }">
                                                         <td>
-                                                            ${e:forHtml(attachedDocument.description)}
+                                                            ${carlos:forHtml(attachedDocument.description)}
                                                             <input name="docNo" value="${ attachedDocument.docId }"
                                                                    id="delegate_docNo${ attachedDocument.docId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2278,16 +2281,17 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedLabsTable">
                                                 <tr>
-                                                    <td><h3>Labs</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionLabs"/></h3></td>
                                                 </tr>
+                                                <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
                                                     <tr id="entry_labNo${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
-                                                                                                 value="UNLABELLED"/></c:if>
-                                                            ${e:forHtml(attachedLab.description)} ${e:forHtml(labName)}
+                                                                                                 value="${unlabelledLabel}"/></c:if>
+                                                            ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
                                                             <input name="labNo" value="${ attachedLab.segmentID }"
                                                                    id="delegate_labNo${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2302,12 +2306,12 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
-                                                    <td><h3>HRM</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
                                                         <td>
-                                                            ${e:forHtml(attachedHrm['name'])}
+                                                            ${carlos:forHtml(attachedHrm['name'])}
                                                             <input name="hrmNo" value="${ attachedHrm['id'] }"
                                                                    id="delegate_hrmNo${ attachedHrm['id'] }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2322,14 +2326,14 @@ if (userAgent != null) {
                                         <td>
                                             <table id="attachedFormsTable">
                                                 <tr>
-                                                    <td><h3>Forms</h3></td>
+                                                    <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionForms"/></h3></td>
                                                 </tr>
                                                 <c:forEach items="${ attachedForms }" var="attachedForm">
                                                     <tr id="entry_formNo${ attachedForm.formId }"
-                                                        data-formName="${e:forHtmlAttribute(attachedForm.formName)}"
-                                                        data-formDate="${e:forHtmlAttribute(attachedForm.getEdited())}">
+                                                        data-formName="${carlos:forHtmlAttribute(attachedForm.formName)}"
+                                                        data-formDate="${carlos:forHtmlAttribute(attachedForm.getEdited())}">
                                                         <td>
-                                                            ${e:forHtml(attachedForm.formName)}
+                                                            ${carlos:forHtml(attachedForm.formName)}
                                                             <input name="formNo" value="${ attachedForm.formId }"
                                                                    id="delegate_formNo${ attachedForm.formId }"
                                                                    class="delegateAttachment" type="hidden">
@@ -2352,7 +2356,7 @@ if (userAgent != null) {
                             String eReferralRef = consultationRequestExtDao.getConsultationRequestExtsByKey(consultId, ConsultationRequestExtKey.EREFERRAL_REF.getKey());
                             if (eReferralRef != null) {
                         %>
-                        <input id="ereferral_ref" type="hidden" value="<e:forHtmlAttribute value='<%= eReferralRef %>' />"/>
+                        <input id="ereferral_ref" type="hidden" value="<carlos:encode value='<%= eReferralRef %>' context="htmlAttribute"/>"/>
                         <span id="editOnOcean" class="oceanRefer"></span>
                         <% }
                         } %>
@@ -2393,31 +2397,33 @@ if (userAgent != null) {
 
                                 <% } %>
                                 </div>
-                                                                 <c:set var="__enc_6"><e:forUriComponent value='<%= demo %>' /></c:set>
+                                                                 <c:set var="__enc_6"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
   <% } %>
                         <%-- Patient Demographics Card --%>
                                 <div class="card mb-2">
                                     <div class="card-header p-2 fw-semibold" style="font-size:0.85rem;">
                                         <i class="fa-solid fa-user me-1"></i>
                                         <a href="javascript:void(0);"
-                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<e:forJavaScriptAttribute value='${__enc_6}' />')"><e:forHtmlContent value='<%= thisForm.getPatientName() %>' /></a>
+                                           onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/DemographicEdit?demographic_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= thisForm.getPatientName() %>' context="html"/></a>
                                     </div>
                                     <div class="card-body p-2">
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <e:forHtmlContent value='<%= thisForm.getPatientAddress().replace("null", "") %>' />
+                                                <div style="white-space: pre-line;">
+                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                </div>
                                             </div>
                                             <div class="col-md-4">
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientPhone() %>' /><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgWPhone"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientWPhone() %>' /><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgCellPhone"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientCellPhone() %>' /><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgEmail"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientEmail() %>' />
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/></small>: <carlos:encode value='<%= thisForm.getPatientPhone() %>' context="html"/><br>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgWPhone"/></small>: <carlos:encode value='<%= thisForm.getPatientWPhone() %>' context="html"/><br>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgCellPhone"/></small>: <carlos:encode value='<%= thisForm.getPatientCellPhone() %>' context="html"/><br>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgEmail"/></small>: <carlos:encode value='<%= thisForm.getPatientEmail() %>' context="html"/>
                                             </div>
                                             <div class="col-md-4">
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientDOB() %>' /><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientSex() %>' /><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <e:forHtmlContent value='<%= thisForm.getPatientHealthNum() %>' /><e:forHtmlContent value='<%= thisForm.getPatientHealthCardVersionCode() %>' /><e:forHtmlContent value='<%= thisForm.getPatientHealthCardType() %>' />
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <carlos:encode value='<%= thisForm.getPatientDOB() %>' context="html"/><br>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <carlos:encode value='<%= thisForm.getPatientSex() %>' context="html"/><br>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getPatientHealthNum() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardVersionCode() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardType() %>' context="html"/>
                                             </div>
                                         </div>
                                     </div>
@@ -2445,7 +2451,7 @@ if (userAgent != null) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
                                                 <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
-                                                    <e:forHtmlContent value='<%= p.getFirstName().replace("Dr.", "") %>' />&nbsp;<e:forHtmlContent value='<%= p.getSurname() %>' />
+                                                    <carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>&nbsp;<carlos:encode value='<%= p.getSurname() %>' context="html"/>
                                                 </option>
                                                 <% }
 
@@ -2467,7 +2473,7 @@ if (userAgent != null) {
                                                     if (request.getAttribute("id") != null) {
                                                 %>
                                                 <input type="date" class="form-control form-control-sm" id="referalDate" name="referalDate"
-                                                           value="<e:forHtmlAttribute value='<%= thisForm.getReferalDate() != null ? thisForm.getReferalDate().replace("/", "-") : "" %>' />"/>
+                                                           value="<carlos:encode value='<%= thisForm.getReferalDate() != null ? thisForm.getReferalDate().replace("/", "-") : "" %>' context="htmlAttribute"/>"/>
                                                 <%
                                                 } else {
                                                     // Format as YYYY-MM-DD for HTML5 date input
@@ -2503,7 +2509,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-value">
                                                 <% if (thisForm.iseReferral() && !thisForm.geteReferralService().isEmpty()) { %>
-                                                <e:forHtmlContent value='<%= thisForm.geteReferralService() %>' />
+                                                <carlos:encode value='<%= thisForm.geteReferralService() %>' context="html"/>
                                                 <% } else { %>
                                                 <input type="hidden" id="service" name="service" value=""/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
@@ -2519,7 +2525,7 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <% if (thisForm.iseReferral()) { %>
 
-                                            <e:forHtmlContent value='<%= thisForm.getProfessionalSpecialistName() %>' />
+                                            <carlos:encode value='<%= thisForm.getProfessionalSpecialistName() %>' context="html"/>
 
                                             <% } else if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
@@ -2544,7 +2550,7 @@ if (userAgent != null) {
                                             <%} // end specialist list condition block %>
                                         </td>
                                     </tr>
-                                    <c:set var="__enc_7"><e:forUriComponent value='<%= demo %>' /></c:set>
+                                    <c:set var="__enc_7"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                     <oscar:oscarPropertiesCheck value="true"
                                                                 property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                                 defaultVal="false">
@@ -2554,7 +2560,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-label" style="font-size:11px;">
                                                 <a href="javascript:void(0);"
-                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact?method=manageContactList&contactList=HCT&view=detached&demographic_no=<e:forJavaScriptAttribute value='${__enc_7}' />' ); return false;">
+                                                   onclick="popupPage(500,700,'${ctx}/demographic/Contact?method=manageContactList&contactList=HCT&view=detached&demographic_no=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>' ); return false;">
                                                     edit Health Care Team
                                                 </a>
                                             </td>
@@ -2592,14 +2598,14 @@ if (userAgent != null) {
                                             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPhone"/>
                                         </td>
                                         <td class="consult-form-value"><input readonly type="text" name="phone" class="form-control form-control-sm"
-                                                                 value="<e:forHtmlAttribute value='<%= thisForm.getProfessionalSpecialistPhone() %>' />"/>
+                                                                 value="<carlos:encode value='<%= thisForm.getProfessionalSpecialistPhone() %>' context="htmlAttribute"/>"/>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="consult-form-label">
                                             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formFax"/>
                                             <c:if test="${ not empty consultUtil.specialistFaxLog.status }">
-                                                <span style="font-size:80%;color:red;">Status: ${e:forHtml(consultUtil.specialistFaxLog.status)}</span>
+                                                <span style="font-size:80%;color:red;">Status: ${carlos:forHtml(consultUtil.specialistFaxLog.status)}</span>
                                             </c:if>
                                         </td>
                                         <td class="consult-form-value">
@@ -2613,7 +2619,7 @@ if (userAgent != null) {
                                         </td>
                                         <td class="consult-form-value">
                                             <textarea readonly name="address" class="form-control form-control-sm"
-                                                      rows="5"><e:forHtmlContent value='<%= thisForm.getProfessionalSpecialistAddress() %>' /></textarea>
+                                                      rows="5"><carlos:encode value='<%= thisForm.getProfessionalSpecialistAddress() %>' context="html"/></textarea>
                                         </td>
                                     </tr>
 
@@ -2632,7 +2638,7 @@ if (userAgent != null) {
                                                         <%-- Ensure that only active items are shown --%>
                                                         <c:if test="${ appointmentInstruction.active }">
                                                             <option value="${ appointmentInstruction.value }" ${ EctConsultationFormRequest2Form.appointmentInstructions eq appointmentInstruction.value ? 'selected' : '' }>
-                                                                ${e:forHtml(appointmentInstruction.label)}
+                                                                ${carlos:forHtml(appointmentInstruction.label)}
                                                             </option>
                                                         </c:if>
                                                     </c:forEach>
@@ -2655,7 +2661,7 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <div class="input-group input-group-sm" style="max-width:220px;">
                                                 <input type="date" class="form-control form-control-sm" id="appointmentDate" name="appointmentDate"
-                                                       value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "" %>' />"/>
+                                                       value="<carlos:encode value='<%= thisForm.getAppointmentDate() != null ? thisForm.getAppointmentDate().replace("/", "-") : "" %>' context="htmlAttribute"/>"/>
                                             </div>
                                         </td>
                                     </tr>
@@ -2665,11 +2671,11 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <%-- Hidden fields keep existing server-side processing unchanged --%>
                                             <input type="hidden" id="appointmentHour" name="appointmentHour"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentHour() != null ? thisForm.getAppointmentHour() : "" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentHour() != null ? thisForm.getAppointmentHour() : "" %>' context="htmlAttribute"/>"/>
                                             <input type="hidden" id="appointmentMinute" name="appointmentMinute"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentMinute() != null ? thisForm.getAppointmentMinute() : "" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentMinute() != null ? thisForm.getAppointmentMinute() : "" %>' context="htmlAttribute"/>"/>
                                             <input type="hidden" id="appointmentPm" name="appointmentPm"
-                                                   value="<e:forHtmlAttribute value='<%= thisForm.getAppointmentPm() != null ? thisForm.getAppointmentPm() : "AM" %>' />"/>
+                                                   value="<carlos:encode value='<%= thisForm.getAppointmentPm() != null ? thisForm.getAppointmentPm() : "AM" %>' context="htmlAttribute"/>"/>
                                             <div class="input-group input-group-sm" style="max-width:180px;">
                                                 <input type="time" class="form-control form-control-sm" id="appointmentTimeDisplay"
                                                        oninput="syncTimeToHiddenFields(this.value)"/>
@@ -2692,8 +2698,8 @@ if (userAgent != null) {
                                                     if (te.equals(defaultSiteName))
                                                         defaultSiteId = siteIds.get(i);
                                                 %>
-                                                <option value="<e:forHtmlAttribute value='<%= te %>' />"
-                                                             style="background-color:<e:forCssString value='<%= bg %>' />"><e:forHtmlContent value='<%= te %>' />
+                                                <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>"
+                                                             style="background-color:<carlos:encode value='<%= bg %>' context="cssString"/>"><carlos:encode value='<%= te %>' context="html"/>
                                                 </option>
                                                 <% }%>
                                             </select>
@@ -2714,7 +2720,7 @@ if (userAgent != null) {
                                                     String te = (String) consultUtil.teamVec.elementAt(i);
                                                     String selectedTeam = (te.equals(thisForm.getSendTo())) ? "selected" : "";
                                             %>
-                                            <option value="<e:forHtmlAttribute value='<%= te %>' />" <%=selectedTeam%>><e:forHtmlContent value='<%= te %>' />
+                                            <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>" <%=selectedTeam%>><carlos:encode value='<%= te %>' context="html"/>
                                             </option>
                                             <%
                                                 }
@@ -2728,7 +2734,7 @@ if (userAgent != null) {
                                     </tr>
                                     <tr>
                                         <td colspan="2" class="consult-form-value"><textarea class="form-control form-control-sm"
-                                                name="appointmentNotes"><e:forHtmlContent value='<%= thisForm.getAppointmentNotes() %>' /></textarea></td>
+                                                name="appointmentNotes"><carlos:encode value='<%= thisForm.getAppointmentNotes() %>' context="html"/></textarea></td>
                                     </tr>
 
 
@@ -2737,7 +2743,7 @@ if (userAgent != null) {
                                         </td>
                                         <td class="consult-form-value">
                                             <input type="date" class="form-control form-control-sm" id="followUpDate" name="followUpDate"
-                                                       value="<%=thisForm.getFollowUpDate() != null ? Encode.forHtmlAttribute(thisForm.getFollowUpDate().replace("/", "-")) : ""%>"/>
+                                                       value="<%=thisForm.getFollowUpDate() != null ? SafeEncode.forHtmlAttribute(thisForm.getFollowUpDate().replace("/", "-")) : ""%>"/>
                                         </td>
 
                                     </tr>
@@ -2746,11 +2752,11 @@ if (userAgent != null) {
                                         if (thisForm.getFdid() != null) {
                                     %>
                                     <tr>
-                                        <td class="consult-form-label">EForm
+                                        <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelEForm"/>
                                         </td>
                                         <td class="consult-form-value">
-                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>">Click
-                                                to view</a>
+                                            <a href="<%=request.getContextPath()%>/eform/efmshowform_data?fdid=<%=thisForm.getFdid() %>"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkClick"/>
+                                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkToView"/></a>
                                         </td>
                                     </tr>
                                     <%
@@ -2779,8 +2785,8 @@ if (userAgent != null) {
                                         </td>
                                         <td class="consult-form-value">
                                             <select name="letterheadName" id="letterheadName" class="form-select form-select-sm">
-                                                <option value="<e:forHtmlAttribute value='<%= clinic.getClinicName() %>' />" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected" : (lhndType.equals("clinic") ? "selected" : "") %>>
-                                                <e:forHtmlContent value='<%= clinic.getClinicName() %>' />
+                                                <option value="<carlos:encode value='<%= clinic.getClinicName() %>' context="htmlAttribute"/>" <%=(consultUtil.letterheadName != null && consultUtil.letterheadName.equalsIgnoreCase(clinic.getClinicName())) ? "selected" : (lhndType.equals("clinic") ? "selected" : "") %>>
+                                                <carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                                                 </option>
                                                 <%
                                                     for (Provider p : prList) {
@@ -2788,8 +2794,8 @@ if (userAgent != null) {
                                                 %>
                                                 <option value="<%=p.getProviderNo() %>"
                                                         <%=(thisForm.getLetterheadName() != null && !thisForm.getLetterheadName().isEmpty() && thisForm.getLetterheadName().equalsIgnoreCase(p.getProviderNo())) ? "selected" : ((thisForm.getLetterheadName() == null || thisForm.getLetterheadName().isEmpty()) && p.getProviderNo().equalsIgnoreCase(providerDefault) && lhndType.equals("providers") ? "selected" : "") %>>
-                                                    <e:forHtmlContent value='<%= p.getSurname() %>' />
-                                                    ,&nbsp;<e:forHtmlContent value='<%= p.getFirstName().replace("Dr.", "") %>' />
+                                                    <carlos:encode value='<%= p.getSurname() %>' context="html"/>
+                                                    ,&nbsp;<carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>
                                                         </option>
                                                 <% }
                                                 }
@@ -2798,7 +2804,7 @@ if (userAgent != null) {
                                                         for (Program p : programList) {
                                                 %>
                                                 <option value="prog_<%=p.getId() %>" <%=(thisForm.getLetterheadName() != null && thisForm.getLetterheadName().equalsIgnoreCase("prog_" + p.getId()) ? "selected" : "") %>>
-                                                    <e:forHtmlContent value='<%= p.getName() %>' />
+                                                    <carlos:encode value='<%= p.getName() %>' context="html"/>
                                                 </option>
                                                 <% }
                                                 }%>
@@ -2820,15 +2826,15 @@ if (userAgent != null) {
                                         <td class="consult-form-value">
                                             <% if (consultUtil.letterheadAddress != null) { %>
                                             <input type="hidden" name="letterheadAddress" id="letterheadAddress"
-                                                   value="<e:forHtmlAttribute value='<%= consultUtil.letterheadAddress %>' />"/>
+                                                   value="<carlos:encode value='<%= consultUtil.letterheadAddress %>' context="htmlAttribute"/>"/>
                                             <span id="letterheadAddressSpan">
-										<e:forHtmlContent value='<%= consultUtil.letterheadAddress %>' />
+										<carlos:encode value='<%= consultUtil.letterheadAddress %>' context="html"/>
 									</span>
                                             <% } else { %>
                                             <input type="hidden" name="letterheadAddress" id="letterheadAddress"
-                                                   value='<%=Encode.forHtmlAttribute(clinic.getClinicAddress()) + " " + Encode.forHtmlAttribute(clinic.getClinicCity()) + " " + Encode.forHtmlAttribute(clinic.getClinicProvince()) + " " + Encode.forHtmlAttribute(clinic.getClinicPostal()) %>'/>
+                                                   value='<%=SafeEncode.forHtmlAttribute(clinic.getClinicAddress()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicCity()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicProvince()) + " " + SafeEncode.forHtmlAttribute(clinic.getClinicPostal()) %>'/>
                                             <span id="letterheadAddressSpan">
-										<e:forHtmlContent value='<%= clinic.getClinicAddress() %>' />&nbsp;<e:forHtmlContent value='<%= clinic.getClinicCity() %>' />&nbsp;<e:forHtmlContent value='<%= clinic.getClinicProvince() %>' />&nbsp;<e:forHtmlContent value='<%= clinic.getClinicPostal() %>' />
+										<carlos:encode value='<%= clinic.getClinicAddress() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicCity() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicProvince() %>' context="html"/>&nbsp;<carlos:encode value='<%= clinic.getClinicPostal() %>' context="html"/>
 									</span>
                                             <% } %>
                                         </td>
@@ -2840,15 +2846,15 @@ if (userAgent != null) {
                                             <% if (consultUtil.letterheadPhone != null) {
                                             %>
                                             <input type="hidden" name="letterheadPhone" id="letterheadPhone"
-                                                   value="<e:forHtmlAttribute value='<%= consultUtil.letterheadPhone %>' />"/>
+                                                   value="<carlos:encode value='<%= consultUtil.letterheadPhone %>' context="htmlAttribute"/>"/>
                                             <span id="letterheadPhoneSpan">
-										<e:forHtmlContent value='<%= consultUtil.letterheadPhone %>' />
+										<carlos:encode value='<%= consultUtil.letterheadPhone %>' context="html"/>
 									</span>
                                             <% } else { %>
                                             <input type="hidden" name="letterheadPhone" id="letterheadPhone"
-                                                   value="<e:forHtmlAttribute value='<%= clinic.getClinicPhone() %>' />"/>
+                                                   value="<carlos:encode value='<%= clinic.getClinicPhone() %>' context="htmlAttribute"/>"/>
                                             <span id="letterheadPhoneSpan">
-										<e:forHtmlContent value='<%= clinic.getClinicPhone() %>' />
+										<carlos:encode value='<%= clinic.getClinicPhone() %>' context="html"/>
 									</span>
                                             <% } %>
                                         </td>
@@ -2860,15 +2866,15 @@ if (userAgent != null) {
                                         <td  class="consult-form-value" style="width:70%;">
 								<c:choose>
 								    <c:when test="${not empty consultUtil.letterheadFax}">
-									    <input type="hidden" name="letterheadFax" id="letterheadFax" value="${e:forHtmlAttribute(consultUtil.letterheadFax)}" />
+									    <input type="hidden" name="letterheadFax" id="letterheadFax" value="${carlos:forHtmlAttribute(consultUtil.letterheadFax)}" />
 									    <span id="letterheadFaxSpan">
-										    <e:forHtmlContent value='${consultUtil.letterheadFax}' />
+										    <carlos:encode value='${consultUtil.letterheadFax}' context="html"/>
 									    </span>
 								    </c:when>
 									<c:otherwise>
-										<input type="hidden" name="letterheadFax" id="letterheadFax" value="<e:forHtmlAttribute value='<%= clinic.getClinicFax() %>' />" />
+										<input type="hidden" name="letterheadFax" id="letterheadFax" value="<carlos:encode value='<%= clinic.getClinicFax() %>' context="htmlAttribute"/>" />
 										<span id="letterheadFaxSpan">
-										    <e:forHtmlContent value='<%= clinic.getClinicFax() %>' />
+										    <carlos:encode value='<%= clinic.getClinicFax() %>' context="html"/>
 									    </span>
 									</c:otherwise>
 								</c:choose>
@@ -2891,7 +2897,7 @@ if (userAgent != null) {
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
                                 %>
-										<option value="<e:forHtmlAttribute value='<%= faxConfig.getFaxNumber() %>' />" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><e:forHtmlContent value='<%= faxConfig.getAccountName() %>' /></option>
+										<option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/></option>
 								<%
                                     }
                                 %>
@@ -2918,11 +2924,11 @@ if (userAgent != null) {
                                     <c:if test="${ not empty consultUtil.copyToFaxLog }">
                                         <c:forEach items="${ consultUtil.copyToFaxLog }" var="faxLog">
                                             <tr>
-                                                <td class="consult-form-label">${e:forHtml(faxLog.name)}</td>
-                                                <td class="consult-form-label">${e:forHtml(faxLog.fax)}</td>
+                                                <td class="consult-form-label">${carlos:forHtml(faxLog.name)}</td>
+                                                <td class="consult-form-label">${carlos:forHtml(faxLog.fax)}</td>
                                                 <td class="consult-form-label">
-                                                    ${e:forHtml(faxLog.status)}
-                                                    ${e:forHtml(faxLog.sent)}
+                                                    ${carlos:forHtml(faxLog.status)}
+                                                    ${carlos:forHtml(faxLog.sent)}
                                                 </td>
                                             </tr>
                                         </c:forEach>
@@ -2939,7 +2945,7 @@ if (userAgent != null) {
                                 </a>
                         </div>
                                 <div class="collapse show" id="collapseReason">
-                                <textarea rows="6" name="reasonForConsultation" class="form-control"><e:forHtmlContent value='<%= thisForm.getReasonForConsultation() %>' /></textarea>
+                                <textarea rows="6" name="reasonForConsultation" class="form-control"><carlos:encode value='<%= thisForm.getReasonForConsultation() %>' context="html"/></textarea>
                                 </div>
                         <div class="consult-section-heading">
                                 <div class="d-flex align-items-center justify-content-between w-100">
@@ -2962,7 +2968,7 @@ if (userAgent != null) {
                         </div>
                                 <div class="collapse show" id="collapseClinical">
                                 <textarea rows="6" id="clinicalInformation" class="form-control"
-                                               name="clinicalInformation"><e:forHtmlContent value='<%= thisForm.getClinicalInformation() %>' /></textarea>
+                                               name="clinicalInformation"><carlos:encode value='<%= thisForm.getClinicalInformation() %>' context="html"/></textarea>
                                 </div>
                         <div class="consult-section-heading">
                                 <div class="d-flex align-items-center justify-content-between w-100">
@@ -2989,7 +2995,7 @@ if (userAgent != null) {
                         <div id="trConcurrentProblems">
                                 <div class="collapse show" id="collapseConcurrent">
                                 <textarea rows="6" id="concurrentProblems" class="form-control"
-                                               name="concurrentProblems"><e:forHtmlContent value='<%= thisForm.getConcurrentProblems() %>' /></textarea>
+                                               name="concurrentProblems"><carlos:encode value='<%= thisForm.getConcurrentProblems() %>' context="html"/></textarea>
                                 </div>
                         </div>
                         <div class="consult-section-heading">
@@ -3012,7 +3018,7 @@ if (userAgent != null) {
                         </div>
                                 <div class="collapse show" id="collapseMedications">
                                 <textarea rows="6" id="currentMedications" class="form-control"
-                                               name="currentMedications"><e:forHtmlContent value='<%= thisForm.getCurrentMedications() %>' /></textarea>
+                                               name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>
                                 </div>
                         <div class="consult-section-heading">
                                 <div class="d-flex align-items-center justify-content-between w-100">
@@ -3028,7 +3034,7 @@ if (userAgent != null) {
                                 </div>
                         </div>
                                 <div class="collapse show" id="collapseAllergies">
-                                <textarea rows="6" id="allergies" name="allergies" class="form-control"><e:forHtmlContent value='<%= thisForm.getAllergies() %>' /></textarea>
+                                <textarea rows="6" id="allergies" name="allergies" class="form-control"><carlos:encode value='<%= thisForm.getAllergies() %>' context="html"/></textarea>
                                 </div>
 
                         <%
@@ -3041,7 +3047,7 @@ if (userAgent != null) {
                         <div>
                                 <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
-                                       value="<%=(consultUtil.signatureImg != null ? Encode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
+                                       value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
                                        value="<%=signatureRequestId %>"/>
 
@@ -3049,7 +3055,7 @@ if (userAgent != null) {
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
                                     <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
-                                         alt="${e:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
+                                         alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
@@ -3085,13 +3091,13 @@ if (userAgent != null) {
                                         initServiceAutocomplete();
                                         initSpecialistAutocomplete();
                                         initializeConsultation(
-                                            '<e:forJavaScriptBlock value='<%= String.valueOf(consultUtil.service) %>' />',
-                                            '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                            '<e:forJavaScriptBlock value='<%= String.valueOf(consultUtil.specialist) %>' />',
-                                            '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
-                                            '<e:forJavaScriptBlock value='<%= consultUtil.specPhone %>' />',
-                                            '<e:forJavaScriptBlock value='<%= consultUtil.specFax %>' />',
-                                            '<e:forJavaScriptBlock value='<%= consultUtil.specAddr %>' />'
+                                            '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
+                                            '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
+                                            '<carlos:encode value='<%= String.valueOf(consultUtil.specialist) %>' context="javaScriptBlock"/>',
+                                            '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
+                                            '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= consultUtil.specAddr %>' context="javaScriptBlock"/>'
                                         );
                                     });
                                 });
@@ -3103,8 +3109,8 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${e:forJavaScript(consultUtil.specialist)}";
-                                const servicevalue = "${e:forJavaScript(consultUtil.service)}";
+                                const specialist = "${carlos:forJavaScript(consultUtil.specialist)}";
+                                const servicevalue = "${carlos:forJavaScript(consultUtil.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
@@ -3187,7 +3193,7 @@ if (userAgent != null) {
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
                     switchProvider("${pageScope.providerDefault}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
-                    switchProvider("<e:forJavaScriptBlock value='<%= clinic.getClinicName() %>' />");
+                    switchProvider("<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>");
                 } else {
                     switchProvider("-1");
                 }
@@ -3264,7 +3270,7 @@ if (userAgent != null) {
                                 // addFormIfNotFound only handles form (formNo) attachments;
                                 // skip pre-check for labs, docs, eForms, HRM not found in dialog
                                 if (delegate.startsWith("#formNo")) {
-                                    element = addFormIfNotFound(data, '<e:forJavaScriptBlock value='<%= demo %>' />', delegate);
+                                    element = addFormIfNotFound(data, '<carlos:encode value='<%= demo %>' context="javaScriptBlock"/>', delegate);
                                 } else {
                                     return;
                                 }
@@ -3388,4 +3394,3 @@ if (userAgent != null) {
         return noteStr.toString();
     }
 %>
-

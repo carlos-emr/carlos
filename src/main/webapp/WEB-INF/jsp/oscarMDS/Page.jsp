@@ -22,11 +22,13 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils,org.owasp.encoder.Encode" %>
 <%@page import="org.apache.logging.log4j.Logger,io.github.carlos_emr.carlos.commn.dao.OscarLogDao,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -236,13 +238,13 @@
                             MiscUtils.getLogger().debug("result.isAbnormal()=" + result.isAbnormal());
                             doclabid_seq.add(segmentID);
                             request.setAttribute("segmentID", segmentID);
-                            String demoName = Encode.forJavaScript(result.getPatientName());
+                            String demoName = SafeEncode.forJavaScript(result.getPatientName());
 
                             if (!isListView) {
                                 try {
                                     if (result.isDocument()) { %>
                     <!-- segment ID <%= segmentID %>  -->
-                    <!-- demographic name <e:forJavaScript value='<%= result.getPatientName() %>' />  -->
+                    <!-- demographic name <carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>  -->
                     <form id="frmDocumentDisplay_<%=segmentID%>">
                         <input type="hidden" name="segmentID" value="<%=segmentID%>"/>
                         <input type="hidden" name="demoName" value="<%=demoName%>"/>
@@ -314,28 +316,28 @@
                                    value="<%=result.labType%>"/>
                             <input type="hidden" name="ackStatus" value="<%= result.isMatchedToPatient() %>"/>
                             <input type="hidden" name="patientName"
-                                   value="<e:forHtmlAttribute value='<%= result.patientName %>' />"/>
+                                   value="<carlos:encode value='<%= result.patientName %>' context="htmlAttribute"/>"/>
                             <%--                                    <%=result.getHealthNumber() %>--%>
                         </td>
 
                         <td>
                             <% if (result.isMDS()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><e:forHtmlContent value='<%= result.getPatientName() %>' />
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isCML()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><e:forHtmlContent value='<%= result.getPatientName() %>' />
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isHL7TEXT()) {
                                 String categoryType = result.getDiscipline();
 
                                 if ("REF_I12".equals(categoryType)) {
                             %>
-                            <a href="javascript:parent.popupConsultation('<%=segmentID%>')"><%=labRead%><e:forHtmlContent value='<%= result.getPatientName() %>' />
+                            <a href="javascript:parent.popupConsultation('<%=segmentID%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<e:forUriComponent value='<%= segmentID %>' />&providerNo=<e:forUriComponent value='<%= providerNo %>' />&searchProviderNo=<e:forUriComponent value='<%= searchProviderNo %>' />&status=<e:forUriComponent value='<%= status %>' />&showLatest=true')"><%=labRead%><e:forHtmlContent value='<%= result.getPatientName() %>' />
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                                 }
@@ -348,15 +350,15 @@
 
                                 //the browser html parser does not understand javascript so we need to account for the opening
                                 //and closing quotes used in the onclick event handler
-                                patientName = Encode.forHtml(patientName);
+                                patientName = SafeEncode.forHtml(patientName);
 
                                 //now that the html parser will pass the correct characters to the javascript engine we need to
                                 //escape chars for javascript that are not transformed by the html escape.
-                                url.append(Encode.forJavaScript(patientName));
+                                url.append(SafeEncode.forJavaScript(patientName));
                             %>
 
                             <a href="javascript:void(0);"
-                               onclick="reportWindow('<%=url.toString()%>',screen.availHeight, screen.availWidth); return false;"><%=labRead + Encode.forHtml(result.getPatientName())%>
+                               onclick="reportWindow('<%=url.toString()%>',screen.availHeight, screen.availWidth); return false;"><%=labRead + SafeEncode.forHtml(result.getPatientName())%>
                             </a>
 
                             <% } else if (result.isHRM()) {
@@ -369,7 +371,7 @@
                             <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020)"><%=labRead%><%=result.getPatientName()%>
                             </a>
                             <% } else {%>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><e:forJavaScript value='<%= result.getPatientName() %>' />
+                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>
                             </a>
                             <% }%>
                         </td>
@@ -380,7 +382,7 @@
                             <%= (result.isAbnormal() ? "Abnormal" : "") %>
                         </td>
                         <td class="lab-label">
-                            <e:forHtmlContent value='<%= result.getLabel() %>' />
+                            <carlos:encode value='<%= result.getLabel() %>' context="html"/>
                         </td>
                         <td>
                             <%=result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : "")%>
@@ -389,13 +391,13 @@
                         <%--                                    <%=result.getPriority()%>--%>
                         <%--                                </td>--%>
                         <td>
-                            <e:forHtmlContent value='<%= result.getRequestingClient() %>' />
+                            <carlos:encode value='<%= result.getRequestingClient() %>' context="html"/>
                         </td>
                         <td>
-                            <e:forHtmlContent value='<%= result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString() %>' />
+                            <carlos:encode value='<%= result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString() %>' context="html"/>
                         </td>
                         <td>
-                            <e:forHtmlContent value='<%= result.getReportStatus() %>' />
+                            <carlos:encode value='<%= result.getReportStatus() %>' context="html"/>
                         </td>
                         <td>
                             <% int multiLabCount = result.getMultipleAckCount(); %>

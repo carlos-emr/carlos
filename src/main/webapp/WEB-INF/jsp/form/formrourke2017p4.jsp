@@ -58,6 +58,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -137,7 +138,7 @@
 </table>
 <div id="patientInfop4">
     <fmt:message key="encounter.formRourke1.msgName"/>:
-    <input type="text" maxlength="60" size="30" value="<e:forHtmlAttribute value='<%= props.getProperty("c_pName", "") %>' />"
+    <input type="text" maxlength="60" size="30" value="<carlos:encode value='<%= props.getProperty("c_pName", "") %>' context="htmlAttribute"/>"
            readonly="true"/>
     &nbsp;&nbsp;<fmt:message key="encounter.formRourke1.msgBirthDate"/> (d/m/yyyy):
     <input type="text" id="c_birthDate4" size="10" maxlength="10" value="<%= props.getProperty("c_birthDate", "") %>"
@@ -176,15 +177,15 @@
     <tr align="center" id="growthAp4">
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_ht18m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_ht18m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_wt18m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_wt18m', 'WT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -193,15 +194,15 @@
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_ht24m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_ht24m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_wt24m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_wt24m', 'WT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
@@ -213,15 +214,15 @@
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_ht48m', 'HT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_ht48m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formHt"/>
             </a>
         </td>
         <td>
             <a href="javascript:void(0)"
-               onclick="displayDemographicMeasurements('p4_wt48m', 'WT', '<e:forJavaScriptAttribute value='<%= String.valueOf(demographic.getDemographicNo()) %>' />',
-                       '<e:forJavaScriptAttribute value='<%= demographic.getFormattedDob() %>' />', '<e:forJavaScriptAttribute value='<%= appointmentNo %>' />')">
+               onclick="displayDemographicMeasurements('p4_wt48m', 'WT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
+                       '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>')">
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>

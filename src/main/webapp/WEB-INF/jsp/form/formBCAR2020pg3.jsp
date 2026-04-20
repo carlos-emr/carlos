@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "BCAR2020";
@@ -114,7 +115,7 @@
                 init(3);
 
                 // Set values in drop downs
-                // $("select[name='s_investigationsABO']").val('<e:forJavaScriptBlock value='<%= props.getProperty("s_investigationsABO", "UN") %>' />');
+                // $("select[name='s_investigationsABO']").val('<carlos:encode value='<%= props.getProperty("s_investigationsABO", "UN") %>' context="javaScriptBlock"/>');
                 $('form').areYouSure({'addRemoveFieldsMarksDirty': true});
             });
 
@@ -162,7 +163,7 @@
             <form action="${pageContext.request.contextPath}/form/BCAR2020" method="post">
                 <input type="hidden" id="demographicNo" name="demographicNo" value="<%=demoNo%>"/>
                 <input type="hidden" id="formId" name="formId" value="<%=formId%>"/>
-                <input type="hidden" name="provider_no" value=<e:forHtmlUnquotedAttribute value='<%= providerNo %>' />/>
+                <input type="hidden" name="provider_no" value=<carlos:encode value='<%= providerNo %>' context="htmlUnquotedAttribute"/>/>
                 <input type="hidden" id="user" name="provNo" value=<%=provNo%>/>
                 <input type="hidden" name="method" value="exit"/>
 
@@ -539,17 +540,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD1" <carlos:encode value='<%= props.getProperty("c_signOffsMD1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM1" <carlos:encode value='<%= props.getProperty("c_signOffsRM1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP1" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP1" <carlos:encode value='<%= props.getProperty("c_signOffsNP1", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.np"/>
                         </td>
                     </tr>
@@ -572,17 +573,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD2" <carlos:encode value='<%= props.getProperty("c_signOffsMD2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM2" <carlos:encode value='<%= props.getProperty("c_signOffsRM2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP2" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP2" <carlos:encode value='<%= props.getProperty("c_signOffsNP2", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.np"/>
                         </td>
                     </tr>
@@ -605,17 +606,17 @@
                         </td>
                         <td width="6%">
                             <input type="checkbox"
-                                   name="c_signOffsMD3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsMD3" <carlos:encode value='<%= props.getProperty("c_signOffsMD3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.md"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsRM3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsRM3" <carlos:encode value='<%= props.getProperty("c_signOffsRM3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.rm"/>
                         </td>
                         <td width="7%">
                             <input type="checkbox"
-                                   name="c_signOffsNP3" <e:forHtmlAttribute value='<%= props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "" %>' /> />
+                                   name="c_signOffsNP3" <carlos:encode value='<%= props.getProperty("c_signOffsNP3", "").equals("X") ? "checked" : "" %>' context="htmlAttribute"/> />
                             <fmt:message key="form.formBCAR2020pg3.label.np"/>
                         </td>
                     </tr>

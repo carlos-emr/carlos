@@ -83,9 +83,11 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%
@@ -354,9 +356,9 @@
                                         String te = (String) consultUtil.teamVec.get(i);
                                         if (te.equals(team)) {
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= te %>' />" selected><e:forHtmlContent value='<%= te %>' /></option>
+                                <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= te %>' context="html"/></option>
                                 <%} else {%>
-                                <option value="<e:forHtmlAttribute value='<%= te %>' />"><e:forHtmlContent value='<%= te %>' /></option>
+                                <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>"><carlos:encode value='<%= te %>' context="html"/></option>
                                 <%
                                         }
                                     }
@@ -368,14 +370,14 @@
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgStart"/>
                             </label>
                             <input type="date" name="startDate" id="startDate" class="form-control form-control-sm"
-                                   value="<e:forHtmlAttribute value='<%= formattedStartDate %>' />" />
+                                   value="<carlos:encode value='<%= formattedStartDate %>' context="htmlAttribute"/>" />
                         </div>
                         <div class="col-auto">
                             <label class="form-label mb-0 small fw-bold">
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgEnd"/>
                             </label>
                             <input type="date" name="endDate" id="endDate" class="form-control form-control-sm"
-                                   value="<e:forHtmlAttribute value='<%= formattedEndDate %>' />" />
+                                   value="<carlos:encode value='<%= formattedEndDate %>' context="htmlAttribute"/>" />
                         </div>
                         <div class="col-auto">
                             <div class="form-check mt-2">
@@ -409,11 +411,11 @@
                                    value="${msgSearchBtn}"/>
                         </div>
                     </div>
-                    <input type="hidden" name="currentTeam" id="currentTeam" value="<e:forHtmlAttribute value='<%= team != null ? team : "" %>' />"/>
-                    <input type="hidden" name="orderby" id="orderby" value="<e:forHtmlAttribute value='<%= orderby != null ? orderby : "" %>' />"/>
-                    <input type="hidden" name="desc" id="desc" value="<e:forHtmlAttribute value='<%= desc != null ? desc : "" %>' />"/>
-                    <input type="hidden" name="offset" id="offset" value="<e:forHtmlAttribute value='<%= String.valueOf(offset) %>' />"/>
-                    <input type="hidden" name="limit" id="limit" value="<e:forHtmlAttribute value='<%= String.valueOf(limit) %>' />"/>
+                    <input type="hidden" name="currentTeam" id="currentTeam" value="<carlos:encode value='<%= team != null ? team : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="orderby" id="orderby" value="<carlos:encode value='<%= orderby != null ? orderby : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="desc" id="desc" value="<carlos:encode value='<%= desc != null ? desc : "" %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="offset" id="offset" value="<carlos:encode value='<%= String.valueOf(offset) %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="limit" id="limit" value="<carlos:encode value='<%= String.valueOf(limit) %>' context="htmlAttribute"/>"/>
                 </div>
             </form>
 
@@ -428,7 +430,7 @@
                     <% } else if (team.isEmpty()) { %>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.formViewAll"/>
                     <% } else { %>
-                    <e:forHtmlContent value='<%= team %>' />
+                    <carlos:encode value='<%= team %>' context="html"/>
                     <% } %>
                 </span>
             </div>
@@ -571,14 +573,14 @@
                                     }
                                 }
 
-                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest?requestId=" + Encode.forUriComponent(id);
+                                String viewUrl = request.getContextPath() + "/encounter/ViewRequest?requestId=" + SafeEncode.forUriComponent(id);
                         %>
                         <tr class="<%=overdue ? "consult-row-overdue" : ""%>"
                             tabindex="0"
                             role="button"
-                            onclick="popupOscarRx(700,960,'<e:forJavaScriptAttribute value='<%= viewUrl %>' />')"
-                            onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<e:forJavaScriptAttribute value='<%= viewUrl %>' />');}">
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
+                            onclick="popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>')"
+                            onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<carlos:encode value='<%= viewUrl %>' context="javaScriptAttribute"/>');}">
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                                 <% if (status.equals("1")) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgND"/>
                                 <% } else if (status.equals("2")) { %>
@@ -591,7 +593,7 @@
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgBC"/>
                                 <%}%>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                                 <% if (urgency.equals("1")) { %>
                                 <span class="urgency-urgent"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
                                 <% } else if (urgency.equals("2")) { %>
@@ -600,44 +602,44 @@
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                                 <% if (sendTo.equals("-1")) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.formTeamNotApplicable"/>
                                 <% } else { %>
-                                <e:forHtmlContent value='<%= sendTo %>' />
+                                <carlos:encode value='<%= sendTo %>' context="html"/>
                                 <% } %>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= patient %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= patient %>' context="html"/>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= provide %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= provide %>' context="html"/>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= service %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= service %>' context="html"/>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= specialist %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= specialist %>' context="html"/>
                                 <% if (eReferral) { %>
                                 <span class="badge bg-info text-dark ms-1"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgOceanBadge"/></span>
                                 <%} %>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= date %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= date %>' context="html"/>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                                 <% if (patBook != null && patBook.trim().equals("1")) {%>
                                 <span class="fst-italic"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPatientWillBook"/></span>
                                 <%} else {%>
-                                <e:forHtmlContent value='<%= appt %>' />
+                                <carlos:encode value='<%= appt %>' context="html"/>
                                 <%}%>
                             </td>
-                            <td class="consult-status-<e:forHtmlAttribute value='<%= status %>' />">
-                                <e:forHtmlContent value='<%= followUpDate %>' />
+                            <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= followUpDate %>' context="html"/>
                             </td>
                             <% if (bMultisites) { %>
-                            <td style="background-color: <e:forHtmlAttribute value='<%= siteBgColor.get(siteName)==null || siteBgColor.get(siteName).length()== 0 ? "#FFFFFF" : siteBgColor.get(siteName) %>' />">
-                                <e:forHtmlContent value='<%= siteShortName.get(siteName) != null ? siteShortName.get(siteName) : "" %>' />
+                            <td style="background-color: <carlos:encode value='<%= siteBgColor.get(siteName)==null || siteBgColor.get(siteName).length()== 0 ? "#FFFFFF" : siteBgColor.get(siteName) %>' context="htmlAttribute"/>">
+                                <carlos:encode value='<%= siteShortName.get(siteName) != null ? siteShortName.get(siteName) : "" %>' context="html"/>
                             </td>
                             <%} %>
                         </tr>
@@ -668,17 +670,17 @@
                         for (int i = 0; i < tickerList.size(); i++) {
                             String demo = (String) tickerList.get(i);
                             if (i == 0) {
-                                queryStr += "demo=" + Encode.forUriComponent(demo);
+                                queryStr += "demo=" + SafeEncode.forUriComponent(demo);
                             } else {
-                                queryStr += "&demo=" + Encode.forUriComponent(demo);
+                                queryStr += "&demo=" + SafeEncode.forUriComponent(demo);
                             }
                         }%>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
-                    <%  String addTicklerConfirmJs = Encode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
+                    <%  String addTicklerConfirmJs = SafeEncode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
                         String addTicklerUrl = request.getContextPath() + "/tickler/ViewAddTickler?" + queryStr
                             + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week", "UTF-8"); %>
                     <a class="btn btn-link btn-sm" target="_blank"
-                       href="<%= Encode.forHtmlAttribute(addTicklerUrl) %>"
+                       href="<%= SafeEncode.forHtmlAttribute(addTicklerUrl) %>"
                        onclick="return confirm('<%=addTicklerConfirmJs%>');">
                         <i class="fas fa-bell me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
                     </a>

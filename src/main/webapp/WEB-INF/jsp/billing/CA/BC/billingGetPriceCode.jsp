@@ -38,6 +38,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -62,7 +63,7 @@
             return;
             <%} else {%>
             self.close();
-            self.opener.document["<e:forJavaScriptBlock value='<%= formName %>' />"]["<e:forJavaScriptBlock value='<%= formElementPrice %>' />"].value = cost;
+            self.opener.document["<carlos:encode value='<%= formName %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= formElementPrice %>' context="javaScriptBlock"/>"].value = cost;
             <%}%>
         }
     </script>
@@ -85,7 +86,7 @@
             String cost = bss.get(0).getValue(); %>
     <script LANGUAGE="JavaScript">
         <!--
-        CodeAttach('<e:forJavaScriptBlock value='<%= StringUtils.noNull(cost) %>' />');
+        CodeAttach('<carlos:encode value='<%= StringUtils.noNull(cost) %>' context="javaScriptBlock"/>');
         -->
     </script>
     <%} else {%>

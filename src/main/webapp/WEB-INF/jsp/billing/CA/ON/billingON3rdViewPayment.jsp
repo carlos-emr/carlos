@@ -25,6 +25,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao" %>
@@ -62,13 +63,13 @@
     <c:if test="${not empty itemDataList}">
         <c:forEach var="itemData" items="${itemDataList}" varStatus="idx">
             <tr align="center">
-                <td>${e:forHtml(itemData.patientName)}</td>
-                <td>${e:forHtml(itemData.ch1_id)}</td>
-                <td>${e:forHtml(itemData.service_code)}</td>
-                <td>${e:forHtml(itemData.paid)}</td>
-                <td>${e:forHtml(itemData.discount)}</td>
-                <td>${e:forHtml(itemData.credit)}</td>
-                <td>${e:forHtml(itemData.refund)}</td>
+                <td>${carlos:forHtml(itemData.patientName)}</td>
+                <td>${carlos:forHtml(itemData.ch1_id)}</td>
+                <td>${carlos:forHtml(itemData.service_code)}</td>
+                <td>${carlos:forHtml(itemData.paid)}</td>
+                <td>${carlos:forHtml(itemData.discount)}</td>
+                <td>${carlos:forHtml(itemData.credit)}</td>
+                <td>${carlos:forHtml(itemData.refund)}</td>
             </tr>
         </c:forEach>
     </c:if>

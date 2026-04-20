@@ -44,6 +44,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
@@ -63,7 +64,7 @@
                 <h1><fmt:message key="appointment.appointmentupdatearecord.msgUpdateSuccess"/></h1>
                 <script language="JavaScript">
                     <c:if test="${printReceipt}">
-                    popupPage(350, 750, 'printappointment.jsp?appointment_no=${e:forJavaScript(appointmentNo)}');
+                    popupPage(350, 750, '${pageContext.request.contextPath}/appointment/printappointment?appointment_no=${carlos:forJavaScript(carlos:forUriComponent(appointmentNo))}');
                     </c:if>
                     try { self.opener.refresh(); } catch (e) { /* opener may be closed or cross-origin */ }
                     self.close();

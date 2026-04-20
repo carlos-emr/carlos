@@ -63,6 +63,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -214,12 +215,12 @@
                                             <tr>
                                                 <td width=20% valign="top">
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= drug.getRegionalIdentifier() %>' />&cn=<e:forUriComponent value='<%= drug.getCustomName() %>' />&bn=<e:forUriComponent value='<%= drug.getBrandName() %>' />"><%=drug.getRxDate()%>
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><%=drug.getRxDate()%>
                                                     </a>
                                                 </td>
                                                 <td width=100%>
                                                     <a <%= styleColor%>
-                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<e:forUriComponent value='<%= drug.getRegionalIdentifier() %>' />&cn=<e:forUriComponent value='<%= drug.getCustomName() %>' />&bn=<e:forUriComponent value='<%= drug.getBrandName() %>' />"><e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
+                                                            href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="uriComponent"/>&cn=<carlos:encode value='<%= drug.getCustomName() %>' context="uriComponent"/>&bn=<carlos:encode value='<%= drug.getBrandName() %>' context="uriComponent"/>"><carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                                                     </a>
                                                 </td>
                                             </tr>

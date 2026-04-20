@@ -48,6 +48,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -58,7 +59,8 @@
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="admin.admin.UpdateDrugref"/></title>
-        <link href="${e:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <link href="${carlos:forHtmlAttribute(ctx)}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/csrfTokenFetch.js"></script>
 
         <script>
             function getCsrfToken() {
@@ -71,7 +73,7 @@
             }
 
             function getUpdateTime() {
-                const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
+                const url = "${carlos:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'verify');
                 formData.append('CSRF-TOKEN', getCsrfToken());
@@ -119,7 +121,7 @@
             }
 
             function updateDB() {
-                const url = "${e:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
+                const url = "${carlos:forJavaScript(ctx)}" + "/rx/updateDrugrefDB";
                 const formData = new URLSearchParams();
                 formData.append('method', 'updateDB');
                 formData.append('CSRF-TOKEN', getCsrfToken());
@@ -154,7 +156,15 @@
                 });
             }
 
-            document.addEventListener("DOMContentLoaded", getUpdateTime);
+            document.addEventListener("DOMContentLoaded", function () {
+                fetchCsrfToken("${carlos:forJavaScript(ctx)}")
+                    .then(getUpdateTime)
+                    .catch(function (err) {
+                        console.warn('Skipping getUpdateTime — CSRF token not available:', err);
+                        document.getElementById('dbInfo').innerHTML =
+                            'Could not load CSRF token. Refresh the page or contact support.';
+                    });
+            });
         </script>
       <style>
         #updateButton {
@@ -167,8 +177,7 @@
       </style>
     </head>
     <body class="mainbody">
-    <%-- Hidden form required so CSRFGuard can inject the CSRF-TOKEN hidden input --%>
-    <form id="csrfForm" method="post" style="display:none;"></form>
+    <input type="hidden" name="CSRF-TOKEN" value="">
     <h3><fmt:message key="admin.admin.UpdateDrugref"/></h3>
     <div class="card card-body bg-body-tertiary">
         <div id="dbInfo"></div>

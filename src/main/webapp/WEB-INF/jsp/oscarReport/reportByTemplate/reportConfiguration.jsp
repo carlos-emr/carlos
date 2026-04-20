@@ -47,6 +47,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
     <%
@@ -132,22 +133,22 @@
             <%}%>
 
     <h3>
-        ${e:forHtml(curreport.title)}<br>
-        <small>${e:forHtml(curreport.description)}</small>
+        ${carlos:forHtml(curreport.title)}<br>
+        <small>${carlos:forHtml(curreport.description)}</small>
     </h3>
 
     <c:if test="${ not empty errormsg }">
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        ${e:forHtml(errormsg)}
+        ${carlos:forHtml(errormsg)}
     </div>
     </c:if>
 
     <div class="card card-body bg-body-tertiary configDiv" id=manageGroups>
         <form class="form" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/GenerateReportAction"
                    method="post" onsubmit="return checkform(this);">
-            <input type="hidden" name="templateId" value="<e:forHtmlAttribute value='<%= curreport.getTemplateId() %>' />">
-            <input type="hidden" name="type" value="<e:forHtmlAttribute value='<%= curreport.getType() %>' />">
+            <input type="hidden" name="templateId" value="<carlos:encode value='<%= curreport.getTemplateId() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="type" value="<carlos:encode value='<%= curreport.getType() %>' context="htmlAttribute"/>">
 
             <%
                 for (int i = 0; i < parameters.size(); i++) {
@@ -155,20 +156,20 @@
                     Parameter curparam = (Parameter) parameters.get(i);
             %>
             <div class="mb-3">
-                <label class="form-label" for="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />"><strong>Step <%=step%>
-                    : </strong> <e:forHtmlContent value='<%= curparam.getParamDescription() %>' />
+                <label class="form-label" for="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>"><strong>Step <%=step%>
+                    : </strong> <carlos:encode value='<%= curparam.getParamDescription() %>' context="html"/>
                 </label>
 
                     <%-- If LIST field --%>
                 <%if (curparam.getParamType().equals(curparam.LIST)) {%>
                 <div>
-                    <select name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />" id="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />">
+                    <select name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>" id="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>">
                         <%
                             ArrayList paramChoices = curparam.getParamChoices();
                             for (int i2 = 0; i2 < paramChoices.size(); i2++) {
                                 Choice curchoice = (Choice) paramChoices.get(i2);
                         %>
-                        <option value="<e:forHtmlAttribute value='<%= curchoice.getChoiceId() %>' />"><e:forHtmlContent value='<%= curchoice.getChoiceText() %>' />
+                        <option value="<carlos:encode value='<%= curchoice.getChoiceId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= curchoice.getChoiceText() %>' context="html"/>
                         </option>
                         <%}%>
                     </select>
@@ -177,14 +178,14 @@
                     <%--If TEXT field --%>
                 <% } else if (curparam.getParamType().equals(curparam.TEXT)) {%>
                 <div>
-                    <input type="text" name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />" id="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />"/>
+                    <input type="text" name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>" id="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>"/>
                 </div>
 
                     <%--If DATE field --%>
                 <% } else if (curparam.getParamType().equals(curparam.DATE)) {%>
                 <div>
-                    <div class="input-group" id="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />">
-                        <input type="text" class="datefield" id="datefield<%=i%>" name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />"/>
+                    <div class="input-group" id="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>">
+                        <input type="text" class="datefield" id="datefield<%=i%>" name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>"/>
                         <span class="input-group-text">
 									<a id="obsdate<%=i%>">
 										<img title="Calendar" src="${pageContext.request.contextPath}/images/cal.gif"
@@ -205,7 +206,7 @@
 
                     <%--If CHECK field --%>
                 <% } else if (curparam.getParamType().equals(curparam.CHECK)) {%>
-                <input type="hidden" name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />:check" value=""/>
+                <input type="hidden" name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>:check" value=""/>
                 <div>
 
                     <input type="checkbox" name="mastercheck" id="mastercheck"
@@ -217,17 +218,17 @@
                             Choice curchoice = (Choice) paramChoices.get(i2);
                     %>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />"
-                               id="<e:forHtmlAttribute value='<%= curparam.getParamId() + curchoice.getChoiceId() %>' />"
-                               value="<e:forHtmlAttribute value='<%= curchoice.getChoiceId() %>' />"/>
-                        <label class="form-check-label" for="<e:forHtmlAttribute value='<%= curparam.getParamId() + curchoice.getChoiceId() %>' />"><e:forHtmlContent value='<%= curchoice.getChoiceText() %>' /></label>
+                        <input type="checkbox" class="form-check-input checkclass<%=i%>" name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>"
+                               id="<carlos:encode value='<%= curparam.getParamId() + curchoice.getChoiceId() %>' context="htmlAttribute"/>"
+                               value="<carlos:encode value='<%= curchoice.getChoiceId() %>' context="htmlAttribute"/>"/>
+                        <label class="form-check-label" for="<carlos:encode value='<%= curparam.getParamId() + curchoice.getChoiceId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= curchoice.getChoiceText() %>' context="html"/></label>
                     </div>
                     <%}%>
                 </div>
                 <% } else if (curparam.getParamType().equals(curparam.TEXTLIST)) {%>
                 <div>
-                    <input type="text" placeholder="Comma Separated" name="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />:list"
-                           id="<e:forHtmlAttribute value='<%= curparam.getParamId() %>' />"/>
+                    <input type="text" placeholder="Comma Separated" name="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>:list"
+                           id="<carlos:encode value='<%= curparam.getParamId() %>' context="htmlAttribute"/>"/>
                 </div>
                 <% }%>
 
@@ -245,10 +246,10 @@
     </div>
 
     <div id="optionsDiv" class="form-actions">
-        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<e:forUriComponent value='<%= curreport.getTemplateId() %>' />" class="link">View Template XML</a>
-        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<e:forUriComponent value='<%= curreport.getTemplateId() %>' />&amp;opentext=1" class="link">Edit
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>" class="link">View Template XML</a>
+        <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>&amp;opentext=1" class="link">Edit
             Template</a>
-        <a href="javascript:void(0);" onclick="deleteTemplate('<e:forJavaScriptAttribute value='<%= curreport.getTemplateId() %>' />');" class="link">
+        <a href="javascript:void(0);" onclick="deleteTemplate('<carlos:encode value='<%= curreport.getTemplateId() %>' context="javaScriptAttribute"/>');" class="link">
             Delete Template
         </a>
     </div>

@@ -51,6 +51,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
@@ -69,7 +70,7 @@ String demographic_no = request.getParameter("demographic_no");
     <frameset rows="300,0">
         <%-- Main frame: Shows the PDF preview for the selected demographic --%>
         <frame name="main"
-               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<e:forUriComponent value='<%= demographic_no %>' />"
+               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>"
                noresize scrolling=auto marginheight=5 marginwidth=5>
         <%-- Hidden source frame: Used for background processing --%>
         <frame name="srcFrame" src="">

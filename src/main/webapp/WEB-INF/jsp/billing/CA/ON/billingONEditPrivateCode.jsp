@@ -33,6 +33,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     //
     //int serviceCodeLen = 5;
@@ -53,12 +54,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("edit".length()))) {
                 if (dbObj.updateCodeByName(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag"))) {
-                    msg = Encode.forHtml(serviceCode) + " is updated.<br>"
+                    msg = SafeEncode.forHtml(serviceCode) + " is updated.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode)
+                    msg = SafeEncode.forHtml(serviceCode)
                             + " is <font color='red'>NOT</font> updated. Action failed! Try edit it again.";
                     action = "edit" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -71,7 +72,7 @@
                     prop.setProperty("gstFlag", request.getParameter("gstFlag"));
                 }
             } else {
-                msg = "You can <font color='red'>NOT</font> save the service code - " + Encode.forHtml(serviceCode)
+                msg = "You can <font color='red'>NOT</font> save the service code - " + SafeEncode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -84,12 +85,12 @@
             if (serviceCode.equals(request.getParameter("action").substring("add".length()))) {
                 if (dbObj.addCodeByStr(serviceCode, request.getParameter("description"), valuePara, "0.00",
                         request.getParameter("billingservice_date"), request.getParameter("gstFlag")) > 0) {
-                    msg = Encode.forHtml(serviceCode) + " is added.<br>"
+                    msg = SafeEncode.forHtml(serviceCode) + " is added.<br>"
                             + "Type in a service code and search first to see if it is available.";
                     action = "search";
                     prop.setProperty("service_code", serviceCode);
                 } else {
-                    msg = Encode.forHtml(serviceCode)
+                    msg = SafeEncode.forHtml(serviceCode)
                             + " is not added. Action failed! Try edit it again.";
                     action = "add" + serviceCode;
                     prop.setProperty("service_code", serviceCode);
@@ -103,7 +104,7 @@
                     alert = "error";
                 }
             } else {
-                msg = "You can not save the service code - " + Encode.forHtml(serviceCode)
+                msg = "You can not save the service code - " + SafeEncode.forHtml(serviceCode)
                         + ". Please search the service code first.";
                 action = "search";
                 prop.setProperty("service_code", serviceCode);
@@ -150,7 +151,7 @@
                 serviceCode = "";
             serviceCode = "_" + serviceCode;
             if (dbObj.deletePrivateCode(serviceCode)) {
-                msg = Encode.forHtml(serviceCode) + " is deleted.<br>"
+                msg = SafeEncode.forHtml(serviceCode) + " is deleted.<br>"
                         + "Type in a service code and search first to see if it is available.";
                 action = "search";
                 prop.setProperty("service_code", "_");
@@ -160,6 +161,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -181,7 +183,7 @@
                 document.forms[1].service_code.focus();
                 document.forms[1].service_code.select();
                 <% if ( prop.getProperty("gstFlag") != null ) {%>
-                if ("<e:forJavaScriptBlock value='<%= prop.getProperty("gstFlag", "") %>' />" == "1") {
+                if ("<carlos:encode value='<%= prop.getProperty("gstFlag", "") %>' context="javaScriptBlock"/>" == "1") {
                     document.getElementById("gstCheck").checked = true;
                     document.getElementById("gstFlag").value = 1;
                 } else {
@@ -309,7 +311,7 @@
                                 MiscUtils.getLogger().warn("NULL value set for a private billing code description (code is '" + strCode + "')");
                             }
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= strCode %>' />"><e:forHtmlContent value='<%= strCode + "| " + strDesc %>' />
+                    <option value="<carlos:encode value='<%= strCode %>' context="htmlAttribute"/>"><carlos:encode value='<%= strCode + "| " + strDesc %>' context="html"/>
                     </option>
                     <%
                         }
@@ -324,14 +326,14 @@
         <div class="card card-body bg-body-tertiary">
             <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONEditPrivateCode">
 
-                <div class="alert alert-<e:forHtmlAttribute value='<%= alert %>' />">
+                <div class="alert alert-<carlos:encode value='<%= alert %>' context="htmlAttribute"/>">
                     <%=msg%>
                 </div>
 
                 Private Code_ <small>(e.g. O001A)</small><br>
                 <div class="input-group">
                     <input type="text" name="service_code"
-                           value="<e:forHtmlAttribute value='<%= prop.getProperty("service_code", "?").substring(1) %>' />" class="col-md-2" maxlength='10'
+                           value="<carlos:encode value='<%= prop.getProperty("service_code", "?").substring(1) %>' context="htmlAttribute"/>" class="col-md-2" maxlength='10'
                            onblur="upCaseCtrl(this)" required/>
                     <button type="submit" name="submit" class="btn btn-primary" onclick="javascript:return onSearch();"
                             value="Search">Search
@@ -341,10 +343,10 @@
                 <br>
 
                 Description<br>
-                <input type="text" name="description" value="<e:forHtmlAttribute value='<%= prop.getProperty("description", "") %>' />" size='50'><br>
+                <input type="text" name="description" value="<carlos:encode value='<%= prop.getProperty("description", "") %>' context="htmlAttribute"/>" size='50'><br>
 
                 Fee <small>(format: xx.xx, e.g. 18.20)</small><br>
-                <input type="text" name="value" value="<e:forHtmlAttribute value='<%= prop.getProperty("value", "") %>' />" size='8' maxlength='8'> <br>
+                <input type="text" name="value" value="<carlos:encode value='<%= prop.getProperty("value", "") %>' context="htmlAttribute"/>" size='8' maxlength='8'> <br>
 
                 <input type="checkbox" name="gstCheck" id="gstCheck" onclick="setFlag()"/> Add GST <br>
 
@@ -363,7 +365,7 @@
 
                 <br>
                 <input class="btn btn-secondary" type="submit" name="submit" value="Delete" onclick="javascript:return onDelete();">
-                <input type="hidden" name="action" value='<e:forHtmlAttribute value='<%= action %>' />'>
+                <input type="hidden" name="action" value='<carlos:encode value='<%= action %>' context="htmlAttribute"/>'>
                 <input class="btn btn-secondary" type="submit" name="submit"
                        value="<fmt:message key="admin.resourcebaseurl.btnSave"/>"
                        onclick="javascript:return onSave();">

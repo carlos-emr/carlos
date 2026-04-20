@@ -53,6 +53,7 @@
 <%@page import="java.text.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
 		    String din = request.getParameter("din");
 		    String randomId = request.getParameter("randomId");
@@ -78,6 +79,6 @@
                 }
          %>
             <span style="margin-left:2px; margin-right: 2px;">
-			<e:forHtmlContent value='<%= moneyString %>' />
+			<carlos:encode value='<%= moneyString %>' context="html"/>
             </span>
             <%}%>

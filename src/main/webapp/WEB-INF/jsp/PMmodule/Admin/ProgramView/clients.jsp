@@ -31,6 +31,7 @@
 
 <%@ include file="/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Clients"/>
@@ -117,7 +118,7 @@
 <input type="hidden" name="community" value=""/>
 <input type="hidden" name="type" value=""/>
 <input type="hidden" name="program_name"
-       value="${e:forHtmlAttribute(program_name)}"/>
+       value="${carlos:forHtmlAttribute(program_name)}"/>
 <input type="hidden" name="clientStatusId"/>
 
 <div class="tabs" id="tabs">
@@ -135,7 +136,7 @@
     <display:setProperty name="basic.msg.empty_list"
                          value="No clients currently admitted to this program."/>
     <display:column>
-        <input type="checkbox" name="checked_${e:forHtmlAttribute(admission.id)}">
+        <input type="checkbox" name="checked_${carlos:forHtmlAttribute(admission.id)}">
     </display:column>
     <display:column property="client.formattedName" sortable="true"
                     title="Name"/>
@@ -153,15 +154,15 @@
 
     <display:column sortable="false" title="">
         <select name="x"
-                onchange="assignTeam('${e:forJavaScript(admission.id)}',this);">
+                onchange="assignTeam('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
                 <c:choose>
                     <c:when test="${team.id == admission.teamId}">
-                        <option value="${e:forHtmlAttribute(team.id)}" selected>${e:forHtml(team.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(team.id)}" selected>${carlos:forHtml(team.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="${e:forHtmlAttribute(team.id)}">${e:forHtml(team.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(team.id)}">${carlos:forHtml(team.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
@@ -170,15 +171,15 @@
 
     <display:column sortable="false" title="Status">
         <select name="y"
-                onchange="assignStatus('${e:forJavaScript(admission.id)}',this);">
+                onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
                 <c:choose>
                     <c:when test="${status.id == admission.clientStatusId}">
-                        <option value="${e:forHtmlAttribute(status.id)}" selected>${e:forHtml(status.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(status.id)}" selected>${carlos:forHtml(status.name)}</option>
                     </c:when>
                     <c:otherwise>
-                        <option value="${e:forHtmlAttribute(status.id)}">${e:forHtml(status.name)}</option>
+                        <option value="${carlos:forHtmlAttribute(status.id)}">${carlos:forHtml(status.name)}</option>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
@@ -199,7 +200,7 @@
     <option value="0"></option>
     <c:forEach var="program" items="${servicePrograms}">
         <c:if test="${program.id != requestScope.id}">
-            <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
+            <option value="${carlos:forHtmlAttribute(program.id)}">${carlos:forHtml(program.name)}</option>
         </c:if>
     </c:forEach>
     </select>
@@ -210,7 +211,7 @@
     <option value="0"></option>
     <c:forEach var="program" items="${communityPrograms}">
         <c:if test="${program.id != requestScope.id}">
-            <option value="${e:forHtmlAttribute(program.id)}">${e:forHtml(program.name)}</option>
+            <option value="${carlos:forHtmlAttribute(program.id)}">${carlos:forHtml(program.name)}</option>
         </c:if>
     </c:forEach>
     </select>

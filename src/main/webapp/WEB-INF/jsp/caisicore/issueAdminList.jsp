@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -72,13 +73,13 @@
             </c:otherwise>
         </c:choose>
         <!--Not allow to edit issue
-        <td><a href="issueAdmin?method=edit&amp;id=${e:forHtmlAttribute(issueAdmin.id)}">${e:forHtml(issueAdmin.code)}</a></td>
+        <td><a href="issueAdmin?method=edit&amp;id=${carlos:forHtmlAttribute(issueAdmin.id)}">${carlos:forHtml(issueAdmin.code)}</a></td>
         -->
-        <td>${e:forHtml(issueAdmin.code)}</td>
-        <td>${e:forHtml(issueAdmin.description)}</td>
-        <td>${e:forHtml(issueAdmin.role)}</td>
+        <td>${carlos:forHtml(issueAdmin.code)}</td>
+        <td>${carlos:forHtml(issueAdmin.description)}</td>
+        <td>${carlos:forHtml(issueAdmin.role)}</td>
         <!--
-        <td>${e:forHtml(issueAdmin.update_date)}</td>
+        <td>${carlos:forHtml(issueAdmin.update_date)}</td>
         -->
         </tr>
     </c:forEach>

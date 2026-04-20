@@ -30,6 +30,7 @@
 <%! boolean bMultisites = IsPropertiesOn.isMultisitesEnable(); %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -317,8 +318,8 @@
             <input type="hidden" name="submit" value="Create Report">
 
             Bill Center:
-            <input type="hidden" name="billcenter" value="<e:forHtmlAttribute value='<%= billCenter %>' />">
-            <e:forHtmlContent value='<%= healthOffice %>' />
+            <input type="hidden" name="billcenter" value="<carlos:encode value='<%= billCenter %>' context="htmlAttribute"/>">
+            <carlos:encode value='<%= healthOffice %>' context="html"/>
 
             <button type='button' name='print' value='Print' class="btn float-end" onClick='window.print()'><i
                     class="fa-solid fa-print"></i> Print
@@ -333,10 +334,10 @@
             %>
 
 
-            <input type="hidden" name="monthCode" value="<e:forHtmlAttribute value='<%= monthCode %>' />">
+            <input type="hidden" name="monthCode" value="<carlos:encode value='<%= monthCode %>' context="htmlAttribute"/>">
             <input type="hidden" name="verCode" value="V03">
-            <input type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= user_no %>' />">
-            <input type="hidden" name="curDate" value="<e:forHtmlAttribute value='<%= nowDate %>' />">
+            <input type="hidden" name="curUser" value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>">
+            <input type="hidden" name="curDate" value="<carlos:encode value='<%= nowDate %>' context="htmlAttribute"/>">
 
 
             <div class="col-md-12" style="margin:4px;">
@@ -366,10 +367,10 @@
                             for (int i = 0; i < providerStr.size(); i++) {
                                 String temp[] = ((String) providerStr.get(i)).split("\\|");
                         %>
-                        <option value="<e:forHtmlAttribute value='<%= temp[0] %>' />"
-                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><e:forHtmlContent value='<%= temp[1] %>' />
+                        <option value="<carlos:encode value='<%= temp[0] %>' context="htmlAttribute"/>"
+                                <%=providerview.equals(temp[0]) ? "selected" : (providerStr.size() == 1 ? "selected" : "")%>><carlos:encode value='<%= temp[1] %>' context="html"/>
                             ,
-                            <e:forHtmlContent value='<%= temp[2] %>' />
+                            <carlos:encode value='<%= temp[2] %>' context="html"/>
                         </option>
                         <%
                             }
@@ -381,7 +382,7 @@
                     From:<br>
                     <div class="input-group">
                         <input type="text" name="xml_vdate" id="xml_vdate" class="form-control"
-                               value="<e:forHtmlAttribute value='<%= xml_vdate %>' />" style="width:90px" autocomplete="off"/>
+                               value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" style="width:90px" autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>
                 </div>
@@ -391,7 +392,7 @@
                     To:<br>
                     <div class="input-group">
                         <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                               class="form-control" value="<e:forHtmlAttribute value='<%= xml_appointment_date %>' />" style="width:90px"
+                               class="form-control" value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>" style="width:90px"
                                autocomplete="off"/>
                         <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                     </div>

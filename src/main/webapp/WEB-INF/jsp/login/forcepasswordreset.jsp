@@ -42,6 +42,7 @@
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="org.springframework.web.util.JavaScriptUtils" %>
 <%@ page
@@ -241,7 +242,7 @@
         </table>
         <center>
 
-            <p><b><font color='red'><e:forHtmlContent value='<%= errormsg %>' />
+            <p><b><font color='red'><carlos:encode value='<%= errormsg %>' context="html"/>
             </font></b>
 
             <table border="0" width="100%" cellpadding="4" cellspacing="0">

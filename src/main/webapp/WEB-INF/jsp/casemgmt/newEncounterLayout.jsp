@@ -30,6 +30,7 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -77,47 +78,47 @@
             Encounter
         </title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-        <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
 
-        <link rel="stylesheet" type="text/css" href="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
-        <link rel="stylesheet" type="text/css" href="${e:forHtmlAttribute(ctx)}/css/oscarRx.css">
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
         <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all" href="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
+        <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
-        <link rel="stylesheet" type="text/css" href="${e:forHtmlAttribute(ctx)}/css/print.css" media="print">
+        <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/print.css" media="print">
 
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript">jQuery.noConflict();</script>
         <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/prototype-compat.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/carlos-ajax.js" type="text/javascript"></script>
         <!-- CSRFGuard must load AFTER prototype-compat.js so its XHR.send() interception
              takes final precedence for automatic CSRF token injection -->
-        <script src="${e:forHtmlAttribute(ctx)}/csrfguard"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/csrfguard"></script>
 
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/casemgmt/ViewNewEncounterLayoutJs?v=<%= System.currentTimeMillis() %>"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/casemgmt/ViewNewEncounterLayoutJs?v=<%= System.currentTimeMillis() %>"></script>
 
             <%-- for popup menu of forms --%>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js" type="text/javascript"></script>
-        <script src="${e:forHtmlAttribute(ctx)}/share/javascript/menutility.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/popupmenu.js" type="text/javascript"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/menutility.js" type="text/javascript"></script>
 
         <!-- main calendar program -->
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/calendar/calendar.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.js"></script>
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-        src="${e:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+        src="${carlos:forHtmlAttribute(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/calendar/calendar-setup.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar-setup.js"></script>
 
         <!-- js window size utility funcs -->
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
 
         <!-- vanilla JS autocomplete select box (replaces Scriptaculous Autocompleter.SelectBox) -->
-        <script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/share/javascript/select.js?v=<%= System.currentTimeMillis() %>"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/select.js?v=<%= System.currentTimeMillis() %>"></script>
 
         <script type="text/javascript">
             var Colour = {
@@ -148,7 +149,7 @@
 
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
 <!--js code for newCaseManagementView.jsp -->
-<script type="text/javascript" src="${e:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
+<script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
 
         <script type="text/javascript">
 
@@ -195,8 +196,8 @@
                      paramValue = request.getParameter(paramName);
 
                  %>
-                params += "&" + encodeURIComponent("<e:forJavaScriptBlock value='<%= paramName %>' />")
-                        + "=" + encodeURIComponent("<e:forJavaScriptBlock value='<%= paramValue %>' />");
+                params += "&" + encodeURIComponent("<carlos:encode value='<%= paramName %>' context="javaScriptBlock"/>")
+                        + "=" + encodeURIComponent("<carlos:encode value='<%= paramValue %>' context="javaScriptBlock"/>");
                 <%
 
                  }
@@ -309,7 +310,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<e:forJavaScript value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' />');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data === 'refresh' || (data && data.action === 'refresh')) {
@@ -382,15 +383,15 @@
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<e:forUriComponent value='<%= CarlosProperties.getInstance().getProperty("ocean_host") %>' />></script>
+                ocean-host=<carlos:encode value='<%= CarlosProperties.getInstance().getProperty("ocean_host") %>' context="uriComponent"/>></script>
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="encounter.Index.title"/></title>
         <script type="text/javascript">
-            ctx = "${e:forJavaScript(ctx)}";
-            demographicNo = "${e:forJavaScript(demographicNo)}";
-            providerNo = "${e:forJavaScript(providerNo)}";
+            ctx = "${carlos:forJavaScript(ctx)}";
+            demographicNo = "${carlos:forJavaScript(demographicNo)}";
+            providerNo = "${carlos:forJavaScript(providerNo)}";
 
             socHistoryLabel = "encounter.socHistory.title";
             medHistoryLabel = "encounter.medHistory.title";
@@ -498,36 +499,36 @@
              * Show and hide CPP categories according to user preferences, and display Social History, Medical History, Ongoing Concerns, and Reminders at user-specified positions
              */
             function getPreferenceBasedEChart() {
-                const isCppPreferencesEnabled = '${e:forJavaScript(cppPreferences.enable)}';
+                const isCppPreferencesEnabled = '${carlos:forJavaScript(cppPreferences.enable)}';
                 if (isCppPreferencesEnabled !== 'on') {
                     showIssueNotes();
                     return;
                 }
 
-                const socialHxPosition = '${e:forJavaScript(cppPreferences.socialHxPosition)}';
-                const medicalHxPosition = '${e:forJavaScript(cppPreferences.medicalHxPosition)}';
-                const ongoingConcernsPosition = '${e:forJavaScript(cppPreferences.ongoingConcernsPosition)}';
-                const remindersPosition = '${e:forJavaScript(cppPreferences.remindersPosition)}';
+                const socialHxPosition = '${carlos:forJavaScript(cppPreferences.socialHxPosition)}';
+                const medicalHxPosition = '${carlos:forJavaScript(cppPreferences.medicalHxPosition)}';
+                const ongoingConcernsPosition = '${carlos:forJavaScript(cppPreferences.ongoingConcernsPosition)}';
+                const remindersPosition = '${carlos:forJavaScript(cppPreferences.remindersPosition)}';
                 showCustomIssueNotes(socialHxPosition, medicalHxPosition, ongoingConcernsPosition, remindersPosition);
 
-                const preventionsDisplay = '${e:forJavaScript(cppPreferences.preventionsDisplay)}';
-                const dxRegistryDisplay = '${e:forJavaScript(cppPreferences.dxRegistryDisplay)}';
-                const formsDisplay = '${e:forJavaScript(cppPreferences.formsDisplay)}';
-                const eformsDisplay = '${e:forJavaScript(cppPreferences.eformsDisplay)}';
-                const documentsDisplay = '${e:forJavaScript(cppPreferences.documentsDisplay)}';
-                const labsDisplay = '${e:forJavaScript(cppPreferences.labsDisplay)}';
-                const measurementsDisplay = '${e:forJavaScript(cppPreferences.measurementsDisplay)}';
-                const consultationsDisplay = '${e:forJavaScript(cppPreferences.consultationsDisplay)}';
-                const hrmDisplay = '${e:forJavaScript(cppPreferences.hrmDisplay)}';
+                const preventionsDisplay = '${carlos:forJavaScript(cppPreferences.preventionsDisplay)}';
+                const dxRegistryDisplay = '${carlos:forJavaScript(cppPreferences.dxRegistryDisplay)}';
+                const formsDisplay = '${carlos:forJavaScript(cppPreferences.formsDisplay)}';
+                const eformsDisplay = '${carlos:forJavaScript(cppPreferences.eformsDisplay)}';
+                const documentsDisplay = '${carlos:forJavaScript(cppPreferences.documentsDisplay)}';
+                const labsDisplay = '${carlos:forJavaScript(cppPreferences.labsDisplay)}';
+                const measurementsDisplay = '${carlos:forJavaScript(cppPreferences.measurementsDisplay)}';
+                const consultationsDisplay = '${carlos:forJavaScript(cppPreferences.consultationsDisplay)}';
+                const hrmDisplay = '${carlos:forJavaScript(cppPreferences.hrmDisplay)}';
 
-                const allergiesDisplay = '${e:forJavaScript(cppPreferences.allergiesDisplay)}';
-                const medicationsDisplay = '${e:forJavaScript(cppPreferences.medicationsDisplay)}';
-                const otherMedsDisplay = '${e:forJavaScript(cppPreferences.otherMedsDisplay)}';
-                const riskFactorsDisplay = '${e:forJavaScript(cppPreferences.riskFactorsDisplay)}';
-                const familyHxDisplay = '${e:forJavaScript(cppPreferences.familyHxDisplay)}';
-                const unresolvedIssuesDisplay = '${e:forJavaScript(cppPreferences.unresolvedIssuesDisplay)}';
-                const resolvedIssuesDisplay = '${e:forJavaScript(cppPreferences.resolvedIssuesDisplay)}';
-                const episodesDisplay = '${e:forJavaScript(cppPreferences.episodesDisplay)}';
+                const allergiesDisplay = '${carlos:forJavaScript(cppPreferences.allergiesDisplay)}';
+                const medicationsDisplay = '${carlos:forJavaScript(cppPreferences.medicationsDisplay)}';
+                const otherMedsDisplay = '${carlos:forJavaScript(cppPreferences.otherMedsDisplay)}';
+                const riskFactorsDisplay = '${carlos:forJavaScript(cppPreferences.riskFactorsDisplay)}';
+                const familyHxDisplay = '${carlos:forJavaScript(cppPreferences.familyHxDisplay)}';
+                const unresolvedIssuesDisplay = '${carlos:forJavaScript(cppPreferences.unresolvedIssuesDisplay)}';
+                const resolvedIssuesDisplay = '${carlos:forJavaScript(cppPreferences.resolvedIssuesDisplay)}';
+                const episodesDisplay = '${carlos:forJavaScript(cppPreferences.episodesDisplay)}';
 
                 // If any display variable is empty, it means that the corresponding cpp is hidden
                 if (!preventionsDisplay) {
@@ -727,19 +728,19 @@
                 <br> <span style="float: right; margin-right: 10px;">
 				<input
                         type="image"
-                        src="${e:forHtmlAttribute(ctx)}/encounter/graphics/copy.png"
+                        src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/copy.png"
                         title='<fmt:message key="encounter.Index.btnCopy"/>'
                         onclick="copyCppToCurrentNote(); return false;"> <input type="image"
-                                                                   src="${e:forHtmlAttribute(ctx)}/encounter/graphics/edit-cut.png"
+                                                                   src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/edit-cut.png"
                                                                    title='<fmt:message key="encounter.Index.btnArchive"/>'
                                                                    onclick="$('archived').value='true';"
                                                                    style="padding-right: 10px;">
 				<input type="image"
-                       src="${e:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png"
+                       src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/note-save.png"
                        title='<fmt:message key="encounter.Index.btnSignSave"/>'
                        onclick="$('archived').value='false';" style="padding-right: 10px;">
 				<input type="image"
-                       src="${e:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
+                       src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/system-log-out.png"
                        title='<fmt:message key="global.btnExit"/>'
                        onclick="this.focus();if($('channel'))$('channel').style.visibility='visible';$('showEditNote').style.display='none';return false;">
 			</span>
@@ -765,7 +766,7 @@
                              name="issueSearch" style="z-index: 2;" size="25">&nbsp; <span
                     id="busy2" style="display: none"><img
                     style="position: absolute;"
-                    src="${e:forHtmlAttribute(ctx)}/encounter/graphics/busy.gif"
+                    src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/busy.gif"
                     alt="<fmt:message key="encounter.Index.btnWorking"/>"></span>
             </div>
         </form>
@@ -788,7 +789,7 @@
                                  id='imgPrintCPP'
                                  alt="<fmt:message key="encounter.togglePrintCPP.title"/>"
                                  onclick="return printInfo(this,'printCPP');"
-                                 src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.cpp.title"/>
+                                 src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.cpp.title"/>
                         </security:oscarSec>
                     </td>
                 </tr>
@@ -801,7 +802,7 @@
                              id='imgPrintRx'
                              alt="<fmt:message key="encounter.togglePrintRx.title"/>"
                              onclick="return printInfo(this, 'printRx');"
-                             src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Rx.title"/></td>
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Rx.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
@@ -810,7 +811,7 @@
                              id='imgPrintLabs'
                              alt="<fmt:message key="encounter.togglePrintLabs.title"/>"
                              onclick="return printInfo(this, 'printLabs');"
-                             src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Labs.title"/></td>
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Labs.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
@@ -819,7 +820,7 @@
                              id='imgPrintPreventions'
                              alt="<fmt:message key="encounter.togglePrintPreventions.title"/>"
                              onclick="return printInfo(this, 'printPreventions');"
-                             src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Preventions.title"/></td>
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Preventions.title"/></td>
                 </tr>
                 <tr>
                     <td></td>
@@ -828,7 +829,7 @@
                              id='imgPrintAllergies'
                              alt="<fmt:message key="encounter.togglePrintAllergies.title"/>"
                              onclick="return printInfo(this, 'printAllergies');"
-                             src='${e:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Allergies.title"/></td>
+                             src='${carlos:forHtmlAttribute(ctx)}/encounter/graphics/printer.png'>&nbsp;<fmt:message key="encounter.Allergies.title"/></td>
                 </tr>
                 <!--  extension point -->
                 <tr id="printDateRow">
@@ -845,7 +846,7 @@
                 <fmt:message key="encounter.Index.PrintFrom"/>
                 :
             </div>
-            <img src="${e:forHtmlAttribute(ctx)}/images/cal.gif"
+            <img src="${carlos:forHtmlAttribute(ctx)}/images/cal.gif"
                  id="printStartDate_cal" alt="calendar">&nbsp;<input
                 type="text" id="printStartDate" name="printStartDate"
                 ondblclick="this.value='';"
@@ -855,7 +856,7 @@
                 <fmt:message key="encounter.Index.PrintTo"/>
                 :
             </div>
-            <img src="${e:forHtmlAttribute(ctx)}/images/cal.gif"
+            <img src="${carlos:forHtmlAttribute(ctx)}/images/cal.gif"
                  id="printEndDate_cal" alt="calendar">&nbsp;<input type="text"
                                                                    id="printEndDate" name="printEndDate"
                                                                    ondblclick="this.value='';"

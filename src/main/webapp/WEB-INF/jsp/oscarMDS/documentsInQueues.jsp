@@ -47,8 +47,10 @@
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE HTML >
 
 <html>
@@ -2407,11 +2409,11 @@
 
 <div class="page-header-bar" style="font-size:14px !important;">
     <h4 class="page-header-title" style="font-size:18px !important;font-weight:normal !important;"><fmt:message key="inboxmanager.documentsInQueues"/></h4>
-    <input type="hidden" name="providerNo" value="<e:forHtmlAttribute value='<%= providerNo %>' />">
-    <input type="hidden" name="searchProviderNo" value="<e:forHtmlAttribute value='<%= searchProviderNo %>' />">
-    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
-    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + Encode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
-    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + Encode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
+    <input type="hidden" name="providerNo" value="<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>">
+    <input type="hidden" name="searchProviderNo" value="<carlos:encode value='<%= searchProviderNo %>' context="htmlAttribute"/>">
+    <%= (request.getParameter("lname") == null ? "" : "<input type=\"hidden\" name=\"lname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("lname")) + "\">") %>
+    <%= (request.getParameter("fname") == null ? "" : "<input type=\"hidden\" name=\"fname\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("fname")) + "\">") %>
+    <%= (request.getParameter("hnum") == null ? "" : "<input type=\"hidden\" name=\"hnum\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter("hnum")) + "\">") %>
     <input type="hidden" name="selectedProviders">
     <button type="button" class="btn btn-secondary btn-sm" style="font-size:14px !important;" onclick="window.close();">Back</button>
 </div>
@@ -2429,8 +2431,8 @@
                     List dos = (List) queueDocNos.get(qId);
                     Integer numberOfDocs = dos.size();
             %>
-            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<e:forJavaScriptAttribute value='<%= String.valueOf(qId) %>' />')"><e:forHtmlContent value='<%= name %>' />&nbsp;(<span
-                    id="docNo_<e:forHtmlAttribute value='<%= String.valueOf(qId) %>' />"><%=numberOfDocs%></span>)</a><br/>
+            <a href="javascript:void(0);" onclick="resetCurrentFirstDocLab();showDocInQueue('<carlos:encode value='<%= String.valueOf(qId) %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= name %>' context="html"/>&nbsp;(<span
+                    id="docNo_<carlos:encode value='<%= String.valueOf(qId) %>' context="htmlAttribute"/>"><%=numberOfDocs%></span>)</a><br/>
             <%}%>
 
         </td>
@@ -2440,18 +2442,18 @@
 </table>
 <script type="text/javascript">
     var current_first_doclab = 0;
-    var typeDocLab = initTypeDocLab('<e:forJavaScriptBlock value='<%= typeDocLab.toString() %>' />');   //{DOC=[357, 317, 316], HL7=[38, 33, 30, 28]}
-    var docType = initDocType('<e:forJavaScriptBlock value='<%= docType.toString() %>' />');   //{357=DOC, 38=HL7, 317=DOC, 316=DOC, 33=HL7, 30=HL7, 28=HL7}
-    var patientDocs = initPatientDocs('<e:forJavaScriptBlock value='<%= patientDocs.toString() %>' />');//{2=[316, 30, 28], 1=[33], -1=[357, 317, 38]}
-    var patientIdNames = initPatientIdNames('<e:forJavaScriptBlock value='<%= patientIdNamesStr %>' />');//;2=TEST2, PATIENT2;1=Zrrr, Srrr;-1=Not, Assigned
-    var docStatus = initDocStatus('<e:forJavaScriptBlock value='<%= docStatus.toString() %>' />');//{357=A, 38=N, 317=A, 316=A, 33=N, 30=N, 28=N}
-    var normals = initNormals('<e:forJavaScriptBlock value='<%= normals.toString() %>' />');//[357, 317, 316, 38, 33, 30, 28]
-    var abnormals = initAbnormals('<e:forJavaScriptBlock value='<%= abnormals.toString() %>' />');//[123,567]
-    var patientIds = initPatientIds('<e:forJavaScriptBlock value='<%= patientIdStr %>' />');
-    var queueDocNos = initHashtblWithList('<e:forJavaScriptBlock value='<%= queueDocNos.toString() %>' />');
-    var providerNo = '<e:forJavaScriptBlock value='<%= providerNo %>' />';
+    var typeDocLab = initTypeDocLab('<carlos:encode value='<%= typeDocLab.toString() %>' context="javaScriptBlock"/>');   //{DOC=[357, 317, 316], HL7=[38, 33, 30, 28]}
+    var docType = initDocType('<carlos:encode value='<%= docType.toString() %>' context="javaScriptBlock"/>');   //{357=DOC, 38=HL7, 317=DOC, 316=DOC, 33=HL7, 30=HL7, 28=HL7}
+    var patientDocs = initPatientDocs('<carlos:encode value='<%= patientDocs.toString() %>' context="javaScriptBlock"/>');//{2=[316, 30, 28], 1=[33], -1=[357, 317, 38]}
+    var patientIdNames = initPatientIdNames('<carlos:encode value='<%= patientIdNamesStr %>' context="javaScriptBlock"/>');//;2=TEST2, PATIENT2;1=Zrrr, Srrr;-1=Not, Assigned
+    var docStatus = initDocStatus('<carlos:encode value='<%= docStatus.toString() %>' context="javaScriptBlock"/>');//{357=A, 38=N, 317=A, 316=A, 33=N, 30=N, 28=N}
+    var normals = initNormals('<carlos:encode value='<%= normals.toString() %>' context="javaScriptBlock"/>');//[357, 317, 316, 38, 33, 30, 28]
+    var abnormals = initAbnormals('<carlos:encode value='<%= abnormals.toString() %>' context="javaScriptBlock"/>');//[123,567]
+    var patientIds = initPatientIds('<carlos:encode value='<%= patientIdStr %>' context="javaScriptBlock"/>');
+    var queueDocNos = initHashtblWithList('<carlos:encode value='<%= queueDocNos.toString() %>' context="javaScriptBlock"/>');
+    var providerNo = '<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>';
 
-    var searchProviderNo = '<e:forJavaScriptBlock value='<%= searchProviderNo %>' />';
+    var searchProviderNo = '<carlos:encode value='<%= searchProviderNo %>' context="javaScriptBlock"/>';
     var types = ['DOC'];
 
     var contextpath = '${pageContext.servletContext.contextPath}';

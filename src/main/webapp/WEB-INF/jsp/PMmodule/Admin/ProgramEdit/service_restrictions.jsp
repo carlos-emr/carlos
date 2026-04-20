@@ -1,5 +1,6 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!--
 /*
  *
@@ -100,7 +101,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Disable service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="disableRestriction('${e:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
+            <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
         </caisirole:SecurityAccess>
     </display:column>
     <display:column property="id" sortable="true" title="Id" />
@@ -129,7 +130,7 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Create service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="enableRestriction('${e:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
+            <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
         </caisirole:SecurityAccess>
     </display:column>
     <display:column property="id" sortable="true" title="Id" />

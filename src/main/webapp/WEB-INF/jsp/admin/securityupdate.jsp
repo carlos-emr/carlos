@@ -34,6 +34,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -132,12 +133,12 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <e:forHtmlContent value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' />
+        <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/>
         </h2>
         <%
         } else {
         %>
-        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><e:forHtmlContent value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />.</h1>
+        <h1><fmt:message key="admin.securityupdate.msgUpdateFailure"/><carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="html"/>.</h1>
         <%
             }
         %>

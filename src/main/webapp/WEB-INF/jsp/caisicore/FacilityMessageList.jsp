@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This softwar is published under the GPL GNU General Public License.
@@ -93,13 +94,13 @@
 
         <tr style="<%=style %>" bgcolor="<%=bgcolor %>">
             <td valign="middle"><a
-                    href="FacilityMessage?method=edit&id=${e:forHtmlAttribute(msg.id)}"><img
+                    href="FacilityMessage?method=edit&id=${carlos:forHtmlAttribute(msg.id)}"><img
                     border="0" src="images/edit.jpg"/></a></td>
-            <td>${e:forHtml(msg.facilityName)}</td>
-            <td>${e:forHtml(msg.programName)}</td>
-            <td>${e:forHtml(msg.formattedCreationDate)}</td>
-            <td>${e:forHtml(msg.formattedExpiryDate)}</td>
-            <td>${e:forHtml(msg.message)}</td>
+            <td>${carlos:forHtml(msg.facilityName)}</td>
+            <td>${carlos:forHtml(msg.programName)}</td>
+            <td>${carlos:forHtml(msg.formattedCreationDate)}</td>
+            <td>${carlos:forHtml(msg.formattedExpiryDate)}</td>
+            <td>${carlos:forHtml(msg.message)}</td>
         </tr>
     </c:forEach>
 </table>

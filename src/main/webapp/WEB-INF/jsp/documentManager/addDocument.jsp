@@ -48,6 +48,7 @@
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
@@ -188,7 +189,7 @@
 
     function checkSel(sel) {
         theForm = sel.form;
-        if ((theForm.docDesc.value === "") || (theForm.docDesc.value === "<e:forJavaScriptBlock value='<%= defaultDesc %>' />")) {
+        if ((theForm.docDesc.value === "") || (theForm.docDesc.value === "<carlos:encode value='<%= defaultDesc %>' context="javaScriptBlock"/>")) {
             theForm.docDesc.value = theForm.docType.value;
             theForm.docDesc.focus();
             theForm.docDesc.select();
@@ -196,9 +197,9 @@
     }
 
     function checkDefaultValue(object) {
-        if ((object.value === "<e:forJavaScriptBlock value='<%= defaultDesc %>' />")
-                || (object.value === "<e:forJavaScriptBlock value='<%= defaultType %>' />")
-                || (object.value === "<e:forJavaScriptBlock value='<%= defaultHtml %>' />")) {
+        if ((object.value === "<carlos:encode value='<%= defaultDesc %>' context="javaScriptBlock"/>")
+                || (object.value === "<carlos:encode value='<%= defaultType %>' context="javaScriptBlock"/>")
+                || (object.value === "<carlos:encode value='<%= defaultHtml %>' context="javaScriptBlock"/>")) {
             object.value = "";
         }
     }
@@ -278,7 +279,7 @@
             <fmt:message key="dms.addDocument.AddLink"/>
         </button>
         <button type="button" class="btn btn-secondary"
-                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />&mode=addHtml', 'addhtml')">
+                onclick="popup1(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&mode=addHtml', 'addhtml')">
             <fmt:message key="dms.addDocument.AddHTML"/>
         </button>
     </div>
@@ -296,12 +297,12 @@
                 </div>
             </c:forEach>
 
-            <input type="hidden" name="function" value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />">
-            <input type="hidden" name="functionId" value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />">
-            <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />">
-            <input type="hidden" name="parentAjaxId" value="<e:forHtmlAttribute value='<%= parentAjaxId %>' />">
-            <input type="hidden" name="curUser" value="<e:forHtmlAttribute value='<%= curUser %>' />">
-            <input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= formdata.getAppointmentNo() %>' />"/>
+            <input type="hidden" name="function" value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="functionId" value="<carlos:encode value='<%= formdata.getFunctionId() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="functionid" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>">
+            <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>">
+            <input type="hidden" name="curUser" value="<carlos:encode value='<%= curUser %>' context="htmlAttribute"/>">
+            <input type="hidden" name="appointmentNo" value="<carlos:encode value='<%= formdata.getAppointmentNo() %>' context="htmlAttribute"/>"/>
 
             <div class="mb-3">
                 <label for="docType"><fmt:message key="dms.addDocument.labelType"/></label>
@@ -311,8 +312,8 @@
                         <%
                             for (int i = 0; i < doctypes.size(); i++) {
                                 String doctype = (String) doctypes.get(i); %>
-                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
-                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                        <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>"
+                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                         </option>
                         <%}%>
                     </select>
@@ -327,16 +328,16 @@
                 <label for="docDesc"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text"
                        class="form-control<c:if test='${ docerrors["descmissing"] != null}'> is-invalid</c:if>"
-                       id="docDesc" name="docDesc" value="<e:forHtmlContent value='<%= formdata.getDocDesc() %>' />"
+                       id="docDesc" name="docDesc" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="html"/>"
                        onfocus="checkDefaultValue(this)"/>
-                <input type="hidden" name="docCreator" value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />"/>
+                <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>"/>
             </div>
 
             <div class="mb-3">
                 <label for="observationDate"><fmt:message key="dms.addDocument.labelObservationDate"/></label>
                 <input class="form-control" type="date" name="observationDate" id="observationDate"
-                       value="<e:forHtmlAttribute value='<%= formdata.getObservationDate() %>' />"
-                       onclick="checkDefaultDate(this, '<e:forJavaScriptAttribute value='<%= UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd") %>' />')">
+                       value="<carlos:encode value='<%= formdata.getObservationDate() %>' context="htmlAttribute"/>"
+                       onclick="checkDefaultDate(this, '<carlos:encode value='<%= UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd") %>' context="javaScriptAttribute"/>')">
             </div>
 
             <div class="mb-3">
@@ -351,7 +352,7 @@
                                 consult1Shown = true;
                             }
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
+                    <option value="<carlos:encode value='<%= reportClass %>' context="htmlAttribute"/>"><carlos:encode value='<%= reportClass %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -392,7 +393,7 @@
                        value="<fmt:message key='dms.addDocument.btnAdd'/>">
                 <input type="button" name="Button" class="btn btn-warning"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>'">
             </div>
         </form>
     </div>
@@ -411,12 +412,12 @@
                 </div>
             </c:forEach>
 
-            <input type="hidden" name="function" value="<e:forHtmlAttribute value='<%= formdata.getFunction() %>' />">
-            <input type="hidden" name="functionId" value="<e:forHtmlAttribute value='<%= formdata.getFunctionId() %>' />">
-            <input type="hidden" name="functionid" value="<e:forHtmlAttribute value='<%= moduleid %>' />">
-            <input type="hidden" name="observationDate" value="<e:forHtmlAttribute value='<%= formdata.getObservationDate() %>' />">
-            <input type="hidden" name="appointmentNo" value="<e:forHtmlAttribute value='<%= formdata.getAppointmentNo() %>' />"/>
-            <input type="hidden" name="docCreator" value="<e:forHtmlAttribute value='<%= formdata.getDocCreator() %>' />">
+            <input type="hidden" name="function" value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="functionId" value="<carlos:encode value='<%= formdata.getFunctionId() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="functionid" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>">
+            <input type="hidden" name="observationDate" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context="htmlAttribute"/>">
+            <input type="hidden" name="appointmentNo" value="<carlos:encode value='<%= formdata.getAppointmentNo() %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>">
 
             <div class="mb-3">
                 <label for="docType1"><fmt:message key="dms.addDocument.labelLinkType"/></label>
@@ -426,8 +427,8 @@
                         <%
                             for (int i1 = 0; i1 < doctypes.size(); i1++) {
                                 String doctype = (String) doctypes.get(i1); %>
-                        <option value="<e:forHtmlAttribute value='<%= doctype %>' />"
-                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><e:forHtmlContent value='<%= doctype %>' />
+                        <option value="<carlos:encode value='<%= doctype %>' context="htmlAttribute"/>"
+                                <%=(formdata.getDocType().equals(doctype)) ? " selected" : ""%>><carlos:encode value='<%= doctype %>' context="html"/>
                         </option>
                         <%}%>
                     </select>
@@ -442,7 +443,7 @@
                 <label for="docDesc2"><fmt:message key="dms.addDocument.labelDescription"/></label>
                 <input type="text" name="docDesc" id="docDesc2"
                        class="form-control<c:if test="${ linkhtmlerrors['descmissing'] != null }"> is-invalid</c:if>"
-                       value="<e:forHtmlContent value='<%= formdata.getDocDesc() %>' />" onfocus="checkDefaultValue(this)">
+                       value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="html"/>" onfocus="checkDefaultValue(this)">
             </div>
 
             <div class="mb-3">
@@ -457,7 +458,7 @@
                                 consult2Shown = true;
                             }
                     %>
-                    <option value="<e:forHtmlAttribute value='<%= reportClass %>' />"><e:forHtmlContent value='<%= reportClass %>' />
+                    <option value="<carlos:encode value='<%= reportClass %>' context="htmlAttribute"/>"><carlos:encode value='<%= reportClass %>' context="html"/>
                     </option>
                     <% } %>
                 </select>
@@ -483,7 +484,7 @@
                 <label for="html"><fmt:message key="dms.addDocument.labelLink"/></label>
                 <div class="input-group">
                     <input type="text" id="html" name="html" class="form-control"
-                           value="<e:forHtmlAttribute value='<%= formdata.getHtml() %>' />" onfocus="checkDefaultValue(this)">
+                           value="<carlos:encode value='<%= formdata.getHtml() %>' context="htmlAttribute"/>" onfocus="checkDefaultValue(this)">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="submit" name="Submit"
                            value="<fmt:message key='dms.addDocument.btnAdd'/>">
@@ -493,7 +494,7 @@
             <div class="d-flex gap-2 mb-2">
                 <input class="btn btn-warning" type="button" name="Button"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<e:forUriComponent value='<%= module %>' />&functionid=<e:forUriComponent value='<%= moduleid %>' />'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>'">
             </div>
 
         </form>

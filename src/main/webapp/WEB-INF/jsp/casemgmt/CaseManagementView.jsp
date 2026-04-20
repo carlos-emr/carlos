@@ -48,6 +48,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     Logger logger = MiscUtils.getLogger();
 
@@ -223,21 +224,21 @@
                     %>
                     <caisirole:SecurityAccess accessName="prescription Read"
                                             accessType="access"
-                                            providerNo="${e:forHtmlAttribute(param.providerNo)}"
-                                            demoNo="${e:forHtmlAttribute(param.demographicNo)}"
+                                            providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
+                                            demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
                                             programId="<%=pId%>">
                         <%
                             if (CaseManagementViewFormBean.tabs[x].equals(selectedTab)) {
                         %>
                         <td style="background-color: #555;<%=extra%>"><a
                                 href="javascript:void(0)"
-                                onclick="javascript:clickTab('<e:forJavaScriptAttribute value='<%= CaseManagementViewFormBean.tabs[x] %>' />'); return false;"><e:forHtmlContent value='<%= CaseManagementViewFormBean.tabs[x] %>' />
+                                onclick="javascript:clickTab('<carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="html"/>
                         </a></td>
                         <%
                         } else {
                         %>
                         <td><a style="<%=extra%>" href="javascript:void(0)"
-                            onclick="javascript:clickTab('<e:forJavaScriptAttribute value='<%= CaseManagementViewFormBean.tabs[x] %>' />');return false;"><e:forHtmlContent value='<%= CaseManagementViewFormBean.tabs[x] %>' />
+                            onclick="javascript:clickTab('<carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="html"/>
                         </a></td>
                         <%
                             }
@@ -251,13 +252,13 @@
                     %>
                     <td style="background-color: #555;<%=extra%>"><a
                             href="javascript:void(0)"
-                            onclick="javascript:clickTab('<e:forJavaScriptAttribute value='<%= CaseManagementViewFormBean.tabs[x] %>' />'); return false;"><e:forHtmlContent value='<%= CaseManagementViewFormBean.tabs[x] %>' />
+                            onclick="javascript:clickTab('<carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="html"/>
                     </a></td>
                     <%
                     } else {
                     %>
                     <td><a style="<%=extra%>" href="javascript:void(0)"
-                        onclick="javascript:clickTab('<e:forJavaScriptAttribute value='<%= CaseManagementViewFormBean.tabs[x] %>' />');return false;"><e:forHtmlContent value='<%= CaseManagementViewFormBean.tabs[x] %>' />
+                        onclick="javascript:clickTab('<carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= CaseManagementViewFormBean.tabs[x] %>' context="html"/>
                     </a></td>
                     <%
                         }
@@ -279,24 +280,24 @@
                     <table cellspacing="1" cellpadding="1">
                         <tr>
                             <td align="right" valign="top" nowrap><b>Client Name:</b></td>
-                            <td>${e:forHtml(requestScope.casemgmt_demoName)}</td>
+                            <td>${carlos:forHtml(requestScope.casemgmt_demoName)}</td>
                         </tr>
                         <tr>
                             <td align="right" valign="top" nowrap><b>Age:</b></td>
-                            <td>${e:forHtml(requestScope.casemgmt_demoAge)}</td>
+                            <td>${carlos:forHtml(requestScope.casemgmt_demoAge)}</td>
                         </tr>
                         <tr>
                             <td align="right" valign="top" nowrap><b>DOB:</b></td>
-                            <td>${e:forHtml(requestScope.casemgmt_demoDOB)}</td>
+                            <td>${carlos:forHtml(requestScope.casemgmt_demoDOB)}</td>
                         </tr>
                         <tr>
                             <td align="right" valign="top" nowrap><b>Team:</b></td>
-                            <td>${e:forHtml(requestScope.teamName)}</td>
+                            <td>${carlos:forHtml(requestScope.teamName)}</td>
                         </tr>
                         <tr>
                             <td align="right" valign="top" nowrap></td>
                             <td><c:forEach var="tm" items="${teamMembers}">
-                                ${e:forHtml(tm)}&nbsp;&nbsp;&nbsp;
+                                ${carlos:forHtml(tm)}&nbsp;&nbsp;&nbsp;
                             </c:forEach></td>
                         </tr>
                         <%
@@ -306,7 +307,7 @@
                         <tr>
                             <td align="right" valign="top" nowrap><b>Primary Health
                                 Care Provider:</b></td>
-                            <td>${e:forHtml(requestScope.cpp.primaryPhysician)}</td>
+                            <td>${carlos:forHtml(requestScope.cpp.primaryPhysician)}</td>
                         </tr>
                         <%
                             }
@@ -314,7 +315,7 @@
                         <tr>
                             <td align="right" valign="top" nowrap><b>Primary
                                 Counsellor/Caseworker:</b></td>
-                            <td>${e:forHtml(requestScope.cpp.primaryCounsellor)}</td>
+                            <td>${carlos:forHtml(requestScope.cpp.primaryCounsellor)}</td>
                         </tr>
                     </table>
                 </td>
@@ -389,7 +390,7 @@
                                             var="noteURL"/>
                                     &nbsp;|&nbsp;
                                     <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                        onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                                        onclick="popupNotePage('${carlos:forJavaScript(noteURL)}')">New
                         Note</span>
                                 </c:if>
                             </security:oscarSec>
@@ -401,7 +402,7 @@
                                         var="noteURL"/>
                                 &nbsp;|&nbsp;
                                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">Restore
+                                    onclick="popupNotePage('${carlos:forJavaScript(noteURL)}')">Restore
                         Lost Note</span>
                             </c:if></td>
                         <td align="right">Provider: <select
@@ -414,7 +415,7 @@
                                 </option>
                             </c:forEach>
                         </select> &nbsp; &nbsp; &nbsp; Sort: <select name="note_sort"
-                                                                    onchange="document.caseManagementViewForm.method.value='view';document.caseManagementViewForm.note_view.value='<e:forJavaScriptAttribute value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("note_view")) %>' />';document.caseManagementViewForm.submit()">
+                                                                    onchange="document.caseManagementViewForm.method.value='view';document.caseManagementViewForm.note_view.value='<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("note_view")) %>' context="javaScriptAttribute"/>';document.caseManagementViewForm.submit()">
                             <option value="observation_date_desc">Observation Date - Desc</option>
                             <option value="observation_date_asc">Observation Date - Asc</option>
                             <option value="providerName">Provider</option>
@@ -455,12 +456,12 @@
                                             <c:when test="${(note.editable) and (sessionScope.readonly=='false')}">
                                                 <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&forceNote=true"
                                                     var="notesURL"/>
-                                                <img src="${e:forHtmlAttribute(ctx)}/images/edit_white.png"
+                                                <img src="${carlos:forHtmlAttribute(ctx)}/images/edit_white.png"
                                                     title="Edit/Sign Note" style="cursor: pointer"
-                                                    onclick="popupNotePage('${e:forJavaScript(notesURL)}')"/>
+                                                    onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')"/>
                                             </c:when>
                                             <c:otherwise>
-                                                <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif" title=""/>
+                                                <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif" title=""/>
                                             </c:otherwise>
                                         </c:choose>
                                     </security:oscarSec>
@@ -468,12 +469,12 @@
                                         <c:when test="${note.hasHistory == true and note.locked != true}">
                                             <c:url value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="historyURL"/>
-                                            <img src="${e:forHtmlAttribute(ctx)}/images/history.gif" title="Note History"
+                                            <img src="${carlos:forHtmlAttribute(ctx)}/images/history.gif" title="Note History"
                                                 style="cursor: pointer"
-                                                onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                                onclick="popupHistoryPage('${carlos:forJavaScript(historyURL)}')">
                                         </c:when>
                                         <c:otherwise>
-                                            <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif" title=""/>
+                                            <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif" title=""/>
                                         </c:otherwise>
                                     </c:choose>
                                     <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
@@ -482,23 +483,23 @@
                                                 <c:url
                                                         value="/CaseManagementView?method=unlock&noteId=${note.noteId}"
                                                         var="lockedURL"/>
-                                                <img src="${e:forHtmlAttribute(ctx)}/images/ulock.gif"
+                                                <img src="${carlos:forHtmlAttribute(ctx)}/images/ulock.gif"
                                                     title="Unlock" style="cursor: pointer"
-                                                    onclick="popupPage('${e:forJavaScript(lockedURL)}')"/>
+                                                    onclick="popupPage('${carlos:forJavaScript(lockedURL)}')"/>
                                             </c:when>
                                             <c:otherwise>
-                                                <img src="${e:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
+                                                <img src="${carlos:forHtmlAttribute(ctx)}/images/transparent_icon.gif"
                                                     title=""/>
                                             </c:otherwise>
                                         </c:choose>
                                     </security:oscarSec>
                                 </td>
                                 <td><fmt:formatDate pattern="yyyy-MM-dd hh:mm a" value="${note.observationDate}"/></td>
-                                <td>${e:forHtml(note.providerName)}</td>
-                                <td>${e:forHtml(note.status)}</td>
-                                <td>${e:forHtml(note.programName)}</td>
-                                <td>${e:forHtml(note.location)}</td>
-                                <td>${e:forHtml(note.roleName)}</td>
+                                <td>${carlos:forHtml(note.providerName)}</td>
+                                <td>${carlos:forHtml(note.status)}</td>
+                                <td>${carlos:forHtml(note.programName)}</td>
+                                <td>${carlos:forHtml(note.location)}</td>
+                                <td>${carlos:forHtml(note.roleName)}</td>
                             </tr>
                         </c:forEach>
                     </table>
@@ -527,18 +528,18 @@
                                     <table id="test<%=index1%>" width="100%" border="0" style="margin-bottom: 5px">
                                         <tr bgcolor="<%=bgcolor1%>">
                                             <td width="7%">Facility</td>
-                                            <td width="93%">${e:forHtml(note.location)}</td>
+                                            <td width="93%">${carlos:forHtml(note.location)}</td>
                                         </tr>
                                         <tr bgcolor="<%=bgcolor1%>">
                                             <td width="7%">Program</td>
                                             <td width="93%">
-                                                ${e:forHtml(note.programName)}
+                                                ${carlos:forHtml(note.programName)}
                                             </td>
                                         </tr>
                                         <tr bgcolor="<%=bgcolor1%>">
                                             <td width="7%">Provider</td>
                                             <td width="93%">
-                                                ${e:forHtml(note.providerName)}
+                                                ${carlos:forHtml(note.providerName)}
                                             </td>
                                         </tr>
                                         <tr bgcolor="<%=bgcolor1%>">
@@ -548,7 +549,7 @@
                                         </tr>
                                         <tr bgcolor="<%=bgcolor1%>">
                                             <td width="7%">Status</td>
-                                            <td width="93%">${e:forHtml(note.status)}</td>
+                                            <td width="93%">${carlos:forHtml(note.status)}</td>
                                         </tr>
                                         <tr bgcolor="<%=bgcolor1%>">
                                             <td width="7%">Action</td>
@@ -559,14 +560,14 @@
                                                         <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                             var="notesURL"/>
                                                         <input type="button" value="Edit and Sign"
-                                                            onclick="popupNotePage('${e:forJavaScript(notesURL)}')">
+                                                            onclick="popupNotePage('${carlos:forJavaScript(notesURL)}')">
                                                     </c:if>
                                                 </security:oscarSec>
                                                 <c:if test="${note.hasHistory == true}">
                                                     <c:url value="/CaseManagementEntry?method=history&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                         var="historyURL"/>
                                                     <input type="button" value="Note History"
-                                                        onclick="popupHistoryPage('${e:forJavaScript(historyURL)}')">
+                                                        onclick="popupHistoryPage('${carlos:forJavaScript(historyURL)}')">
                                                 </c:if>
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
@@ -574,7 +575,7 @@
                                                         <c:url value="/CaseManagementView?method=unlock&noteId=${requestScope.noteId}"
                                                             var="lockedURL"/>
                                                         <input type="button" value="Unlock"
-                                                            onclick="popupPage('${e:forJavaScript(lockedURL)}')">
+                                                            onclick="popupPage('${carlos:forJavaScript(lockedURL)}')">
                                                     </c:if>
                                                 </security:oscarSec>
                                             </td>
@@ -587,7 +588,7 @@
                                                         <span style="color: red"><i>Contents Hidden</i></span>
                                                     </c:when>
                                                     <c:otherwise>
-                                                        <pre>${e:forHtml(note.note)}</pre>
+                                                        <pre>${carlos:forHtml(note.note)}</pre>
                                                     </c:otherwise>
                                                 </c:choose>
                                             </td>
@@ -625,7 +626,7 @@
                         &nbsp;|&nbsp;
 
                         <span style="text-decoration: underline; cursor: pointer; color: blue"
-                            onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                            onclick="popupNotePage('${carlos:forJavaScript(noteURL)}')">New
                 Note</span>
                     </c:if>
                 </security:oscarSec>
@@ -637,7 +638,7 @@
                         var="noteURL"/>
                 &nbsp;|&nbsp;
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">Restore
+                    onclick="popupNotePage('${carlos:forJavaScript(noteURL)}')">Restore
                         Lost Note</span>
             </c:if>
 
@@ -651,7 +652,7 @@
                         value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
-                    onclick="popupNotePage('${e:forJavaScript(noteURL)}')">New
+                    onclick="popupNotePage('${carlos:forJavaScript(noteURL)}')">New
             Note</span>
             </c:if>
         </security:oscarSec>

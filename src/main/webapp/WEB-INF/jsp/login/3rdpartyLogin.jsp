@@ -33,6 +33,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>
@@ -190,7 +191,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             const loggedIn = ${loggedIn};
             const hasOauthOobResponse = ${not empty oauthOobResponse};
-            const safeProviderName = '${e:forJavaScript(providerName)}';
+            const safeProviderName = '${carlos:forJavaScript(providerName)}';
 
             if (loggedIn) {
                 hide("login_div");
@@ -256,8 +257,8 @@
             <div id="oob_div">
             <c:if test="${not empty oauthOobResponse}">
                 <h5>
-                    Request token <e:forHtmlContent value='${oauthOobResponse.requestToken}' />
-                    has verifier <e:forHtmlContent value='${oauthOobResponse.verifier}' />
+                    Request token <carlos:encode value='${oauthOobResponse.requestToken}' context="html"/>
+                    has verifier <carlos:encode value='${oauthOobResponse.verifier}' context="html"/>
                 </h5>
             </c:if>
             </div>
@@ -271,19 +272,19 @@
                     </form>
                     <h5>
                         The 3rd party application
-                        &quot;<e:forHtmlContent value='${oauthData.applicationName}' />&quot;
+                        &quot;<carlos:encode value='${oauthData.applicationName}' context="html"/>&quot;
                         is requesting access to your OSCAR account.<br>
-                        URL: <e:forHtmlContent value='${oauthData.applicationURI}' />.
+                        URL: <carlos:encode value='${oauthData.applicationURI}' context="html"/>.
                     </h5>
                     <h5>Permissions requested:</h5>
                     <form id="scopeForm" method="post"
-                        action="${e:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
+                        action="${carlos:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
                         <c:forEach var="perm" items="${oauthData.permissions}">
                             <div class="mb-3">
                             <div>
                                 <div class="form-check">
                                 <input type="checkbox" class="form-check-input" checked="checked" disabled="disabled">
-                                <label class="form-check-label"><e:forHtmlContent value='${perm}' />
+                                <label class="form-check-label"><carlos:encode value='${perm}' context="html"/>
                                 <c:if test="${empty fn:trim(perm)}">
                                     <em>(no description)</em>
                                 </c:if>
@@ -294,15 +295,15 @@
                         </c:forEach>
 
                         <input type="hidden" name="session_authenticity_token"
-                                value="<e:forHtmlAttribute value='${oauthData.authenticityToken}' />"/>
+                                value="<carlos:encode value='${oauthData.authenticityToken}' context="htmlAttribute"/>"/>
 
                         <input type="hidden" name="oauth_token" id="oauth_token"
-                                value="<e:forHtmlAttribute value='${oauthData.oauthToken}' />"/>
+                                value="<carlos:encode value='${oauthData.oauthToken}' context="htmlAttribute"/>"/>
 
                         <input type="hidden" name="oauthDecision" id="oauthDecision" value="allow"/>
 
                         <button type="submit" class="btn btn-primary">
-                            Authorize <e:forHtmlContent value='${oauthData.applicationName}' />
+                            Authorize <carlos:encode value='${oauthData.applicationName}' context="html"/>
                         </button>
 
                         <button type="button" class="btn btn-danger" onclick="deny();">

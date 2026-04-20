@@ -29,6 +29,7 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.List" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programSignaturesUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="programSignatures"/>
     <c:param name="programId" value="${param.programId}"/>
@@ -73,9 +74,9 @@
 
 <c:forEach var="ps" items="${programSignatures}">
     <tr class="b">
-    <td>${e:forHtml(ps.providerName)}</td>
-    <td>${e:forHtml(ps.caisiRoleName)}</td>
-    <td>${e:forHtml(ps.updateDate)}</td>
+    <td>${carlos:forHtml(ps.providerName)}</td>
+    <td>${carlos:forHtml(ps.caisiRoleName)}</td>
+    <td>${carlos:forHtml(ps.updateDate)}</td>
     </tr>
 </c:forEach>
 </table>

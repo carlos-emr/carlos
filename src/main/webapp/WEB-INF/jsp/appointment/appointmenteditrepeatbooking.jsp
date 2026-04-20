@@ -80,9 +80,11 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="exitConfirmMsg" key="appointment.appointmentgrouprecords.msgExitConfirmation"/>
@@ -367,7 +369,7 @@
             }
 
             function onExit() {
-                if (confirm("${e:forJavaScript(exitConfirmMsg)}")) {
+                if (confirm("${carlos:forJavaScript(exitConfirmMsg)}")) {
                     window.close();
                 }
             }
@@ -395,7 +397,7 @@
             </div>
         </div>
 
-        <form name="groupappt" method="POST" action="appointmenteditrepeatbooking.jsp">
+        <form name="groupappt" method="POST" action="<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking">
             <input type="hidden" name="groupappt" value="">
 
             <div class="bg-light border rounded p-3">
@@ -465,7 +467,7 @@
                     <div class="input-group">
                         <input type="text" name="endDate" id="endDate"
                                class="form-control form-control-sm" style="width: 9rem;"
-                               value="<e:forHtmlAttribute value='<%= UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy") %>' />"
+                               value="<carlos:encode value='<%= UtilDateUtilities.DateToString(new java.util.Date(), "dd/MM/yyyy") %>' context="htmlAttribute"/>"
                                readonly>
                         
                           <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm"><i class="fa fa-calendar" aria-hidden="true"></i></button>
@@ -487,7 +489,7 @@
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>
                         </button>
                         <button type="button" class="btn btn-danger btn-sm"
-                                onclick="if (confirm('${e:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
+                                onclick="if (confirm('${carlos:forJavaScript(deleteConfirmMsg)}')) { document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit(); }">
                             <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>
                         </button>
                         <% } else { %>
@@ -517,7 +519,7 @@
                     temp = paramNames.nextElement().toString();
                     if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                         continue;
-                    out.println("<input type='hidden' name='" + Encode.forHtmlAttribute(temp) + "' value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
+                    out.println("<input type='hidden' name='" + SafeEncode.forHtmlAttribute(temp) + "' value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) != null ? request.getParameter(temp) : "") + "\">");
                 }
             %>
         </form>

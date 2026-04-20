@@ -42,6 +42,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -72,6 +73,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -106,10 +108,10 @@
                             <td bgcolor="#CCFFCC">
                                 <p align="right"><fmt:message key="schedule.scheduledatepopup.formDate"/>:</p>
                             </td>
-                            <td bgcolor="#CCFFCC"><e:forHtmlContent value='<%= year %>' />-<e:forHtmlContent value='<%= month %>' />-<e:forHtmlContent value='<%= day %>' />
+                            <td bgcolor="#CCFFCC"><carlos:encode value='<%= year %>' context="html"/>-<carlos:encode value='<%= month %>' context="html"/>-<carlos:encode value='<%= day %>' context="html"/>
                             </td>
                             <input type="hidden" name="date"
-                                   value="<e:forHtmlAttribute value='<%= year %>' />-<e:forHtmlAttribute value='<%= month %>' />-<e:forHtmlAttribute value='<%= day %>' />">
+                                   value="<carlos:encode value='<%= year %>' context="htmlAttribute"/>-<carlos:encode value='<%= month %>' context="htmlAttribute"/>-<carlos:encode value='<%= day %>' context="htmlAttribute"/>">
                         </tr>
                         <tr>
                             <td>
@@ -133,15 +135,15 @@
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo("Public")) {
 
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= st.getId().getName() %>' />"
-                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><e:forHtmlContent value='<%= st.getId().getName() + " |" + st.getSummary() %>' />
+                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
+                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% }
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
 
                                 %>
-                                <option value="<e:forHtmlAttribute value='<%= st.getId().getName() %>' />"
-                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><e:forHtmlContent value='<%= st.getId().getName() + " |" + st.getSummary() %>' />
+                                <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
+                                        <%=st.getId().getName().equals(strHour) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% } %>
                             </select></td>
@@ -178,8 +180,8 @@
                             <td><select id="reason" name="reason"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
-                                <option value="<e:forHtmlAttribute value='<%= siteList[i] %>' />" <%=(bMultisites ? " style='background-color:" + Encode.forCssString(bgColors[i]) + "'" : "")%>
-                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><e:forHtmlContent value='<%= siteList[i] %>' />
+                                <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "")%>
+                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
                                 </b></option>
                                 <% } %>
                             </select></td>
@@ -191,7 +193,7 @@
                                 <div align="right"><fmt:message key="schedule.scheduledatepopup.formCreator"/>:
                                 </div>
                             </td>
-                            <td><e:forHtmlContent value='<%= strCreator %>' />
+                            <td><carlos:encode value='<%= strCreator %>' context="html"/>
                             </td>
                         </tr>
                     </table>
@@ -206,7 +208,7 @@
                             <td bgcolor="#CCFFCC">
                                 <div align="right"><input type="hidden" name="Submit" value="">
                                     <input type="hidden" name="provider_no"
-                                           value="<e:forHtmlAttribute value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' />"> <input
+                                           value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="htmlAttribute"/>"> <input
                                             type="button"
                                             value='<fmt:message key="schedule.scheduledatepopup.btnSave"/>'
                                             onclick="document.forms['schedule'].Submit.value='<%= submitSave %>'; document.forms['schedule'].submit();">

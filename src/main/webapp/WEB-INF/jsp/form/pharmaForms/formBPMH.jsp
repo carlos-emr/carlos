@@ -44,6 +44,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName2$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -120,10 +121,10 @@
 		
 				<span>	
 						<fmt:message key="colcamex.formBPMH.preparedby"/>
-						${e:forHtml(bpmh.provider.formattedName)}
+						${carlos:forHtml(bpmh.provider.formattedName)}
 						<c:choose>
                             <c:when test="${not empty bpmh.provider.ohipNo}">
-                                &#40;${e:forHtml(bpmh.provider.ohipNo)}&#41;
+                                &#40;${carlos:forHtml(bpmh.provider.ohipNo)}&#41;
                             </c:when>
                             <c:otherwise>
                                 &#40;<fmt:message key="colcamex.formBPMH.error.unknown"/>&#41;
@@ -143,12 +144,12 @@
                 </c:if>
 
 					<fmt:message key="colcamex.formBPMH.preparedon"/>
-					${e:forHtml(bpmh.formDateFormatted)}
+					${carlos:forHtml(bpmh.formDateFormatted)}
 				</span>
 									
 				<span>				
 					<fmt:message key="colcamex.formBPMH.printedon"/>
-					${e:forHtml(bpmh.editDateFormatted)}
+					${carlos:forHtml(bpmh.editDateFormatted)}
 				</span>
 
             </div>
@@ -165,26 +166,26 @@
                 <tr>
                     <td rowspan="2" class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.name"/></td>
                     <td rowspan="2">
-                        ${e:forHtml(bpmh.demographic.fullName)}
+                        ${carlos:forHtml(bpmh.demographic.fullName)}
                     </td>
                     <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.insurance"/></td>
                     <td>
-                        ${e:forHtml(bpmh.demographic.hin)}
+                        ${carlos:forHtml(bpmh.demographic.hin)}
                     </td>
                     <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.gender"/></td>
                     <td>
-                        ${e:forHtml(bpmh.demographic.sex)}
+                        ${carlos:forHtml(bpmh.demographic.sex)}
                     </td>
                 </tr>
 
                 <tr>
                     <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.dob"/></td>
                     <td>
-                        ${e:forHtml(bpmh.demographic.formattedDob)}
+                        ${carlos:forHtml(bpmh.demographic.formattedDob)}
                     </td>
                     <td class="columnTitle"><fmt:message key="colcamex.formBPMH.patient.phone"/></td>
                     <td>
-                        ${e:forHtml(bpmh.demographic.phone)}
+                        ${carlos:forHtml(bpmh.demographic.phone)}
                     </td>
                 </tr>
             </table>
@@ -195,7 +196,7 @@
                     </td>
                     <td>
                         <c:if test="${not empty bpmh.allergiesString}">
-                            ${e:forHtml(bpmh.allergiesString)}
+                            ${carlos:forHtml(bpmh.allergiesString)}
                         </c:if>
                     </td>
                 </tr>
@@ -217,7 +218,7 @@
                                 <span class="red">Unknown</span>
                             </c:when>
                             <c:otherwise>
-                                ${e:forHtml(bpmh.familyDrName)}
+                                ${carlos:forHtml(bpmh.familyDrName)}
                             </c:otherwise>
                         </c:choose>
 
@@ -230,7 +231,7 @@
                                 <span class="red">Unknown</span>
                             </c:when>
                             <c:otherwise>
-                                ${e:forHtml(bpmh.familyDrPhone)}
+                                ${carlos:forHtml(bpmh.familyDrPhone)}
                             </c:otherwise>
                         </c:choose>
                     </td>
@@ -242,7 +243,7 @@
                                 <span class="red">Unknown</span>
                             </c:when>
                             <c:otherwise>
-                                ${e:forHtml(bpmh.familyDrFax)}
+                                ${carlos:forHtml(bpmh.familyDrFax)}
                             </c:otherwise>
                         </c:choose>
                     </td>
@@ -301,7 +302,7 @@
 
                             <td>
                                 <!-- WHAT -->
-                                ${e:forHtml(drugs.what)}
+                                ${carlos:forHtml(drugs.what)}
                             </td>
 
                             <c:choose>
@@ -315,7 +316,7 @@
                                 <c:otherwise>
                                     <td>
                                         <!-- HOW -->
-                                        ${e:forHtml(drugs.how)}
+                                        ${carlos:forHtml(drugs.how)}
                                     </td>
                                 </c:otherwise>
                             </c:choose>
@@ -331,7 +332,7 @@
                                 <c:otherwise>
                                     <td>
                                         <!-- WHY -->
-                                        ${e:forHtml(drugs.why)}
+                                        ${carlos:forHtml(drugs.why)}
                                     </td>
                                 </c:otherwise>
                             </c:choose>
@@ -340,7 +341,7 @@
                                 <!-- INSTRUCTION -->
                                 <c:choose>
                                     <c:when test="${not empty drugs.instruction}">
-                                        ${e:forHtml(drugs.instruction)}
+                                        ${carlos:forHtml(drugs.instruction)}
                                     </c:when>
                                     <c:otherwise>
                                         <form:textarea property="instruction" indexed="true">
@@ -377,7 +378,7 @@
                     <td>
                         <c:choose>
                             <c:when test="${not empty bpmh.note}">
-                                ${e:forHtml(bpmh.note)}&nbsp;
+                                ${carlos:forHtml(bpmh.note)}&nbsp;
                             </c:when>
                             <c:otherwise>
                                 <form:textarea property="note">&nbsp;</form:textarea>

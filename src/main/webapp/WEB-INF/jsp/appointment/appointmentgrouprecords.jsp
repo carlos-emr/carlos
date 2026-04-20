@@ -80,9 +80,11 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%
@@ -412,7 +414,7 @@
         </div>
 
     <form name="groupappt" method="POST"
-          action="appointmentgrouprecords.jsp" onSubmit="return onSub();">
+          action="<%=request.getContextPath() %>/appointment/appointmentgrouprecords" onSubmit="return onSub();">
         <input type="hidden" name="groupappt" value="">
 
         <%
@@ -461,10 +463,10 @@
                 if (bOne || bTwo) {
                     otherAppt.setProperty(other.getProviderNo() + "apptno", String.valueOf(other.getId()));
                     appt += "<b>" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + Encode.forHtml(other.getName() == null ? "" : other.getName()) + "</b>|";
+                            + dotStr + SafeEncode.forHtml(other.getName() == null ? "" : other.getName()) + "</b>|";
                 } else {
                     appt += String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + Encode.forHtml(other.getName() == null ? "" : other.getName()) + "|";
+                            + dotStr + SafeEncode.forHtml(other.getName() == null ? "" : other.getName()) + "|";
                 }
 
                 if (!String.valueOf(other.getProviderNo()).equals(temp)) {
@@ -485,17 +487,17 @@
                 temp = e.nextElement().toString();
                 if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName))
                     continue;
-                out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
+                out.println("<input type=\"hidden\" name=\"" + SafeEncode.forHtmlAttribute(temp) + "\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
             }
         %>
 
         <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary"><e:forHtmlContent value='<%= eApptDate == null ? "" : eApptDate %>' /></span>
-                <span class="badge bg-info text-dark"><e:forHtmlContent value='<%= eStartTime == null ? "" : eStartTime %>' /> - <e:forHtmlContent value='<%= eEndTime == null ? "" : eEndTime %>' /></span>
-                <span class="fw-bold"><e:forHtmlContent value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' /></span>
+                <span class="badge bg-secondary"><carlos:encode value='<%= eApptDate == null ? "" : eApptDate %>' context="html"/></span>
+                <span class="badge bg-info text-dark"><carlos:encode value='<%= eStartTime == null ? "" : eStartTime %>' context="html"/> - <carlos:encode value='<%= eEndTime == null ? "" : eEndTime %>' context="html"/></span>
+                <span class="fw-bold"><carlos:encode value='<%= UtilMisc.toUpperLowerCase(eName == null ? "" : eName) %>' context="html"/></span>
             </div>
-            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <e:forHtmlContent value='<%= mygroupno %>' /></span>
+            <span class="badge bg-primary"><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <carlos:encode value='<%= mygroupno %>' context="html"/></span>
         </div>
 
         <div class="d-flex gap-3 mb-2 small">
@@ -535,16 +537,16 @@
                         bDefProvider = curProvider_no.equals(provider.getProviderNo()) ? true : false;
             %>
             <tr class="<%=bDefProvider?"provider-current":(bAvailProvider?"provider-available":"provider-unavailable")%>">
-                <td class="text-end"><e:forHtmlContent value='<%= provider.getFormattedName() %>' /></td>
+                <td class="text-end"><carlos:encode value='<%= provider.getFormattedName() %>' context="html"/></td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input" name="one<%=i%>"
                            value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"one")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"one") : "") : (bDefProvider? "checked":"")%>
                            onclick="onCheck(this)">
-                    <input type="hidden" name="provider_no<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getProviderNo() %>' />">
-                    <input type="hidden" name="last_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getLastName() %>' />">
-                    <input type="hidden" name="first_name<%=i%>" value="<e:forHtmlAttribute value='<%= provider.getFirstName() %>' />">
+                    <input type="hidden" name="provider_no<%=i%>" value="<carlos:encode value='<%= provider.getProviderNo() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="last_name<%=i%>" value="<carlos:encode value='<%= provider.getLastName() %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="first_name<%=i%>" value="<carlos:encode value='<%= provider.getFirstName() %>' context="htmlAttribute"/>">
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
@@ -590,22 +592,22 @@
                 <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete" var="btnGroupDelete"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupUpdate)}">
+                       value="${carlos:forHtmlAttribute(btnGroupUpdate)}">
                 <input type="button" class="btn btn-secondary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupCancel)}">
+                       value="${carlos:forHtmlAttribute(btnGroupCancel)}">
                 <input type="button" class="btn btn-danger btn-sm"
-                       onclick="if(!confirm('${e:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnGroupDelete)}">
+                       onclick="if(!confirm('${carlos:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       value="${carlos:forHtmlAttribute(btnGroupDelete)}">
                 <% } else { %>
                 <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt" var="btnAddGroupAppt"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                       value="${e:forHtmlAttribute(btnAddGroupAppt)}">
+                       value="${carlos:forHtmlAttribute(btnAddGroupAppt)}">
                 <% } %>
                 <fmt:message key="global.btnBack" var="btnBack"/>
                 <input type="button" class="btn btn-secondary btn-sm"
-                       value="${e:forHtmlAttribute(btnBack)}"
+                       value="${carlos:forHtmlAttribute(btnBack)}"
                        onClick="window.history.go(-1);return false;">
             </div>
         </div>

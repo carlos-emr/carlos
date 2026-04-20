@@ -48,6 +48,7 @@
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -75,14 +76,14 @@
     if (request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
         for (String d : drugs) {
-            sb.append("&drug=" + Encode.forUriComponent(d));
+            sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
         }
     } else {
         for (int idx = 0; idx < arr.length; ++idx) {
             RxPrescriptionData.Prescription drug = arr[idx];
             if (!drug.isCustom()) {
-                sb.append("&drug=" + Encode.forUriComponent(drug.getRegionalIdentifier()));
+                sb.append("&drug=" + SafeEncode.forUriComponent(drug.getRegionalIdentifier()));
                 h.put(drug.getRegionalIdentifier(), "drug");
             }
         }
@@ -98,6 +99,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath()%>/js/global.js"></script>
@@ -144,16 +146,16 @@
             </table>
 
 
-            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<e:forUriComponent value='<%= demographicNo %>' /><%=drugForGraph%>"/>
+            <img src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
 
 
             <fieldset>
                 <legend>Med List</legend>
                 <form action="rx/chartDrugProfile.jsp">
-                    <input type="hidden" name="labType" value="<e:forHtmlAttribute value='<%= labType %>' />"/>
-                    <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demographicNo %>' />"/>
-                    <input type="hidden" name="testName" value="<e:forHtmlAttribute value='<%= testName %>' />"/>
-                    <input type="hidden" name="identifier" value="<e:forHtmlAttribute value='<%= identifier %>' />"/>
+                    <input type="hidden" name="labType" value="<carlos:encode value='<%= labType %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%
@@ -182,7 +184,7 @@
                                 }
                         %>
                         <li><input type="checkbox"  <%=getChecked(h, drug.getRegionalIdentifier())%> name="drug"
-                                   value="<e:forHtmlAttribute value='<%= drug.getRegionalIdentifier() %>' />"/> <e:forHtmlContent value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' />
+                                   value="<carlos:encode value='<%= drug.getRegionalIdentifier() %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= drug.getFullOutLine().replaceAll(";", " ") %>' context="html"/>
                         </li>
                         <%
                             }

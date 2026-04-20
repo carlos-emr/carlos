@@ -35,6 +35,7 @@
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
@@ -128,7 +129,7 @@
             <div class="col-md-2">
                 <fmt:message key="admin.gstReport.start"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<e:forHtmlAttribute value='<%= startDate %>' />"
+                    <input type="text" name="xml_vdate" id="xml_vdate" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
@@ -136,7 +137,7 @@
             <div class="col-md-2">
                 <fmt:message key="admin.gstReport.end"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<e:forHtmlAttribute value='<%= endDate %>' />"
+                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>

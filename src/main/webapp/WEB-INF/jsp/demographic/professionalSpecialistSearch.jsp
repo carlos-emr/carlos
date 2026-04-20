@@ -54,7 +54,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -112,11 +114,11 @@
 
             function selectResult(data1, data2) {
                 opener.document
-            ['<e:forJavaScriptBlock value='<%= form %>' />'].
-                elements['<e:forJavaScriptBlock value='<%= elementId %>' />'].value = data1;
+            ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                elements['<carlos:encode value='<%= elementId %>' context="javaScriptBlock"/>'].value = data1;
                 opener.document
-            ['<e:forJavaScriptBlock value='<%= form %>' />'].
-                elements['<e:forJavaScriptBlock value='<%= elementName %>' />'].value = data2;
+            ['<carlos:encode value='<%= form %>' context="javaScriptBlock"/>'].
+                elements['<carlos:encode value='<%= elementName %>' context="javaScriptBlock"/>'].value = data2;
                 self.close();
             }
 
@@ -147,13 +149,13 @@
         </table>
         <table width="95%" border="0">
             <tr>
-                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <e:forHtmlContent value='<%= keyword == null ? "" : keyword %>' />
+                <td align="left"><fmt:message key="demographic.contactSearch.resultsBasedOnKeywords"/> <carlos:encode value='<%= keyword == null ? "" : keyword %>' context="html"/>
                 </td>
             </tr>
         </table>
-        <input type='hidden' name='form' value="<e:forHtmlAttribute value='<%= form %>' />"/>
-        <input type='hidden' name='elementName' value="<e:forHtmlAttribute value='<%= elementName %>' />"/>
-        <input type='hidden' name='elementId' value="<e:forHtmlAttribute value='<%= elementId %>' />"/>
+        <input type='hidden' name='form' value="<carlos:encode value='<%= form %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementName' value="<carlos:encode value='<%= elementName %>' context="htmlAttribute"/>"/>
+        <input type='hidden' name='elementId' value="<carlos:encode value='<%= elementId %>' context="htmlAttribute"/>"/>
     </form>
 
     <center>
@@ -172,15 +174,15 @@
                     String bgColor = i.getIndex() % 2 == 0 ? "#EEEEFF" : "ivory";
 
                     String strOnClick;
-                    strOnClick = "selectResult('" + contact.getId() + "','" + Encode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
+                    strOnClick = "selectResult('" + contact.getId() + "','" + SafeEncode.forJavaScript(contact.getLastName() + "," + contact.getFirstName()) + "')";
 
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<e:forJavaScriptAttribute value='<%= strOnClick %>' />">
-                    <td>${e:forHtml(contact.lastName)}</td>
-                    <td>${e:forHtml(contact.firstName)}</td>
-                    <td>${e:forHtml(contact.phoneNumber)}</td>
+                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                    <td>${carlos:forHtml(contact.lastName)}</td>
+                    <td>${carlos:forHtml(contact.firstName)}</td>
+                    <td>${carlos:forHtml(contact.phoneNumber)}</td>
                 </tr>
             </c:forEach>
 
@@ -202,24 +204,24 @@
         <script language="JavaScript">
             <!--
             function last() {
-                <c:set var="__enc_1"><e:forUriComponent value='<%= form %>' /></c:set>
-                <c:set var="__enc_2"><e:forUriComponent value='<%= elementName %>' /></c:set>
-                <c:set var="__enc_3"><e:forUriComponent value='<%= elementId %>' /></c:set>
-                <c:set var="__enc_4"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-                <c:set var="__enc_5"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-                <c:set var="__enc_6"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<e:forJavaScript value='${__enc_1}' />&elementName=<e:forJavaScript value='${__enc_2}' />&elementId=<e:forJavaScript value='${__enc_3}' />&keyword=<e:forJavaScript value='${__enc_4}' />&search_mode=<e:forJavaScript value='${__enc_5}' />&orderby=<e:forJavaScript value='${__enc_6}' />&limit1=<%=nLastPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
+                <c:set var="__enc_1"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_2"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_3"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_5"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_6"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<carlos:encode value='${__enc_1}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_2}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_3}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_4}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_5}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_6}' context="javaScript"/>&limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 
             function next() {
-                <c:set var="__enc_7"><e:forUriComponent value='<%= form %>' /></c:set>
-                <c:set var="__enc_8"><e:forUriComponent value='<%= elementName %>' /></c:set>
-                <c:set var="__enc_9"><e:forUriComponent value='<%= elementId %>' /></c:set>
-                <c:set var="__enc_10"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' /></c:set>
-                <c:set var="__enc_11"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' /></c:set>
-                <c:set var="__enc_12"><e:forUriComponent value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' /></c:set>
-                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<e:forJavaScript value='${__enc_7}' />&elementName=<e:forJavaScript value='${__enc_8}' />&elementId=<e:forJavaScript value='${__enc_9}' />&keyword=<e:forJavaScript value='${__enc_10}' />&search_mode=<e:forJavaScript value='${__enc_11}' />&orderby=<e:forJavaScript value='${__enc_12}' />&limit1=<%=nNextPage%>&limit2=<e:forJavaScript value='<%= strLimit2 %>' />";
+                <c:set var="__enc_7"><carlos:encode value='<%= form %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_8"><carlos:encode value='<%= elementName %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_9"><carlos:encode value='<%= elementId %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_10"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("keyword")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_11"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("search_mode")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_12"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("orderby")) %>' context="uriComponent"/></c:set>
+                document.nextform.action = "<%= request.getContextPath() %>/demographic/ViewProfessionalSpecialistSearch?form=<carlos:encode value='${__enc_7}' context="javaScript"/>&elementName=<carlos:encode value='${__enc_8}' context="javaScript"/>&elementId=<carlos:encode value='${__enc_9}' context="javaScript"/>&keyword=<carlos:encode value='${__enc_10}' context="javaScript"/>&search_mode=<carlos:encode value='${__enc_11}' context="javaScript"/>&orderby=<carlos:encode value='${__enc_12}' context="javaScript"/>&limit1=<%=nNextPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="javaScript"/>";
                 document.nextform.submit();
             }
 

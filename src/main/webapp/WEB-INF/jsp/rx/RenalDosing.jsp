@@ -46,6 +46,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -167,7 +168,7 @@ if (measurementHash != null &&
 <!--
 CIPRO : J01MA02 S01AX13 S03AA07
 
-RENAL DOSING INFORMATION ATC: <e:forHtmlContent value='<%= atc %>' />  Demographic: <e:forHtmlContent value='<%= demographicNo %>' />
+RENAL DOSING INFORMATION ATC: <carlos:encode value='<%= atc %>' context="html"/>  Demographic: <carlos:encode value='<%= demographicNo %>' context="html"/>
 <br/>
 Clcr = {(140 - age ) X weight[kg] )} / (sCr [umol/L] X 0.8) if female X 0.85
 <br/>
@@ -226,9 +227,9 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
         %>
         <tr <%=sel%> >
 
-            <td><e:forHtmlContent value='<%= String.valueOf(h.get("clcrrange")) %>' />
+            <td><carlos:encode value='<%= String.valueOf(h.get("clcrrange")) %>' context="html"/>
             </td>
-            <td><e:forHtmlContent value='<%= String.valueOf(h.get("recommendation")) %>' />
+            <td><carlos:encode value='<%= String.valueOf(h.get("recommendation")) %>' context="html"/>
             </td>
         </tr>
         <%}%>
@@ -246,8 +247,8 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                 <td align="center">
                     (140 - <%=setNA(ageb, age)%>[age] ) X <%=setNA(weightb, weight)%>
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<e:forUriComponent value='<%= demographicNo %>' />','dddsfds'); return false;">
-                        [kg <e:forHtmlContent value='<%= UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd") %>' />]
+                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>','dddsfds'); return false;">
+                        [kg <carlos:encode value='<%= UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd") %>' context="html"/>]
                     </a> X 1.23
 
                 </td>
@@ -258,18 +259,18 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
             <tr>
                 <td align="center" style="border-top: 2px black solid;"><%=setNA(sCrb, sCr)%> sCr
                     <a href="javascript: function myFunction() {return false; }"
-                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<e:forUriComponent value='<%= demographicNo %>' />','dddsfds'); return false;">
-                        [umol/L <e:forHtmlContent value='<%= UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd") %>' />]
+                       onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>','dddsfds'); return false;">
+                        [umol/L <carlos:encode value='<%= UtilDateUtilities.DateToString(sCrDate, "yyyy-MMM-dd") %>' context="html"/>]
                     </a>
                 </td>
             </tr>
         </table>
     </div>
 
-    <div style="clear:left"><e:forHtmlContent value='<%= rd.getMoreinfo() %>' />
+    <div style="clear:left"><carlos:encode value='<%= rd.getMoreinfo() %>' context="html"/>
     </div>
     <%if (request.getParameter("divId") != null) { %>
-    <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<e:forJavaScriptAttribute value='<%= StringUtils.noNull(request.getParameter("divId")) %>' />').toggle();">hide</a>
+    <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<carlos:encode value='<%= StringUtils.noNull(request.getParameter("divId")) %>' context="javaScriptAttribute"/>').toggle();">hide</a>
     </div>
     <%}%>
 </div>

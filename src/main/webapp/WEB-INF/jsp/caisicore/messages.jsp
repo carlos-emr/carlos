@@ -1,5 +1,6 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -36,7 +37,7 @@
     <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
         <c:forEach var="error" items="${pageContext.request.getAttribute('org.apache.struts.action.ERROR')}">
             <tr>
-                <td class="error">${e:forHtml(error)}</td>
+                <td class="error">${carlos:forHtml(error)}</td>
             </tr>
         </c:forEach>
     </c:if>
@@ -45,7 +46,7 @@
     <c:if test="${not empty pageContext.request.getAttribute('org.apache.struts.action.MESSAGE')}">
         <c:forEach var="message" items="${pageContext.request.getAttribute('org.apache.struts.action.MESSAGE')}">
             <tr>
-                <td class="message">${e:forHtml(message)}</td>
+                <td class="message">${carlos:forHtml(message)}</td>
             </tr>
         </c:forEach>
     </c:if>

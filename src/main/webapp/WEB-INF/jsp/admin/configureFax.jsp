@@ -54,6 +54,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -223,7 +224,7 @@
             $("#submit").click(function (e) {
                 e.preventDefault();
 
-                var url = "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax?method=configure";
+                var url = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/admin/ManageFax?method=configure";
                 var data = $("#configFrm").serialize();
 
                 $.ajax({
@@ -283,7 +284,7 @@
 
         function getFaxSchedularStatus() {
             $.ajax({
-                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
+                url: "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getFaxSchedularStatus',
                 success: function (data) {
@@ -307,7 +308,7 @@
 
         function rebootFaxSchedular() {
             $.ajax({
-                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
+                url: "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=restartFaxScheduler',
                 success: function (data) {
@@ -323,7 +324,7 @@
 
         function getPendingIncomingFaxes() {
             $.ajax({
-                url: "<e:forJavaScript value='<%= request.getContextPath() %>' />/admin/ManageFax",
+                url: "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/admin/ManageFax",
                 method: 'POST',
                 data: 'method=getPendingIncomingFaxes',
                 success: function (data) {
@@ -487,7 +488,7 @@
                                 <div class="col-md-12">
                                     <label for="faxUrl"><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.middlewareRelayUrl"/></label>
                                     <input class="form-control" id="faxUrl" type="text" name="faxUrl" placeholder="<fmt:message key='admin.configureFax.middlewareRelayUrlPlaceholder'/>"
-                                           value="<e:forHtmlAttribute value='<%= faxUrl %>' />"/>
+                                           value="<carlos:encode value='<%= faxUrl %>' context="htmlAttribute"/>"/>
                                     <small class="fax-muted"><fmt:message key="admin.configureFax.middlewareRelayUrlHelp"/></small>
                                 </div>
                             </div>
@@ -495,13 +496,13 @@
                                 <div class="col-md-6">
                                     <label for="faxServiceUser"><i class="fas fa-user"></i> <fmt:message key="admin.configureFax.middlewareUsername"/></label>
                                     <input class="form-control" id="faxServiceUser" type="text" name="siteUser"
-                                           value="<e:forHtmlAttribute value='<%= siteUser %>' />"/>
+                                           value="<carlos:encode value='<%= siteUser %>' context="htmlAttribute"/>"/>
                                     <small class="fax-muted"><fmt:message key="admin.configureFax.middlewareUsernameHelp"/></small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="faxServicePasswd"><i class="fas fa-key"></i> <fmt:message key="admin.configureFax.middlewarePassword"/></label>
                                     <input class="form-control" id="faxServicePasswd" type="password" name="sitePasswd"
-                                           value="<e:forHtmlAttribute value='<%= sitePasswd %>' />"/>
+                                           value="<carlos:encode value='<%= sitePasswd %>' context="htmlAttribute"/>"/>
                                     <small class="fax-muted"><fmt:message key="admin.configureFax.middlewarePasswordHelp"/></small>
                                 </div>
                             </div>
@@ -514,7 +515,7 @@
                                     <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.srfaxApiEndpoint"/></h6>
                                     <label><i class="fas fa-link"></i> <fmt:message key="admin.configureFax.apiUrl"/></label>
                                     <input class="form-control" type="text" readonly
-                                           value="<e:forHtmlAttribute value='<%= SRFaxProviderClient.DEFAULT_SRFAX_API_URL %>' />"
+                                           value="<carlos:encode value='<%= SRFaxProviderClient.DEFAULT_SRFAX_API_URL %>' context="htmlAttribute"/>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                     <small class="fax-muted"><i class="fas fa-lock"></i> <fmt:message key="admin.configureFax.defaultEndpointHelp"/></small>
                                 </div>
@@ -532,13 +533,13 @@
                             <div class="col-md-6">
                                 <label for="faxUser"><fmt:message key="admin.configureFax.srfaxUsername"/></label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
-                                       value="<e:forHtmlAttribute value='<%= faxUser %>' />"/>
-                                <input type="hidden" id="id" name="id" value="<e:forHtmlAttribute value='<%= configId %>' />"/>
+                                       value="<carlos:encode value='<%= faxUser %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" id="id" name="id" value="<carlos:encode value='<%= configId %>' context="htmlAttribute"/>"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="faxPasswd"><fmt:message key="admin.configureFax.srfaxPassword"/></label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
-                                       value="<e:forHtmlAttribute value='<%= faxPassword %>' />"/>
+                                       value="<carlos:encode value='<%= faxPassword %>' context="htmlAttribute"/>"/>
                             </div>
                         </div>
 
@@ -547,20 +548,20 @@
                             <div class="col-md-6">
                                 <label for="faxNumber"><fmt:message key="admin.configureFax.faxNumber"/></label>
                                 <input class="form-control" type="text" id="faxNumber" name="faxNumber"
-                                       value="<e:forHtmlAttribute value='<%= faxNumber %>' />"/>
+                                       value="<carlos:encode value='<%= faxNumber %>' context="htmlAttribute"/>"/>
                             </div>
                             <div class="col-md-6">
                                 <label for="senderEmail"><fmt:message key="admin.configureFax.email"/></label>
                                 <input class="form-control" type="email" id="senderEmail" name="senderEmail"
                                        placeholder="<fmt:message key='admin.configureFax.accountEmailPlaceholder'/>"
-                                       value="<e:forHtmlAttribute value='<%= senderEmail %>' />"/>
+                                       value="<carlos:encode value='<%= senderEmail %>' context="htmlAttribute"/>"/>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <label><fmt:message key="admin.configureFax.inboxQueue"/></label>
                                 <input class="form-control" type="text" readonly
-                                       value="<e:forHtmlAttribute value='<%= queueMap.getOrDefault(queueId, "default") %>' />"
+                                       value="<carlos:encode value='<%= queueMap.getOrDefault(queueId, "default") %>' context="htmlAttribute"/>"
                                        style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
                                 <input type="hidden" name="inboxQueue" value="<%=queueId%>"/>
                                 <small class="fax-muted"><fmt:message key="admin.configureFax.inboxQueueHelp"/></small>
@@ -568,7 +569,7 @@
                             <div class="col-md-6">
                                 <label for="accountName"><fmt:message key="admin.configureFax.accountName"/></label>
                                 <input class="form-control" type="text" name="accountName" id="accountName"
-                                       value="<e:forHtmlAttribute value='<%= accountName %>' />"/>
+                                       value="<carlos:encode value='<%= accountName %>' context="htmlAttribute"/>"/>
                             </div>
                         </div>
 

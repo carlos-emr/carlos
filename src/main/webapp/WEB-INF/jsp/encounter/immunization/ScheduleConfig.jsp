@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -103,7 +104,7 @@
                     <td class="Header"
                         style="padding-left:2px;padding-right:2px;border-right:2px solid #003399;text-align:left;font-size:80%;font-weight:bold;width:100%;"
                         NOWRAP>
-                        <e:forHtmlContent value='<%= last_name %>' />, <e:forHtmlContent value='<%= first_name %>' /> <e:forHtmlContent value='<%= sex %>' /> <e:forHtmlContent value='<%= age %>' />
+                        <carlos:encode value='<%= last_name %>' context="html"/>, <carlos:encode value='<%= first_name %>' context="html"/> <carlos:encode value='<%= sex %>' context="html"/> <carlos:encode value='<%= age %>' context="html"/>
                     </td>
                     <td>
                     </td>
@@ -129,7 +130,7 @@
             Vector cfgId = new EctImmConfigData().getImmunizationConfigId();
         %>
             <form action="${pageContext.request.contextPath}/encounter/immunization/saveConfig" method="post">
-                <input type="hidden" name="demographic_no" value="<e:forHtmlAttribute value='<%= demoNo %>' />">
+                <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>">
                 <input type="hidden" name="xmlDoc" value="<%--= UtilMisc.encode64(UtilXML.toXML(cfgDoc)) --%>"/>
 
                 <%
@@ -139,7 +140,7 @@
                 %>
                 <div style="font-weight: bold"><input type="checkbox"
                                                       name="chkSet<%--=i--%>"
-                                                      value="<e:forHtmlAttribute value='<%= String.valueOf(cfgId.get(i)) %>' />"/> <e:forHtmlContent value='<%= (String) cfgSet.get(i) %>' />;
+                                                      value="<carlos:encode value='<%= String.valueOf(cfgId.get(i)) %>' context="htmlAttribute"/>"/> <carlos:encode value='<%= (String) cfgSet.get(i) %>' context="html"/>;
                 </div>
                 <%
                     }
@@ -150,9 +151,9 @@
                         <td>
                             <input type="submit" name="submit"
                                     value="<fmt:message key="encounter.immunization.ScheduleConfig.addTemplate"/>" />
-                                         <c:set var="__enc_1"><e:forUriComponent value='<%= demoNo %>' /></c:set>
+                                         <c:set var="__enc_1"><carlos:encode value='<%= demoNo %>' context="uriComponent"/></c:set>
                       <input type="button" value='<fmt:message key="global.btnCancel"/>'
-                                   onclick="javascript:location.href='loadSchedule?demographic_no=<e:forJavaScriptAttribute value='${__enc_1}' />';"/>
+                                   onclick="javascript:location.href='loadSchedule?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>';"/>
                         </td>
                         <td align="right">
                             <input type="button"

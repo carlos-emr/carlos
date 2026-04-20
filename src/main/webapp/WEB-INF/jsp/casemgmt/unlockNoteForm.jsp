@@ -31,6 +31,7 @@
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -51,7 +52,7 @@
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}"
            scope="request"/>
-    <link rel="stylesheet" href="${e:forHtmlAttribute(ctx)}/css/casemgmt.css"
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css"
           type="text/css">
 </head>
 

@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none" %>
@@ -137,7 +138,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <e:forHtmlContent value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' />
+                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
             </td>
         </tr>
     </table>
@@ -169,7 +170,7 @@
         %>
         <tr>
             <td>
-                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><e:forHtmlContent value='<%= securityRecord.getUserName() %>' />
+                <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><carlos:encode value='<%= securityRecord.getUserName() %>' context="html"/>
                 </a></td>
             <td style="text-align:center">*********</td>
             <td style="text-align:center"><%= securityRecord.getProviderNo() %>

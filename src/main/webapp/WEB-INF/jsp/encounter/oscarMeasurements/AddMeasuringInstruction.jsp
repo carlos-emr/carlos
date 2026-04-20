@@ -37,6 +37,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
@@ -91,7 +92,7 @@
                                         <td colspan="2">
                                             <c:if test="${not empty messages}">
                                                 <c:forEach var="msg" items="${messages}">
-                                                    ${e:forHtml(msg)}
+                                                    ${carlos:forHtml(msg)}
                                                     <br>
                                                 </c:forEach>
                                             </c:if>
