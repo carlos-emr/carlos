@@ -50,6 +50,9 @@ import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
+import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
+import io.github.carlos_emr.carlos.appointment.search.Provider;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -592,6 +595,11 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response saveSearchConfig(@PathParam("id") Integer id, SearchConfigTo1 searchConfigTo) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
         if (id == null || id.intValue() == 0) {
             return null;
         }
@@ -612,6 +620,16 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             SearchConfig searchConfig = SearchConfig.fromTransfer(searchConfigTo, oldConfig);
+
+            // Fail fast at the REST boundary on unknown filter references, rather than
+            // later with an opaque ClassNotFoundException during findAppointment.
+            String unknownFilter = findUnknownFilter(searchConfig);
+            if (unknownFilter != null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Unknown appointment filter: " + unknownFilter)
+                        .build();
+            }
+
             Document d = SearchConfig.toDocument(searchConfig);
 
 
@@ -644,6 +662,39 @@ public class ScheduleService extends AbstractServiceImpl {
 
 
         return Response.ok(forNewId).build();
+    }
+
+    /**
+     * Walk the top-level and per-provider filter lists on {@code searchConfig} and return
+     * the first {@code filterClassName} that is not accepted by {@link FilterRegistry},
+     * or {@code null} if every filter reference is known.
+     */
+    private String findUnknownFilter(SearchConfig searchConfig) {
+        if (searchConfig == null) {
+            return null;
+        }
+        List<FilterDefinition> topLevel = searchConfig.getFilters();
+        if (topLevel != null) {
+            for (FilterDefinition fd : topLevel) {
+                if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
+                    return fd.getFilterClassName();
+                }
+            }
+        }
+        Map<String, Provider> providers = searchConfig.getProviders();
+        if (providers != null) {
+            for (Provider provider : providers.values()) {
+                List<FilterDefinition> providerFilters = provider.getFilter();
+                if (providerFilters != null) {
+                    for (FilterDefinition fd : providerFilters) {
+                        if (!FilterRegistry.isKnown(fd.getFilterClassName())) {
+                            return fd.getFilterClassName();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     @GET
