@@ -220,12 +220,17 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 byte[] htmlHrmReportData = hrmReport.getBinaryContent();
                 eFormData.setFormData(new String(htmlHrmReportData, StandardCharsets.UTF_8));
                 Path path = ConvertToEdoc.saveAsTempPDF(eFormData);
+                if (path == null) {
+                    logger.error("Failed to convert HTML HRM report to a temporary PDF");
+                    throw new IOException("Failed to convert HTML HRM report to a temporary PDF");
+                }
                 try {
                     Files.copy(path, outputStream);
                 } finally {
-                    // saveAsTempPDF documents a possible null return on conversion failure
-                    if (path != null) {
+                    try {
                         Files.deleteIfExists(path);
+                    } catch (IOException e) {
+                        logger.warn("Failed to delete temporary PDF created for HTML HRM report", e);
                     }
                 }
             } else {
