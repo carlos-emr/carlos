@@ -55,15 +55,15 @@ class LogoutBroadcastFilterUnitTest {
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
     @Mock
-    private CarlosProperties mockProperties;
+    private CarlosProperties carlosProperties;
 
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
-        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
-        when(mockProperties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+        when(carlosProperties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
 
         filter = new LogoutBroadcastFilter();
         filter.init(mock(FilterConfig.class));
