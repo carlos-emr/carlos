@@ -71,16 +71,31 @@ class AppointmentJspRoutingTest {
      *
      * <p>{@code appointmentcontrol.jsp} is the dispatcher that routes each
      * {@code displaymode} (edit / Add Appointment / Copy / ...) to its
-     * per-operation target. For extensionless Struts action targets it must
-     * use {@code response.sendRedirect()} — not {@code RequestDispatcher.forward()}.
-     * A JSP forward into a Struts action produces a nested dispatch chain that
-     * is captured twice by {@code CsrfGuardScriptInjectionFilter}'s response
-     * wrapper; under Tomcat 11 the nested-wrapper/forward combination drops
-     * the innermost JSP's body and the popup opens blank (HTTP 200, 0 bytes).
-     * {@code sendRedirect} (302) sidesteps the nested-forward case entirely,
-     * so the target action runs on a fresh dispatch and the response body
-     * reaches the client. Internal JSP/JSPF/HTML fragments must still be
-     * composed via {@code include()}.</p>
+     * per-operation target. For extensionless Struts action targets the
+     * dispatch method depends on the incoming HTTP method:</p>
+     *
+     * <ul>
+     *   <li><b>GET/HEAD</b> (popup links from the schedule grid, demographic
+     *   appt history, etc. — {@code displaymode=edit}, {@code PrintCard}):
+     *   use {@code response.sendRedirect()}. A JSP forward into a Struts
+     *   action produces a nested dispatch chain that is captured twice by
+     *   {@code CsrfGuardScriptInjectionFilter}'s response wrapper; under
+     *   Tomcat 11 the nested-wrapper/forward combination drops the
+     *   innermost JSP's body and the popup opens blank (HTTP 200, 0 bytes).
+     *   A 302 sidesteps the nested-forward case entirely.</li>
+     *
+     *   <li><b>POST</b> (EDITAPPT/ADDAPPT form submissions carrying
+     *   {@code displaymode=Update Appt / Delete Appt / Cut / Copy /
+     *   Add Appointment / Group Action / Search }): must still use
+     *   {@code forward()}. A 302 turns the POST into a GET and drops the
+     *   form body; the mutator targets ({@code UpdateRecord},
+     *   {@code DeleteRecord}, {@code CutRecord}, {@code AddRecord}) are
+     *   blocked by {@code HttpMethodGuardFilter} on GET and also rely on
+     *   POST parameters that a redirect would discard.</li>
+     * </ul>
+     *
+     * <p>Internal JSP/JSPF/HTML fragments must still be composed via
+     * {@code include()}.</p>
      */
     @Test
     void shouldUseSendRedirect_forExtensionlessActionTargetsInAppointmentControl() throws IOException {
@@ -90,21 +105,37 @@ class AppointmentJspRoutingTest {
         assertThat(appointmentControl).contains("\"edit\"");
         assertThat(appointmentControl).contains("/appointment/editappointment");
 
-        // Must redirect — not forward — to extensionless action targets so that
-        // the nested-forward-through-CsrfGuard-wrapper issue cannot drop the body.
-        // Assert the dispatch-specific redirect call, not unrelated security/logout redirects.
+        // GET/HEAD path: dispatch-specific redirect call (not unrelated
+        // security/logout redirects elsewhere in the file)
         assertThat(appointmentControl).contains("response.sendRedirect(redirectUrl");
-        assertThat(appointmentControl)
-                .as("appointmentcontrol.jsp must not forward to extensionless Struts actions; "
-                        + "nested forward through CsrfGuardScriptInjectionFilter drops the response body")
-                .doesNotContain("request.getRequestDispatcher(target).forward(");
 
-        // Query string must be preserved so the target action sees the original
-        // appointment_no / demographic_no / provider_no / displaymode / dboperation params
+        // POST path: must still forward() so mutator targets (UpdateRecord,
+        // DeleteRecord, CutRecord, AddRecord) receive the form body. A 302
+        // would turn the POST into a GET and HttpMethodGuardFilter would
+        // block the request with 405.
+        assertThat(appointmentControl).contains("\"POST\".equalsIgnoreCase(request.getMethod())");
+        assertThat(appointmentControl).contains("request.getRequestDispatcher(target).forward(request, response)");
+
+        // Query string must be preserved on the redirect path so the target
+        // action sees appointment_no / demographic_no / provider_no /
+        // displaymode / dboperation
         assertThat(appointmentControl).contains("request.getQueryString()");
 
         // include() must remain available for internal JSP/JSPF/HTML fragments
         assertThat(appointmentControl).contains("request.getRequestDispatcher(target).include(");
+
+        // Structural ordering: the .jsp/.jspf/.html include branch must come
+        // first, then the POST forward() branch, then the GET/HEAD
+        // sendRedirect() fallback. If the order regresses (e.g. redirect
+        // before the POST check) a POST would be 302-redirected and lose its
+        // form body.
+        int includeIdx = appointmentControl.indexOf("request.getRequestDispatcher(target).include(");
+        int postIdx = appointmentControl.indexOf("\"POST\".equalsIgnoreCase(request.getMethod())");
+        int forwardIdx = appointmentControl.indexOf("request.getRequestDispatcher(target).forward(request, response)");
+        int redirectIdx = appointmentControl.indexOf("response.sendRedirect(redirectUrl");
+        assertThat(includeIdx).isLessThan(postIdx);
+        assertThat(postIdx).isLessThan(forwardIdx);
+        assertThat(forwardIdx).isLessThan(redirectIdx);
     }
 
     private String readJspContent(String path) throws IOException {

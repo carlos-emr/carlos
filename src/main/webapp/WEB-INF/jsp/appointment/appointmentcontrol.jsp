@@ -97,20 +97,41 @@
     // Internal view fragments (.jsp / .jspf / .html) are rendered via include()
     // so their output is composed into the current response.
     //
-    // Extensionless Struts action targets are reached via sendRedirect() rather
-    // than forward(). A JSP forward into a Struts action produces a nested
-    // dispatch chain (Struts action → JSP → JSP forward → Struts action → JSP)
-    // that passes twice through CsrfGuardScriptInjectionFilter's
-    // CaptureResponseWrapper. Under Tomcat 11 that nested-wrapper/forward
-    // combination drops the body of the innermost JSP, producing a blank page
-    // (HTTP 200, 0 bytes) — the exact symptom of "Editappointment fails". A
-    // 302 hands the browser a fresh URL that is processed on a single dispatch
-    // path, so the target action's security gate runs cleanly and the
-    // response body reaches the client. Query string is preserved so the
-    // target action sees the original appointment_no / demographic_no /
-    // provider_no / displaymode / dboperation parameters.
+    // For extensionless Struts action targets the dispatch method depends on
+    // the incoming HTTP method:
+    //
+    //   - GET/HEAD (popup links such as displaymode=edit from the schedule
+    //     grid, demographic appt history, etc.): use sendRedirect(). A JSP
+    //     forward into a Struts action produces a nested dispatch chain
+    //     (Struts action → JSP → JSP forward → Struts action → JSP) that
+    //     passes twice through CsrfGuardScriptInjectionFilter's
+    //     CaptureResponseWrapper. Under Tomcat 11 that nested-wrapper/forward
+    //     combination drops the body of the innermost JSP, producing a blank
+    //     page (HTTP 200, 0 bytes) — the "Editappointment fails" symptom.
+    //     A 302 hands the browser a fresh URL processed on a single dispatch
+    //     path, so the target action's security gate runs cleanly and the
+    //     response body reaches the client. The query string is preserved so
+    //     the target action sees the original appointment_no /
+    //     demographic_no / provider_no / displaymode / dboperation
+    //     parameters.
+    //
+    //   - POST (EDITAPPT/ADDAPPT form submissions carrying displaymode values
+    //     like "Update Appt", "Delete Appt", "Cut", "Copy", "Add Appointment",
+    //     "Group Action", "Search "): use forward(). The mutator targets
+    //     (UpdateRecord, DeleteRecord, CutRecord, AddRecord) are blocked by
+    //     HttpMethodGuardFilter on GET, and a 302 would also drop the POST
+    //     body. forward() preserves both the method and the body, matching
+    //     the pre-migration behaviour that these flows have always relied on.
+    //     The blank-body symptom does not occur here because the mutator
+    //     actions typically issue their own redirect after processing rather
+    //     than rendering a JSP body through the nested wrappers.
+    //
+    // Internal "." targets (currently none in opToFile, but the branch is
+    // retained for forward compatibility) are composed via include().
     if (target.endsWith(".jsp") || target.endsWith(".jspf") || target.endsWith(".html")) {
         request.getRequestDispatcher(target).include(request, response);
+    } else if ("POST".equalsIgnoreCase(request.getMethod())) {
+        request.getRequestDispatcher(target).forward(request, response);
     } else {
         if (response.isCommitted()) {
             // Defensive: nothing in the preceding scriptlet writes body bytes,
