@@ -75,7 +75,6 @@
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
 
@@ -249,7 +248,8 @@ for (int i = 0; i < vec.size(); i++) {
             <td><carlos:encode value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' context="html"/></td>
             <% } %>
             <td><carlos:encode value='<%= prop.getProperty("demographic_no", "") %>' context="html"/></td>
-            <td><%= SafeEncode.forHtmlContentWithBreaks(prop.getProperty("data", "")) %></td>
+            <% pageContext.setAttribute("logRow", prop); %>
+            <td>${carlos:forHtmlContentWithBreaks(logRow['data'])}</td>
         </tr>
 
                 <% } %>
