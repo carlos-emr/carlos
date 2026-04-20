@@ -65,7 +65,6 @@
                 <prop key="hibernate.dialect">org.hibernate.dialect.H2Dialect</prop>
                 <prop key="hibernate.show_sql">false</prop>
                 <prop key="hibernate.generate_statistics">false</prop>
-                <prop key="casemgmt.note.password.enabled">false</prop>
                 <prop key="pmm.refer.temporaryAdmission.enabled">false</prop>
                 <prop key="pmm.client.search.outside.of.domain.enabled">false</prop>
             </props>
@@ -112,8 +111,11 @@
         </property>
     </bean>
 
-    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings -->
-    <bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <!-- JPA EntityManagerFactory - creates schema for all HBM mappings.
+         primary="true" disambiguates from sessionFactory (Hibernate SessionFactory
+         also implements EntityManagerFactory), so @PersistenceContext injections
+         from AbstractJpaDao resolve cleanly in the dual-context test setup. -->
+    <bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
         <property name="dataSource" ref="dataSource" />
         <property name="persistenceProvider">
             <bean class="org.hibernate.jpa.HibernatePersistenceProvider" />
@@ -164,6 +166,13 @@
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
                 <!-- Lookup / organization code mappings for LIKE-semantics tests -->
                 <value>com/quatro/model/LstOrgcd.hbm.xml</value>
+                <!-- Lookup DAO entity mappings: LookupDaoImpl was migrated to
+                     AbstractJpaDao (#1559 Task 5), so GetLookupTableDef and
+                     LoadFieldDefList now run HQL against the JPA EntityManager
+                     instead of the Hibernate SessionFactory. The EMF must know
+                     these HBM mappings for HQL to resolve the entities. -->
+                <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+                <value>com/quatro/model/FieldDefValue.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -588,7 +597,7 @@
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
     <!-- ===================================================================== -->
 
-    <!-- DemographicDao (extends AbstractHibernateDao, no @Repository) -->
+    <!-- DemographicDao (extends AbstractJpaDao, no @Repository) -->
     <bean id="demographicDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl" autowire="byName" />
 
     <!-- Other non-@Repository DAOs -->
@@ -596,9 +605,10 @@
     <bean id="drugDao" class="io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl" autowire="byName" />
     <bean id="preventionDao" class="io.github.carlos_emr.carlos.commn.dao.PreventionDaoImpl" autowire="byName" />
     <bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
-    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <!-- PopulationReportDaoImpl was migrated to AbstractJpaDao (#1559 Task 2);
+         it no longer exposes a setSessionFactory setter. Autowire by name uses the
+         shared EntityManager like the other JPA-migrated DAOs. -->
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName" />
 
     <!-- Case Management DAOs (no @Repository) -->
     <bean id="CaseManagementIssueDAO" class="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl" autowire="byName" />
@@ -620,13 +630,11 @@
     <bean id="secUserRoleDao" class="io.github.carlos_emr.carlos.daos.security.SecuserroleDaoImpl" autowire="byName" />
     <bean id="userAccessDao" class="io.github.carlos_emr.carlos.daos.security.UserAccessDaoImpl" autowire="byName" />
     <bean id="secObjectNameDao" class="io.github.carlos_emr.carlos.daos.security.SecObjectNameDaoImpl" autowire="byName" />
-    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <bean id="secProviderDao" class="io.github.carlos_emr.carlos.daos.security.SecProviderDaoImpl" autowire="byName" />
     <bean id="providerDAO" class="io.github.carlos_emr.carlos.daos.ProviderDAOImpl" autowire="byName" />
     <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
 
-    <!-- PMmodule DAOs (no @Repository, extends AbstractHibernateDao) -->
+    <!-- PMmodule DAOs (no @Repository) -->
     <bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
     <bean id="programQueueDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramQueueDaoImpl" autowire="byName" />
     <bean id="clientReferralDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ClientReferralDAOImpl" autowire="byName" />
@@ -639,26 +647,15 @@
     <bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
     <bean id="programSignatureDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramSignatureDaoImpl" autowire="byName" />
     <bean id="programClientRestrictionDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientRestrictionDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
         <property name="demographicDao" ref="demographicDao" />
         <property name="programDao" ref="programDao" />
         <property name="providerDao" ref="providerDao" />
     </bean>
-    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
-    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName">
-        <property name="sessionFactory" ref="sessionFactory" />
-    </bean>
+    <bean id="defaultRoleAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAOImpl" autowire="byName" />
+    <bean id="formsDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.FormsDAOImpl" autowire="byName" />
+    <bean id="pmSecUserRoleDao" class="io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDaoImpl" autowire="byName" />
+    <bean id="programFunctionalUserDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramFunctionalUserDAOImpl" autowire="byName" />
+    <bean id="programClientStatusDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramClientStatusDAOImpl" autowire="byName" />
 
     <!-- ===================================================================== -->
     <!-- Managers and Services (not discovered by @Repository scan)            -->
@@ -704,7 +701,6 @@
         <property name="roleProgramAccessDAO" ref="RoleProgramAccessDAO" />
         <property name="rolesManager" ref="rolesManager" />
         <property name="admissionManager" ref="admissionManager" />
-        <property name="enabled" value="${casemgmt.note.password.enabled}" />
         <property name="programManager" ref="programManager" />
         <property name="programProviderDao" ref="programProviderDAO" />
         <property name="programAccessDAO" ref="programAccessDAO" />

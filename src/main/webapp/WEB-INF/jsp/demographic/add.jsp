@@ -6,7 +6,6 @@
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -29,6 +28,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -131,7 +131,7 @@
 
         </script>
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
+        <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
@@ -142,7 +142,7 @@
 
         <!-- language for the calendar -->
         <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
 
         <!-- the following script defines the Calendar.setup helper function, which makes
        adding a calendar a matter of 1 or 2 lines of code. -->
@@ -176,7 +176,7 @@
                         typeInOK = true;
                     }
                     if (dob.value.length != 10) {
-                        alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.msgWrongDOB"/>");
+                        alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
                         typeInOK = false;
                     }
 
@@ -193,7 +193,7 @@
                         typeInOK = true;
                     }
                 }
-                if (!typeInOK) alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMissingFields"/>");
+                if (!typeInOK) alert("<fmt:message key="demographic.demographicaddrecordhtm.msgMissingFields"/>");
                 return typeInOK;
             }
 
@@ -242,7 +242,7 @@
                 var d = elementName;
                 t0 = escape("document.forms[1].elements[\'" + d + "\'].value");
                 t1 = escape("document.forms[1].elements[\'" + name2 + "\'].value");
-                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/searchRefDoc.jsp?param=' + t0 + '&param2=' + t1), 600, 600, 1);
+                rs('att', ('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param=' + t0 + '&param2=' + t1), 600, 600, 1);
             }
 
             function checkName() {
@@ -250,7 +250,7 @@
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
                 } else {
-                    alert("You must type in the following fields: Last Name, First Name.");
+                    alert("<fmt:message key='demographic.demographiceditdemographic.msgNameRequired'/>");
                 }
                 return typeInOK;
             }
@@ -464,7 +464,7 @@
                     return true;
                 }
                 jQuery.ajaxSetup({async: false});
-                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport.do", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
+                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
                 findDuplicate.success(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
@@ -537,7 +537,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes',
                     dataType: 'json',
                     success: function (data) {
@@ -563,7 +563,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes',
                     dataType: 'json',
                     success: function (data) {
@@ -598,7 +598,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes&country=' + country,
                     dataType: 'json',
                     success: function (data) {
@@ -625,7 +625,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
 
                 jQuery.ajax({
                     type: "POST",
-                    url: '<%=request.getContextPath()%>/demographicSupport.do',
+                    url: '<%=request.getContextPath()%>/demographicSupport',
                     data: 'method=getCountryAndProvinceCodes&country=' + country,
                     dataType: 'json',
                     success: function (data) {
@@ -670,11 +670,11 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
     <body>
     <table>
         <tr bgcolor="#CCCCFF">
-            <th class="subject"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></th>
+            <th class="subject"><fmt:message key="demographic.demographicaddrecordhtm.msgMainLabel"/></th>
         </tr>
     </table>
 
-    <%@ include file="/demographic/zdemographicfulltitlesearch.jsp" %>
+    <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
     <table width="100%" bgcolor="#CCCCFF">
         <tr>
             <td class="RowTop" colspan="4">
@@ -683,7 +683,7 @@ if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled",
         </tr>
         <tr>
             <td>
-                <form method="post" id="adddemographic" name="adddemographic" action="demographicaddarecord.jsp"
+                <form method="post" id="adddemographic" name="adddemographic" action="DemographicAddRecord"
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

@@ -32,6 +32,8 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -180,8 +182,6 @@ public interface CaseManagementManager {
 
     public CaseManagementNoteLink getLatestLinkByTableId(Integer tableName, Long tableId);
 
-    public Integer getTableNameByDisplay(String disp);
-
     public CaseManagementCPP getCPP(String demographic_no);
 
     public List<Allergy> getAllergies(String demographic_no);
@@ -311,13 +311,7 @@ public interface CaseManagementManager {
 
     public boolean isClientReferredInProgramDomain(String providerNo, String demographicNo);
 
-    public boolean unlockNote(int noteId, String password);
-
     public void updateIssue(String demographicNo, Long originalIssueId, Long newIssueId);
-
-    public boolean getEnabled();
-
-    public void setEnabled(boolean enabled);
 
     public void setHashAuditDao(HashAuditDao dao);
 
@@ -372,7 +366,7 @@ public interface CaseManagementManager {
 
     public void setEncounterWindowDao(EncounterWindowDao encounterWindowDao);
 
-    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap);
+    public CaseManagementNote getLastSaved(String programId, String demono, String providerNo);
 
     public CaseManagementNote makeNewNote(String providerNo, String demographicNo, String encType, String appointmentNo,
                                           Locale locale);
@@ -381,11 +375,39 @@ public interface CaseManagementManager {
 
     public CaseManagementNote saveCaseManagementNote(LoggedInInfo loggedInInfo, CaseManagementNote note,
                                                      List<CaseManagementIssue> issuelist, CaseManagementCPP cpp, String ongoing, boolean verify, Locale locale,
-                                                     Date now, CaseManagementNote annotationNote, String userName, String user, String remoteAddr,
+                                                     Date now, String userName, String user, String remoteAddr,
                                                      String lastSavedNoteString) throws Exception;
 
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight);
 
     public String listNotes(String code, String providerNo, String demoNo);
+
+    /**
+     * Returns lightweight case management issue DTOs for a demographic.
+     * Enforces {@code _demographic} read privilege scoped to the patient
+     * and writes a synchronous audit log entry. The underlying DAO guards
+     * against non-numeric input — see
+     * {@link CaseManagementIssueDAO#findIssueDTOsByDemographicNo(String)}.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo String the patient demographic number
+     * @return List&lt;CaseManagementIssueListDTO&gt; ordered by update_date descending
+     * @throws SecurityException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-12
+     */
+    List<CaseManagementIssueListDTO> getIssueDTOs(LoggedInInfo loggedInInfo, String demographicNo);
+
+    /**
+     * Returns lightweight case management note DTOs for a demographic.
+     * Enforces {@code _demographic} read privilege scoped to the patient
+     * and writes a synchronous audit log entry.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo String the patient demographic number
+     * @return List&lt;CaseManagementNoteListDTO&gt; ordered by observation_date descending
+     * @throws SecurityException if the caller lacks {@code _demographic} read privilege
+     * @since 2026-04-12
+     */
+    List<CaseManagementNoteListDTO> getNoteDTOs(LoggedInInfo loggedInInfo, String demographicNo);
 
 }

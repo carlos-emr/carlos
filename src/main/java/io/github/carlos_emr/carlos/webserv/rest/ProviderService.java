@@ -187,11 +187,11 @@ public class ProviderService extends AbstractServiceImpl {
 
             Provider provider = providerDao.getProvider(id);
             if (provider == null) {
-                logger.warn("Provider not found: {}", LogSanitizer.sanitize(id));
+                logger.warn("Provider not found: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 throw new WebApplicationException(Response.Status.NOT_FOUND);
             }
 
-            logger.info("Successfully retrieved provider: {}", LogSanitizer.sanitize(id));
+            logger.info("Successfully retrieved provider: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return ProviderTransfer.toTransfer(provider);
         }
 
@@ -248,11 +248,11 @@ public class ProviderService extends AbstractServiceImpl {
 
         Provider provider = providerDao.getProvider(id);
         if (provider == null) {
-            logger.warn("Provider not found: {}", LogSanitizer.sanitize(id));
+            logger.warn("Provider not found: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
 
-        logger.info("Successfully retrieved provider {} as JSON", LogSanitizer.sanitize(id));
+        logger.info("Successfully retrieved provider {} as JSON", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         return objectMapper.valueToTree(provider).toString();
     }
 

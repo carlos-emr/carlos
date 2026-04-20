@@ -33,14 +33,13 @@ package io.github.carlos_emr.carlos.messenger.docxfer.util;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -75,7 +74,7 @@ public class MsgCommxml {
      */
     public static Document newDocument() {
         try {
-            return DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
         } catch (Exception e) {
             return null;
         }
@@ -139,7 +138,7 @@ public class MsgCommxml {
         StreamResult rslt = new StreamResult(ret);
 
         try {
-            Transformer trans = TransformerFactory.newInstance().newTransformer();
+            Transformer trans = XmlUtils.createSecureTransformerFactory().newTransformer();
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -161,7 +160,7 @@ public class MsgCommxml {
         try {
             InputSource is = new InputSource(new StringReader(xmlInput));
 
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+            Document doc = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
 
             return doc;
         } catch (Exception e) {
@@ -184,11 +183,10 @@ public class MsgCommxml {
      * @throws org.xml.sax.SAXException if the XML is malformed
      */
     public static Document parseXMLFile(String fileName) throws java.io.FileNotFoundException, javax.xml.parsers.ParserConfigurationException, java.io.IOException, org.xml.sax.SAXException {
-        InputSource is = new InputSource(new java.io.FileReader(fileName));
-
-        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
-
-        return doc;
+        try (java.io.FileReader reader = new java.io.FileReader(fileName)) {
+            InputSource is = new InputSource(reader);
+            return XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(is);
+        }
     }
 
     /**

@@ -65,6 +65,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -125,7 +126,7 @@ public class DemographicEdit2Action extends ActionSupport {
         try {
             Integer.parseInt(demographic_no.trim());
         } catch (NumberFormatException e) {
-            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", demographic_no);
+            logger.warn("DemographicEdit2Action: non-numeric demographic_no='{}'", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
@@ -138,7 +139,7 @@ public class DemographicEdit2Action extends ActionSupport {
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographic_no);
         if (demographic == null) {
-            logger.warn("DemographicEdit2Action: demographic_no={} not found", demographic_no);
+            logger.warn("DemographicEdit2Action: demographic_no={} not found", LogSanitizer.sanitize(demographic_no)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             addActionError("Patient record not found for demographic_no: " + demographic_no);
             return ERROR;
         }
@@ -183,8 +184,6 @@ public class DemographicEdit2Action extends ActionSupport {
         List<CaseManagementNoteLink> cml = cmm.getLinkByTableId(
                 CaseManagementNoteLink.DEMOGRAPHIC, Long.valueOf(demographic_no));
         boolean hasImportExtra = (cml != null && !cml.isEmpty());
-        String annotation_display = CaseManagementNoteLink.DISP_DEMO;
-
         // --- Consent values ---
         String usSigned = StringUtils.defaultString(demoExt.get("usSigned"));
         String privacyConsent = StringUtils.defaultString(demoExt.get("privacyConsent"), "");
@@ -323,7 +322,6 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("midwifes", midwifes);
         request.setAttribute("countryList", countryList);
         request.setAttribute("hasImportExtra", hasImportExtra);
-        request.setAttribute("annotation_display", annotation_display);
         request.setAttribute("usSigned", usSigned);
         request.setAttribute("privacyConsent", privacyConsent);
         request.setAttribute("informedConsent", informedConsent);

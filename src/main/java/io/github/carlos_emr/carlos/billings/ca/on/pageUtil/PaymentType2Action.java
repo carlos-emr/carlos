@@ -49,8 +49,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class PaymentType2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -61,6 +65,11 @@ public class PaymentType2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         String method = request.getParameter("method");
         if ("listAllType".equals(method)) {
             return listAllType();
@@ -81,7 +90,7 @@ public class PaymentType2Action extends ActionSupport {
             request.setAttribute("paymentTypeList", paymentTypeList);
             return SUCCESS;
         } catch (Exception e) {
-            e.printStackTrace();
+            MiscUtils.getLogger().error("Failed to list payment types", e);
             return ERROR;
         }
     }
@@ -113,7 +122,9 @@ public class PaymentType2Action extends ActionSupport {
 
             try {
                 json = objectMapper.valueToTree(retMap);
-                response.getWriter().write(json.toString());
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 MiscUtils.getLogger().info(e.toString());
@@ -153,7 +164,9 @@ public class PaymentType2Action extends ActionSupport {
 
             try {
                 json = objectMapper.valueToTree(retMap);
-                response.getWriter().write(json.toString());
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(json.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 MiscUtils.getLogger().info(e.toString());

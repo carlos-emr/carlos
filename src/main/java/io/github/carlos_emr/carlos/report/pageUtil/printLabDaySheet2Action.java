@@ -43,7 +43,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -54,8 +54,13 @@ import io.github.carlos_emr.OscarDocumentCreator;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class printLabDaySheet2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -78,6 +83,11 @@ public class printLabDaySheet2Action extends ActionSupport {
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+
 
         String classpath = (String) request.getSession().getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
         if (classpath == null)
@@ -108,7 +118,7 @@ public class printLabDaySheet2Action extends ActionSupport {
                     if (resolved != null) {
                         safeXmlStyleFile = resolved;
                     } else {
-                        logger.error("Invalid xmlStyle parameter rejected: {}", Encode.forJava(baseName));
+                        logger.error("Invalid xmlStyle parameter rejected: {}", LogSanitizer.sanitize(baseName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     }
                 }
                 

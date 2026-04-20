@@ -685,4 +685,135 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                 .contains(demo4.getDemographicNo());
         }
     }
+
+    /** Parameterised native INSERT for the demographic_merged fixture. */
+    private static final String INSERT_DEMOGRAPHIC_MERGED = """
+            INSERT INTO demographic_merged (demographic_no, merged_to, deleted)
+            VALUES (:child, :parent, :deleted)""";
+
+    /** Parameterised native INSERT for the program fixture. */
+    private static final String INSERT_PROGRAM = """
+            INSERT INTO program (id, name, type, facilityId)
+            VALUES (:id, :name, :type, :fac)""";
+
+    /**
+     * Parameterised native INSERT for the admission fixture. Populates the
+     * NOT NULL columns required by the Admission @Entity (admission_from_transfer,
+     * discharge_from_transfer, program_id, provider_no) plus client_id and
+     * admission_date that findByReportCriteria's SQL filters on.
+     */
+    private static final String INSERT_ADMISSION = """
+            INSERT INTO admission
+                (client_id, program_id, admission_date, provider_no,
+                 admission_from_transfer, discharge_from_transfer)
+            VALUES (:cid, :pid, :ad, :prv, FALSE, FALSE)""";
+
+    /**
+     * Regression tests for native-query result coercion on numeric columns.
+     *
+     * <p>The #1559 migration switched several native queries from the Hibernate
+     * Session / {@code rs.getInt(...)} path (which performs implicit type conversion)
+     * to {@code entityManager().createNativeQuery(...).getResultList()}, which returns
+     * driver-dependent numeric boxed types (typically {@code Integer} on H2 but
+     * {@code Long} or {@code BigInteger} on some MariaDB driver configurations).
+     * Returning that raw list as a {@code List<Integer>} would cause
+     * {@link ClassCastException} at caller unboxing time.</p>
+     *
+     * <p>{@code DemographicDaoImpl.getMergedDemographics} and {@code findByReportCriteria}
+     * now iterate and coerce via {@code Number.intValue()} or
+     * {@code Integer.parseInt((String) ...)} respectively. These tests pin that
+     * coercion so future regressions surface even when the backing driver returns
+     * a happy-path type.</p>
+     */
+    @Nested
+    @DisplayName("Native-query numeric coercion")
+    @Tag("regression")
+    class NativeQueryNumericCoercion {
+
+        @Test
+        @Tag("query")
+        @Tag("merge")
+        @DisplayName("should return List<Integer> from getMergedDemographics with no CCE")
+        void shouldReturnIntegerList_fromGetMergedDemographics() {
+            // Given - mark demo2 and demo3 as merged into demo1, and demo4 as a
+            // deleted merge. The INSERTs use named parameters (constant SQL).
+            final int parentNo = demo1.getDemographicNo();
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(INSERT_DEMOGRAPHIC_MERGED)
+                    .setParameter("child", demo2.getDemographicNo())
+                    .setParameter("parent", parentNo)
+                    .setParameter("deleted", 0)
+                    .executeUpdate();
+                session.createNativeQuery(INSERT_DEMOGRAPHIC_MERGED)
+                    .setParameter("child", demo3.getDemographicNo())
+                    .setParameter("parent", parentNo)
+                    .setParameter("deleted", 0)
+                    .executeUpdate();
+                session.createNativeQuery(INSERT_DEMOGRAPHIC_MERGED)
+                    .setParameter("child", demo4.getDemographicNo())
+                    .setParameter("parent", parentNo)
+                    .setParameter("deleted", 1)
+                    .executeUpdate();
+                return null;
+            });
+            hibernateTemplate.flush();
+
+            // When
+            List<Integer> mergedIds = demographicDao.getMergedDemographics(parentNo);
+
+            // Then - coercion must produce Integers (so the generic bound holds at
+            // call sites) and the deleted=1 row must be filtered out.
+            assertThat(mergedIds)
+                .isNotEmpty()
+                .allSatisfy(id -> assertThat(id).isInstanceOf(Integer.class))
+                .containsExactlyInAnyOrder(demo2.getDemographicNo(), demo3.getDemographicNo())
+                .doesNotContain(demo4.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should parse VARCHAR DOB columns in findByReportCriteria without CCE")
+        void shouldParseVarcharDobColumns_fromFindByReportCriteria() {
+            // Given - findByReportCriteria joins demographic × admission × program.
+            // Seed one admission / program row so the query produces output for demo1,
+            // which has year_of_birth/month_of_birth/date_of_birth populated ("1980"/"01"/"15").
+            final int demoNo = demo1.getDemographicNo();
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(INSERT_PROGRAM)
+                    .setParameter("id", 99001)
+                    .setParameter("name", "TestProg")
+                    .setParameter("type", "Service")
+                    .setParameter("fac", 1)
+                    .executeUpdate();
+                session.createNativeQuery(INSERT_ADMISSION)
+                    .setParameter("cid", demoNo)
+                    .setParameter("pid", 99001)
+                    .setParameter("ad", new java.sql.Timestamp(System.currentTimeMillis()))
+                    .setParameter("prv", "999998")
+                    .executeUpdate();
+                return null;
+            });
+            hibernateTemplate.flush();
+
+            io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientListsReportFormBean form =
+                new io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientListsReportFormBean();
+            form.setProgramId("99001");
+
+            // When - pre-fix this would CCE because row[1..3] are Strings (VARCHAR DOB
+            // columns) being cast to Number by the Task 6b migration.
+            java.util.Map<String, DemographicDaoImpl.ClientListsReportResults> results =
+                demographicDaoImpl.findByReportCriteria(form);
+
+            // Then - demo1's dateOfBirth was parsed correctly from the three
+            // VARCHAR columns (year=1980, month=01 → Calendar.MONTH 0, day=15).
+            assertThat(results).isNotEmpty();
+            DemographicDaoImpl.ClientListsReportResults row = results.values().stream()
+                .filter(r -> r.demographicId == demoNo)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("demo1 not returned by findByReportCriteria"));
+            assertThat(row.dateOfBirth.get(Calendar.YEAR)).isEqualTo(1980);
+            assertThat(row.dateOfBirth.get(Calendar.MONTH)).isZero();       // January
+            assertThat(row.dateOfBirth.get(Calendar.DAY_OF_MONTH)).isEqualTo(15);
+        }
+    }
 }

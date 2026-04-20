@@ -230,12 +230,11 @@ public class EctSaveEncounter2Action extends ActionSupport {
                 EChartDao dao = SpringUtils.getBean(EChartDao.class);
                 dao.persist(e);
                 sessionbean.eChartId = String.valueOf(e.getId());
-                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId);
+                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId); // nosemgrep: tainted-session-from-http-request
 
                 // add log here
                 String ip = httpservletrequest.getRemoteAddr();
-                LogAction.addLog((String) httpservletrequest.getSession().getAttribute(
-                                "user"), LogConst.ADD, LogConst.CON_ECHART,
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART,
                         sessionbean.demographicNo, ip);
 
                 //change the appt status
@@ -302,11 +301,26 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             bean.setBillForm(formBill);
             bean.setPatientNo(sessionbean.demographicNo);
-            bean.setApptNo(httpservletrequest.getParameter("appointment_no"));
+            String apptNoParam = httpservletrequest.getParameter("appointment_no");
+            if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
+                apptNoParam = null;
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
+            }
+            bean.setApptNo(apptNoParam);
             bean.setApptDate(sessionbean.appointmentDate);
-            bean.setApptStatus(httpservletrequest.getParameter("status"));
+            // CWE-501: validate status against appointment status pattern before session storage
+            String statusParam = httpservletrequest.getParameter("status");
+            if (statusParam != null && !statusParam.matches("[a-zA-Z]{1,2}")) {
+                log.warn("Rejected invalid appointment status at trust boundary");
+                statusParam = null;
+            }
+            bean.setApptStatus(statusParam);
             httpservletrequest.setAttribute("encounter", "true");
-            httpservletrequest.getSession().setAttribute("billingSessionBean", bean);
+            // nosemgrep: tainted-session-from-http-request -- appointment_no validated numeric above; apptProvider/patientName/patientNo
+            // from authenticated EctSessionBean; billRegion/billForm from server config; apptDate from session; status validated [a-zA-Z]{1,2}
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (appointment_no numeric, status [a-zA-Z]{1,2}); providerNo/patientNo from validated EctSessionBean
             forward = "bill";
         } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
             forward = "success";

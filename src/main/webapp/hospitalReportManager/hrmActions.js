@@ -3,7 +3,7 @@ function addComment(reportId) {
     let data = {method: "addComment", reportId: reportId, comment: comment};
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: data,
         success: function (data) {
             if (data != null)
@@ -15,7 +15,7 @@ function addComment(reportId) {
 function deleteComment(commentId, reportId) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=deleteComment&commentId=" + commentId,
         success: function (data) {
             if (data != null)
@@ -33,7 +33,7 @@ function doSignOff(reportId, view, isSign) {
 
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: data,
         success: function (data) {
             if (view) {
@@ -76,11 +76,11 @@ function doSignOff(reportId, view, isSign) {
 function makeIndependent(reportId) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=makeIndependent&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
-                document.getElementById("similarNotice").innerHTML = "";
+                document.getElementById("similarNotice").textContent = "";
             }
         }
     });
@@ -90,7 +90,7 @@ function addDemoToHrm(reportId) {
     var demographicNo = document.getElementById("demofind" + reportId + "hrm").value;
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=assignDemographic&reportId=" + reportId + "&demographicNo=" + demographicNo,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
@@ -129,7 +129,7 @@ function toggleButtonBar(show, reportId) {
 function removeDemoFromHrm(reportId) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=removeDemographic&reportId=" + reportId,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
@@ -157,7 +157,7 @@ function removeDemoFromHrm(reportId) {
 function addProvToHrm(reportId, providerNo) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=assignProvider&reportId=" + reportId + "&providerNo=" + providerNo,
         success: function (data) {
             if (data != null)
@@ -169,7 +169,7 @@ function addProvToHrm(reportId, providerNo) {
 function removeProvFromHrm(mappingId, reportId) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=removeProvider&providerMappingId=" + mappingId,
         success: function (data) {
             if (data != null)
@@ -181,7 +181,7 @@ function removeProvFromHrm(mappingId, reportId) {
 function makeActiveSubClass(reportId, subClassId) {
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: "method=makeActiveSubClass&reportId=" + reportId + "&subClassId=" + subClassId,
         success: function (data) {
             if (data != null)
@@ -194,7 +194,7 @@ function makeActiveSubClass(reportId, subClassId) {
 
 
 function printHrm(hrmReportId) {
-    window.location = contextpath + "/hospitalReportManager/PrintHRMReport.do?segmentId=" + hrmReportId + "&hrmReportId=" + hrmReportId;
+    window.location = contextpath + "/hospitalReportManager/PrintHRMReport?segmentId=" + hrmReportId + "&hrmReportId=" + hrmReportId;
 }
 
 function setDescription(reportId) {
@@ -202,7 +202,7 @@ function setDescription(reportId) {
     let data = {method: "setDescription", reportId: reportId, description: comment};
     jQuery.ajax({
         type: "POST",
-        url: contextpath + "/hospitalReportManager/Modify.do",
+        url: contextpath + "/hospitalReportManager/Modify",
         data: data,
         success: function (data) {
             if (data != null)
@@ -231,7 +231,7 @@ function updateCategory(reportId) {
     if (categoryId) {
         jQuery.ajax({
             type: "POST",
-            url: contextpath + "/hospitalReportManager/Modify.do",
+            url: contextpath + "/hospitalReportManager/Modify",
             data: "method=updateCategory&reportId=" + reportId + "&categoryId=" + categoryId,
             success: function (data) {
                 if (data != null) {
@@ -251,7 +251,7 @@ function updateCategory(reportId) {
 function setupHrmDemoAutoCompletion(docId) {
     if (jQuery("#autocompletedemo" + docId + "hrm")) {
 
-        let searchDemoUrl = window.contextpath + "/demographic/SearchDemographic.do";
+        let searchDemoUrl = window.contextpath + "/demographic/SearchDemographic";
         let activeOnly = jQuery("#activeOnly" + docId + "hrm").is(":checked");
 
         jQuery("#autocompletedemo" + docId + "hrm").autocomplete({

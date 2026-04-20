@@ -35,7 +35,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -67,13 +67,14 @@
     }
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></title>
+    <title><fmt:message key="admin.admin.uploadEntryTxt"/></title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -87,9 +88,9 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
 
     <link rel="stylesheet" type="text/css"
-          href="<%= request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
+          href="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.css"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery-ui-1.10.2.custom.min.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script>
         $(function () {
         });
@@ -102,11 +103,11 @@
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
-                    <td><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/></td>
+                    <td><fmt:message key="admin.admin.uploadEntryTxt"/></td>
                     <td>&nbsp;</td>
                     <td style="text-align: right"><a
-                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+                            href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
+                            href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
                 </tr>
             </table>
         </td>
@@ -114,7 +115,7 @@
     <tr>
         <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
         <td class="MainTableRightColumn">
-            <form action="${pageContext.request.contextPath}/admin/uploadEntryText.do" method="POST" enctype="multipart/form-data">
+            <form action="${pageContext.request.contextPath}/admin/uploadEntryText" method="POST" enctype="multipart/form-data">
 
                 How long is agreement valid?<br>
 
@@ -155,12 +156,12 @@
                 <br>
                 <br>
                 Agreement file (txt file)<input type="file" name="importFile">
-                <span title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"
+                <span title="<fmt:message key="global.uploadWarningBody"/>"
                       style="vertical-align:middle;font-family:arial;font-size:20px;font-weight:bold;color:#ABABAB;cursor:pointer"><img
                         border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/></span></span>
 
                 <br>
-                <input type="submit" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadEntryTxt"/>">
+                <input type="submit" value="<fmt:message key="admin.admin.uploadEntryTxt"/>">
             </form>
         </td>
     </tr>
@@ -172,9 +173,9 @@
         <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
         <td class="MainTableRightColumn">
             <% if (error == true) { %>
-            <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ErrorUploadEntryTxt"/></span>
+            <span style="color:red;"><fmt:message key="admin.admin.ErrorUploadEntryTxt"/></span>
             <%}%>
-            <!--   span style="color:green;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SuccessUploadEntryTxt"/></span -->
+            <!--   span style="color:green;"><fmt:message key="admin.admin.SuccessUploadEntryTxt"/></span -->
 
         </td>
 

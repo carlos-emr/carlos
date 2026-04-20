@@ -30,7 +30,11 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -39,7 +43,7 @@
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 
 <%
@@ -49,13 +53,13 @@
 %>
 <html>
     <head>
-        <title>Facilities</title>
+        <title><fmt:message key="admin.facility.list.title"/></title>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/tigris.css'/>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/displaytag.css'/>
 
         <script>
             function ConfirmDelete(name) {
-                if (confirm("Are you sure you want to delete " + name + " ?")) {
+                if (confirm("<fmt:message key='admin.facility.list.confirmDeletePrefix'/> " + name + "<fmt:message key='admin.facility.list.confirmDeleteSuffix'/>")) {
                     return true;
                 }
                 return false;
@@ -63,26 +67,27 @@
         </script>
     </head>
     <body>
-    <h1>Facilities</h1>
-    <form action="${pageContext.request.contextPath}/FacilityManager.do" method="post">
+    <h1><fmt:message key="admin.facility.list.heading"/></h1>
+    <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="facility" name="facilities" export="false" pagesize="0"
-                       requestURI="/FacilityManager.do">
+                       requestURI="/FacilityManager">
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="paging.banner.item_name" value="agency"/>
             <display:setProperty name="paging.banner.items_name" value="facilities"/>
-            <display:setProperty name="basic.msg.empty_list" value="No facilities found."/>
+            <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
+            <display:setProperty name="basic.msg.empty_list" value="${noFacilitiesMessage}"/>
 
-            <display:column property="name" sortable="true" title="Name"/>
-            <display:column property="description" sortable="true" title="Description"/>
+            <display:column property="name" sortable="true" titleKey="admin.facility.list.header.name"/>
+            <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
 
             <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager.do?method=edit&id=<c:out value="${facility.id}" />">
-                    Edit </a>
+                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
+                    <fmt:message key="admin.facility.list.linkEdit"/> </a>
             </display:column>
             <!--
             < isplay:column sortable="false" title="">
-            <a href="< tml:rewrite action="/FacilityManager.do"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
+            <a href="< tml:rewrite action="/FacilityManager"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
             onclick="return ConfirmDelete('< :out value="${facility.name}"/>')">
             Delete </a>
             </ isplay:column>
@@ -90,7 +95,7 @@
         </display:table>
     </form>
     <!--
-            <p><a href="< tml:rewrite action="/FacilityManager.do"/>?method=add">
+            <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">
             Add new facility </a></p>
     -->
     </body>

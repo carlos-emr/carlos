@@ -35,21 +35,21 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
 @Transactional
-public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
+public class SecroleDaoImpl extends AbstractJpaDao implements SecroleDao {
 
     private Logger logger = MiscUtils.getLogger();
 
     @Override
     public List<Secrole> getRoles() {
         @SuppressWarnings("unchecked")
-        List<Secrole> results = (List<Secrole>) HqlQueryHelper.find(currentSession(), "from Secrole r order by roleName");
+        List<Secrole> results = (List<Secrole>) JpqlQueryHelper.find(entityManager(), "from Secrole r order by roleName");
 
         logger.debug("getRoles: # of results=" + results.size());
 
@@ -62,7 +62,7 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        Secrole result = currentSession().find(Secrole.class, Long.valueOf(id));
+        Secrole result = entityManager().find(Secrole.class, Long.valueOf(id));
 
         logger.debug("getRole: id=" + id + ",found=" + (result != null));
 
@@ -76,7 +76,7 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        List lst = HqlQueryHelper.find(currentSession(), "from Secrole r where r.roleName = ?1", roleName);
+        List lst = JpqlQueryHelper.find(entityManager(), "from Secrole r where r.roleName = ?1", roleName);
         if (lst != null && lst.size() > 0)
             result = (Secrole) lst.get(0);
 
@@ -87,7 +87,7 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
 
     @Override
     public List getDefaultRoles() {
-        return HqlQueryHelper.find(currentSession(), "from Secrole r where r.userDefined=0");
+        return JpqlQueryHelper.find(entityManager(), "from Secrole r where r.userDefined=0");
     }
 
     @Override
@@ -97,9 +97,9 @@ public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
         }
 
         if (secrole.getId() == null) {
-            currentSession().persist(secrole);
+            entityManager().persist(secrole);
         } else {
-            currentSession().merge(secrole);
+            entityManager().merge(secrole);
         }
 
     }

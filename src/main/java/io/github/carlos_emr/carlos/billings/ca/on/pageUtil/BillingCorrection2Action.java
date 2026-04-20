@@ -67,8 +67,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingCorrection2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -79,6 +82,11 @@ public class BillingCorrection2Action extends ActionSupport {
     private final BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         if ("add3rdPartyPayment".equals(request.getParameter("method"))) {
             return add3rdPartyPayment();
         }
@@ -131,7 +139,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
             return SUCCESS;
         } else {
-            MiscUtils.getLogger().error("Invalid billing invoice:{}", LogSanitizer.sanitize(invoiceNo));
+            MiscUtils.getLogger().error("Invalid billing invoice:{}", LogSanitizer.sanitize(invoiceNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return "closeReload";
         }
 
@@ -149,7 +157,7 @@ public class BillingCorrection2Action extends ActionSupport {
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
 
         if (bCh1 == null) {
-            MiscUtils.getLogger().error("No billing object found for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no")));
+            MiscUtils.getLogger().error("No billing object found for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return "closeReload";
         }
 
@@ -347,7 +355,7 @@ public class BillingCorrection2Action extends ActionSupport {
                 if (newProvider != null) {
                     bCh1.setProviderOhipNo(newProvider.getOhipNo());
                 } else {
-                    MiscUtils.getLogger().warn("null providers! can't do the update ({})", LogSanitizer.sanitize(request.getParameter("provider_no")));
+                    MiscUtils.getLogger().warn("null providers! can't do the update ({})", LogSanitizer.sanitize(request.getParameter("provider_no"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 }
             }
         }
@@ -432,7 +440,7 @@ public class BillingCorrection2Action extends ActionSupport {
 
                 //Determine Unit
                 String unit = request.getParameter("billingunit" + i);
-                MiscUtils.getLogger().info("({}) Unit Amount:{}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit));
+                MiscUtils.getLogger().info("({}) Unit Amount:{}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 if (!unit.matches("\\d+")) {
                     unit = "1";
                 }

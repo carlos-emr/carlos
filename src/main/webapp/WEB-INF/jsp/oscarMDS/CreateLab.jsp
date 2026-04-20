@@ -1,0 +1,360 @@
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="/struts-tags" prefix="s" %>
+<%
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    boolean authed = true;
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=true%>">
+    <%authed = false; %>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_lab");%>
+</security:oscarSec>
+<%
+    if (!authed) {
+        return;
+    }
+%>
+
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
+
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Lab Creator</title>
+    <link rel="stylesheet" type="text/css" media="all" href="<%=request.getContextPath()%>/share/calendar/calendar.css"
+          title="win2k-cold-1"/>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar.js"></script>
+    <script type="text/javascript"
+            src="<%=request.getContextPath()%>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
+    <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
+
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
+    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" rel="stylesheet">
+
+    <style>
+        form[name="testForm"] fieldset table td {
+            padding: 5px 10px;
+        }
+
+        form[name="testForm"] fieldset table td label {
+            margin-right: 5px;
+        }
+
+        form[name="testForm"] .lab-test-table td label {
+            display: block;
+            margin-bottom: 3px;
+        }
+    </style>
+
+    <!-- jquery -->
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-migrate-3.4.0.js"></script>
+    <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+
+            var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
+
+            $("#lastname").autocomplete( {
+                source: function (req, res) {
+                    $.ajax({
+                        url: searchDemoUrl,
+                        type: 'POST',
+                        data: { jqueryJSON: 'true', activeOnly: 'true', term: req.term },
+                        success: function (data) { res(data); },
+                        error: function () { res([]); }
+                    });
+                },
+                minLength: 2,
+
+                focus: function( event, ui ) {
+                    if (ui.item.formattedName) {
+                        const myArray = ui.item.formattedName.split(",");
+                        if (myArray.length > 1) {
+                            $("#lastname").val( myArray[0].trim() );
+                            $("#firstname").val( myArray[1].trim() );
+                        }
+                    }
+                    return false;
+                },
+                select: function( event, ui ) {
+                    const myArray = ui.item.formattedName.split(",");
+                    if (myArray.length > 1) {
+                        $("#lastname").val( myArray[0].trim() );
+                        $("#firstname").val( myArray[1].trim() );
+                    }
+
+                    // Check for dedicated DOB field (note: backend has typo "fomattedDob")
+                    let dob = null;
+                    if (ui.item.fomattedDob) {
+                        dob = ui.item.fomattedDob;
+                    } else if (ui.item.formattedDob) {
+                        dob = ui.item.formattedDob;
+                    } else if (typeof ui.item.label === "string") {
+                        // Extract YYYY-MM-DD pattern from label
+                        const dobMatch = ui.item.label.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+                        if (dobMatch && dobMatch[1]) {
+                            dob = dobMatch[1];
+                        }
+                    }
+
+                    if (dob) {
+                        $("#dob").val(dob);
+                    }
+
+                    return false;
+                }
+            })
+                    .autocomplete( "instance" )._renderItem = function( ul, item ) {
+                var li = $( "<li>" );
+                var div = $( "<div>" );
+                $( "<b>" ).text( item.label ).appendTo( div );
+                div.append( "<br>" );
+                $( "<span>" ).text( item.provider ).appendTo( div );
+                div.appendTo( li );
+                return li.appendTo( ul );
+            };
+
+            var url2 = "<%= request.getContextPath() %>/provider/SearchProvider?method=labSearch";
+
+            $( "#pLastname" ).autocomplete({
+                source: url2,
+                minLength: 2,
+
+                focus: function( event, ui ) {
+                    const myArray = ui.item.label.split(",");
+                    if (myArray.length > 1) {
+                        $("#pLastname").val( myArray[0].trim() );
+                        $("#pFirstname").val( myArray[1].trim() );
+                    }
+                    return false;
+                },
+                select: function(event, ui) {
+                    const myArray = ui.item.label.split(",");
+                    if (myArray.length > 1) {
+                        $("#pLastname").val( myArray[0].trim() );
+                        $("#pFirstname").val( myArray[1].trim() );
+                    }
+
+                    return false;
+                }
+            });
+
+        });
+
+        function addTest() {
+            var total = jQuery("#test_num").val();
+            total++;
+            jQuery("#test_num").val(total);
+            jQuery.ajax({url:'<%=request.getContextPath()%>/oscarMDS/ViewCreateLabTest?id='+total,async:false, success:function(data) {
+                    jQuery("#test_container").append(data);
+                    jQuery('form[name="testForm"] :submit').prop('disabled', false);
+                }});
+        }
+
+        function deleteTest(id) {
+            var testId = jQuery("input[name='test_"+id+".id']").val();
+            // Create the hidden input element safely to prevent XSS
+            var hiddenInput = jQuery("<input>").attr({
+                type: "hidden",
+                name: "test.delete",
+                value: testId
+            });
+            jQuery("form[name='testForm']").append(hiddenInput);
+            jQuery("#test_" + id).remove();
+            var total = jQuery("#test_num").val();
+            total--;
+            jQuery("#test_num").val(total);
+            if (total<1) {
+                jQuery('form[name="testForm"] :submit').prop('disabled', true);
+            }
+        }
+
+        function confirmSave() {
+            var c = confirm("Are you sure you want to submit this lab to the system?");
+            return c;
+        }
+
+    </script>
+
+</head>
+<body>
+<div class="container">
+<div class="page-header-bar">
+    <h4 class="page-header-title">Create Lab</h4>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();">Back</button>
+</div>
+
+    <%-- Display Struts action errors (e.g., failed HL7 generation) --%>
+    <s:if test="hasActionErrors()">
+        <div class="alert alert-danger" role="alert">
+            <s:actionerror/>
+        </div>
+    </s:if>
+
+    <form name="testForm" method="post" action="<%=request.getContextPath()%>/oscarMDS/SubmitLab?method=saveManage"
+          onsubmit="return confirmSave();">
+
+        <div class="row mb-3">
+            <%-- Laboratory Information --%>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">Laboratory Information</div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label" for="labname">Lab Name</label>
+                            <select name="labname" id="labname" class="form-select">
+                                <option value="MDS">MDS</option>
+                                <option value="CML">CML</option>
+                                <option value="GDML">GDML</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="accession">Accession #</label>
+                            <input type="text" class="form-control" name="accession" id="accession"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="lab_req_date">Lab Req Date/Time</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="lab_req_date" id="lab_req_date" required>
+                                <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="lab_req_date_cal" class="input-group-text" style="cursor:pointer;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <%-- Ordering Provider --%>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header fw-bold">Ordering Provider</div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <label class="form-label" for="billingNo">Billing #</label>
+                            <input type="text" class="form-control" name="billingNo" id="billingNo"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="pLastname">Last Name</label>
+                            <input type="text" class="form-control" name="pLastname" id="pLastname"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="pFirstname">First Name</label>
+                            <input type="text" class="form-control" name="pFirstname" id="pFirstname"/>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="cc">CC</label>
+                            <input type="text" class="form-control" name="cc" id="cc"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <%-- Patient Information --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Patient Information</div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label" for="lastname">Last Name</label>
+                        <input type="text" class="form-control" name="lastname" id="lastname" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="firstname">First Name</label>
+                        <input type="text" class="form-control" name="firstname" id="firstname"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="sex">Sex</label>
+                        <select name="sex" id="sex" class="form-select">
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label" for="dob">Date of Birth</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" required name="dob" id="dob"/>
+                            <img src="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/images/cal.gif" id="dob_cal" class="input-group-text" style="cursor:pointer;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="hin">HIN</label>
+                        <input type="text" class="form-control" name="hin" id="hin"/>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="phone">Phone</label>
+                        <input type="text" class="form-control" name="phone" id="phone"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <%-- Tests --%>
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Tests</div>
+            <div class="card-body">
+                <div id="test_container"></div>
+                <input type="hidden" id="test_num" name="test_num" value="0"/>
+                <a href="#" onclick="addTest(); return false;" class="btn btn-success btn-sm mt-2">Add Test</a>
+            </div>
+        </div>
+
+        <input type="submit" class="btn btn-primary" value="Submit to CARLOS" disabled>
+    </form>
+</div>
+
+
+<script>
+    Calendar.setup({
+        inputField: "lab_req_date",
+        ifFormat: "%Y-%m-%d %H:%M",
+        showsTime: true,
+        button: "lab_req_date_cal"
+    });
+    Calendar.setup({inputField: "dob", ifFormat: "%Y-%m-%d", showsTime: true, button: "dob_cal"});
+
+</script>
+</body>
+</html>

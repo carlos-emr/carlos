@@ -163,7 +163,7 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     private Integer appointmentNo;
     @Column(name = "abnormal", columnDefinition = "integer default 0")
     private boolean abnormal;
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_no", insertable = false, updatable = false)
     private List<DocumentReview> reviews = new ArrayList<DocumentReview>();
 

@@ -46,8 +46,12 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public final class Billing2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -57,17 +61,30 @@ public final class Billing2Action extends ActionSupport {
     public String execute() throws IOException,
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
         BillingSessionBean bean = null;
         String region = request.getParameter("billRegion") != null ? request.getParameter("billRegion") : CarlosProperties.getProperties().getProperty("billregion");
 
         if ("ON".equals(region)) {
-            String newURL = request.getContextPath() + "/billing/CA/ON/billingOB.jsp";
-            newURL = newURL + "?" + request.getQueryString();
-            response.sendRedirect(newURL);
-            return NONE;
+            return "ON";
         } else {
-            if (request.getParameter("demographic_no") != null &
+            if (request.getParameter("demographic_no") != null &&
                     request.getParameter("appointment_no") != null) {
+                String demoNo = request.getParameter("demographic_no");
+                if (!demoNo.matches("\\d{1,9}")) {
+                    _log.warn("Invalid demographic_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+                String apptNo = request.getParameter("appointment_no");
+                if (!apptNo.matches("\\d{1,9}")) {
+                    _log.warn("Invalid appointment_no rejected");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
                 String newWCBClaim = request.getParameter("newWCBClaim");
                 //If newWCBClaim == 1, this action was invoked from the WCB form
                 //Therefore, we need to set the appropriate parameters to set up the subsequent bill
@@ -91,16 +108,19 @@ public final class Billing2Action extends ActionSupport {
                 }
                 bean = new BillingSessionBean();
                 fillBean(request, bean);
+                // Overwrite patientNo and apptNo set by fillBean() with pre-validated values
+                bean.setPatientNo(demoNo);
+                bean.setApptNo(apptNo);
                 if (request.getAttribute("serviceDate") != null) {
                     MiscUtils.getLogger().debug("service Date set to the appointment Date" + (String) request.getAttribute("serviceDate"));
                     bean.setApptDate((String) request.getAttribute("serviceDate"));
                 }
 
-                request.getSession().setAttribute("billingSessionBean", bean);
+                request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
                 
                 try {
                     _log.debug("Start of billing rules");
-                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));
+                    List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, demoNo, loggedInInfo.getLoggedInProviderNo());
 
                     for (DSConsequence dscon : list) {
                         _log.debug("DSTEXT " + dscon.getText());

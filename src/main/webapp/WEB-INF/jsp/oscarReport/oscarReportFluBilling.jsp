@@ -30,13 +30,15 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -47,9 +49,8 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptFluReportData" %>
-
-
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%
@@ -91,12 +92,12 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.title"/>
-        <%=years%>
+        <fmt:message key="oscarReport.oscarReportFluBilling.title"/>
+        <carlos:encode value='<%= years %>' context="html"/>
     </h4>
 </div>
 
-<form action="${ctx}/oscarReport/FluBilling.do" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
+<form action="${ctx}/oscarReport/FluBilling" class="card card-body bg-body-tertiary d-flex flex-wrap align-items-center gap-2" id="fluForm">
     <select name="numMonth" class="form-select form-select-sm d-inline-block w-auto">
         <%
             for (int i = curYear - 2; i <= curYear + 2; i++) {
@@ -109,33 +110,33 @@
 
     </select> <select name="proNo" class="form-select">
     <option value="-1" <%=selled("-1", pros)%>>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
+        <fmt:message key="oscarReport.oscarReportFluBilling.msgAllProviders"/>
     </option>
     <%
         for (Provider p : providers) {
     %>
-    <option value="<%=p.getProviderNo()%>" <%=selled(p.getProviderNo(), pros)%>><%=p.getFormattedName()%>
+    <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=selled(p.getProviderNo(), pros)%>><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
     </option>
     <%
         }
     %>
 </select>
     <button type="submit" class="btn btn-primary">
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.btnUpdate"/>
+        <fmt:message key="oscarReport.oscarReportFluBilling.btnUpdate"/>
     </button>
 </form>
 
 <table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgDOB"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgAge"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgRoster"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgPatientStatus"/></th>
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgPhone"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgName"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgDOB"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgAge"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgRoster"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgPatientStatus"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgPhone"/></th>
 
-        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportFluBilling.msgBillingDate"/></th>
+        <th><fmt:message key="oscarReport.oscarReportFluBilling.msgBillingDate"/></th>
     </tr>
     </thead>
     <tbody>
@@ -147,19 +148,19 @@
             count = count + 1;
     %>
     <tr>
-        <td><%=demoData.demoName%>
+        <td><carlos:encode value='<%= demoData.demoName %>' context="html"/>
         </td>
-        <td><%=demoData.getDemoDOB()%>
+        <td><carlos:encode value='<%= demoData.getDemoDOB() %>' context="html"/>
         </td>
-        <td><%=demoData.getDemoAge()%>
+        <td><carlos:encode value='<%= demoData.getDemoAge() %>' context="html"/>
         </td>
-        <td><%=demoData.demoRosterStatus%>
+        <td><carlos:encode value='<%= demoData.demoRosterStatus %>' context="html"/>
         </td>
-        <td><%=demoData.demoPatientStatus%>
+        <td><carlos:encode value='<%= demoData.demoPatientStatus %>' context="html"/>
         </td>
-        <td><%=demoData.getDemoPhone()%>
+        <td><carlos:encode value='<%= demoData.getDemoPhone() %>' context="html"/>
         </td>
-        <td><%=demoData.getBillingDate(fluData.years)%>
+        <td><carlos:encode value='<%= demoData.getBillingDate(fluData.years) %>' context="html"/>
         </td>
     </tr>
     <%

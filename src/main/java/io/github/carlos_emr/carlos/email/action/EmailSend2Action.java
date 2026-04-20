@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action controller for handling email sending functionality within the OpenO EMR system.
@@ -51,6 +52,8 @@ import org.apache.struts2.ServletActionContext;
  * @see io.github.carlos_emr.carlos.email.core.EmailData
  */
 public class EmailSend2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -72,6 +75,11 @@ public class EmailSend2Action extends ActionSupport {
      *         or transaction type name for cancel operations
      */
     public String execute () {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
+
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
             return sendDirectEmail();
         } else if ("cancel".equals(request.getParameter("method"))) {
@@ -158,7 +166,7 @@ public class EmailSend2Action extends ActionSupport {
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data.jsp?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
+                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

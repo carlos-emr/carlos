@@ -31,31 +31,58 @@
         <action name="eform/attachDoc" class="io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action">
         </action>
         <action name="eform/logEformError" class="io.github.carlos_emr.carlos.eform.EformLogError2Action"/>
+        <action name="eform/attachEform" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/displayAttachedFiles" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformadd_data" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormAddData2Action"/>
+        <action name="eform/efmshowform_data" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormShowData2Action"/>
+        <action name="eform/efmformapconfig_lookup" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformrtl_templates" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformmanager" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformmanagerdeleted" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformmanageredit" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmformslistadd" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmimagemanager" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmmanageformgroups" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmmanageindependent" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmmanageindependentdeleted" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmpatientformlist" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmpatientformlistsingle" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/efmpatientformlistdeleted" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/eformGenerator" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/Eform_dbtags" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/eformFloatingToolbar/eform_floating_toolbar" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/visualEformEditor" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/partials/upload" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/partials/import" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/partials/upload_image" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/fieldNoteReport/fieldnotereport" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/fieldNoteReport/fieldnotereportdetail" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
+        <action name="eform/fieldNoteReport/fieldnoteselect" class="io.github.carlos_emr.carlos.eform.gate.ViewEFormPage2Action"/>
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
-            <result name="success">/eform/partials/upload.jsp</result>
-            <result name="fail">/eform/partials/upload.jsp</result>
+            <result name="success">/WEB-INF/jsp/eform/partials/upload.jsp</result>
+            <result name="fail">/WEB-INF/jsp/eform/partials/upload.jsp</result>
         </action>
         <action name="eform/editForm" class="io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action">
-            <result name="success">/eform/efmformmanageredit.jsp</result>
-            <result name="fail">/eform/efmformmanageredit.jsp</result>
+            <result name="success">/WEB-INF/jsp/eform/efmformmanageredit.jsp</result>
+            <result name="fail">/WEB-INF/jsp/eform/efmformmanageredit.jsp</result>
         </action>
         <action name="eform/imageUpload" class="io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action">
-            <result name="success">/eform/partials/upload_image.jsp</result>
-            <result name="error">/eform/partials/upload_image.jsp</result>
+            <result name="success">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
+            <result name="error">/WEB-INF/jsp/eform/partials/upload_image.jsp</result>
         </action>
         <action name="eform/delEForm" class="io.github.carlos_emr.carlos.eform.actions.DelEForm2Action">
-            <result name="success">/eform/efmformmanager.jsp</result>
+            <result name="success">/eform/efmformmanager</result>
         </action>
         <action name="eform/manageEForm" class="io.github.carlos_emr.carlos.eform.actions.ManageEForm2Action">
-            <result name="fail">/eform/partials/import.jsp</result>
-            <result name="success">/eform/partials/import.jsp</result>
+            <result name="fail">/WEB-INF/jsp/eform/partials/import.jsp</result>
+            <result name="success">/WEB-INF/jsp/eform/partials/import.jsp</result>
         </action>
         <action name="eform/addEForm" class="io.github.carlos_emr.carlos.eform.actions.AddEForm2Action">
-            <result name="close">/eform/efmshowform_data.jsp</result>
-            <result name="fax">/fax/faxAction.do</result>
-            <result name="download">/eform/efmshowform_data.jsp</result>
-            <result name="error">/eform/efmshowform_data.jsp?error=true</result>
-            <result name="emailCompose">/email/emailComposeAction.do</result>
+            <result name="close">/eform/efmshowform_data</result>
+            <result name="fax">/fax/faxAction</result>
+            <result name="download">/eform/efmshowform_data</result>
+            <result name="error">/eform/efmshowform_data?error=true</result>
+            <result name="emailCompose">/email/emailComposeAction</result>
         </action>
         <action name="eform/efmPrintPDF" class="io.github.carlos_emr.carlos.eform.actions.PrintPDF2Action">
             <result name="printAll">/eform/createpdf</result>
@@ -63,35 +90,36 @@
         </action>
         <action name="eform/efmOpenEformByName" class="io.github.carlos_emr.carlos.eform.actions.OpenEFormByName2Action"/>
         <action name="eform/removeEForm" class="io.github.carlos_emr.carlos.eform.actions.RemEForm2Action">
-            <result name="success">/eform/efmpatientformlist.jsp</result>
-            <result name="single">/eform/efmpatientformlistsingle.jsp</result>
-            <result name="independent">/eform/efmmanageindependent.jsp</result>
+            <result name="success">/eform/efmpatientformlist</result>
+            <result name="single">/eform/efmpatientformlistsingle</result>
+            <result name="independent">/eform/efmmanageindependent</result>
         </action>
         <action name="eform/unRemoveEForm" class="io.github.carlos_emr.carlos.eform.actions.UnRemEForm2Action">
-            <result name="success">/eform/efmpatientformlistdeleted.jsp</result>
-            <result name="independent">/eform/efmmanageindependentdeleted.jsp</result>
+            <result name="success">/eform/efmpatientformlistdeleted</result>
+            <result name="independent">/eform/efmmanageindependentdeleted</result>
         </action>
         <action name="eform/eFormAttachmentForm" class="io.github.carlos_emr.carlos.eform.upload.UploadEFormAttachment2Action">
         </action>
         <action name="eform/deleteImage" class="io.github.carlos_emr.carlos.eform.actions.DelImage2Action">
-            <result name="success">/eform/efmimagemanager.jsp</result>
+            <result name="success">/eform/efmimagemanager</result>
         </action>
         <action name="eform/restoreEForm" class="io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action">
-            <result name="success">/eform/efmformmanagerdeleted.jsp</result>
+            <result name="success">/eform/efmformmanagerdeleted</result>
         </action>
         <action name="eform/addGroup" class="io.github.carlos_emr.carlos.eform.actions.AddGroup2Action">
-            <result name="success">/eform/efmmanageformgroups.jsp</result>
+            <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/addToGroup" class="io.github.carlos_emr.carlos.eform.actions.AddToGroup2Action">
-            <result name="success">/eform/efmmanageformgroups.jsp</result>
+            <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eforms/removeFromGroup" class="io.github.carlos_emr.carlos.eform.actions.RemoveFromGroup2Action">
-            <result name="success">/eform/efmmanageformgroups.jsp</result>
+            <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eforms/delGroup" class="io.github.carlos_emr.carlos.eform.actions.DeleteGroup2Action">
-            <result name="success">/eform/efmmanageformgroups.jsp</result>
+            <result name="success">/eform/efmmanageformgroups</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <action name="eform/displayImage.do" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
         <action name="eform/rtlPreventions" class="io.github.carlos_emr.carlos.eform.actions.RtlPreventions2Action"/>
 
     </package>

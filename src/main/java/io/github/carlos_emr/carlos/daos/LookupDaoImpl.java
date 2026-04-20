@@ -29,20 +29,19 @@
 
 package io.github.carlos_emr.carlos.daos;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import jakarta.persistence.Query;
+
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Facility;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
@@ -57,11 +56,14 @@ import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import org.hibernate.query.NativeQuery;
+import org.hibernate.type.StandardBasicTypes;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
+public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -185,42 +187,50 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         // } else {
         sSQL += " order by 4,2";
         // }
-        DBPreparedHandlerParam[] pars = new DBPreparedHandlerParam[i];
+        Query query = entityManager().createNativeQuery(sSQL); // nosemgrep: hibernate-sqli -- table/column names from internal LookupTableDef config, values bound via positional params below
         for (int j = 0; j < i; j++) {
-            pars[j] = params[j];
+            bindParam(query, j + 1, params[j]);
         }
 
-        DBPreparedHandler db = new DBPreparedHandler();
         ArrayList<LookupCodeValue> list = new ArrayList<LookupCodeValue>();
 
-        try {
-            ResultSet rs = db.queryResults(sSQL, pars);
-            while (rs.next()) {
-                LookupCodeValue lv = new LookupCodeValue();
-                lv.setPrefix(tableId);
-                lv.setCode(rs.getString(1));
-                lv.setDescription(Misc.getString(rs, 2));
-                lv.setActive(Integer.valueOf("0" + Misc.getString(rs, 3)).intValue() == 1);
-                lv.setOrderByIndex(Integer.valueOf("0" + Misc.getString(rs, 4)).intValue());
-                lv.setParentCode(Misc.getString(rs, 5));
-                lv.setBuf1(Misc.getString(rs, 6));
-                lv.setCodeTree(Misc.getString(rs, 7));
-                lv.setLastUpdateUser(Misc.getString(rs, 8));
-                lv.setLastUpdateDate(MyDateFormat.getCalendar(Misc.getString(rs, 9)));
-                lv.setBuf3(Misc.getString(rs, 10));
-                lv.setBuf4(Misc.getString(rs, 11));
-                lv.setBuf5(Misc.getString(rs, 12));
-                lv.setBuf6(Misc.getString(rs, 13));
-                lv.setBuf7(Misc.getString(rs, 14));
-                lv.setBuf8(Misc.getString(rs, 15));
-                lv.setBuf9(Misc.getString(rs, 16));
-                lv.setCodecsv(Misc.getString(rs, 17));
-                list.add(lv);
+        List<?> rawRows = query.getResultList();
+        for (Object rawRow : rawRows) {
+            Object[] row = (rawRow instanceof Object[]) ? (Object[]) rawRow : new Object[]{ rawRow };
+            LookupCodeValue lv = new LookupCodeValue();
+            lv.setPrefix(tableId);
+            lv.setCode(asString(row[0]));
+            lv.setDescription(asString(row[1]));
+            // Misc.getString(ResultSet,...) used by the pre-JPA code returned "" for SQL NULL,
+            // yielding "00" → 0. asString() preserves null, which would produce "0null" → NFE,
+            // so route these flag columns through a null-safe helper instead.
+            lv.setActive(parseIntWithZeroPrefix(row[2]) == 1);
+            lv.setOrderByIndex(parseIntWithZeroPrefix(row[3]));
+            lv.setParentCode(asString(row[4]));
+            lv.setBuf1(asString(row[5]));
+            lv.setCodeTree(asString(row[6]));
+            lv.setLastUpdateUser(asString(row[7]));
+            lv.setLastUpdateDate(MyDateFormat.getCalendar(asString(row[8])));
+            lv.setBuf3(asString(row[9]));
+            lv.setBuf4(asString(row[10]));
+            lv.setBuf5(asString(row[11]));
+            lv.setBuf6(asString(row[12]));
+            lv.setBuf7(asString(row[13]));
+            lv.setBuf8(asString(row[14]));
+            lv.setBuf9(asString(row[15]));
+            lv.setCodecsv(asString(row[16]));
+            list.add(lv);
+        }
+        // filter by programId for user
+        if ("USR".equals(tableId) && !Utility.IsEmpty(pCd)) {
+            Integer programId = null;
+            try {
+                programId = Integer.valueOf(pCd);
+            } catch (NumberFormatException e) {
+                // Ignore invalid programId format and keep the unfiltered list.
             }
-            rs.close();
-            // filter by programId for user
-            if ("USR".equals(tableId) && !Utility.IsEmpty(pCd)) {
-                List userLst = providerDao.getActiveProviders(Integer.valueOf(pCd));
+            if (programId != null) {
+                List userLst = providerDao.getActiveProviders(programId);
                 ArrayList<LookupCodeValue> newLst = new ArrayList<LookupCodeValue>();
                 for (int n = 0; n < userLst.size(); n++) {
                     SecProvider sp = (SecProvider) userLst.get(n);
@@ -232,8 +242,6 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                 }
                 list = newLst;
             }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
         }
         return list;
     }
@@ -241,7 +249,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     @Override
     public LookupTableDefValue GetLookupTableDef(String tableId) {
         String sSQL = "from LookupTableDefValue s where s.tableId= ?1";
-        List<?> results = HqlQueryHelper.find(currentSession(), sSQL, tableId);
+        List<?> results = JpqlQueryHelper.find(entityManager(), sSQL, tableId);
         if (results.isEmpty()) {
             return null;
         }
@@ -255,7 +263,38 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         paramList.add(tableId);
         Object params[] = paramList.toArray(new Object[paramList.size()]);
 
-        return HqlQueryHelper.find(currentSession(), sSql, params);
+        return JpqlQueryHelper.find(entityManager(), sSql, params);
+    }
+
+    /**
+     * Validates that a SQL identifier (table or column name) contains only safe characters.
+     * Allows dotted identifiers (e.g. {@code table.column}).
+     *
+     * <p>Note: {@code LookupCodeEdit2Action} also validates {@code tableId} with a stricter
+     * {@code ^[A-Z0-9_]+$} regex before it reaches this DAO. This method provides a
+     * second layer of defense for all identifier usage within the DAO.</p>
+     */
+    private String validateSqlIdentifier(String identifier) {
+        if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+            MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
+        }
+        return identifier;
+    }
+
+    /**
+     * Validates a field SQL expression from {@code FieldDefValue.getFieldSQL()}.
+     * Allows simple identifiers, dotted identifiers, and SQL function expressions
+     * like {@code IFNULL(buf1,'')} that are stored in the {@code lookupfielddef.fieldsql}
+     * column (varchar 32). Only alphanumeric characters, underscores, dots, parentheses,
+     * single-quoted string literals, commas, and whitespace are permitted.
+     */
+    private String validateFieldSql(String fieldSql) {
+        if (fieldSql == null || !fieldSql.matches("^[A-Za-z_][A-Za-z0-9_.,() ']*$")) {
+            MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
+        }
+        return fieldSql;
     }
 
     @Override
@@ -263,106 +302,140 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         // tableName and field SQL come from LookupTableDef/FieldDefValue database config,
         // not from direct user input, so second-order injection risk is low.  The user-supplied
         // code value is parameterized below.
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         List fs = LoadFieldDefList(tableDef.getTableId());
+        if (fs.isEmpty()) return fs;
         String idFieldName = "";
 
         String sql = "select ";
         for (int i = 0; i < fs.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1)
-                idFieldName = fdv.getFieldSQL();
+                idFieldName = fieldSql;
             if (i == 0) {
-                sql += fdv.getFieldSQL();
+                sql += fieldSql;
             } else {
-                sql += "," + fdv.getFieldSQL();
+                sql += "," + fieldSql;
             }
         }
         sql += " from " + tableName + " s";
         // Use a parameterized placeholder for the code value to prevent SQL injection.
-        sql += " where " + idFieldName + "=?";
-        DBPreparedHandler db = new DBPreparedHandler();
-        try {
-            DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{ new DBPreparedHandlerParam(code) };
-            ResultSet rs = db.queryResults(sql, params);
-            if (rs.next()) {
-                for (int i = 0; i < fs.size(); i++) {
-                    FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                    String val = Misc.getString(rs, (i + 1));
-                    if ("D".equals(fdv.getFieldType()))
-                        if (fdv.isEditable()) {
-                            val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
-                        } else {
-                            val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
-                        }
-                    fdv.setVal(val);
-                }
-            }
-            rs.close();
+        String whereClause = " where " + validateSqlIdentifier(idFieldName) + " = :code";
+        Query query = entityManager().createNativeQuery(sql + whereClause); // nosemgrep: hibernate-sqli -- table/column names validated via validateSqlIdentifier/validateFieldSql, code value bound as :code
+        query.setParameter("code", code);
+
+        List<?> rows = query.getResultList();
+        if (!rows.isEmpty()) {
+            Object[] row = extractFirstRow(rows, fs.size());
             for (int i = 0; i < fs.size(); i++) {
                 FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                if (!Utility.IsEmpty(fdv.getLookupTable())) {
-                    LookupCodeValue lkv = GetCode(fdv.getLookupTable(), fdv.getVal());
-                    if (lkv != null)
-                        fdv.setValDesc(lkv.getDescription());
-                }
+                String val = asString(row[i]);
+                if ("D".equals(fdv.getFieldType()))
+                    if (fdv.isEditable()) {
+                        val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
+                    } else {
+                        val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                    }
+                fdv.setVal(val);
             }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+        }
+        for (int i = 0; i < fs.size(); i++) {
+            FieldDefValue fdv = (FieldDefValue) fs.get(i);
+            if (!Utility.IsEmpty(fdv.getLookupTable())) {
+                LookupCodeValue lkv = GetCode(fdv.getLookupTable(), fdv.getVal());
+                if (lkv != null)
+                    fdv.setValDesc(lkv.getDescription());
+            }
         }
         return fs;
     }
 
     @Override
     public List<List> GetCodeFieldValues(LookupTableDefValue tableDef) {
-        String tableName = tableDef.getTableName();
-        List fs = LoadFieldDefList(tableDef.getTableId());
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
+        List<FieldDefValue> fieldDefs = LoadFieldDefList(tableDef.getTableId());
+        if (fieldDefs.isEmpty()) return new ArrayList<List>();
         ArrayList<List> codes = new ArrayList<List>();
         String sql = "select ";
-        for (int i = 0; i < fs.size(); i++) {
-            FieldDefValue fdv = (FieldDefValue) fs.get(i);
+        for (int i = 0; i < fieldDefs.size(); i++) {
+            FieldDefValue fdv = fieldDefs.get(i);
+            String fieldSql = validateFieldSql(fdv.getFieldSQL());
             if (i == 0) {
-                sql += fdv.getFieldSQL();
+                sql += fieldSql;
             } else {
-                sql += "," + fdv.getFieldSQL();
+                sql += "," + fieldSql;
             }
         }
         sql += " from " + tableName;
-        DBPreparedHandler db = new DBPreparedHandler();
-        try {
-            ResultSet rs = db.queryResults(sql);
-            while (rs.next()) {
-                for (int i = 0; i < fs.size(); i++) {
-                    FieldDefValue fdv = (FieldDefValue) fs.get(i);
-                    String val = Misc.getString(rs, (i + 1));
-                    if ("D".equals(fdv.getFieldType()))
-                        val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
-                    fdv.setVal(val);
-                    if (!Utility.IsEmpty(fdv.getLookupTable())) {
-                        LookupCodeValue lkv = GetCode(fdv.getLookupTable(), val);
-                        if (lkv != null)
-                            fdv.setValDesc(lkv.getDescription());
-                    }
+        Query query = entityManager().createNativeQuery(sql); // nosemgrep: hibernate-sqli -- table/column names validated via validateSqlIdentifier/validateFieldSql
+        List<?> rows = query.getResultList();
+        for (Object rawRow : rows) {
+            Object[] row = (rawRow instanceof Object[]) ? (Object[]) rawRow : new Object[]{ rawRow };
+            List<FieldDefValue> rowFields = new ArrayList<>(fieldDefs.size());
+            for (int i = 0; i < fieldDefs.size(); i++) {
+                FieldDefValue fdv = copyFieldDefValue(fieldDefs.get(i));
+                String val = asString(row[i]);
+                if ("D".equals(fdv.getFieldType()))
+                    val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                fdv.setVal(val);
+                if (!Utility.IsEmpty(fdv.getLookupTable())) {
+                    LookupCodeValue lkv = GetCode(fdv.getLookupTable(), val);
+                    if (lkv != null)
+                        fdv.setValDesc(lkv.getDescription());
                 }
-                codes.add(fs);
+                rowFields.add(fdv);
             }
-            rs.close();
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+            codes.add(rowFields);
         }
         return codes;
     }
 
-    private int GetNextId(String idFieldName, String tableName) throws SQLException {
-        String sql = "select max(" + idFieldName + ")";
-        sql += " from " + tableName;
-        DBPreparedHandler db = new DBPreparedHandler();
+    /**
+     * Creates a defensive copy of a field definition template before row-specific
+     * values are applied.
+     *
+     * <p>{@link #GetCodeFieldValues(LookupTableDefValue)} returns one
+     * {@link FieldDefValue} list per result row. Reusing the same
+     * {@code FieldDefValue} instances across iterations causes aliasing, so every
+     * returned row ends up reflecting the last processed values. Copying the
+     * template metadata here lets each row keep its own {@code val}/{@code valDesc}
+     * state.</p>
+     *
+     * @param source FieldDefValue the template field definition to copy
+     * @return FieldDefValue a detached copy safe to mutate for one result row
+     * @since 2026-04-17
+     */
+    private static FieldDefValue copyFieldDefValue(FieldDefValue source) {
+        FieldDefValue copy = new FieldDefValue();
+        copy.setTableId(source.getTableId());
+        copy.setFieldName(source.getFieldName());
+        copy.setFieldDesc(source.getFieldDesc());
+        copy.setFieldType(source.getFieldType());
+        copy.setLookupTable(source.getLookupTable());
+        copy.setFieldSQL(source.getFieldSQL());
+        copy.setEditable(source.isEditable());
+        copy.setAuto(source.isAuto());
+        copy.setUnique(source.isUnique());
+        copy.setGenericIdx(source.getGenericIdx());
+        copy.setFieldIndex(source.getFieldIndex());
+        copy.setFieldLength(source.getFieldLength());
+        return copy;
+    }
 
-        ResultSet rs = db.queryResults(sql);
-        int id = 0;
-        if (rs.next())
-            id = rs.getInt(1);
+    private int GetNextId(String idFieldName, String tableName) { // identifiers validated below
+        validateSqlIdentifier(idFieldName);
+        validateSqlIdentifier(tableName);
+        String maxSql = buildSelectMax(idFieldName, tableName);
+
+        Query query = entityManager().createNativeQuery(maxSql); // nosemgrep: hibernate-sqli -- idFieldName and tableName validated via validateSqlIdentifier
+        Object result = query.getSingleResult();
+        int id = result == null ? 0 : ((Number) result).intValue();
         return id + 1;
+    }
+
+    private static String buildSelectMax(String idFieldName, String tableName) {
+        return String.join("", "select max(", idFieldName, ") from ", tableName);
     }
 
     @Override
@@ -459,7 +532,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     private String InsertCodeValue(LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldVal = "";
 
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size()];
@@ -467,7 +540,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "insert into  " + tableName + "(";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
-            sql += fdv.getFieldSQL() + ",";
+            sql += validateSqlIdentifier(fdv.getFieldSQL()) + ",";
             phs += "?,";
             if (fdv.getGenericIdx() == 1) {
                 if (fdv.isAuto()) {
@@ -503,7 +576,7 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
     }
 
     private String UpdateCodeValue(LookupTableDefValue tableDef, List fieldDefList) throws SQLException {
-        String tableName = tableDef.getTableName();
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldName = "";
         String idFieldVal = "";
 
@@ -511,12 +584,13 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "update " + tableName + " set ";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
+            String fieldSql = validateSqlIdentifier(fdv.getFieldSQL());
             if (fdv.getGenericIdx() == 1) {
-                idFieldName = fdv.getFieldSQL();
+                idFieldName = fieldSql;
                 idFieldVal = fdv.getVal();
             }
 
-            sql += fdv.getFieldSQL() + "=?,";
+            sql += fieldSql + "=?,";
             if ("S".equals(fdv.getFieldType())) {
                 params[i] = new DBPreparedHandlerParam(fdv.getVal());
             } else if ("D".equals(fdv.getFieldType())) {
@@ -597,15 +671,15 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
                     + "codecsv = replace(codecsv, :oldCsv, :newCsv) "
                     + "where codecsv like :oldCsvPattern";
 
-            currentSession().createNativeQuery(sql)
-                    .setParameter("oldFullCode", oldFullCode)
-                    .setParameter("newFullCode", newFullCode)
-                    .setParameter("oldTreeCode", oldTreeCode)
-                    .setParameter("newTreeCode", newTreeCode)
-                    .setParameter("oldCsv", oldCsv)
-                    .setParameter("newCsv", newCsv)
-                    .setParameter("oldCsvPattern", oldCsv + "_%")
-                    .executeUpdate();
+            Query updateOrgTreeQuery = entityManager().createNativeQuery(sql);
+            updateOrgTreeQuery.setParameter("oldFullCode", oldFullCode);
+            updateOrgTreeQuery.setParameter("newFullCode", newFullCode);
+            updateOrgTreeQuery.setParameter("oldTreeCode", oldTreeCode);
+            updateOrgTreeQuery.setParameter("newTreeCode", newTreeCode);
+            updateOrgTreeQuery.setParameter("oldCsv", oldCsv);
+            updateOrgTreeQuery.setParameter("newCsv", newCsv);
+            updateOrgTreeQuery.setParameter("oldCsvPattern", oldCsv + "_%");
+            updateOrgTreeQuery.executeUpdate();
 
         }
 
@@ -616,11 +690,11 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         if (!newCd.isActive()) {
             String oldCsv = oldCd.getCodecsv() + "_%";
 
-            List<LstOrgcd> o = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(),
+            List<LstOrgcd> o = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(),
                     "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
-                currentSession().merge(l);
+                entityManager().merge(l);
             }
         }
     }
@@ -631,8 +705,8 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         String sql = "From LstOrgcd a where a.fullcode like ?1";
 
         // Wildcard must be part of the parameter value, not the HQL query
-        List<LstOrgcd> results1 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org1);
-        List<LstOrgcd> results2 = (List<LstOrgcd>) HqlQueryHelper.find(currentSession(), sql, "%" + org2);
+        List<LstOrgcd> results1 = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(), sql, "%" + org1);
+        List<LstOrgcd> results2 = (List<LstOrgcd>) JpqlQueryHelper.find(entityManager(), sql, "%" + org2);
 
         if (!results1.isEmpty() && !results2.isEmpty()) {
             LstOrgcd orgObj1 = results1.get(0);
@@ -732,44 +806,34 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         // Parameterized queries eliminate the SQL injection risk from orgCd.
         // CONCAT() is the correct MySQL/MariaDB string concatenation function;
         // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
-        String sql = "select count(*) from admission where admission_status=? and CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like ?)";
+        //
+        // The LIKE expression uses an explicit {@code ESCAPE '\'} clause so that the
+        // backslash-escaping of '%' / '_' below is honoured regardless of the target
+        // dialect's default escape character or SQL mode (e.g. MySQL
+        // {@code NO_BACKSLASH_ESCAPES}). Without the explicit clause, dialects that
+        // don't default to backslash would treat the escape characters as literals.
+        String sql = "select count(*) from admission where admission_status = :status and CONCAT('P', program_id) in ("
+                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
         String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like ?)";
+                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
 
         // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
+        // Must stay in sync with the {@code ESCAPE '\'} clause in the SQL above.
         String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
         String likePattern = "%" + escapedOrgCd + ",%";
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[]{
-            new DBPreparedHandlerParam(KeyConstants.INTAKE_STATUS_ADMITTED),
-            new DBPreparedHandlerParam(likePattern)
-        };
-        DBPreparedHandlerParam[] params1 = new DBPreparedHandlerParam[]{
-            new DBPreparedHandlerParam(likePattern)
-        };
 
-        DBPreparedHandler db = new DBPreparedHandler();
-
-        ResultSet rs = db.queryResults(sql, params);
-        try {
-            int id = 0;
-            if (rs.next())
-                id = rs.getInt(1);
-            if (id > 0)
-                return id;
-        } finally {
-            rs.close();
+        Number count = (Number) entityManager().createNativeQuery(sql)
+                .setParameter("status", KeyConstants.INTAKE_STATUS_ADMITTED)
+                .setParameter("pattern", likePattern)
+                .getSingleResult();
+        if (count != null && count.intValue() > 0) {
+            return count.intValue();
         }
 
-        rs = db.queryResults(sql1, params1);
-        try {
-            int id = 0;
-            if (rs.next())
-                id = rs.getInt(1);
-            return id;
-        } finally {
-            rs.close();
-        }
+        Number count1 = (Number) entityManager().createNativeQuery(sql1)
+                .setParameter("pattern", likePattern)
+                .getSingleResult();
+        return count1 != null ? count1.intValue() : 0;
     }
 
     @Override
@@ -777,24 +841,73 @@ public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) throws SQLException {
-        PreparedStatement preparedStmt = DbConnectionFilter.getThreadLocalDbConnection().prepareStatement(preparedSQL);
+    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) {
+        Query query = entityManager().createNativeQuery(preparedSQL); // nosemgrep: hibernate-sqli -- identifiers in preparedSQL validated by validateSqlIdentifier at call sites; values bound below
         for (int i = 0; i < params.length; i++) {
-            DBPreparedHandlerParam param = params[i];
-
-            if (param == null)
-                preparedStmt.setObject(i + 1, null);
-            else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-                preparedStmt.setString(i + 1, param.getStringValue());
-            } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-                preparedStmt.setDate(i + 1, param.getDateValue());
-            } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-                preparedStmt.setInt(i + 1, param.getIntValue());
-            } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-                preparedStmt.setTimestamp(i + 1, param.getTimestampValue());
-            }
+            bindParam(query, i + 1, params[i]);
         }
-        return (preparedStmt.executeUpdate());
+        return query.executeUpdate();
+    }
+
+    /**
+     * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
+     * 1-based position, preserving the type-aware dispatch the legacy
+     * {@code DBPreparedHandler} performed (String / int / Date / Timestamp).
+     *
+     * @param query the JPA query to bind on
+     * @param position 1-based positional parameter index
+     * @param param the typed parameter (may be null)
+     */
+    private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
+        NativeQuery<?> nativeQuery = query.unwrap(NativeQuery.class);
+        if (param == null) {
+            // Explicit type hint avoids Hibernate "could not determine type" errors
+            // when binding a bare null to a native-query positional parameter.
+            nativeQuery.setParameter(position, (String) null, StandardBasicTypes.STRING);
+        } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
+            nativeQuery.setParameter(position, param.getStringValue(), StandardBasicTypes.STRING);
+        } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
+            nativeQuery.setParameter(position, param.getDateValue(), StandardBasicTypes.DATE);
+        } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
+            nativeQuery.setParameter(position, param.getIntValue(), StandardBasicTypes.INTEGER);
+        } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
+            nativeQuery.setParameter(position, param.getTimestampValue(), StandardBasicTypes.TIMESTAMP);
+        }
+    }
+
+    /**
+     * Null-safe conversion of a query result column to a String, matching the legacy
+     * {@code Misc.getString(...)} behaviour that coerced SQL NULL to the empty string.
+     */
+    private static String asString(Object value) {
+        return StringUtils.defaultString(value == null ? null : value.toString());
+    }
+
+    /**
+     * Parses a numeric-flag column into an int, matching the pre-JPA behaviour of
+     * {@code Integer.valueOf("0" + Misc.getString(rs, col)).intValue()} where
+     * {@code Misc.getString} coerced SQL NULL to an empty string (giving "00" → 0).
+     * A plain {@link #asString(Object)} call returns {@code null} for NULL, which would
+     * concatenate to {@code "0null"} and throw {@link NumberFormatException}.
+     */
+    private static int parseIntWithZeroPrefix(Object value) {
+        String s = value == null ? "" : value.toString();
+        return Integer.parseInt("0" + s);
+    }
+
+    /**
+     * Returns the first row from a native-query result list, normalizing to Object[] when
+     * the underlying query returns scalar values for a single-column SELECT.
+     */
+    private static Object[] extractFirstRow(List<?> rows, int expectedColumns) {
+        Object first = rows.get(0);
+        if (first instanceof Object[]) {
+            return (Object[]) first;
+        }
+        // Single-column native queries return scalars, not Object[]
+        Object[] wrapped = new Object[expectedColumns];
+        wrapped[0] = first;
+        return wrapped;
     }
 
 }

@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -32,56 +32,25 @@ package io.github.carlos_emr.carlos.db;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Types;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 /**
- * @deprecated Use JPA instead, no new code should be written against this class.
+ * @deprecated Use JPA via {@link jakarta.persistence.EntityManager#createNativeQuery(String)}
+ * instead. Inject or otherwise obtain an {@link jakarta.persistence.EntityManager}
+ * and create a native query from it. No new code should be written against this
+ * class. Scheduled for removal once remaining callers migrate.
  */
-@Deprecated
+@Deprecated(forRemoval = true)
 public final class DBHandler {
-
-    private static final Logger logger = LogManager.getLogger(DBHandler.class);
 
     private DBHandler() {
         // not intented for instantiation
     }
 
-    /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
-     */
-    @Deprecated
-    public static java.sql.ResultSet GetSQL(String SQLStatement) throws SQLException {
-        return GetSQL(SQLStatement, false);
-    }
-
-    /**
-     * @deprecated This method is vulnerable to SQL injection. Use GetPreSQL with parameters or JPA instead.
-     * This method now includes basic SQL injection detection as a safety measure for legacy code.
-     */
-    @Deprecated
-	public static ResultSet GetSQL(String SQLStatement, boolean updatable) throws SQLException {
-		// Log warning about deprecated usage — sanitize and allow longer output for SQL migration diagnostics
-		logger.warn("Deprecated GetSQL method called. SQL injection risk. Consider migrating to GetPreSQL or JPA. SQL: {}", LogSanitizer.sanitize(SQLStatement, 1000));
-		
-		Statement stmt;
-
-		if (updatable) {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-		} else {
-			stmt = DbConnectionFilter.getThreadLocalDbConnection().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-		}
-
-		ResultSet rs = stmt.executeQuery(SQLStatement);
-		return rs;
-	}
+    // GetSQL(String) removed — all callers migrated to GetPreSQL.
+    // See git history for the deprecated raw SQL execution method.
 
 	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
 		for (int i = 0; i < params.length; i++) {
@@ -95,11 +64,23 @@ public final class DBHandler {
 	}
 
 	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
+		return GetPreSQL(sql, false, params);
+	}
+
+	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
 		PreparedStatement ps = DbConnectionFilter
 			.getThreadLocalDbConnection()
-			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-		bindParams(ps, params);
-		return ps.executeQuery();
+			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] — GetPreSQL IS the parameterized query method; params bound via PreparedStatement below
+				updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
+		ResultSet rs;
+		try {
+			bindParams(ps, params);
+			rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 — this IS GetPreSQL, the safe parameterized method
+		} catch (SQLException e) {
+			ps.close();
+			throw e;
+		}
+		return StatementClosingResultSet.wrap(rs, ps);
 	}
 
 }

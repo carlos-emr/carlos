@@ -111,7 +111,13 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        Numerator n = reports.getNumeratorById(numeratorId);
+        // FP for SSRF scanners (CodeQL java/Ssrf): numeratorId is used only as a lookup
+        // key into the preloaded clinicalReports.xml config (reports.getNumeratorById).
+        // The downstream URL opened by DroolsHelper.loadFromUrl is built from a server-
+        // configured file path under the numerator entry, not from numeratorId itself.
+        // User-controlled input cannot influence the URL target, only which preconfigured
+        // numerator is selected. // lgtm[java/ssrf]
+        Numerator n = reports.getNumeratorById(numeratorId); // nosemgrep: java.lang.security.audit.ssrf.ssrf-java
         MiscUtils.getLogger().debug("n" + n + " " + n.hasReplaceableValues());
         if (n.hasReplaceableValues()) {
             String[] denomReplaceKeys = n.getReplaceableKeys();
@@ -206,7 +212,7 @@ public class RunClinicalReport2Action extends ActionSupport {
             arrList = new ArrayList();
         }
         arrList.add(re);
-        request.getSession().setAttribute("ClinicalReports", arrList);
+        request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- arrList contains ReportEvaluator results computed server-side from DAO queries
 
         request.setAttribute("extraValues", extraVal);
         request.setAttribute("name", re.getName());

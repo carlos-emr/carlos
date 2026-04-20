@@ -35,15 +35,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockMode;
-import org.hibernate.Session;
+import jakarta.persistence.EntityManager;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import org.springframework.transaction.annotation.Transactional;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 import java.util.Set;
 
@@ -58,7 +57,7 @@ import java.util.Set;
  * @see Secuserrole
  */
 @Transactional
-public class SecuserroleDaoImpl extends AbstractHibernateDao implements SecuserroleDao {
+public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static final Set<String> ALLOWED_PROPERTIES = Set.of(
@@ -67,7 +66,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void saveAll(List list) {
         logger.debug("saving ALL Secuserrole instances");
-        Session session = currentSession();
+        EntityManager em = entityManager();
         try {
             for (int i = 0; i < list.size(); i++) {
                 Secuserrole obj = (Secuserrole) list.get(i);
@@ -75,7 +74,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
                 int rowcount = update(obj);
 
                 if (rowcount <= 0) {
-                    session.persist(obj);
+                    em.persist(obj);
                 }
 
             }
@@ -89,13 +88,13 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void save(Secuserrole transientInstance) {
         logger.debug("saving Secuserrole instance");
-        Session session = currentSession();
+        EntityManager em = entityManager();
         try {
             transientInstance.setLastUpdateDate(new Date());
             if (transientInstance.getId() == null) {
-                session.persist(transientInstance);
+                em.persist(transientInstance);
             } else {
-                session.merge(transientInstance);
+                em.merge(transientInstance);
             }
             logger.debug("save successful");
         } catch (RuntimeException re) {
@@ -106,20 +105,26 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
 
     @Override
     public void updateRoleName(Integer id, String roleName) {
-        Secuserrole sur = currentSession().find(Secuserrole.class, id);
+        EntityManager em = entityManager();
+        Secuserrole sur = em.find(Secuserrole.class, id);
         if (sur != null) {
             sur.setRoleName(roleName);
             sur.setLastUpdateDate(new Date());
-            currentSession().merge(sur);
+            em.merge(sur);
         }
     }
 
     @Override
     public void delete(Secuserrole persistentInstance) {
         logger.debug("deleting Secuserrole instance");
-        Session session = currentSession();
         try {
-            session.remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities.
+            // JPA EntityManager.remove() requires a managed instance, so reattach via
+            // merge() first when the caller passes a detached entity.
+            Secuserrole managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -132,7 +137,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("deleting Secuserrole by orgcd");
         try {
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.orgcd =?1", orgcd);
+            return JpqlQueryHelper.bulkUpdate(entityManager(), "delete Secuserrole as model where model.orgcd =?1", orgcd);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -145,7 +150,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("deleting Secuserrole by providerNo");
         try {
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.providerNo =?1",
+            return JpqlQueryHelper.bulkUpdate(entityManager(), "delete Secuserrole as model where model.providerNo =?1",
                     providerNo);
 
         } catch (RuntimeException re) {
@@ -159,7 +164,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("deleting Secuserrole by ID");
         try {
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.id =?1", id);
+            return JpqlQueryHelper.bulkUpdate(entityManager(), "delete Secuserrole as model where model.id =?1", id);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -175,9 +180,9 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             return 0;
         }
         try {
-            String queryString = "update Secuserrole as model set model.activeyn = ?1, lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
+            String queryString = "update Secuserrole as model set model.activeyn = ?1, model.lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
 
-            return HqlQueryHelper.bulkUpdate(currentSession(), queryString,
+            return JpqlQueryHelper.bulkUpdate(entityManager(), queryString,
                     instance.getActiveyn(), instance.getProviderNo(),
                     instance.getRoleName(), instance.getOrgcd());
 
@@ -190,9 +195,8 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public Secuserrole findById(java.lang.Integer id) {
         logger.debug("getting Secuserrole instance with id: " + id);
-        Session session = currentSession();
         try {
-            Secuserrole instance = session.find(Secuserrole.class, id);
+            Secuserrole instance = entityManager().find(Secuserrole.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);
@@ -223,7 +227,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
                 hql.append(" and s.activeyn = :activeyn");
                 params.put("activeyn", instance.getActiveyn());
             }
-            List results = HqlQueryHelper.find(currentSession(), hql.toString(), params);
+            List results = JpqlQueryHelper.find(entityManager(), hql.toString(), params);
             logger.debug("find by example successful, result size: "
                     + results.size());
             return results;
@@ -243,7 +247,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             }
             String queryString = "from Secuserrole as model where model."
                     + propertyName + "= ?1";
-            return HqlQueryHelper.find(currentSession(), queryString, value);
+            return JpqlQueryHelper.find(entityManager(), queryString, value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
@@ -272,7 +276,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
                 queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p where a.providerNo=p.providerNo and b.code =?1 and b.codecsv like '%' || a.orgcd || ',%' and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
             }
 
-            return HqlQueryHelper.find(currentSession(), queryString, orgcd);
+            return JpqlQueryHelper.find(entityManager(), queryString, orgcd);
 
         } catch (RuntimeException re) {
             logger.error("Find staff failed", re);
@@ -303,7 +307,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             if (hasFname) params.put("fname", "%" + fname.toLowerCase() + "%");
             if (hasLname) params.put("lname", "%" + lname.toLowerCase() + "%");
 
-            return HqlQueryHelper.find(currentSession(), hql, params);
+            return JpqlQueryHelper.find(entityManager(), hql, params);
 
         } catch (RuntimeException re) {
             logger.error("Search staff failed", re);
@@ -320,7 +324,7 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     public List findAll() {
         logger.debug("finding all Secuserrole instances");
         try {
-            return HqlQueryHelper.find(currentSession(), "from Secuserrole");
+            return JpqlQueryHelper.find(entityManager(), "from Secuserrole");
         } catch (RuntimeException re) {
             logger.error("find all failed", re);
             throw re;
@@ -330,10 +334,9 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public Secuserrole merge(Secuserrole detachedInstance) {
         logger.debug("merging Secuserrole instance");
-        Session session = currentSession();
         try {
             detachedInstance.setLastUpdateDate(new Date());
-            Secuserrole result = (Secuserrole) session.merge(
+            Secuserrole result = (Secuserrole) entityManager().merge(
                     detachedInstance);
             logger.debug("merge successful");
             return result;
@@ -346,10 +349,9 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void attachDirty(Secuserrole instance) {
         logger.debug("attaching dirty Secuserrole instance");
-        Session session = currentSession();
         try {
             instance.setLastUpdateDate(new Date());
-            session.merge(instance);
+            entityManager().merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
@@ -360,9 +362,15 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void attachClean(Secuserrole instance) {
         logger.debug("attaching clean Secuserrole instance");
-        Session session = currentSession();
         try {
-            session.lock(instance, LockMode.NONE);
+            // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
+            // If the entity is already managed, there is nothing to do. If it is detached, merge() is
+            // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
+            // if the detached state differs from the database row. Callers relying on the old "clean"
+            // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            if (!entityManager().contains(instance)) {
+                entityManager().merge(instance);
+            }
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

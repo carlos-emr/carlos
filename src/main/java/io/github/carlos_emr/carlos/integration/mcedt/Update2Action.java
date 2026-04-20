@@ -55,7 +55,12 @@ public class Update2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("addUpdateRequest".equals(method) || "sendUpdateRequest".equals(method) || "cancel".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("addUpdateRequest".equals(method)) {
             return addUpdateRequest();
         } else if ("cancel".equals(method)) {
@@ -79,7 +84,7 @@ public class Update2Action extends ActionSupport {
             for (DetailData d : details.getData()) {
                 d.setModifyTimestamp(null);
             }
-            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details);
+            request.getSession().setAttribute(SESSION_KEY_UPLOAD_DETAILS, details); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- MCEDT resource list from EDT service response
         }
         return "initial";
     }

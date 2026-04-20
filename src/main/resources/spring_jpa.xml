@@ -48,7 +48,13 @@
 	</bean>
 
 	<!-- JPA -->
-	<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+	<!-- primary="true" was originally needed to resolve autowiring ambiguity with a
+	     legacy Hibernate {@code sessionFactory} bean defined in
+	     {@code spring_hibernate.xml}. That legacy bean has since been retired, but
+	     the {@code primary} attribute is still meaningful in contexts (including
+	     some tests) that define another compatible {@code sessionFactory} or
+	     {@code EntityManagerFactory} bean. -->
+	<bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<!-- Hibernate 7 requires the EMF to know about ALL entity types referenced
 		     by JPA associations. packagesToScan discovers @Entity classes;
@@ -166,6 +172,7 @@
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.ON.dao" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.BC.dao" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.billing.CA.dao" />
+	<context:component-scan base-package="io.github.carlos_emr.carlos.billings.ca.bc.privateBilling" />
 	<context:component-scan base-package="io.github.carlos_emr.carlos.PMmodule.dao" />
 
 </beans>

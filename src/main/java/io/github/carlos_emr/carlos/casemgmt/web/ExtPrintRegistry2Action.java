@@ -40,8 +40,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class ExtPrintRegistry2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -49,6 +54,11 @@ public class ExtPrintRegistry2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         return register();
     }
 
@@ -58,7 +68,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
         ExtPrintRegistry.addEntry(name, bean);
 
-        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean));
+        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         return null;
     }
 

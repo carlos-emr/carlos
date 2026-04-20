@@ -49,8 +49,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class OrganizationMessage2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -62,6 +65,11 @@ public class OrganizationMessage2Action extends ActionSupport {
     private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
         String mtd = request.getParameter("method");
         if ("edit".equals(mtd)) {
             return edit();
@@ -106,6 +114,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         List<Facility> facilities = new ArrayList<Facility>();
         facilities.add((Facility) request.getSession().getAttribute("currentFacility"));
 
+        // nosemgrep: tainted-session-from-http-request -- facilities list is sourced from existing session attribute (currentFacility), not raw user input
         request.getSession().setAttribute("facilities", facilities);
 
         List<Program> programs = programManager.getPrograms(((Facility) request.getSession().getAttribute("currentFacility")).getId());

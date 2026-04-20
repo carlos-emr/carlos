@@ -28,13 +28,16 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,7 +47,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Population Report</title>
+    <title><fmt:message key="report.PopulationReport.title"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 <body>
@@ -53,11 +56,11 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.popRpt"/>
+        <fmt:message key="admin.admin.popRpt"/>
         <div class="float-end">
             <button name='print' onClick='window.print()' class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
+                <fmt:message key="global.btnPrint"/>
             </button>
         </div>
     </h4>
@@ -71,17 +74,14 @@
     </colgroup>
     <thead>
     <tr>
-        <td>Health of the Homeless: CAISI Population Health Report</td>
-        <td><c:out value="${date}"></c:out></td>
+        <td><fmt:message key="report.PopulationReport.heading"/></td>
+        <td>${carlos:forHtml(date)}</td>
     </tr>
     </thead>
     <tbody>
     <tr>
-        <td>Number of Individuals with Specific Acute and Chronic
-            Conditions who currently reside in Toronto Shelters which are part
-            of the CAISI Project
-        </td>
-        <td><c:out value="${time}"></c:out></td>
+        <td><fmt:message key="report.PopulationReport.summary"/></td>
+        <td>${carlos:forHtml(time)}</td>
     </tr>
     </tbody>
 </table>
@@ -93,15 +93,15 @@
         <col style="width:58.333%">
         <col style="width:16.667%">
     </colgroup>
-    <caption>Homeless Shelter Population</caption>
+    <caption><fmt:message key="report.PopulationReport.caption.homelessShelterPopulation"/></caption>
     <tbody>
     <tr>
-        <th>Clients who used a CAISI shelter in the past year</th>
-        <td><c:out value="${shelterPopulation.pastYear}"></c:out></td>
+        <th><fmt:message key="report.PopulationReport.label.usedPastYear"/></th>
+        <td>${carlos:forHtml(shelterPopulation.pastYear)}</td>
     </tr>
     <tr class="odd">
-        <th>Current number of individuals in CAISI shelters</th>
-        <td><c:out value="${shelterPopulation.current}"></c:out></td>
+        <th><fmt:message key="report.PopulationReport.label.currentIndividuals"/></th>
+        <td>${carlos:forHtml(shelterPopulation.current)}</td>
     </tr>
     </tbody>
 </table>
@@ -113,19 +113,19 @@
         <col style="width:33.333%">
         <col style="width:33.333%">
     </colgroup>
-    <caption>Intensity of Shelter Use</caption>
+    <caption><fmt:message key="report.PopulationReport.caption.shelterUse"/></caption>
     <tbody>
     <tr>
-        <th>Low Use: (1 - 10 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.low}"></c:out></td>
+        <th><fmt:message key="report.PopulationReport.label.lowUse"/></th>
+        <td>${carlos:forHtml(shelterUsage.low)}</td>
     </tr>
     <tr class="odd">
-        <th>Moderate Use: (11 - 179 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.medium}"></c:out></td>
+        <th><fmt:message key="report.PopulationReport.label.moderateUse"/></th>
+        <td>${carlos:forHtml(shelterUsage.medium)}</td>
     </tr>
     <tr>
-        <th>High Use: (180 - 730 days / 4 yr)</th>
-        <td><c:out value="${shelterUsage.high}"></c:out></td>
+        <th><fmt:message key="report.PopulationReport.label.highUse"/></th>
+        <td>${carlos:forHtml(shelterUsage.high)}</td>
     </tr>
     </tbody>
 </table>
@@ -138,15 +138,15 @@
             <col style="width:41.667%">
             <col style="width:33.333%">
         </colgroup>
-        <caption>Mortality In Shelters</caption>
+        <caption><fmt:message key="report.PopulationReport.caption.mortality"/></caption>
         <tbody>
         <tr>
-            <th>Death Count (# of deaths in past year)</th>
-            <td><c:out value="${mortalities.count}"></c:out></td>
+            <th><fmt:message key="report.PopulationReport.label.deathCount"/></th>
+            <td>${carlos:forHtml(mortalities.count)}</td>
         </tr>
         <tr class="odd">
-            <th>Death Rate (# of deaths in past year / population)</th>
-            <td><c:out value="${mortalities.percent}"></c:out></td>
+            <th><fmt:message key="report.PopulationReport.label.deathRate"/></th>
+            <td>${carlos:forHtml(mortalities.percent)}</td>
         </tr>
         </tbody>
     </table>
@@ -155,7 +155,7 @@
 <!-- Major Medical Condition -->
 <table
         class="table table-bordered table-striped table-sm table-hover">
-    <caption>Major Medical Condition</caption>
+    <caption><fmt:message key="report.PopulationReport.caption.majorMedicalCondition"/></caption>
     <colgroup>
         <col style="width:16.667%">
         <col style="width:25%">
@@ -163,24 +163,24 @@
     </colgroup>
     <thead>
     <tr>
-        <th>Condition</th>
-        <td>Number of Cases in CAISI Shelters</td>
-        <td>Prevalence of Condition in CAISI Shelters</td>
+        <th><fmt:message key="report.PopulationReport.header.condition"/></th>
+        <td><fmt:message key="report.PopulationReport.header.numCases"/></td>
+        <td><fmt:message key="report.PopulationReport.header.prevalence"/></td>
     </tr>
     </thead>
     <tbody>
     <c:forEach varStatus="status" var="condition"
                items="${majorMedicalConditions}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -189,7 +189,7 @@
 <!-- Major Mental Illness -->
 <table
         class="table table-bordered table-striped table-sm table-hover">
-    <caption>Major Mental Illness</caption>
+    <caption><fmt:message key="report.PopulationReport.caption.majorMentalIllness"/></caption>
     <colgroup>
         <col style="width:16.667%">
         <col style="width:25%">
@@ -197,24 +197,24 @@
     </colgroup>
     <thead>
     <tr>
-        <th>Condition</th>
-        <td>Number of Cases in CAISI Shelters</td>
-        <td>Prevalence of Condition in CAISI Shelters</td>
+        <th><fmt:message key="report.PopulationReport.header.condition"/></th>
+        <td><fmt:message key="report.PopulationReport.header.numCases"/></td>
+        <td><fmt:message key="report.PopulationReport.header.prevalence"/></td>
     </tr>
     </thead>
     <tbody>
     <c:forEach varStatus="status" var="condition"
                items="${majorMentalIllnesses}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -223,9 +223,7 @@
 <!-- Serious Medical Conditions -->
 <table
         class="table table-bordered table-striped table-sm table-hover">
-    <caption>Incidence in the past year of Serious Medical
-        Conditions
-    </caption>
+    <caption><fmt:message key="report.PopulationReport.caption.seriousMedicalConditions"/></caption>
     <colgroup>
         <col style="width:16.667%">
         <col style="width:25%">
@@ -233,24 +231,24 @@
     </colgroup>
     <thead>
     <tr>
-        <th>Condition</th>
-        <td>Number of Cases in CAISI Shelters</td>
-        <td>Prevalence of Condition in CAISI Shelters</td>
+        <th><fmt:message key="report.PopulationReport.header.condition"/></th>
+        <td><fmt:message key="report.PopulationReport.header.numCases"/></td>
+        <td><fmt:message key="report.PopulationReport.header.prevalence"/></td>
     </tr>
     </thead>
     <tbody>
     <c:forEach varStatus="status" var="condition"
                items="${seriousMedicalConditions}">
         <tr>
-            <th><c:out value="${condition.key}"></c:out></th>
+            <th>${carlos:forHtml(condition.key)}</th>
             <td><c:choose>
                 <c:when
                         test="${condition.value.count > 0 && condition.value.count < 5}">1 - 5</c:when>
                 <c:otherwise>
-                    <c:out value="${condition.value.count}"></c:out>
+                    ${carlos:forHtml(condition.value.count)}
                 </c:otherwise>
             </c:choose></td>
-            <td><c:out value="${condition.value.percent}"></c:out></td>
+            <td>${carlos:forHtml(condition.value.percent)}</td>
         </tr>
     </c:forEach>
     </tbody>
@@ -259,41 +257,22 @@
 <!-- Notes -->
 <table
         class="table table-bordered table-striped table-sm table-hover">
-    <caption>Notes on the Data</caption>
+    <caption><fmt:message key="report.PopulationReport.caption.notes"/></caption>
     <colgroup>
         <col style="width:75%">
     </colgroup>
     <tbody>
     <tr>
-        <td>1) <b>List of all Shelters in the CAISI
-            System</b>: John Howard Society (service agency), Salvation Army
-            Gateway (shelter), Salvation Army Maxwell Meighen (shelter), Seaton
-            House (shelter), Sherbourne Health Center (health care agency),
-            Street Health (outreach program).
-        </td>
+        <td><fmt:message key="report.PopulationReport.note1"/></td>
     </tr>
     <tr>
-        <td>2) The indicator of &quot;Intensity of Shelter
-            Use&quot; uses values produced by New York City Health and
-            Department of Homeless Services (2005). As CAISI has not been
-            operational for 4 years we are using the same values for the length
-            of stay but only within the life of CAISI (approximately 15 months)
-            rather than 4 years. This means that the level of intensity reported
-            in this report are higher than comparable New York statistics.
-        </td>
+        <td><fmt:message key="report.PopulationReport.note2"/></td>
     </tr>
     <tr>
-        <td>3) In each case where a prevalence or
-            incidence rate is reported, the denominator represents the number of
-            clients <b>currently</b> in a bed program at CAISI Shelters.
-        </td>
+        <td><fmt:message key="report.PopulationReport.note3"/></td>
     </tr>
     <tr>
-        <td>4) The specific conditions are defined using
-            ICD-10 codes. The numerator value is defined as the number of
-            clients in the denominator who have been diagnosed with a condition
-            associated with one or more of the ICD-10 codes that follow.
-        </td>
+        <td><fmt:message key="report.PopulationReport.note4"/></td>
     </tr>
     </tbody>
 </table>
@@ -303,7 +282,7 @@
     <table
             class="table table-bordered table-striped table-sm table-hover">
         <caption>
-            <c:out value="${categoryCodeDescription.key}"></c:out>
+            ${carlos:forHtml(categoryCodeDescription.key)}
         </caption>
         <colgroup>
             <col style="width:16.667%">
@@ -311,16 +290,16 @@
         </colgroup>
         <thead>
         <tr>
-            <th>Code</th>
-            <th>Description</th>
+            <th><fmt:message key="report.PopulationReport.header.code"/></th>
+            <th><fmt:message key="report.PopulationReport.header.description"/></th>
         </tr>
         </thead>
         <tbody>
         <c:forEach var="codeDescription"
                    items="${categoryCodeDescription.value}">
             <tr>
-                <th><c:out value="${codeDescription.key}"></c:out></th>
-                <td><c:out value="${codeDescription.value}"></c:out></td>
+                <th>${carlos:forHtml(codeDescription.key)}</th>
+                <td>${carlos:forHtml(codeDescription.value)}</td>
             </tr>
         </c:forEach>
         </tbody>

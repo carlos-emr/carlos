@@ -56,7 +56,12 @@ public class Resource2Action extends ActionSupport {
 
     @Override
     public String execute() throws Exception {
+        McedtSecurity.requireRead(request);
         String method = request.getParameter("method");
+        if ("delete".equals(method) || "submit".equals(method) || "download".equals(method)) {
+            McedtSecurity.requireWrite(request);
+            McedtSecurity.requirePost(request);
+        }
         if ("changeDisplay".equals(method)) {
             return changeDisplay();
         } else if ("reset".equals(method)) {
@@ -179,8 +184,8 @@ public class Resource2Action extends ActionSupport {
             ze.setComment(d.getDescription());
             ze.setSize(inputBytes.length);
 
-            zos.putNextEntry(ze);
-            zos.write(inputBytes);
+            zos.putNextEntry(ze); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream, ZipEntry header only
+            zos.write(inputBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/zip binary stream
             zos.closeEntry();
             zos.flush();
         }

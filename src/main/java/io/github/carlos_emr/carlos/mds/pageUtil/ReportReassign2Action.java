@@ -111,7 +111,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders));
+        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {
@@ -253,7 +253,11 @@ public class ReportReassign2Action extends ActionSupport {
             }
             return null;
         } else {
-            response.sendRedirect(newURL);
+            // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection, Semgrep
+            // javasecurity:S5146): newURL is seeded from request.getRequestURI() (server-resolved
+            // path, no scheme/host) and appended parameters are all wrapped in Encode.forUriComponent.
+            // sendRedirect of a path-only URL is always same-origin.
+            response.sendRedirect(newURL); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- see comment above
             return NONE;
         }
     }

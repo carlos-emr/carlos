@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.NativeSql;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -818,6 +819,36 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, sDate == null ? new Date(Long.MIN_VALUE) : sDate);
         query.setParameter(2, eDate == null ? new Date(Long.MIN_VALUE) : eDate);
+        return query.getResultList();
+    }
+
+    /**
+     * Returns lightweight appointment list DTOs for a provider's day schedule.
+     * Uses HBM-mapped PascalCase property names ({@code d.DemographicNo}, {@code d.LastName},
+     * {@code d.FirstName}) as defined in {@code Demographic.hbm.xml}.
+     *
+     * @param date Date the appointment date to query
+     * @param providerNo String the provider number to filter by
+     * @return List&lt;AppointmentListItemDTO&gt; ordered by start time ascending; empty if none found
+     * @since 2026-04-11
+     */
+    @Override
+    public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo) {
+        // HBM-mapped Demographic uses PascalCase property names (DemographicNo, LastName,
+        // FirstName) per Demographic.hbm.xml; HQL must reference the HBM name attribute.
+        Query query = entityManager.createQuery("""
+                SELECT NEW io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO(
+                    a.id, a.providerNo, a.appointmentDate, a.startTime, a.endTime,
+                    a.name, a.demographicNo, a.status, a.type, a.reason, a.location,
+                    a.notes, a.urgency, a.remarks, a.reasonCode,
+                    d.LastName, d.FirstName)
+                FROM Appointment a
+                LEFT JOIN Demographic d ON d.DemographicNo = a.demographicNo
+                WHERE a.appointmentDate = :date AND a.providerNo = :providerNo
+                ORDER BY a.startTime
+                """);
+        query.setParameter("date", date);
+        query.setParameter("providerNo", providerNo);
         return query.getResultList();
     }
 

@@ -37,7 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -185,8 +185,8 @@ public class TicklerHandler {
      * @param demographicIds comma-separated demographic IDs, optionally enclosed in square brackets
      *                       (e.g. {@code "[1,2,3]"} or {@code "1,2,3"})
      * @return {@code true} if all ticklers were added successfully; {@code false} if input is
-     *         null/empty, contains empty tokens, or any token is not a valid integer
-     * @throws nothing — all parsing exceptions are caught and logged; method returns {@code false}
+     *         null/empty, contains empty tokens, or any token is not a valid integer.
+     *         All parsing exceptions are caught and logged internally.
      * @since 2026-04-04
      */
     public boolean addTickler(String demographicIds) {
@@ -216,7 +216,7 @@ public class TicklerHandler {
             for (int i = 0; i < parts.length; i++) {
                 String part = parts[i].trim();
                 if (part.isEmpty()) {
-                    MiscUtils.getLogger().error("Empty token in demographic list at index " + i + ": " + Encode.forJava(demographicIds));
+                    MiscUtils.getLogger().error("Empty token in demographic list at index {}: {}", i, LogSanitizer.sanitize(demographicIds)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                     return false;
                 }
                 demographicArray[i] = Integer.parseInt(part);
@@ -226,7 +226,7 @@ public class TicklerHandler {
 
             return addTickler(demographicArray);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to parse demographic list: " + Encode.forJava(demographicIds), e);
+            MiscUtils.getLogger().error("Failed to parse demographic list: {}", LogSanitizer.sanitize(demographicIds), e);
             return false;
         }
     }

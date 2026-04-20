@@ -31,6 +31,8 @@
 
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -38,7 +40,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting,_billing" rights="r"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_report&type=_admin.reporting&type=_billing");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_report&type=_admin.reporting&type=_billing");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -57,15 +59,15 @@
 
 <%@ page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
     String user_no;
     user_no = (String) session.getAttribute("user");
 %>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 
@@ -101,7 +103,7 @@
         <div class="float-end">
             <button name="print" onclick="window.print()" class="btn btn-secondary">
                 <i class="fa-solid fa-print"></i>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
+                <fmt:message key="global.btnPrint"/>
             </button>
         </div>
     </h4>
@@ -114,7 +116,7 @@
 </div>
 </s:if>
 
-<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
+<form action="${ctx}/oscarReport/obec" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>
@@ -127,7 +129,7 @@
                 <div>
 
                     <input id="xml_vdate" type="text" name="xml_vdate"
-                           value="<%= Encode.forHtmlAttribute(xml_vdate) %>" placeholder="Service Begin Date">
+                           value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>" placeholder="Service Begin Date">
                 </div>
             </div>
             <div class="mb-3" id="providerDiv">
@@ -135,7 +137,7 @@
 
                 <div>
 
-                    <input type="text" id="numDays" name="numDays" value="<%= Encode.forHtmlAttribute(numDays) %>"
+                    <input type="text" id="numDays" name="numDays" value="<carlos:encode value='<%= numDays %>' context="htmlAttribute"/>"
                            class="form-control form-control-sm d-inline-block w-auto">
                 </div>
             </div>

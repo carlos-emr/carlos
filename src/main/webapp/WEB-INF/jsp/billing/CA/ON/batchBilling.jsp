@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    String user_no = "";
+    user_no = (String) session.getAttribute("user");
+%>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ page import="java.util.*, java.sql.*, java.net.*" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<%
+    ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
+%>
+<% GregorianCalendar now = new GregorianCalendar();
+    int curYear = now.get(Calendar.YEAR);
+    int curMonth = (now.get(Calendar.MONTH) + 1);
+    int curDay = now.get(Calendar.DAY_OF_MONTH);
+    String nowDate = String.valueOf(curYear) + "/" + String.valueOf(curMonth) + "/" + String.valueOf(curDay);
+    String nowTime = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
+    String clinicview = CarlosProperties.getInstance().getProperty("clinic_view");
+    String Clinic_no = CarlosProperties.getInstance().getProperty("clinic_no");
+    String servicecode = request.getParameter("service_code");
+
+    BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
+    String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");
+    List<BatchBilling> batchBillings = null;
+
+    if (!providerview.equalsIgnoreCase("#") && !providerview.equalsIgnoreCase("")) {
+        if (providerview.compareTo("all") == 0) {
+            if (servicecode.equals("all")) {
+                batchBillings = batchBillingDAO.findAll();
+            } else {
+                batchBillings = batchBillingDAO.findByServiceCode(servicecode);
+            }
+        } else {
+            if (servicecode.equals("all")) {
+                batchBillings = batchBillingDAO.findByProvider(providerview.trim());
+            } else {
+                batchBillings = batchBillingDAO.findByProvider(providerview.trim(), servicecode);
+            }
+        }
+    }
+
+%>
+
+<html>
+<head>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+
+    <title><fmt:message key="admin.admin.btnBatchBilling"/></title>
+    <script type="text/javascript">
+        <!--
+
+        function askFirst(method) {
+            if (confirm('<fmt:message key="billing.batchbilling.msgConfirmDelete"/>')) {
+                setMethod(method);
+            }
+
+            return false;
+        }
+
+        function setMethod(val) {
+            var element = document.getElementById("method");
+            element.value = val;
+            document.forms["serviceform"].submit();
+        }
+
+
+        var selected = false;
+
+        function selectAll() {
+            var checkboxes = document.getElementsByName("bill");
+
+            for (var idx = 0; idx < checkboxes.length; ++idx) {
+                if (selected) {
+                    checkboxes[idx].checked = false;
+                } else {
+                    checkboxes[idx].checked = true;
+                }
+            }
+
+            selected = !selected;
+        }
+
+        function jumpMenu(targ, provider) {
+            var servicecode = document.getElementById("service_code");
+            var service = servicecode.options[servicecode.selectedIndex].value;
+            var providerNo = provider.options[provider.selectedIndex].value;
+
+            if (providerNo != "#") {
+                eval(targ + ".location='/billing/CA/ON/BatchBill?provider_no=" + providerNo + "&service_code=" + service + "'");
+            }
+
+        }
+
+        function init() {
+            <%
+            if( batchBillings != null && batchBillings.size() > 0 ) {
+            %>
+            Calendar.setup({
+                inputField: "BillDate",
+                ifFormat: "%Y-%m-%d",
+                showsTime: false,
+                button: "billDate_cal",
+                singleClick: true,
+                step: 1
+            });
+            <%
+            }
+            %>
+        }
+
+        //-->
+    </script>
+
+</head>
+
+<body>
+<h3><fmt:message key="admin.admin.btnBatchBilling"/></h3>
+
+<div class="container-fluid">
+
+    <div class="row card card-body bg-body-tertiary d-print-none">
+
+        <%
+            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+        %>
+        <form name="serviceform" method="post" action="BatchBill" class="d-flex flex-wrap align-items-center gap-2">
+            <input type="hidden" id="method" name="method" value="">
+
+            <div class="col-md-2">
+                <fmt:message key="billing.batchbilling.msgProvider"/><br>
+                <select name="providers" class="form-select" onChange="jumpMenu('window',this)">
+                    <option value="#"><b><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
+                    <option value="all"
+                            <%=providerview.equals("all") ? "selected" : ""%>><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
+                    <% List<Provider> providers = providerDao.getBillableProviders();
+                        String proFirst, proLast, proNo;
+                        for (Provider p : providers) {
+                            proFirst = p.getFirstName();
+                            proLast = p.getLastName();
+                            proNo = p.getProviderNo();
+                    %>
+                    <option value="<carlos:encode value='<%= proNo %>' context="htmlAttribute"/>"
+                            <%=providerview.equals(proNo) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
+                        <carlos:encode value='<%= proFirst %>' context="html"/>
+                    </option>
+                    <%
+
+                        }
+                    %>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <fmt:message key="billing.batchbilling.serviceCode"/>:
+                <select id="service_code" class="form-select" name="service_code">
+                    <option value="all" <%=servicecode.equals("all") ? "selected" : ""%>><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
+                    <%
+                        List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
+                        for (String service : serviceCodes) {
+                    %>
+                    <option value="<carlos:encode value='<%= service %>' context="htmlAttribute"/>" <%=servicecode.equals(service) ? "selected" : ""%>><carlos:encode value='<%= service %>' context="html"/>
+                    </option>
+                    <%
+                        }
+                    %>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <fmt:message key="billing.batchbilling.msgClinicLocation"/>:
+                <select name="clinic_view" class="form-select">
+                    <%
+                        String clinic_location = "", clinic_code = "";
+                        List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
+                        for (ClinicLocation clinicLocation : clinicLocations) {
+                            clinic_location = clinicLocation.getClinicLocationName();
+                            clinic_code = clinicLocation.getClinicLocationNo();
+                    %>
+                    <option value="<carlos:encode value='<%= clinic_code %>' context="htmlAttribute"/>"
+                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><carlos:encode value='<%= clinic_location %>' context="html"/>
+                    </option>
+                    <%
+                        }
+                    %>
+                </select>
+            </div>
+    </div><!--row well-->
+
+
+    <div class="row">
+
+
+        <input type="hidden" name="verCode"
+               value="V03"> <input type="hidden" name="curUser"
+                                   value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>"> <input type="hidden" name="curDate"
+                                                                value="<%=nowDate%>"> <input type="hidden"
+                                                                                             name="curTime"
+                                                                                             value="<%=nowTime%>">
+
+
+        <%
+            if (batchBillings != null && batchBillings.size() > 0) {
+
+        %>
+
+        <button class="btn float-end" type='button' name='print' value='Print' onClick='window.print()'><i
+                class="fa-solid fa-print"></i> Print
+        </button>
+        <br/><input type="checkbox" onclick="selectAll();"><br/><br/>
+
+        <table class="table table-striped table-hover table-sm">
+            <thead>
+            <tr>
+                <th><fmt:message key="billing.batchbilling.msgSelection"/></th>
+                <th><fmt:message key="billing.batchbilling.msgDemographic"/></th>
+                <th><fmt:message key="billing.batchbilling.msgProviderTitle"/></th>
+                <th><fmt:message key="billing.batchbilling.msgService"/></th>
+                <th><fmt:message key="billing.batchbilling.msgAmount"/></th>
+                <th><fmt:message key="billing.batchbilling.msgDiagnostic"/></th>
+                <th><fmt:message key="billing.batchbilling.msgLastBillDate"/></th>
+
+            </tr>
+            </thead>
+            <tbody>
+
+            <%
+                DemographicDao demographicDAO = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
+                String demo_name = "";
+                String diagnostic_code = "", service_code = "", billing_amount = "";
+                String billdate = "";
+                java.util.Date billDate;
+                int colorCount = 0;
+                String color = "";
+                int Count1 = 0;
+
+                Provider provider = null;
+                Demographic demographic = null;
+                String proName1;
+                for (BatchBilling batchBilling : batchBillings) {
+
+                    provider = providerDao.getProvider(batchBilling.getBillingProviderNo());
+                    proFirst = provider.getFirstName();
+                    proLast = provider.getLastName();
+                    proName1 = provider.getFullName();
+
+                    demographic = demographicDAO.getDemographic(String.valueOf(batchBilling.getDemographicNo()));
+                    demo_name = demographic.getFormattedName();
+                    service_code = batchBilling.getServiceCode();
+                    billing_amount = batchBilling.getBillingAmount() == null ? "N/A" : batchBilling.getBillingAmount();
+                    diagnostic_code = batchBilling.getDxcode();
+                    billDate = batchBilling.getLastBilledDate();
+                    if (billDate == null) {
+                        billdate = "N/A";
+                    } else {
+                        billdate = DateUtils.format("yyyy-MM-dd", billDate, request.getLocale());
+                    }
+
+
+                    if (colorCount == 0) {
+                        colorCount = 1;
+                        color = "#FFFFFF";
+                    } else {
+                        colorCount = 0;
+                        color = "#EEEEFF";
+                    }
+                    Count1 = Count1 + 1;
+            %>
+
+            <tr>
+                <td><input type="checkbox"
+                           name="bill"
+                           value="<carlos:encode value='<%= service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo() %>' context="htmlAttribute"/>">
+                </td>
+                <td><carlos:encode value='<%= demo_name %>' context="html"/></td>
+                <td><carlos:encode value='<%= proName1 %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= service_code %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= billing_amount %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= diagnostic_code %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= billdate %>' context="html"/>
+                </td>
+            </tr>
+            <%
+                }
+                if (Count1 == 0) {
+            %>
+            <tr>
+                <td colspan=7><fmt:message key="billing.batchbilling.msgNoMatch"/></td>
+            </tr>
+            <%} else {%>
+
+            <tr>
+                <td colspan="7">
+                    <div class="col-md-3">
+                        <fmt:message key="billing.batchbilling.serviceDate"/>
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="BillDate" id="BillDate"
+                                   value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
+                                   style="width:90px" autocomplete="off" readonly/>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <input type="button" class="btn btn-primary" onclick="return setMethod('doBatchBill');"
+                               value="<fmt:message key="billing.batchbilling.btnSubmit"/>">
+                        <input type="button" class="btn btn-secondary" onclick="return askFirst('remove');"
+                               value="<fmt:message key="billing.batchbilling.btnRemove"/>">
+                    </div>
+                </td>
+            </tr>
+
+            <%
+                }
+            } else if (servicecode != null && providerview != null && batchBillings == null) {
+            %>
+            <tr>
+                <td>* Make selection above to generate batch billing</td>
+            </tr>
+            <%
+            } else {
+            %>
+            <tr>
+                <td>Nothing to report</td>
+            </tr>
+            <%}%>
+            </tbody>
+        </table>
+
+        </form>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr('#BillDate', {dateFormat: "Y-m-d", allowInput: true});
+        parent.parent.resizeIframe(document.documentElement.scrollHeight + 300);
+    });
+
+</script>
+</body>
+</html>

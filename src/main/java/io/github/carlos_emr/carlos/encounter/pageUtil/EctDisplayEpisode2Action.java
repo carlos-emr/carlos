@@ -60,18 +60,17 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
                 String winName = "episode" + bean.demographicNo;
                 String pathview, pathedit;
 
-                pathview = request.getContextPath() + "/Episode.do?method=list&demographicNo=" + bean.demographicNo;
-                pathedit = request.getContextPath() + "/Episode.do?method=edit&demographicNo=" + bean.demographicNo;
+                pathview = request.getContextPath() + "/Episode?method=list&demographicNo=" + bean.demographicNo;
+                pathedit = request.getContextPath() + "/Episode?method=edit&demographicNo=" + bean.demographicNo;
 
 
-                String url = "popupPage(500,900,'" + winName + "','" + pathview + "')";
+                String url;
                 Dao.setLeftHeading(getText("global.episode"));
-                Dao.setLeftURL(url);
+                Dao.setLeftPopup(500, 900, winName, pathview);
 
                 //set right hand heading link
                 winName = "AddEpisode" + bean.demographicNo;
-                url = "popupPage(500,600,'" + winName + "','" + pathedit + "'); return false;";
-                Dao.setRightURL(url);
+                Dao.setRightPopup(500, 600, winName, pathedit);
                 Dao.setRightHeadingID(cmd);
 
 
@@ -85,7 +84,7 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
                     item.setTitle(itemHeader);
                     item.setDate(episode.getStartDate());
                     int hash = Math.abs(winName.hashCode());
-                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Episode.do?method=edit&episode.id=" + episode.getId() + "'); return false;";
+                    url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/Episode?method=edit&episode.id=" + episode.getId() + "'); return false;";
                     item.setURL(url);
                     Dao.addItem(item);
                 }

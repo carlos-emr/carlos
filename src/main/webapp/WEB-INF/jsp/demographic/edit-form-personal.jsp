@@ -68,11 +68,15 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -134,21 +138,21 @@
     String demoPath = rootContextPath + "/demographic/";
     String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
     if (oscarProps != null && "true".equals(oscarProps.getProperty("new_label_print"))) {
-        printEnvelope = demoPath + "printEnvelope.jsp?demos=";
-        printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
-        printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
+        printEnvelope = demoPath + "ViewPrintEnvelope?demos=";
+        printLbl = demoPath + "ViewPrintDemoLabel?demographic_no=";
+        printAddressLbl = demoPath + "ViewPrintAddressLabel?demographic_no=";
+        printChartLbl = demoPath + "ViewPrintDemoChartLabel?demographic_no=";
+        printSexHealthLbl = demoPath + "ViewPrintDemoChartLabel?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "ViewPrintClientLabLabel?demographic_no=";
     } else {
-        printEnvelope = rootContextPath + "/report/GenerateEnvelopes.do?demos=";
-        printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
-        printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
-        printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-        printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
-        printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
-        printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
+        printEnvelope = rootContextPath + "/report/GenerateEnvelopes?demos=";
+        printLbl = demoPath + "printDemoLabelAction?demographic_no=";
+        printAddressLbl = demoPath + "printDemoAddressLabelAction?demographic_no=";
+        printChartLbl = demoPath + "printDemoChartLabelAction?demographic_no=";
+        printSexHealthLbl = demoPath + "printDemoChartLabelAction?labelName=SexualHealthClinicLabel&demographic_no=";
+        printHtmlLbl = demoPath + "ViewDemographicLabelPrintSetting?demographic_no=";
+        printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
     String wLReadonly = "";
@@ -224,11 +228,6 @@
     String birthYear = (String) request.getAttribute("birthYear");
     String birthMonth = (String) request.getAttribute("birthMonth");
     String birthDate = (String) request.getAttribute("birthDate");
-    // Build the single DOB display value; treat "0000" year or "00" month/day as blank
-    boolean hasDob = birthYear != null && !"0000".equals(birthYear)
-            && birthMonth != null && !"00".equals(birthMonth)
-            && birthDate != null && !"00".equals(birthDate);
-    String dobDisplay = hasDob ? (birthYear + "-" + birthMonth + "-" + birthDate) : "";
     DemographicCust demographicCust = (DemographicCust) request.getAttribute("demographicCust");
     
     // providerBean is session-scoped, populated during login
@@ -242,30 +241,30 @@
                                                     <tr>
                                                         <td align="right"
                                                             title='<%=demographic.getDemographicNo()%>'>
-                                                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b>
+                                                            <b><fmt:message key="demographic.demographiceditdemographic.formLastName"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text"
                                                                                 name="last_name" <%=getDisabled("last_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getLastName())%>"
+                                                                                value="<carlos:encode value='<%= demographic.getLastName() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formFirstName"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="first_name" <%=getDisabled("first_name")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getFirstName())%>"
+                                                                                value="<carlos:encode value='<%= demographic.getFirstName() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                     </tr>
                                                     <tr>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formMiddleNames"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="middleNames" <%=getDisabled("middleNames")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(demographic.getMiddleNames())%>"
+                                                                                value="<carlos:encode value='<%= demographic.getMiddleNames() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgDemoTitle"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <%
@@ -276,98 +275,98 @@
                                                             %>
                                                             <select name="title" <%=getDisabled("title")%>>
                                                                 <option value="" <%=title.equals("") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNotSet"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgNotSet"/></option>
                                                                 <option value="DR" <%=title.equalsIgnoreCase("DR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.msgDr"/></option>
+                                                                    <fmt:message key="demographic.demographicaddrecordhtm.msgDr"/></option>
                                                                 <option value="MS" <%=title.equalsIgnoreCase("MS") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMs"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMs"/></option>
                                                                 <option value="MISS" <%=title.equalsIgnoreCase("MISS") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMiss"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMiss"/></option>
                                                                 <option value="MRS" <%=title.equalsIgnoreCase("MRS") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMrs"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMrs"/></option>
                                                                 <option value="MR" <%=title.equalsIgnoreCase("MR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMr"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMr"/></option>
                                                                 <option value="MSSR" <%=title.equalsIgnoreCase("MSSR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMssr"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMssr"/></option>
                                                                 <option value="PROF" <%=title.equalsIgnoreCase("PROF") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgProf"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgProf"/></option>
                                                                 <option value="REEVE" <%=title.equalsIgnoreCase("REEVE") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgReeve"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgReeve"/></option>
                                                                 <option value="REV" <%=title.equalsIgnoreCase("REV") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgRev"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgRev"/></option>
                                                                 <option value="RT_HON" <%=title.equalsIgnoreCase("RT_HON") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgRtHon"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgRtHon"/></option>
                                                                 <option value="SEN" <%=title.equalsIgnoreCase("SEN") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSen"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgSen"/></option>
                                                                 <option value="SGT" <%=title.equalsIgnoreCase("SGT") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSgt"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgSgt"/></option>
                                                                 <option value="SR" <%=title.equalsIgnoreCase("SR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSr"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgSr"/></option>
 
                                                                 <option value="MADAM" <%=title.equalsIgnoreCase("MADAM") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMadam"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMadam"/></option>
                                                                 <option value="MME" <%=title.equalsIgnoreCase("MME") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMme"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMme"/></option>
                                                                 <option value="MLLE" <%=title.equalsIgnoreCase("MLLE") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMlle"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMlle"/></option>
                                                                 <option value="MAJOR" <%=title.equalsIgnoreCase("MAJOR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMajor"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMajor"/></option>
                                                                 <option value="MAYOR" <%=title.equalsIgnoreCase("MAYOR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgMayor"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgMayor"/></option>
 
                                                                 <option value="BRO" <%=title.equalsIgnoreCase("BRO") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgBro"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgBro"/></option>
                                                                 <option value="CAPT" <%=title.equalsIgnoreCase("CAPT") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCapt"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgCapt"/></option>
                                                                 <option value="CHIEF" <%=title.equalsIgnoreCase("CHIEF") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgChief"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgChief"/></option>
                                                                 <option value="CST" <%=title.equalsIgnoreCase("CST") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCst"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgCst"/></option>
                                                                 <option value="CORP" <%=title.equalsIgnoreCase("CORP") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCorp"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgCorp"/></option>
                                                                 <option value="FR" <%=title.equalsIgnoreCase("FR") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgFr"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgFr"/></option>
                                                                 <option value="HON" <%=title.equalsIgnoreCase("HON") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgHon"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgHon"/></option>
                                                                 <option value="LT" <%=title.equalsIgnoreCase("LT") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgLt"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgLt"/></option>
 
                                                             </select>
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
+                                                        <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
                                                                                 name="nameUsed" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
-                                                                                value="<%= Encode.forHtmlAttribute(demographic.getAlias()) %>"
+                                                                                value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
                                                         <td style="text-align: right;">
-                                                            <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
+                                                            <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientPronouns" name="pronouns"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getPronoun()))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoLanguage"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgDemoLanguage"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <%
                                                                 String lang = io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getOfficialLanguage()); %>
                                                             <select name="official_lang" <%=getDisabled("official_lang")%>>
                                                                 <option value="English" <%=lang.equals("English") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgEnglish"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgEnglish"/></option>
                                                                 <option value="French" <%=lang.equals("French") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgFrench"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.msgFrench"/></option>
                                                                 <option value="Other" <%=lang.equals("Other") ? "selected" : ""%> >
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
                                                             </select>
                                                         </td>
                                                         <td align="right">
-                                                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgSpoken"/>: </b>
+                                                            <b><fmt:message key="demographic.demographiceditdemographic.msgSpoken"/>: </b>
                                                         </td>
                                                         <td>
                                                             <%
@@ -384,25 +383,25 @@
                                                     </tr>
 
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formAddr"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text"
                                                                                 name="address" <%=getDisabled("address")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getAddress()))%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getAddress()) %>' context="htmlAttribute"/>">
                                                         </td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="city"
                                                                                 size="30" <%=getDisabled("city")%>
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getCity()))%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getCity()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                     </tr>
 
                                                     <tr valign="top">
                                                         <td align="right">
                                                             <b><% if (oscarProps.getProperty("demographicLabelProvince") == null) { %>
-                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formProcvince"/> <% } else {
+                                                                <fmt:message key="demographic.demographiceditdemographic.formProcvince"/> <% } else {
                                                                     out.print(oscarProps.getProperty("demographicLabelProvince"));
                                                                 } %> : </b></td>
                                                         <td align="left">
@@ -647,7 +646,7 @@
                                                         </td>
                                                         <td align="right">
                                                             <b><% if (oscarProps.getProperty("demographicLabelPostal") == null) { %>
-                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPostal"/> <% } else {
+                                                                <fmt:message key="demographic.demographiceditdemographic.formPostal"/> <% } else {
                                                                     out.print(oscarProps.getProperty("demographicLabelPostal"));
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
@@ -659,24 +658,24 @@
 
 
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formResidentialAddr"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text"
                                                                                 name="residentialAddress" <%=getDisabled("residentialAddress")%>
                                                                                 size="30"
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialAddress()))%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialAddress()) %>' context="htmlAttribute"/>">
                                                         </td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formResidentialCity"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="residentialCity"
                                                                                 size="30" <%=getDisabled("residentialCity")%>
-                                                                                value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getResidentialCity()))%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getResidentialCity()) %>' context="htmlAttribute"/>">
                                                         </td>
                                                     </tr>
 
                                                     <tr valign="top">
                                                         <td align="right"><b>
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>
+                                                            <fmt:message key="demographic.demographiceditdemographic.formResidentialProvince"/>
                                                             : </b></td>
                                                         <td align="left">
 
@@ -922,7 +921,7 @@
                                                             <% } %>
                                                         </td>
                                                         <td align="right"><b>
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formResidentialPostal"/>
+                                                            <fmt:message key="demographic.demographiceditdemographic.formResidentialPostal"/>
                                                             : </b></td>
                                                         <td align="left"><input type="text" name="residentialPostal"
                                                                                 size="30" <%=getDisabled("residentialPostal")%>
@@ -933,14 +932,14 @@
 
 
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneH"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <input type="text" name="phone"
                                                                    onblur="formatPhoneNum();" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
                                                                    value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
-                                                            <label for="hPhoneExt"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
+                                                            <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="hPhoneExt"
                                                                    id="hPhoneExt" <%=getDisabled("hPhoneExt")%>
@@ -949,14 +948,14 @@
                                                             <input type="hidden" name="hPhoneExtOrig"
                                                                    value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demoExt.get("hPhoneExt")))%>"/>
                                                         </td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>:</b>
                                                         </td>
                                                         <td align="left"><input type="text"
                                                                                 name="phone2" <%=getDisabled("phone2")%>
                                                                                 onblur="formatPhoneNum();"
                                                                                 style="display: inline; width: auto;"
                                                                                 value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
-                                                            <label for="wPhoneExt"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
+                                                            <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="wPhoneExt"
                                                                    id="wPhoneExt" <%=getDisabled("wPhoneExt")%>
@@ -967,7 +966,7 @@
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPhoneC"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formPhoneC"/>: </b>
                                                         </td>
                                                         <td align="left">
                                                             <input type="text" name="demo_cell"
@@ -977,17 +976,17 @@
                                                             <input type="hidden" name="demo_cellOrig"
                                                                    value="<%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%>"/>
                                                         </td>
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>: </b>
                                                         </td>
                                                         <td align="left" colspan="3">
                                                             <input type="hidden" name="phoneCommentOrig"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' context="htmlAttribute"/>"/>
                                                             <textarea rows="2" cols="30"
-                                                                      name="phoneComment"><%=Encode.forHtml(StringUtils.trimToEmpty(demoExt.get("phoneComment")))%></textarea>
+                                                                      name="phoneComment"><carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' context="html"/></textarea>
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formNewsLetter"/>:
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formNewsLetter"/>:
                                                         </b></td>
                                                         <td align="left">
                                                             <%
@@ -997,15 +996,15 @@
                                                                 }
                                                             %> <select name="newsletter" <%=getDisabled("newsletter")%>>
                                                             <option value="Unknown" <%if (newsletter.equals("Unknown")) {%>
-                                                                    selected <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/></option>
+                                                                    selected <%}%>><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/></option>
                                                             <option value="No" <%if (newsletter.equals("No")) {%>
                                                                     selected
-                                                                    <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optNo"/></option>
+                                                                    <%}%>><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optNo"/></option>
                                                             <option value="Paper" <%if (newsletter.equals("Paper")) {%>
-                                                                    selected <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optPaper"/></option>
+                                                                    selected <%}%>><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optPaper"/></option>
                                                             <option value="Electronic"
                                                                     <%if (newsletter.equals("Electronic")) {%>
-                                                                    selected <%}%>><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optElectronic"/></option>
+                                                                    selected <%}%>><fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optElectronic"/></option>
                                                         </select></td>
 
                                                         <oscar:oscarPropertiesCheck value="true" defaultVal="false"
@@ -1031,71 +1030,75 @@
                                                         </oscar:oscarPropertiesCheck>
                                                     </tr>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formEmail"/>: </b>
                                                         </td>
                                                         <td align="left"><input type="text" name="email"
                                                                                 size="30" <%=getDisabled("email")%>
-                                                                                value="<%=demographic.getEmail() !=null ? Encode.forHtmlContent(demographic.getEmail()) : ""%>">
+                                                                                value="<%=demographic.getEmail() !=null ? SafeEncode.forHtmlContent(demographic.getEmail()) : ""%>">
                                                         </td>
                                                         <td style="text-align: right;">
-                                                            <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
+                                                            <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
                                                             <input type="text" id="patientGender" name="gender"
-                                                                   value="<%=Encode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getGender()))%>"/>
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
                                                         <%--							<tr valign="top">--%>
-                                                        <%--								<td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.consentToUseEmailForCare"/></b></td>--%>
+                                                        <%--								<td align="right"><b><fmt:message key="demographic.demographiceditdemographic.consentToUseEmailForCare"/></b></td>--%>
                                                         <%--								<td align="left" nowrap>--%>
-                                                        <%--									 <label for="consentToUseEmailForCareY"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgYes"/></label> --%>
+                                                        <%--									 <label for="consentToUseEmailForCareY"><fmt:message key="WriteScript.msgYes"/></label> --%>
                                                         <%--            								<input type="radio" value="yes" id="consentToUseEmailForCareY" name="consentToUseEmailForCare" <% if (demographic.getConsentToUseEmailForCare() != null && demographic.getConsentToUseEmailForCare()){ out.write("checked"); }%> />--%>
-                                                        <%--          							 <label for="consentToUseEmailForCareN"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgNo"/></label>--%>
+                                                        <%--          							 <label for="consentToUseEmailForCareN"><fmt:message key="WriteScript.msgNo"/></label>--%>
                                                         <%--            								<input type="radio" value="no" id="consentToUseEmailForCareN" name="consentToUseEmailForCare"  <% if (demographic.getConsentToUseEmailForCare() != null && !demographic.getConsentToUseEmailForCare()){ out.write("checked");}%> />--%>
-                                                        <%--									 <label for="consentToUseEmailForCareE"><fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgUnset"/></label>--%>
+                                                        <%--									 <label for="consentToUseEmailForCareE"><fmt:message key="WriteScript.msgUnset"/></label>--%>
                                                         <%--            								<input type="radio" value="unset" id="consentToUseEmailForCareE" name="consentToUseEmailForCare"  <% if (demographic.getConsentToUseEmailForCare() == null){ out.write("checked"); } %> />--%>
                                                         <%--								</td>--%>
                                                         <%--							</tr>--%>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOB"/>
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formDOB"/>
+                                                            <fmt:message key="demographic.demographiceditdemographic.formDOBDetais"/>:</b>
                                                         </td>
-                                                        <td align="left" nowrap>
-                                                            <%-- Single yyyy-mm-dd text input with calendar picker; hidden fields carry the parts the server expects. --%>
-                                                            <input type="text" id="dob"
-                                                                   name="dob"
-                                                                   placeholder="yyyy-mm-dd"
-                                                                   pattern="\d{4}-\d{2}-\d{2}"
-                                                                   autocomplete="off"
-                                                                   value="<%=Encode.forHtmlAttribute(dobDisplay)%>"
-                                                                   <%=getDisabled("year_of_birth")%>>
-                                                            <img src="<%= request.getContextPath() %>/images/cal.gif" id="dob_cal" alt="calendar">
-                                                            <%-- Hidden part-fields consumed by the server --%>
-                                                            <input type="hidden" name="year_of_birth"  id="year_of_birth"  value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthYear)) %>">
-                                                            <input type="hidden" name="month_of_birth" id="month_of_birth" value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthMonth)) %>">
-                                                            <input type="hidden" name="date_of_birth"  id="date_of_birth"  value="<%= Encode.forHtmlAttribute(StringUtils.defaultString(birthDate)) %>">
+                                                        <td align="left" nowrap><input type="text" placeholder="yyyy"
+                                                                                       name="year_of_birth" <%=getDisabled("year_of_birth")%>
+                                                                                       value="<%=birthYear%>"
+                                                                                       size="3" maxlength="4">
 
-                                                            <label for="age"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
+                                                            <%
+                                                                String sbMonth;
+                                                                String sbDay;
+                                                                DecimalFormat dFormat = new DecimalFormat("00");
+                                                            %>
+                                                            <select name="month_of_birth" id="month_of_birth">
+                                                                <% for (int i = 1; i <= 12; i++) {
+                                                                    sbMonth = dFormat.format(i); %>
+                                                                <option value="<%=sbMonth%>"<%=birthMonth.equals(sbMonth) ? " selected" : ""%>><%=sbMonth%>
+                                                                </option>
+                                                                <%} %>
+                                                            </select>
+
+                                                            <select name="date_of_birth" id="date_of_birth">
+                                                                <% for (int i = 1; i <= 31; i++) {
+                                                                    sbDay = dFormat.format(i); %>
+                                                                <option value="<%=sbDay%>"<%=birthDate.equals(sbDay) ? " selected" : ""%>><%=sbDay%>
+                                                                </option>
+                                                                <%} %>
+                                                            </select>
+
+                                                            <label for="age"><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</label>
                                                             <input type="text" name="age" id="age"
-                                                                   value="<%=Encode.forHtmlAttribute(demographic.getAgeAsOf(new Date()))%>"
+                                                                   value="<carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="htmlAttribute"/>"
                                                                    readonly>
 
                                                         </td>
-                                                        <td align="right" nowrap><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b>
+                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formSex"/>:</b>
                                                         </td>
                                                         <td><select name="sex" id="sex">
                                                             <option value=""></option>
                                                             <% for (Gender gn : Gender.values()) {
-                                                                String gnI18nKey;
-                                                                switch (gn.name()) {
-                                                                    case "M":  gnI18nKey = "global.gender.male";        break;
-                                                                    case "F":  gnI18nKey = "global.gender.female";      break;
-                                                                    case "X":  gnI18nKey = "global.gender.intersex";    break;
-                                                                    case "O":  gnI18nKey = "global.gender.other";       break;
-                                                                    default:   gnI18nKey = "global.gender.undisclosed"; break;
-                                                                }
+                                                                String gnDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), gn.name());
                                                             %>
-                                                            <option value="<%= Encode.forHtmlAttribute(gn.name()) %>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><%= Encode.forHtml(oscarResources.getString(gnI18nKey)) %>
+                                                            <option value="<carlos:encode value='<%= gn.name() %>' context="htmlAttribute"/>" <%=(StringUtils.equalsIgnoreCase(demographic.getSex(), gn.name()) ? " selected=\"selected\" " : "") %>><carlos:encode value='<%= gnDisplayText %>' context="html"/>
                                                             </option>
                                                             <% } %>
                                                         </select>
@@ -1103,13 +1106,13 @@
                                                     </tr>
 
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formHin"/>: </b>
                                                         </td>
                                                         <td align="left" nowrap><input type="text" name="hin"
                                                                                        id="hinBox" <%=getDisabled("hin")%>
                                                                                        value="<%=StringUtils.trimToEmpty(demographic.getHin())%>"
                                                                                        size="17">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formVer"/><input
+                                                            <fmt:message key="demographic.demographiceditdemographic.formVer"/><input
                                                                     type="text" name="ver"
                                                                     style="width:20% !important;" <%=getDisabled("ver")%>
                                                                     value="<%=StringUtils.trimToEmpty(demographic.getVer())%>"
@@ -1120,7 +1123,7 @@
                                                             <% } %>
                                                         </td>
                                                         <td align="right">
-                                                            <b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b>
+                                                            <b><fmt:message key="demographic.demographiceditdemographic.formEFFDate"/>:</b>
                                                         </td>
                                                         <td align="left">
                                                             <%
@@ -1158,7 +1161,7 @@
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formHCType"/>:</b>
                                                         </td>
                                                         <td align="left">
 
@@ -1168,7 +1171,7 @@
                                                                     style="width: 200px" <%=getDisabled("hc_type")%>>
                                                                 <option value="OT"
                                                                         <%=(hctype.equals("OT") || hctype.equals("") || hctype.length() > 2) ? " selected" : ""%>>
-                                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
+                                                                    <fmt:message key="demographic.demographiceditdemographic.optOther"/></option>
                                                                 <% if (pNames.isDefined()) {
                                                                     for (ListIterator li = pNames.listIterator(); li.hasNext(); ) {
                                                                         province = (String) li.next(); %>
@@ -1391,7 +1394,7 @@
                                                             </select>
                                                         </td>
 
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formHCRenewDate"/>:</b>
                                                         </td>
                                                         <td align="left">
                                                             <%
@@ -1425,12 +1428,12 @@
                                                         </td>
                                                     </tr>
                                                     <tr valign="top">
-                                                        <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgCountryOfOrigin"/>: </b>
+                                                        <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.msgCountryOfOrigin"/>: </b>
                                                         </td>
                                                         <td align="left"><select id="countryOfOrigin"
                                                                                  name="countryOfOrigin"
                                                                                  style="width: 200px;" <%=getDisabled("countryOfOrigin")%>>
-                                                            <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgNotSet"/></option>
+                                                            <option value="-1"><fmt:message key="demographic.demographiceditdemographic.msgNotSet"/></option>
                                                             <%for (CountryCode cc : countryList) { %>
                                                             <option value="<%=cc.getCountryId()%>"
                                                                     <% if (io.github.carlos_emr.carlos.util.StringUtils.noNull(demographic.getCountryOfOrigin()).equals(cc.getCountryId())) {
@@ -1448,7 +1451,7 @@
                                                                                 size="30" <%=getDisabled("sin")%>
                                                                                 value="<%=(demographic.getSin()==null||demographic.getSin().equals("null"))?"":demographic.getSin()%>">
                                                         </td>
-                                                        <td align="right" nowrap><b> <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.cytolNum"/>:</b>
+                                                        <td align="right" nowrap><b> <fmt:message key="demographic.demographiceditdemographic.cytolNum"/>:</b>
                                                         </td>
                                                         <td><input type="text"
                                                                    name="cytolNum" <%=getDisabled("cytolNum")%>
@@ -1463,9 +1466,9 @@
                                                                                 property="FIRST_NATIONS_MODULE">
                                                         <tr>
                                                             <td colspan="8">
-                                                                <jsp:include page="/demographic/manageFirstNationsModule.jsp">
+                                                                <jsp:include page="/WEB-INF/jsp/demographic/manageFirstNationsModule.jsp">
                                                                     <jsp:param name="demo"
-                                                                               value="<%= Encode.forHtmlAttribute(demographic_no) %>"/>
+                                                                               value="<%= demographic_no %>"/>
                                                                 </jsp:include>
                                                             </td>
                                                         </tr>

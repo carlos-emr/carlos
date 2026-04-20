@@ -36,6 +36,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -53,4 +54,15 @@ public interface AllergyManager {
 
     public List<Allergy> getAllergiesByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId,
                                                                       String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn);
+
+    /**
+     * Returns lightweight allergy DTOs for a demographic.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context
+     * @param demographicNo Integer the patient demographic number
+     * @return List of AllergyListItemDTO
+     * @throws SecurityException if the caller lacks {@code _allergy} read privilege
+     * @since 2026-04-11
+     */
+    List<AllergyListItemDTO> getAllergyDTOs(LoggedInInfo loggedInInfo, Integer demographicNo);
 }

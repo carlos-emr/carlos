@@ -186,7 +186,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
 
         if (labelFile == null) {
-            logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName")));
+            logger.warn("requested invalid label : {}", LogSanitizer.sanitize(request.getParameter("labelName"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return SUCCESS;
         }
 

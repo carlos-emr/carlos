@@ -60,7 +60,7 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import org.openrtf.text.rtf.RtfWriter2;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.io.IOUtils;
+
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
@@ -276,31 +276,28 @@ public class LabPDFCreator extends PdfPageEventHelper {
             }
         }
 
-        os.flush();
+        os.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF stream flush
     }
 
     public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
         List<Object> alist = new ArrayList<Object>();
 
-        InputStream mainPDF = null;
         try {
             File validatedPDF = PathValidationUtils.validateUpload(currentPDF);
-            mainPDF = new FileInputStream(validatedPDF);
+            try (InputStream mainPDF = new FileInputStream(validatedPDF)) {
+                alist.add(mainPDF);
 
-            alist.add(mainPDF);
+                for (String data : embeddedDocumentsToAppend) {
+                    InputStream tmp = new ByteArrayInputStream(Base64.decodeBase64(data));
+                    alist.add(tmp);
+                }
 
-            for (String data : embeddedDocumentsToAppend) {
-                InputStream tmp = new ByteArrayInputStream(Base64.decodeBase64(data));
-                alist.add(tmp);
+                ConcatPDF.concat(alist, os);
             }
-
-            ConcatPDF.concat(alist, os);
         } catch (SecurityException e) {
             MiscUtils.getLogger().error("Security violation: PDF temp file path rejected: {}", currentPDF, e);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-        } finally {
-            IOUtils.closeQuietly(mainPDF);
         }
     }
 

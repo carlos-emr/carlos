@@ -61,8 +61,8 @@ public class RptReportConfigData {
 
     public boolean insertRecordWithOrder() throws SQLException {
         boolean ret = false;
-        String sql = "select max(order_no) from reportConfig where report_id=" + report_id;
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select max(order_no) from reportConfig where report_id=?";
+        ResultSet rs = DBHelp.searchDBRecord(sql, report_id);
         while (rs.next()) {
             order = rs.getInt(1) + 1;
         }
@@ -111,9 +111,15 @@ public class RptReportConfigData {
         Vector[] ret = new Vector[2];
         ret[0] = new Vector();
         ret[1] = new Vector();
-        String sql = "select * from reportConfig where report_id=" + reportId + " and save = '" + saveAs
-                + "' order by order_no, id";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportConfig where report_id=? and save = ?"
+                + " order by order_no, id";
+        int parsedReportId;
+        try {
+            parsedReportId = Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid reportId: " + reportId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
         while (rs.next()) {
 
             if (DBHelp.getString(rs, "name").matches(RptTableShadowFieldConst.fieldName)) {
@@ -133,9 +139,15 @@ public class RptReportConfigData {
 
     public Vector getConfigNameList(String saveAs, String reportId) throws SQLException {
         Vector ret = new Vector();
-        String sql = "select * from reportConfig where report_id=" + reportId + " and save = '" + saveAs
-                + "' order by order_no, id";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportConfig where report_id=? and save = ?"
+                + " order by order_no, id";
+        int parsedReportId;
+        try {
+            parsedReportId = Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid reportId: " + reportId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
         while (rs.next()) {
 
             if (DBHelp.getString(rs, "name").matches(RptTableShadowFieldConst.fieldName)) {
@@ -151,9 +163,15 @@ public class RptReportConfigData {
     public Vector getConfigObj(String saveAs, String reportId) throws SQLException {
         Vector ret = new Vector();
         Properties prop = null;
-        String sql = "select * from reportConfig where report_id=" + reportId + " and save = '" + saveAs
-                + "' order by order_no, id";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        String sql = "select * from reportConfig where report_id=? and save = ?"
+                + " order by order_no, id";
+        int parsedReportId2;
+        try {
+            parsedReportId2 = Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid reportId: " + reportId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId2, saveAs);
         while (rs.next()) {
             prop = new Properties();
             prop.setProperty("name", DBHelp.getString(rs, "name"));
@@ -169,9 +187,15 @@ public class RptReportConfigData {
     // get form..., demographic;
     public Vector getReportTableNameList(String reportId) throws SQLException {
         Vector ret = new Vector();
-        String sql = "select distinct(table_name) from reportConfig where report_id=" + reportId
+        String sql = "select distinct(table_name) from reportConfig where report_id=?"
                 + " and table_name like 'form%'" + " order by table_name";
-        ResultSet rs = DBHelp.searchDBRecord(sql);
+        int parsedReportId3;
+        try {
+            parsedReportId3 = Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid reportId: " + reportId, e);
+        }
+        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId3);
         while (rs.next()) {
             ret.add(DBHelp.getString(rs, "table_name"));
         }

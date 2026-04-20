@@ -37,13 +37,26 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
 
 public abstract class SecurityTokenManager {
 
     static SecurityTokenManager instance = null;
+
+    /**
+     * Allowed package prefix for SecurityTokenManager implementation class loading.
+     *
+     * <p>The implementation class name is read from {@code sec.token.manager} in the
+     * server-side properties file. This prefix check is a defence-in-depth measure
+     * to prevent arbitrary class instantiation if the properties file is tampered with.</p>
+     *
+     * @see ReflectionConstants#CARLOS_PACKAGE_PREFIX
+     */
+    private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
     public static SecurityTokenManager getInstance() {
         if (instance != null) {
@@ -52,10 +65,18 @@ public abstract class SecurityTokenManager {
 
         String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
         if (managerName != null) {
+            managerName = managerName.trim();
+            if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
+                MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
+                        LogSanitizer.sanitize(managerName));
+                return null;
+            }
             try {
-                instance = (SecurityTokenManager) Class.forName(managerName).newInstance();
+                instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
+                        .getDeclaredConstructor().newInstance();
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Unable to load token manager");
+                MiscUtils.getLogger().error("Unable to load token manager: {}",
+                        LogSanitizer.sanitize(managerName), e);
             }
         }
 

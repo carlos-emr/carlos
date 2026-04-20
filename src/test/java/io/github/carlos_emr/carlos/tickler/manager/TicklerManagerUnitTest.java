@@ -21,10 +21,12 @@
  */
 package io.github.carlos_emr.carlos.tickler.manager;
 
-import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerCommentDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
@@ -35,6 +37,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashSet;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -75,6 +78,9 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     @Mock
     private TicklerCommentDao mockTicklerCommentDao;
 
+    @Mock
+    private TicklerLinkDao mockTicklerLinkDao;
+
     private TicklerManagerImpl ticklerManager;
 
     @BeforeEach
@@ -95,6 +101,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         injectDependency(ticklerManager, "ticklerDao", mockTicklerDao);
         injectDependency(ticklerManager, "ticklerUpdateDao", mockTicklerUpdateDao);
         injectDependency(ticklerManager, "ticklerCommentDao", mockTicklerCommentDao);
+        injectDependency(ticklerManager, "ticklerLinkDao", mockTicklerLinkDao);
         injectDependency(ticklerManager, "securityInfoManager", mockSecurityInfoManager);
     }
 
@@ -238,6 +245,67 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             assertThat(success).isFalse();
             verify(mockTicklerDao, never()).merge(any());
             verify(mockTicklerUpdateDao, never()).persist(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("Linked Tickler Lookups")
+    @Tag("read")
+    class LinkedTicklerLookups {
+
+        @Test
+        @DisplayName("should batch load provider ticklers when lab has multiple links")
+        void shouldBatchLoadProviderTicklers_whenLabHasMultipleLinks() {
+            // Given
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+            List<TicklerLink> links = List.of(createLink(10), createLink(20));
+            Tickler ticklerOne = createTestTicklerWithId(10);
+            Tickler ticklerTwo = createTestTicklerWithId(20);
+
+            when(mockTicklerLinkDao.getLinkByTableId("HL7", 321L)).thenReturn(links);
+            when(mockTicklerDao.findByTicklerNosAssignedTo(List.of(10, 20), TEST_PROVIDER, TEST_DEMO_NO))
+                    .thenReturn(List.of(ticklerOne, ticklerTwo));
+
+            // When
+            List<Tickler> result = ticklerManager.getTicklerByLabId(mockLoggedInInfo, 321, TEST_DEMO_NO);
+
+            // Then
+            assertThat(result).extracting(Tickler::getId).containsExactlyInAnyOrder(10, 20);
+            verify(mockTicklerDao).findByTicklerNosAssignedTo(List.of(10, 20), TEST_PROVIDER, TEST_DEMO_NO);
+            verify(mockTicklerDao, never()).findByTicklerNoAssignedTo(anyInt(), anyString(), anyInt());
+        }
+
+        @Test
+        @DisplayName("should batch load lab ticklers for any provider")
+        void shouldBatchLoadLabTicklers_whenAnyProviderIsRequested() {
+            // Given
+            List<TicklerLink> links = List.of(createLink(30), createLink(40));
+            Tickler ticklerOne = createTestTicklerWithId(30);
+            Tickler ticklerTwo = createTestTicklerWithId(40);
+
+            when(mockTicklerLinkDao.getLinkByTableId("HL7", 654L)).thenReturn(links);
+            when(mockTicklerDao.findByTicklerNosDemo(List.of(30, 40), TEST_DEMO_NO))
+                    .thenReturn(List.of(ticklerOne, ticklerTwo));
+
+            // When
+            List<Tickler> result = ticklerManager.getTicklerByLabIdAnyProvider(mockLoggedInInfo, 654, TEST_DEMO_NO);
+
+            // Then
+            assertThat(result).extracting(Tickler::getId).containsExactlyInAnyOrder(30, 40);
+            verify(mockTicklerDao).findByTicklerNosDemo(List.of(30, 40), TEST_DEMO_NO);
+            verify(mockTicklerDao, never()).findByTicklerNoDemo(anyInt(), anyInt());
+        }
+
+        /**
+         * Creates a minimal tickler link for linked-lab lookup tests.
+         *
+         * @param ticklerNo Integer the linked tickler identifier
+         * @return TicklerLink the simulated link row
+         */
+        private TicklerLink createLink(Integer ticklerNo) {
+            TicklerLink link = new TicklerLink();
+            link.setTicklerNo(ticklerNo);
+            return link;
         }
     }
 

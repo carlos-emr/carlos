@@ -29,11 +29,13 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
@@ -48,7 +50,7 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting,_admin.billing" rights="w"
                    reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin&type=_admin.billing&type=_admin.reporting");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.billing&type=_admin.reporting");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -100,49 +102,49 @@
 %>
 <html>
 <head>
-    <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></title>
+    <title><fmt:message key="admin.admin.gstReport"/></title>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 <body>
-<FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport.do" class="d-flex flex-wrap align-items-center gap-2">
+<FORM name="gstform" action="<%=request.getContextPath()%>/admin/GstReport" class="d-flex flex-wrap align-items-center gap-2">
 
-    <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.gstReport"/></h3>
+    <h3><fmt:message key="admin.admin.gstReport"/></h3>
 
     <div class="container-fluid card card-body bg-body-tertiary">
         <div class="row">
-        <div class="col-md-2">Date: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
+        <div class="col-md-2"><fmt:message key="admin.gstReport.date"/>: <%=DateUtils.sumDate("yyyy-MM-dd", "0")%>
         </div>
         <div class="col-md-2 float-end">
-            <button class="btn btn-secondary" type="button" value="Print" onclick="window.print()"/>
-            <i class="fa-solid fa-print icon-white"></i> Print</button></div>
+            <button class="btn btn-secondary" type="button" value="<fmt:message key='global.btnPrint'/>" onclick="window.print()"/>
+            <i class="fa-solid fa-print icon-white"></i> <fmt:message key="global.btnPrint"/></button></div>
 
         <div class="col-md-12">
             <div class="col-md-2">
-                Start:
+                <fmt:message key="admin.gstReport.start"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_vdate" id="xml_vdate" value="<%= Encode.forHtmlAttribute(startDate) %>"
+                    <input type="text" name="xml_vdate" id="xml_vdate" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
             <div class="col-md-2">
-                End:
+                <fmt:message key="admin.gstReport.end"/>:
                 <div class="input-group">
-                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<%= Encode.forHtmlAttribute(endDate) %>"
+                    <input type="text" name="xml_appointment_date" id="xml_appointment_date" value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" style="width:90px"/>
                     <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
             <div class="col-md-6">
-                Provider
+                <fmt:message key="admin.gstReport.provider"/>
                 <div>
                     <select name="providerview">
                         <%
@@ -154,7 +156,7 @@
                         <%
                         } else {
                         %>
-                        <option value="all">-- Select a Provider --</option>
+                        <option value="all">-- <fmt:message key="admin.gstReport.selectProvider"/> --</option>
                         <% for (i = 0; i < pList.size(); i++) {
                             String temp[] = ((String) pList.get(i)).split("\\|");
                         %>
@@ -165,7 +167,7 @@
                         <% }
                         } %>
                     </select>
-                    <input class="btn btn-primary" type="submit" value="Search"/>
+                    <input class="btn btn-primary" type="submit" value="<fmt:message key='admin.gstReport.search'/>"/>
                 </div>
             </div><!--span6-->
 
@@ -182,12 +184,12 @@
 
     <TABLE class="table table-striped  table-sm">
         <TR style="font-weight:bold;">
-            <TD align="center">SERVICE DATE</TD>
-            <TD align="center">PATIENT</TD>
-            <TD align="center">PATIENT NAME</TD>
-            <TD align="center">GST Billed</TD>
-            <TD align="center">Revenue</TD>
-            <TD align="center">Total with ONLY GST</TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.serviceDate"/></TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.patient"/></TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.patientName"/></TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.gstBilled"/></TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.revenue"/></TD>
+            <TD align="center"><fmt:message key="admin.gstReport.table.totalWithOnlyGst"/></TD>
         </TR>
         <% for (i = 0; i < list.size(); i++) {
             if (i % 2 == 1)        // If odd, then have colour,

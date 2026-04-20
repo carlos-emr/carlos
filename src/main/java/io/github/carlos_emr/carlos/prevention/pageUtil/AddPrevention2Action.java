@@ -268,6 +268,7 @@ public class AddPrevention2Action extends ActionSupport {
                         bundles = new HashMap<String, Bundle>();
                     }
                     bundles.put(bundle.getId(), bundle);
+                    // nosemgrep: tainted-session-from-http-request -- bundles map contains DAO-sourced FHIR Bundle objects, not raw user input
                     request.getSession().setAttribute("bundles", bundles);
 
                     MiscUtils.getLogger().info(fbb.getMessageJson());

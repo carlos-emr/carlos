@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<%--
+
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+
+
+    Now maintained by the CARLOS EMR Project (2026+).
+    https://github.com/carlos-emr/carlos
+    CARLOS has no affiliation with OSCAR or McMaster University.
+
+--%>
+
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.utility.LocaleUtils,io.github.carlos_emr.carlos.utility.MiscUtils, io.github.carlos_emr.carlos.util.DateUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic, io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment, io.github.carlos_emr.carlos.commn.model.RaDetail" %>
+<%@page import="java.util.Locale, java.math.BigDecimal, java.util.Calendar,java.util.List,java.util.ArrayList, java.util.HashMap, java.util.Map, java.util.Date" %>
+<%@page import="java.text.ParseException" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPayment,io.github.carlos_emr.carlos.commn.dao.BillingOnItemPaymentDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONCHeader1,io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONExt,io.github.carlos_emr.carlos.commn.dao.BillingONExtDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader,io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail,io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONPremium,io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.BillingONItem, io.github.carlos_emr.carlos.commn.service.BillingONService" %>
+<%
+    if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+%>
+
+<security:oscarSec roleName="<%=roleName$%>" objectName="_tasks" rights="r" reverse="true">
+    <%response.sendRedirect(request.getContextPath() + "/noRights.html");%>
+</security:oscarSec>
+
+
+<%
+    boolean isTeamBillingOnly = false;
+    boolean isThisProviderOnly = false;
+%>
+
+<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">
+    <% isTeamBillingOnly = true; %>
+</security:oscarSec>
+
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.invoices" rights="r" reverse="false">
+    <% isThisProviderOnly = true; %>
+</security:oscarSec>
+
+<security:oscarSec objectName="_admin,_admin.billing" roleName="<%=roleName$ %>" rights="r" reverse="false">
+    <% isThisProviderOnly = false; %>
+</security:oscarSec>
+
+<%
+    Locale locale = request.getLocale();
+    Calendar cal = Calendar.getInstance();
+    String today = DateUtils.formatDate(cal, locale);
+
+    String startDateStr = request.getParameter("startDateText");
+    if (startDateStr == null || startDateStr.isEmpty()) {
+        cal.add(Calendar.MONTH, -1);
+        startDateStr = DateUtils.formatDate(cal, locale);
+    }
+
+    String errorMsg = "";
+    String endDateStr = request.getParameter("endDateText");
+    if (endDateStr == null || endDateStr.isEmpty()) {
+        endDateStr = today;
+    }
+    Date startDate = null;
+    Date endDate = null;
+    try {
+        startDate = DateUtils.parseDate(startDateStr, locale);
+        endDate = DateUtils.parseDate(endDateStr, locale);
+        if (DateUtils.calculateDayDifference(startDate, endDate) < 0) {
+            errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorEndDateGreater");
+        }
+    } catch (java.text.ParseException e) {
+        errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorOnDate");
+    }
+
+
+    //Get list of providers           
+    String curProviderNo = (String) session.getAttribute("user");
+    ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+    Provider provider = providerDao.getProvider(curProviderNo);
+
+    List<Provider> pList = null;
+
+    if (isThisProviderOnly) {
+        if (provider.getOhipNo().isEmpty())
+            response.sendRedirect(request.getContextPath() + "/noRights.html");
+
+        pList = new ArrayList<Provider>();
+        pList.add(provider);
+    } else if (isTeamBillingOnly) {
+        pList = providerDao.getBillableProvidersOnTeam(provider);
+    } else {
+        pList = providerDao.getBillableProviders();
+    }
+
+    BillingONPremiumDao bPremiumDao = (BillingONPremiumDao) SpringUtils.getBean(BillingONPremiumDao.class);
+    RaDetailDao raDetailDao = (RaDetailDao) SpringUtils.getBean(RaDetailDao.class);
+    BillingONCHeader1Dao bCh1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
+    BillingONPaymentDao bPaymentDao = (BillingONPaymentDao) SpringUtils.getBean(BillingONPaymentDao.class);
+    BillingOnItemPaymentDao bItemPaymentDao = (BillingOnItemPaymentDao) SpringUtils.getBean(BillingOnItemPaymentDao.class);
+    BillingONExtDao bExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
+    DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
+    BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
+
+    List<RaDetail> raList = null;
+    List<BillingONPremium> premiumList = null;
+    List<BillingONCHeader1> ptList = null;
+
+    String providerNo = request.getParameter("providerList");
+
+    if (errorMsg.isEmpty() && providerNo != null) {
+
+        Calendar raCalEndDate = Calendar.getInstance();
+        Calendar raCalStartDate = Calendar.getInstance();
+
+        //Only get OHIP numbers from the last month
+        raCalStartDate.setTime(endDate);
+        raCalEndDate.setTime(endDate);
+
+        int firstDate = raCalStartDate.getActualMinimum(Calendar.DATE);
+        int lastDate = raCalEndDate.getActualMaximum(Calendar.DATE);
+
+        raCalStartDate.set(Calendar.DATE, firstDate);
+        raCalEndDate.set(Calendar.DATE, lastDate);
+
+        Date raStartDate = raCalStartDate.getTime();
+        Date raEndDate = raCalEndDate.getTime();
+
+        if (providerNo.isEmpty()) {
+            raList = raDetailDao.getRaDetailByDate(raStartDate, raEndDate, locale);
+            ptList = bCh1Dao.get3rdPartyInvoiceByDate(startDate, endDate, locale);
+            premiumList = bPremiumDao.getActiveRAPremiumsByPayDate(startDate, endDate, locale);
+        } else {
+            Provider p = providerDao.getProvider(providerNo);
+            raList = raDetailDao.getRaDetailByDate(p, raStartDate, raEndDate, locale);
+            ptList = bCh1Dao.get3rdPartyInvoiceByProvider(p, startDate, endDate, locale);
+            premiumList = bPremiumDao.getActiveRAPremiumsByProvider(p, startDate, endDate, locale);
+        }
+    }
+
+%>
+<html>
+<head>
+    <title><fmt:message key="oscar.billing.paymentReceived.title"/></title>
+
+    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+
+    <script type="text/javascript">
+        function popupPage(vheight, vwidth, varpage) {
+            var page = "" + varpage;
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+            var popup = window.open(page, "billcorrection", windowprops);
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                }
+                popup.focus();
+            }
+        }
+    </script>
+
+    <style>
+        table td, th {
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+<h3><fmt:message key="admin.admin.paymentReceived"/></h3>
+
+
+<div class="container-fluid">
+    <span class="float-end"><carlos:encode value='<%= today %>' context="html"/></span>
+
+    <div class="row card card-body bg-body-tertiary">
+        <carlos:encode value='<%= errorMsg %>' context="html"/>
+
+        <form name="billingPaymentForm" method="get" action="/billing/CA/ON/BillingONPayment">
+
+            <h4><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
+
+            <div class="col-md-3">
+                Provider:<br>
+                <!--<fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
+                <select name="providerList">
+                    <% if (pList.size() > 1) { %>
+                    <option value=""><fmt:message key="oscar.billing.on.paymentReceived.allproviders"/></option>
+                    <% } %>
+
+                    <% for (Provider p : pList) {
+                        String selected = "";
+                        if (providerNo != null && providerNo.equals(p.getProviderNo())) {
+                            selected = "selected";
+                        }
+                    %>
+                    <option <%=selected%> value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= p.getLastName() %>' context="html"/>, <carlos:encode value='<%= p.getFirstName() %>' context="html"/>
+                    </option>
+                    <% } %>
+                </select>
+            </div>
+
+
+            <div class="col-md-2">
+                <fmt:message key="oscar.billing.on.paymentReceived.startDate"/><br>
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="startDateText" id="startDateText"
+                           value="<carlos:encode value='<%= DateUtils.formatDate(startDate,locale) %>' context="htmlAttribute"/>"
+                           pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <fmt:message key="oscar.billing.on.paymentReceived.endDate"/><br>
+                <div class="input-group">
+                    <input type="text" class="form-control" style="width:90px" name="endDateText" id="endDateText"
+                           value="<carlos:encode value='<%= DateUtils.formatDate(endDate,locale) %>' context="htmlAttribute"/>"
+                           pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
+                    <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <br>
+                <input class="btn btn-primary" type="submit"
+                       value="<fmt:message key="oscar.billing.on.paymentReceived.generateReport"/>"/>
+            </div>
+
+    </div>
+
+
+    <div class="row">
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.raBillingReport"/></h4>
+        <table class="table-striped table-sm table-hover">
+            <thead>
+            <tr>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceStatus"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.currentFee"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.claimed"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.adjustments"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.payprogram"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.claimNo"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.errorCodes"/></th>
+            </tr>
+            </thead>
+
+            </tbody>
+            <%
+                BigDecimal feeTotal = new BigDecimal("0.00");
+                BigDecimal claimTotal = new BigDecimal("0.00");
+                BigDecimal paidTotal = new BigDecimal("0.00");
+                BigDecimal adjTotal = new BigDecimal("0.00");
+                int numItems = 0;
+
+                if (raList != null) {
+
+                    String rowColor = "myWhite";
+                    int curBillingNo = 0;
+                    BillingONItem b = null;
+                    for (RaDetail rad : raList) {
+
+                        BillingONCHeader1 bCh1 = bCh1Dao.find(rad.getBillingNo());
+                        if (bCh1 == null) {
+                            // Check to make sure there is actually a bill in this OSCAR instance
+                            // that is associated with this RA detail
+                            continue;
+                        }
+
+                        if (providerNo != null && !providerNo.isEmpty() && !bCh1.getProviderNo().equals(providerNo)) {
+                            // Check to make sure that the providers account associated with the bill matches the
+                            // providers record we are searching on since it is not necessarily true:
+                            // radetail.providerOhipNo == provider.ohip_no && billing_on_cheader1.provider_no == provider.provider_no
+                            continue;
+                        }
+
+                        numItems++;
+                        int lastBillingNo = curBillingNo;
+                        curBillingNo = rad.getBillingNo();
+
+                        String serviceCode = rad.getServiceCode();
+                        BillingONItem bLast = b;
+                        b = bCh1Dao.findBillingONItemByServiceCode(bCh1, serviceCode);
+
+                        boolean isSameBill = true;
+
+                        String dxCode = "";
+                        String claimAmtStr = rad.getAmountClaim();
+                        String bItemFee = "D";
+                        if (b != null) {
+                            dxCode = b.getDx();
+                            if (!b.getStatus().equals(BillingONItem.DELETED)) {
+                                bItemFee = b.getFee();
+                            }
+
+                            if (b.equals(bLast)) {
+                                serviceCode = "";
+                                dxCode = "";
+                                bItemFee = "";
+                            }
+                        }
+
+                        Integer demoNo = bCh1.getDemographicNo();
+                        Demographic d = demographicDao.getDemographicById(demoNo);
+                        String demographicName = "";
+                        String billStatus = "";
+                        String serviceDate = "";
+                        if (lastBillingNo != curBillingNo) {
+
+                            isSameBill = false;
+                            serviceDate = rad.getServiceDate();
+                            demographicName = d.getFormattedName();
+                            billStatus = bCh1.getStatus();
+
+                            if (rowColor.equals("myWhite"))
+                                rowColor = "myPurple";
+                            else
+                                rowColor = "myWhite";
+                        }
+
+                        BigDecimal feeAmt = new BigDecimal("0.00");
+                        if (!bItemFee.isEmpty() && !bItemFee.equals("D")) {
+                            feeAmt = new BigDecimal(bItemFee);
+                        }
+
+                        BigDecimal claimAmt = new BigDecimal(claimAmtStr);
+                        BigDecimal paidAmt = new BigDecimal(rad.getAmountPay().trim());
+                        BigDecimal adjAmt = claimAmt.subtract(paidAmt);
+
+                        feeTotal = feeTotal.add(feeAmt);
+                        claimTotal = claimTotal.add(claimAmt);
+                        paidTotal = paidTotal.add(paidAmt);
+                        adjTotal = adjTotal.add(adjAmt);
+
+                        if ((feeAmt.compareTo(paidAmt) != 0) || (billStatus.equals(BillingONCHeader1.DELETED) && (paidAmt.compareTo(new BigDecimal("0.00")) != 0))) {
+                            rowColor = "myPink";
+                        }
+                        String curBillingNoStr = String.valueOf(curBillingNo);
+            %>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <% if (!isSameBill) {%>
+                <td style="text-align:center"><a href="#"
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= curBillingNoStr %>' context="javaScript"/>');return false;"><carlos:encode value='<%= curBillingNoStr %>' context="html"/>
+                </a></td>
+                <%} else {%>
+                <td></td>
+                <%}%>
+                <td style="text-align:center"><carlos:encode value='<%= billStatus %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= serviceDate %>' context="html"/>
+                </td>
+                <% if (!isSameBill) {%>
+                <td style="text-align:center"><a href="#"
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="javaScript"/>');return false;"><carlos:encode value='<%= demographicName %>' context="html"/>
+                </a></td>
+                <%} else {%>
+                <td></td>
+                <%}%>
+                <td style="text-align:center"><carlos:encode value='<%= dxCode %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= serviceCode %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= rad.getServiceCount() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= bItemFee %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= claimAmtStr %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= paidAmt.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= adjAmt.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= rad.getBillType() %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= rad.getClaimNo() %>' context="html"/>
+                </td>
+                <td style="text-align:center;font-weight:bold"><carlos:encode value='<%= rad.getErrorCode() %>' context="html"/>
+                </td>
+            </tr>
+            <% }
+            }
+            %>
+            <tr>
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                </td>
+                <td colspan="4"><carlos:encode value='<%= String.valueOf(numItems) %>' context="html"/>
+                </td>
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= feeTotal.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= claimTotal.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= paidTotal.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= adjTotal.toPlainString() %>' context="html"/>
+                </td>
+                <td colspan="5"></td>
+            </tr>
+            </tbody>
+        </table>
+        <hr>
+        <!-- 3rd Party Payments Table -->
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.premiumPaymentReport"/></h4>
+        <table width="100%" cellspacing="0" class="table-striped table-sm table-hover">
+            <thead>
+            <tr>
+                <th style="text-align:left"><fmt:message key="oscar.billing.on.paymentReceived.providerName"/></th>
+                <th style="text-align:left"><fmt:message key="oscar.billing.on.paymentReceived.payDate"/></th>
+                <th colspan="9" style="text-align:right"><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                int numPremiumItems = 0;
+                String rowColor = "myWhite";
+                BigDecimal totalPremiums = new BigDecimal("0.00");
+
+                if (premiumList != null) {
+                    for (BillingONPremium bPremium : premiumList) {
+
+                        numPremiumItems++;
+
+                        if (rowColor.equals("myWhite"))
+                            rowColor = "myPurple";
+                        else
+                            rowColor = "myWhite";
+
+                        String amountPaid = "0.00";
+                        try {
+                            amountPaid = bPremium.getAmountPay();
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("Premium Amount Paid not a number", e);
+                        }
+
+                        String providerName = "";
+                        String premProviderNo = bPremium.getProviderNo();
+                        if (premProviderNo != null) {
+                            Provider p = providerDao.getProvider(premProviderNo);
+                            if (p != null) {
+                                providerName = p.getFormattedName();
+                            }
+                        }
+
+                        Date payDate = bPremium.getPayDate();
+                        String payDateStr = DateUtils.formatDate(payDate, request.getLocale());
+            %>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td><carlos:encode value='<%= providerName %>' context="html"/>
+                </td>
+                <td><carlos:encode value='<%= payDateStr %>' context="html"/>
+                </td>
+                <td colspan="9" style="text-align:right"><carlos:encode value='<%= amountPaid %>' context="html"/>
+                </td>
+            </tr>
+            <% totalPremiums = totalPremiums.add(new BigDecimal(amountPaid));
+            }
+            }%>
+            <tr>
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                </td>
+                <td colspan="3"><carlos:encode value='<%= String.valueOf(numPremiumItems) %>' context="html"/>
+                </td>
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                </td>
+                <td style="text-align:right;font-weight:bold"><carlos:encode value='<%= totalPremiums.toPlainString() %>' context="html"/>
+                </td>
+                <td colspan="4"></td>
+            </tr>
+            </tbody>
+        </table>
+        <hr>
+        <!-- 3rd Party Payments Table -->
+        <h4><fmt:message key="oscar.billing.on.paymentReceived.3rdPartyBillingReport"/></h4>
+        <table class="table-striped table-sm table-hover">
+            <thead>
+            <tr>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.invoiceNumber"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.demographicName"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.dxCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCode"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.serviceCount"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.billed"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paid"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.refund"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.paymentDate"/></th>
+                <th><fmt:message key="oscar.billing.on.paymentReceived.balanceOutstanding"/></th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                BigDecimal total3rdPaid = new BigDecimal("0.00");
+                BigDecimal total3rdRefunded = new BigDecimal("0.00");
+                BigDecimal total3rdBilled = new BigDecimal("0.00");
+                final BigDecimal zeroAmt = new BigDecimal("0.00");
+
+                int num3rdItems = 0;
+                if (ptList != null) {
+
+                    rowColor = "myWhite";
+
+                    for (BillingONCHeader1 bCh1 : ptList) {
+
+                        List<BillingONPayment> bPayList = bPaymentDao.find3rdPartyPayRecordsByBill(bCh1, startDate, endDate);
+                        BigDecimal totalPaid = BillingONPaymentDao.calculatePaymentTotal(bPayList);
+                        BigDecimal totalRefunded = BillingONPaymentDao.calculateRefundTotal(bPayList);
+
+                        //make sure there were actually payments made in the date range specified on the bill in question
+                        if ((totalPaid.compareTo(zeroAmt) != 0) || (totalRefunded.compareTo(zeroAmt) != 0)) {
+                            num3rdItems++;
+
+                            if (rowColor.equals("myWhite"))
+                                rowColor = "myPurple";
+                            else
+                                rowColor = "myWhite";
+            %>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <%
+                    String billingDateStr = "";
+                    String demographicName = "";
+
+                    billingDateStr = DateUtils.formatDate(bCh1.getBillingDate(), locale);
+
+                    Integer demoNo = bCh1.getDemographicNo();
+                    Demographic d = demographicDao.getDemographicById(demoNo);
+                    demographicName = d.getFormattedName();
+                    String billingNo = String.valueOf(bCh1.getId());
+                    if (!isThisProviderOnly) { %>
+                <td style="text-align:center"><a href="#"
+                                                 onclick="popupPage(700,700,'/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= billingNo %>' context="javaScript"/>');return false;"><carlos:encode value='<%= billingNo %>' context="html"/>
+                </a></td>
+                <% } else { %>
+                <td style="text-align:center"><carlos:encode value='<%= billingNo %>' context="html"/>
+                </td>
+                <% } %>
+                <td style="text-align:center"><carlos:encode value='<%= billingDateStr %>' context="html"/>
+                </td>
+                <td style="text-align:center"><a href="#"
+                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= String.valueOf(demoNo) %>' context="javaScript"/>');return false;"><carlos:encode value='<%= demographicName %>' context="html"/>
+                </a></td>
+                <%
+                    String dxCode = "";
+                    String serviceCode = "";
+                    String serviceCount = "";
+                    String amtBilled = "";
+
+                    List<BillingONItem> bItems = billingONService.getNonDeletedInvoices(bCh1.getId());
+
+                    BigDecimal totalBilled = new BigDecimal("0.00");
+
+                    int numBillItems = 0;
+                    for (BillingONItem bItem : bItems) {
+                        dxCode = bItem.getDx();
+                        serviceCode = bItem.getServiceCode();
+                        serviceCount = bItem.getServiceCount();
+                        amtBilled = bItem.getFee();
+                        try {
+                            totalBilled = totalBilled.add(new BigDecimal(amtBilled));
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("BillItem fee is not a valid amount:" + amtBilled);
+                        }
+                        numBillItems++;
+
+                        List<BillingOnItemPayment> bItemPayList = bItemPaymentDao.getItemPaymentByInvoiceNoItemId(bCh1.getId(), bItem.getId());
+                        BigDecimal amtPaid = BillingOnItemPaymentDao.calculateItemPaymentTotal(bItemPayList);
+                        BigDecimal amtRefund = BillingOnItemPaymentDao.calculateItemRefundTotal(bItemPayList);
+                        if (numBillItems > 1) {
+                %>
+            </tr>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td colspan="3"></td>
+                <% } %>
+                <td style="text-align:center"><carlos:encode value='<%= dxCode %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= serviceCode %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= serviceCount %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= amtBilled %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= amtPaid.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= amtRefund.toPlainString() %>' context="html"/>
+                </td>
+                <td colspan="2"></td>
+
+
+                <% } %>
+            </tr>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td colspan="6"></td>
+                <td style="font-weight:bold;text-align:right"><carlos:encode value='<%= totalBilled.toPlainString() %>' context="html"/>
+                </td>
+
+
+                <%
+                    total3rdBilled = total3rdBilled.add(totalBilled);
+
+                    int numPayments = 0;
+                    for (BillingONPayment bPay : bPayList) {
+                        BigDecimal payAmt = bPay.getTotal_payment();
+                        BigDecimal refundAmt = bPay.getTotal_refund();
+                        if ((payAmt.compareTo(zeroAmt) != 0) || (refundAmt.compareTo(zeroAmt) != 0)) {
+                            numPayments++;
+                            String payDate = DateUtils.formatDate(bPay.getPaymentDate(), locale);
+
+                            String colSpan = "1";
+                            if (numPayments > 1) {
+                                colSpan = "8";
+                %>
+            </tr>
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <%
+
+                    }
+
+                %>
+                <td colspan="<carlos:encode value='<%= colSpan %>' context="htmlAttribute"/>" style="text-align:right"><carlos:encode value='<%= payAmt.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= refundAmt.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:center"><carlos:encode value='<%= payDate %>' context="html"/>
+                </td>
+                <td style="text-align:center"></td>
+            </tr>
+
+            <%
+                        total3rdPaid = total3rdPaid.add(payAmt);
+                        total3rdRefunded = total3rdRefunded.add(refundAmt);
+                    }
+                }
+                String outstandingAmt = "";
+                String fontWeight = "";
+                if (!bCh1.getPayProgram().equals("HCP")
+                        && !bCh1.getPayProgram().equals("WCB")
+                        && !bCh1.getPayProgram().equals("RMB")
+                        && !bCh1.getStatus().equals(BillingONCHeader1.DELETED)) {
+
+                    BigDecimal outstandingBalance = totalBilled.subtract(totalPaid).add(totalRefunded);
+                    outstandingAmt = outstandingBalance.toPlainString();
+
+                    if (outstandingBalance.compareTo(zeroAmt) != 0) {
+                        fontWeight = "font-weight:bold;";
+                    }
+
+            %>
+
+
+            <tr class="<carlos:encode value='<%= rowColor %>' context="htmlAttribute"/>">
+                <td colspan="11" style="text-align:right;<carlos:encode value='<%= fontWeight %>' context="htmlAttribute"/>"><carlos:encode value='<%= outstandingAmt %>' context="html"/>
+                </td>
+            </tr>
+            <% } %>
+
+            <%
+                        }
+                    }
+                }
+            %>
+            <tr>
+                <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
+                </td>
+                <td colspan="3"><carlos:encode value='<%= String.valueOf(num3rdItems) %>' context="html"/>
+                </td>
+                <td style="font-weight:bold"><fmt:message key="oscar.billing.on.paymentReceived.cumulativeTotal"/>:
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= total3rdBilled.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= total3rdPaid.toPlainString() %>' context="html"/>
+                </td>
+                <td style="text-align:right"><carlos:encode value='<%= total3rdRefunded.toPlainString() %>' context="html"/>
+                </td>
+                <td colspan="2"></td>
+            </tr>
+            </tbody>
+        </table>
+        <br>
+        <%
+            BigDecimal finalAmt = paidTotal.add(total3rdPaid).subtract(total3rdRefunded).add(totalPremiums);
+        %>
+        <h3><fmt:message key="oscar.billing.on.paymentReceived.totalPaid"/>: <carlos:encode value='<%= finalAmt.toPlainString() %>' context="html"/>
+        </h3>
+
+        </form>
+
+    </div><!--row-->
+</div><!--container-->
+
+<script type="text/javascript">
+    flatpickr("#startDateText", {dateFormat: "Y-m-d", allowInput: true});
+    flatpickr("#endDateText", {dateFormat: "Y-m-d", allowInput: true});
+</script>
+
+</body>
+</html>

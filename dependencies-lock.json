@@ -105,22 +105,6 @@
     "integrity" : "sha512:IxKFBLF9aiVcx36NFpgiuVundh6qC7KlYpzZGCFfqJRgqosNWld3wVXVQO5s+INeh69aN7OSKWW9sJ99nKvAFw=="
   }, {
     "groupId" : "cds",
-    "artifactId" : "cds_cihi",
-    "version" : "1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:7xYKPVpROskKwNLJqepzdjKZadjvIuTA/9thJHPfNRdCDuCDa5D0/TVIOwoPat/9LyRwX6BCEMMtdN5+Sp0qig=="
-  }, {
-    "groupId" : "cds",
-    "artifactId" : "cds_cihi_phcvrs",
-    "version" : "1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:v5+wLbdBcgZ4Gup/3hFqdGJ+RM5MXsbWQmxcRn9QaNH8MxCDKac1TYCcOZEu12RBlnak5xhDCQclTwvXuVnkBg=="
-  }, {
-    "groupId" : "cds",
     "artifactId" : "cds_hrm",
     "version" : "4.3.1",
     "scope" : "compile",
@@ -1980,36 +1964,28 @@
     "integrity" : "sha512:FoAmQ2prz16WwMWWBmOKu9ww3ktAWuVa/ecP3yiV4mej1Iu6a9rcWonzjjHaPZqdyR4cq36nb14EMizx7GO4OA=="
   }, {
     "groupId" : "org.apache.logging.log4j",
-    "artifactId" : "log4j-1.2-api",
-    "version" : "2.25.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:6XW4Fau8O/cuUR+Z4dHK5/vLjbOHE+Lx90kOkzQe70nkXV4ZTWO/axvz+20YdANpY4uXZjDiALQJ/gZKp3RgFA=="
-  }, {
-    "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-api",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:zpqvW+7A+4y+2MSuipGljT9pNccxIgspTXDxVpEotf82fhv5TWlXLderBb/ypjveX/dInrl0Powwe2ROrq28UA=="
+    "integrity" : "sha512:5taorWVC8HGXi0aFgGOhpvoqNwmmlGAHjKs8tXkHwQzXwHRrg68E2ChBIMM4Lr29Guq9pMNwBBwYe5A9r3GpSw=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-core",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:ZKB3at/QsIL4Dkn0r7iZjBXTDFFaNEGgdDZNN0eaL8BZvddGlMP2CbH64dLsoMuINH4a/Yh3SsaYpCuHRL8lnw=="
+    "integrity" : "sha512:/GHoRYfGwGD4n3H6rWpUex+966cG15XaohDflHsICSsDntQLDJpLUH/WIH0z95aHAgnkfKYsHyJIldLet7QV/g=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-slf4j2-impl",
-    "version" : "2.25.3",
+    "version" : "2.25.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:sQ5aBIXic8k85U3243No40hsEJA7TulIoRbrSKO/IBUh4Ku3lRMONJEdnhFd37VJDtX3YbbiFJush+qZMhYkRw=="
+    "integrity" : "sha512:x+Rxsux93XQDdzb38JhW7sg1PleTDsx1jEnTtjsbrHrJ1//15sJlHfBYyzwheoXGJpSVE2hvfOvvOYtGwaKO3w=="
   }, {
     "groupId" : "org.apache.neethi",
     "artifactId" : "neethi",

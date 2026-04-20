@@ -30,17 +30,20 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgAddMeasurementType"/></title>
+        <title><fmt:message key="encounter.Measurements.msgAddMeasurementType"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
         <script type="text/javascript">
@@ -65,14 +68,14 @@
         </ul>
     </div>
 <% } %>
-    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/AddMeasurementType.do" method="post" onsubmit="return validateForm()">
+    <form action="${pageContext.request.contextPath}/encounter/oscarMeasurements/AddMeasurementType" method="post" onsubmit="return validateForm()">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
+                <td class="MainTableTopRowLeftColumn"><fmt:message key="encounter.Measurements.msgMeasurements"/></td>
                 <td class="MainTableTopRowRightColumn">
                     <table class="TopStatusBar">
                         <tr>
-                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgAddMeasurementType"/></td>
+                            <td><fmt:message key="encounter.Measurements.msgAddMeasurementType"/></td>
                         </tr>
                     </table>
                 </td>
@@ -90,35 +93,35 @@
                                         <td colspan="2">
                                             <c:if test="${not empty messages}">
                                                 <c:forEach var="msg" items="${messages}">
-                                                    <c:out value="${msg}"/>
+                                                    ${carlos:forHtml(msg)}
                                                     <br>
                                                 </c:forEach>
                                             </c:if>
                                         </td>
                                     </tr>
                                     <tr>
-                                        <th align="left" class="td.tite" width="5"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingType"/>
+                                        <th align="left" class="td.tite" width="5"><fmt:message key="encounter.oscarMeasurements.Measurements.headingType"/>
 
                                         </th>
                                         <td><input type="text" name="type" id="type" /></td>
                                     </tr>
                                     <tr>
-                                        <th align="left" class="td.tite"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingTypeDesc"/>
+                                        <th align="left" class="td.tite"><fmt:message key="encounter.oscarMeasurements.Measurements.headingTypeDesc"/>
                                         </th>
                                         <td><input type="text" name="typeDesc" id="typeDesc" /></td>
                                     </tr>
                                     <tr>
-                                        <th align="left" class="td.tite" width="50"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingDisplayName"/>
+                                        <th align="left" class="td.tite" width="50"><fmt:message key="encounter.oscarMeasurements.Measurements.headingDisplayName"/>
                                         </th>
                                         <td><input type="text" name="typeDisplayName" id="typeDisplayName" /></td>
                                     </tr>
                                     <tr>
-                                        <th align="left" class="td.tite"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
+                                        <th align="left" class="td.tite"><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
                                         </th>
                                         <td><input type="text" name="measuringInstrc" id="measuringInstrc" /></td>
                                     </tr>
                                     <tr>
-                                        <th align="left" class="td.tite"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.Measurements.headingValidation"/>
+                                        <th align="left" class="td.tite"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValidation"/>
                                         </th>
                                         <td><select name="validation" id="validation">
                                             <c:forEach var="validation" items="${validations}">
@@ -133,19 +136,19 @@
                                             <table>
                                                 <tr>
                                                     <td><input type="button" name="Button"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>"
+                                                               value="<fmt:message key="global.btnClose"/>"
                                                                onClick="window.close()"></td>
                                                     <td><input type="submit" name="submit"
-                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/>"/>
+                                                               value="<fmt:message key="encounter.oscarMeasurements.MeasurementsAction.addBtn"/>"/>
                                                     </td>
                                                 </tr>
                                             </table>
                                         </td>
                                     </tr>
                                     <input type="hidden" name="msgBetween"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.AddMeasurementType.duplicateType"/>"/>
+                                           value="<fmt:message key="encounter.oscarMeasurements.AddMeasurementType.duplicateType"/>"/>
                                     <input type="hidden" name="msgBetween"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarMeasurements.AddMeasurementType.successful"/>"/>
+                                           value="<fmt:message key="encounter.oscarMeasurements.AddMeasurementType.successful"/>"/>
                             </td>
                         </tr>
                     </table>

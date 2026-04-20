@@ -48,14 +48,16 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<fmt:setBundle basename="oscarResources"/>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <!DOCTYPE html>
 <html>
     <head>
-        <%@ include file="/includes/global-head.jspf" %>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.title"/></title>
         <script type="text/javascript">
             /**
              * Attaches a single selected code to the opener's research form fields,
@@ -113,8 +115,8 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon" viewBox="0 0 16 16">
                     <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
                 </svg>
-                &nbsp;<%= org.owasp.encoder.Encode.forHtml(session.getAttribute("codeType") != null ? session.getAttribute("codeType").toString().toUpperCase() : "") %>
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/>
+                &nbsp;<carlos:encode value='<%= session.getAttribute("codeType") != null ? session.getAttribute("codeType").toString().toUpperCase() : "" %>' context="html"/>
+                <fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCodeSearch"/>
             </h4>
         </div>
 
@@ -122,24 +124,24 @@
             <table class="table table-sm table-striped table-hover mt-2">
                 <thead>
                     <tr>
-                        <th style="width:20%;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></th>
-                        <th style="width:80%;"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></th>
+                        <th style="width:20%;"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgCode"/></th>
+                        <th style="width:80%;"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgDescription"/></th>
                     </tr>
                 </thead>
                 <tbody>
                     <c:forEach var="code" items="${allMatchedCodes.dxCodeSearchBeanVector}" varStatus="loopStatus">
                         <tr>
                             <td>
-                                <input type="checkbox" name="searchCodes" value="${e:forHtmlAttribute(code.dxSearchCode)}"
+                                <input type="checkbox" name="searchCodes" value="${carlos:forHtmlAttribute(code.dxSearchCode)}"
                                     ${code.exactMatch == 'checked' ? 'checked' : ''} />
-                                ${e:forHtml(code.dxSearchCode)}
+                                ${carlos:forHtml(code.dxSearchCode)}
                             </td>
-                            <td>${e:forHtml(code.description)}</td>
+                            <td>${carlos:forHtml(code.description)}</td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty allMatchedCodes.dxCodeSearchBeanVector}">
                         <tr>
-                            <td colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.</td>
+                            <td colspan="2"><fmt:message key="oscarResearch.oscarDxResearch.dxResearchCodeSearch.msgNoMatch"/>.</td>
                         </tr>
                     </c:if>
                 </tbody>
@@ -147,10 +149,10 @@
 
             <div style="margin-top:10px;">
                 <input type="button" class="btn btn-primary" name="confirm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnConfirm"/>"
+                       value="<fmt:message key="global.btnConfirm"/>"
                        onclick="CodesAttach();">
                 <input type="button" class="btn btn-secondary" name="cancel"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
+                       value="<fmt:message key="global.btnCancel"/>"
                        onclick="window.close();">
             </div>
         </form>

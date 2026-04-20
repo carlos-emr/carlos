@@ -50,7 +50,7 @@ public class IssueAdminManager {
     public Issue getIssueAdmin(String issueAdminId) {
         Issue issueAdmin = dao.getIssue(Long.valueOf(issueAdminId));
         if (issueAdmin == null) {
-            log.warn("UserId '{}' not found in database.", LogSanitizer.sanitize(issueAdminId));
+            log.warn("UserId '{}' not found in database.", LogSanitizer.sanitize(issueAdminId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         }
         return issueAdmin;
     }

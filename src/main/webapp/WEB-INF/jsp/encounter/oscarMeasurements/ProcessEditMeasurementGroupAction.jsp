@@ -30,10 +30,11 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String groupName = (String) session.getAttribute("groupName");
 %>
@@ -45,7 +46,7 @@
 
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.Measurements.msgProcessEditMeasurementGroupAction"/>
+        <title><fmt:message key="encounter.Measurements.msgProcessEditMeasurementGroupAction"/>
         </title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
@@ -76,7 +77,7 @@
     </div>
 <% } %>
     <table>
-        <form action="encounter/oscarMeasurements/SetupEditMeasurementGroup.do">
+        <form action="encounter/oscarMeasurements/SetupEditMeasurementGroup">
             <tr>
                 <input type="hidden" name="groupName" value="<%= groupName %>"/>
                 <td>Processing...</td>

@@ -68,7 +68,12 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 public class DmsInboxManage2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,6 +90,11 @@ public class DmsInboxManage2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String mtd = request.getParameter("method");
         if ("previewPatientDocLab".equals(mtd)) {
             return previewPatientDocLab();
@@ -185,7 +195,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         HttpSession session = request.getSession();
         try {
             if (session.getAttribute("userrole") == null)
-                response.sendRedirect(request.getContextPath() + "/logout.jsp");
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -276,7 +286,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -412,7 +422,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 newestLab = formatter.parse(request.getParameter("newestDate"));
             } catch (Exception e) {
-                logger.error("Couldn't parse date + " + request.getParameter("newestDate"), e);
+                logger.error("Couldn't parse date: {}", LogSanitizer.sanitize(request.getParameter("newestDate")), e);
             }
         }
 
@@ -738,7 +748,7 @@ public class DmsInboxManage2Action extends ActionSupport {
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         } catch (Exception e) {
             logger.error("Error", e);
         }

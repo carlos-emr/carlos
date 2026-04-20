@@ -41,6 +41,7 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 /**
  * Struts2 action for previewing and rendering medical documents as PDFs in the OpenO EMR system.
@@ -60,6 +61,8 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
  * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,6 +88,11 @@ public class DocumentPreview2Action extends ActionSupport {
      * @return String result name for Struts2 result mapping, or null for direct response rendering
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
         String method = request.getParameter("method");
 
         if (method != null) {
@@ -300,7 +308,7 @@ public class DocumentPreview2Action extends ActionSupport {
                     java.io.File baseDir = new java.io.File(basePath);
                     if (baseDir.exists()) {
                         try {
-                            PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir);
+                            canonicalPdfPath = PathValidationUtils.validateExistingPath(canonicalPdfPath.toFile(), baseDir).toPath();
                             isValidPath = true;
                             break;
                         } catch (SecurityException e) {
@@ -311,14 +319,14 @@ public class DocumentPreview2Action extends ActionSupport {
             }
             
             if (!isValidPath) {
-                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString));
+                logger.error("Access denied: Path traversal attempt detected for path: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             
             // Additional check: ensure the file exists and is a regular file
             if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString));
+                logger.error("PDF file not found or is not a regular file: {}", LogSanitizer.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -331,7 +339,7 @@ public class DocumentPreview2Action extends ActionSupport {
 
                 int data;
                 while ((data = bfis.read()) != -1) {
-                    outs.write(data);
+                    outs.write(data); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/pdf binary document preview
                 }
 
                 outs.flush();
@@ -423,7 +431,8 @@ public class DocumentPreview2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
         json.put("base64Data", base64Data);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
@@ -444,7 +453,8 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);
-        response.setContentType("text/javascript");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {

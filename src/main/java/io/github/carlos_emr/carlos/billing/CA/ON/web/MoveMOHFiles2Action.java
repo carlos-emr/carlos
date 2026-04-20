@@ -137,7 +137,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
             for (String fileName : fileNames) {
                 File file = getFile(folderPath, fileName);
                 if (file == null) {
-                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName));
+                    logger.warn("Unable to get file {}{}{}", LogSanitizer.sanitize(folderPath), File.separator, LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
                     errors.append("Unable to find file ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;
@@ -145,7 +145,7 @@ public class MoveMOHFiles2Action extends ActionSupport {
 
                 boolean isValidFileLocation = validateFileLocation(file);
                 if (!isValidFileLocation) {
-                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName));
+                    logger.warn("Invalid file location {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
 
                     errors.append("File is not in a valid location: ").append(Encode.forHtml(fileName)).append(".<br/>");
                     continue;

@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.billings.ca.on.OHIP;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -524,12 +526,15 @@ public class ExtractBean implements Serializable {
         try {
             String home_dir;
             home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            FileOutputStream out = new FileOutputStream(home_dir + ohipFilename);
+            File safeFile = PathValidationUtils.validatePath(ohipFilename, new File(home_dir));
+            FileOutputStream out = new FileOutputStream(safeFile);
             PrintStream p = new PrintStream(out);
             p.println(value1);
 
             p.close();
             out.close();
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected for OHIP file: {}", ohipFilename, e);
         } catch (Exception e) {
             logger.error("Write OHIP File Error", e);
         }
@@ -542,12 +547,15 @@ public class ExtractBean implements Serializable {
             String home_dir1;
             home_dir1 = CarlosProperties.getInstance().getProperty("HOME_DIR");
 
-            FileOutputStream out1 = new FileOutputStream(home_dir1 + htmlFilename);
+            File safeFile = PathValidationUtils.validatePath(htmlFilename, new File(home_dir1));
+            FileOutputStream out1 = new FileOutputStream(safeFile);
             PrintStream p1 = new PrintStream(out1);
             p1.println(htmlvalue1);
 
             p1.close();
             out1.close();
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected for HTML file: {}", htmlFilename, e);
         } catch (Exception e) {
             logger.error("Write HTML File Error!!!", e);
         }

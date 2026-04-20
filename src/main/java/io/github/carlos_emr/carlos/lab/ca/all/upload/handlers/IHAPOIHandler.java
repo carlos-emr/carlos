@@ -48,8 +48,10 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -72,7 +74,6 @@ public class IHAPOIHandler implements MessageHandler {
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
-        FileInputStream is = null;
         Map<String, String> hl7BodyMap = null;
         String messageId = "0";
         StringBuilder result = new StringBuilder(FAILED + messageId + ",");
@@ -81,8 +82,9 @@ public class IHAPOIHandler implements MessageHandler {
             // Validate the file path to prevent path traversal attacks
             File file = validateAndGetFile(fileName);
             
-            is = new FileInputStream(file);
-            hl7BodyMap = parse(is);
+            try (FileInputStream is = new FileInputStream(file)) {
+                hl7BodyMap = parse(is);
+            }
             Iterator<String> keySetIterator = null;
 
             if (hl7BodyMap != null && hl7BodyMap.size() > 0) {
@@ -103,19 +105,11 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file " + fileName + " message id " + messageId, e);
+            logger.error("There was an unknown internal error with file {} message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message " + fileName + " due to an error with message id " + messageId, e);
+            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
         } finally {
-            if (is != null) {
-                try {
-                    is.close();
-                    is = null;
-                } catch (IOException e) {
-                    logger.error("Failed to close IHAPOI InputStream ", e);
-                }
-            }
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
                 MessageUploader.clean(fileId);
@@ -173,9 +167,8 @@ public class IHAPOIHandler implements MessageHandler {
         NodeList messagesNode = null;
 
         Map<String, String> hl7BodyMap = null;
-        DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory docFactory = XmlUtils.createSecureDocumentBuilderFactory();
         docFactory.setNamespaceAware(true);
-        docFactory.setValidating(false);
         DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
         Document doc = docBuilder.parse(is);
 
@@ -278,7 +271,7 @@ public class IHAPOIHandler implements MessageHandler {
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
         if (!isValidPath) {
-            logger.error("Path traversal attempt detected: " + fileName);
+            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             throw new IllegalArgumentException("Invalid file path - access denied");
         }
         

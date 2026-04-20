@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
@@ -152,4 +153,15 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public List<Object[]> listProviderAppointmentCounts(Date sDate, Date eDate);
 
+    /**
+     * Returns lightweight appointment DTOs for a provider on a given date, with
+     * pre-joined patient names from Demographic. Uses JPQL constructor expression
+     * projection (17 fields vs 37 on entity).
+     *
+     * @param date Date the appointment date
+     * @param providerNo String the provider number
+     * @return List of AppointmentListItemDTO for the provider's daily schedule
+     * @since 2026-04-11
+     */
+    public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
 }

@@ -26,13 +26,14 @@
 --%>
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -85,11 +86,11 @@
 </table>
 
 <br/>
-<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue.do" method="post"
+<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue" method="post"
       onsubmit="return validaeIssues();">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="issuenotempty"
-           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='admin.admin.defaultEncounterIssue.issuenotempty'/>"/>
+           value="<fmt:message key='admin.admin.defaultEncounterIssue.issuenotempty'/>"/>
     <table width="100%" border="0" cellpadding="0" cellspacing="1"
            bgcolor="#C0C0C0">
         <tr>
@@ -102,7 +103,7 @@
             <td class="filedValue" colspan="3"><input id="issuesNames" type="text" name="issueNames"/></td>
             <td class="fieldValue" width="80%"><input type="submit" name="submit" value="Save" />
                 <input type="button" value="Cancel"
-                       onclick="location.href='DefaultEncounterIssue.do'"/></td>
+                       onclick="location.href='DefaultEncounterIssue'"/></td>
         </tr>
         <tr>
             <td class="filedValue" colspan="4"><small><b>Tips:</b><br/>Enter default issue codes separated by commas,

@@ -51,6 +51,7 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.apache.commons.io.FileUtils;
+import org.owasp.encoder.Encode;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -903,9 +904,10 @@ public final class EDocUtil {
 
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
-        String sourceDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        File sourceFile = new File(sourceDocDir, d.getDocfilename());
+        File sourceFile = PathValidationUtils.validateExistingPath(
+                new File(sourceBaseDir, d.getDocfilename()), sourceBaseDir);
 
         String destFileName = sourceFile.getName();
         if (destFileName.length() > 18) {
@@ -913,7 +915,8 @@ public final class EDocUtil {
         }
 
         String destPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, "Refile");
-        File destFile = new File(destPath, "R" + destFileName);
+        File destBaseDir = new File(destPath);
+        File destFile = PathValidationUtils.validatePath("R" + destFileName, destBaseDir);
 
         try {
             if (destFile.exists()) {
@@ -1110,7 +1113,7 @@ public final class EDocUtil {
             for (TicklerLink tl : linkList) {
                 ticklerNo = tl.getTicklerNo();
                 Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo.intValue());
-                HtmlTickler += "<br>" + t.getMessage();
+                HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
             }
         }
         return HtmlTickler;
@@ -1124,7 +1127,7 @@ public final class EDocUtil {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus report = ackList.get(i);
-            HtmlAcknowledgement += report.getProviderName() + ": ";
+            HtmlAcknowledgement += Encode.forHtml(report.getProviderName()) + ": ";
             String ackStatus = report.getStatus();
             if (ackStatus.equals("A")) {
                 ackStatus = props.getString("dms.documentBrowser.msgAcknowledgedOn");
@@ -1135,11 +1138,11 @@ public final class EDocUtil {
             }
 
             HtmlAcknowledgement += ackStatus;
-            HtmlAcknowledgement += " " + report.getTimestamp() + " ";
+            HtmlAcknowledgement += " " + Encode.forHtml(report.getTimestamp()) + " ";
 
             comment = report.getComment();
             if (comment != null) {
-                HtmlAcknowledgement += comment;
+                HtmlAcknowledgement += Encode.forHtml(comment);
             }
             HtmlAcknowledgement += "<br>";
 
@@ -1171,7 +1174,7 @@ public final class EDocUtil {
         }  //don't use document note as annotation.
 
         if (p_cmn != null) {
-            note = p_cmn.getNote();
+            note = Encode.forHtml(p_cmn.getNote());
         }
         return note;
     }
@@ -1203,11 +1206,13 @@ public final class EDocUtil {
      *
      * @param fileName Name of the file to use for saving the content
      * @param content  Content to be saved into the file
-     * @throws IOException IOException is thrown in case of any save errors
+     * @throws IOException       IOException is thrown in case of any save errors
+     * @throws SecurityException if the fileName contains path traversal sequences
      */
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File file = new File(docDir, fileName);
+        File docDirFile = new File(docDir);
+        File file = PathValidationUtils.validatePath(fileName, docDirFile);
         writeContent(file.getAbsolutePath(), content);
     }
 

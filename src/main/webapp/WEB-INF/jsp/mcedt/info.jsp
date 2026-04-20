@@ -28,24 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page errorPage="/errorpage.jsp" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <head>
-    <jsp:include page="/mcedt/head-includes.jsp"/>
+    <jsp:include page="/WEB-INF/jsp/mcedt/head-includes.jsp"/>
 
     <script language="javascript">
         function goBack(control) {
             if (control) {
                 control.disabled = true;
             }
-            window.location.href = "<%= request.getContextPath() %>/mcedt/mcedt.do";
+            window.location.href = "<%= request.getContextPath() %>/mcedt/mcedt";
             return false;
         }
     </script>
@@ -62,7 +64,7 @@
             <c:forEach var="d" items="${detail.data}">
                 <tr>
                     <td>ID</td>
-                    <td><c:out value="${d.resourceID}"/></td>
+                    <td>${carlos:forHtml(d.resourceID)}</td>
                 </tr>
                 <tr>
                     <td>Created</td>
@@ -71,11 +73,11 @@
                 </tr>
                 <tr>
                     <td>Description</td>
-                    <td><c:out value="${d.description}"/></td>
+                    <td>${carlos:forHtml(d.description)}</td>
                 </tr>
                 <tr>
                     <td>Resource type</td>
-                    <td><c:out value="${d.resourceType}"/></td>
+                    <td>${carlos:forHtml(d.resourceType)}</td>
                 </tr>
                 <tr>
                     <td>Modified</td>
@@ -84,12 +86,11 @@
                 </tr>
                 <tr>
                     <td>Result</td>
-                    <td><c:out value="${d.result.code}"/> - <c:out
-                            value="${d.result.msg}"/></td>
+                    <td>${carlos:forHtml(d.result.code)} - ${carlos:forHtml(d.result.msg)}</td>
                 </tr>
                 <tr>
                     <td>Status</td>
-                    <td><c:out value="${d.status}"/></td>
+                    <td>${carlos:forHtml(d.status)}</td>
                 </tr>
                 <tr>
                     <td></td>

@@ -40,6 +40,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import jakarta.persistence.PersistenceException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,17 +60,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *       and {@code inOrg}. These participate in the Spring-managed transaction and are fully
  *       testable with the H2 in-memory database. ({@code updateOrgStatus} is private and called
  *       indirectly by {@code SaveAsOrgCode}.)</li>
- *   <li><b>Raw JDBC via {@code DBPreparedHandler}</b>: {@code LoadCodeList}, {@code GetCode},
+ *   <li><b>Native SQL via JPA {@code EntityManager}</b>: {@code LoadCodeList}, {@code GetCode},
  *       {@code GetCodeFieldValues}, {@code SaveCodeValue} (insert/update), and
- *       {@code getCountOfActiveClient}. These use {@code DbConnectionFilter.getThreadLocalDbConnection()},
- *       which obtains a <em>separate</em> JDBC connection that does <strong>not</strong>
- *       participate in the Spring-managed test transaction. Data written through Hibernate
- *       is invisible to these methods, and vice versa.</li>
+ *       {@code getCountOfActiveClient}. These participate in the Spring-managed
+ *       transactional persistence context. Data written through Hibernate is visible
+ *       after {@code hibernateTemplate.flush()}.</li>
  * </ul>
  *
- * <p>For raw-JDBC methods, tests verify:</p>
+ * <p>For native-SQL methods, tests verify:</p>
  * <ul>
- *   <li>Early-return / null-guard code paths that execute <em>before</em> the JDBC call</li>
+ *   <li>Early-return / null-guard code paths that execute <em>before</em> the SQL query</li>
  *   <li>Correct delegation between overloaded methods</li>
  *   <li>Behavior when dependent HQL lookups return null (causing empty result lists)</li>
  *   <li>SQL generation correctness is documented for the EntityManager migration</li>
@@ -480,26 +481,20 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should delegate to 5-param overload with empty parentCode")
-        void shouldDelegateTo5ParamOverload_withEmptyParentCode() {
-            // Given - table exists but has no field defs, so no data table to query.
-            // This exercises the delegation path and SQL-building logic up to the
-            // point where the dynamic table reference would fail.
+        @DisplayName("should propagate SQL error when referenced data table does not exist")
+        void shouldPropagateSqlError_whenBackingTableMissing() {
+            // Given - table def exists but references a non-existent backing table.
             String tableId = nextTableId("CL");
             insertLookupTableDef(tableId, "nonexistent_data_table");
             hibernateTemplate.flush();
 
-            // When - The SQL will reference "nonexistent_data_table" which doesn't exist,
-            // but the DBPreparedHandler runs on a separate JDBC connection. The DAO
-            // catches SQLException and returns an empty list.
-            @SuppressWarnings("unchecked")
-            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "C1", "desc");
-
-            // Then - either empty (JDBC error caught) or populated (if data visible)
-            assertThat(result).isNotNull();
-            // The JDBC call references a nonexistent table, so the DAO catches the
-            // SQLException and returns an empty list
-            assertThat(result).isEmpty();
+            // When / Then — post-JPA-migration behaviour (#1559 Task 5): the EntityManager
+            // propagates the SQLGrammarException wrapped as a PersistenceException up the
+            // stack. The pre-migration DBPreparedHandler path swallowed SQLException and
+            // returned an empty list; that catch is gone.
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "C1", "desc"))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("nonexistent_data_table");
         }
     }
 
@@ -543,21 +538,19 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return empty list with no filters and no backing table data")
-        void shouldReturnEmptyList_withNoFiltersAndNoBackingData() {
-            // Given - table def exists but referenced data table doesn't
+        @DisplayName("should propagate SQL error when referenced backing table is missing")
+        void shouldPropagateSqlError_withNoFiltersAndNoBackingData() {
+            // Given - table def exists but its referenced data table doesn't.
             String tableId = nextTableId("LC");
             insertLookupTableDef(tableId, "no_such_table");
             hibernateTemplate.flush();
 
-            // When - DBPreparedHandler will fail on missing table, DAO catches exception
-            @SuppressWarnings("unchecked")
-            List<LookupCodeValue> result = lookupDao.LoadCodeList(
-                tableId, false, "", "", "");
-
-            // Then - missing backing table causes empty result
-            assertThat(result).isNotNull();
-            assertThat(result).isEmpty();
+            // When / Then — post-JPA-migration behaviour (#1559 Task 5): the EntityManager
+            // propagates SQLGrammarException as a PersistenceException rather than
+            // silently returning empty (which was the DBPreparedHandler behaviour).
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("no_such_table");
         }
 
         @Test
@@ -576,7 +569,111 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // Then - returns empty because no USR table def exists
             assertThat(result).isEmpty();
         }
+
+        /**
+         * Regression test for the NULL-row NumberFormatException introduced by the JPA
+         * migration. The pre-JPA path used {@code Misc.getString(rs, col)} which coerced
+         * SQL NULL to an empty string, yielding {@code "0" + "" = "00"} → 0 when parsed.
+         * The JPA-migration {@code asString} helper instead returns {@code null}, which
+         * would concatenate to {@code "0null"} and throw {@link NumberFormatException}.
+         *
+         * <p>The fix introduced {@code parseIntWithZeroPrefix(Object)} to restore the
+         * empty-string coercion. This test exercises both flag columns that route
+         * through that helper: genericIdx=3 (active) and genericIdx=4 (orderByIndex).
+         * Without the fix, {@code LoadCodeList} would throw NFE on any row with a
+         * NULL in either column. With the fix, NULL → 0 (active=false, index=0).
+         */
+        @Test
+        @Tag("query")
+        @Tag("regression")
+        @DisplayName("should coerce NULL flag columns to 0 and not throw NFE")
+        void shouldCoerceNullFlagColumns_whenRowHasNullActiveOrOrderBy() {
+            // Given - a backing table with NULL-able flag columns. Table name and
+            // DDL are literal (see constants) so the SQL-safety pre-commit hook sees
+            // them as constants. The LookupTableDef row (written via parameterised
+            // INSERT) still points LoadCodeList at this table by tableId.
+            String tableId = nextTableId("NR");
+            String clearNullRowTable = "DELETE FROM nr_null_row_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_NULL_ROW_TABLE).executeUpdate();
+                session.createNativeQuery(clearNullRowTable).executeUpdate();
+                session.createNativeQuery(INSERT_NULL_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, NULL_ROW_TABLE_NAME);
+            // Map the four genericIdx slots we care about — code, description, active, orderByIndex
+            insertFieldFull(tableId, "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When - LoadCodeList with activeOnly=false so there's no WHERE filter on the
+            // NULL active column (which would otherwise drop the row before parsing).
+            // Pre-fix: "0" + asString(null) = "0null" → NumberFormatException.
+            // Post-fix: parseIntWithZeroPrefix(null) → 0.
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then - row is returned with the helper's default values for NULL columns
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("A");
+            assertThat(row.getDescription()).isEqualTo("Alpha");
+            assertThat(row.isActive())
+                .as("NULL active column should coerce to 0 → active=false (not NFE)")
+                .isFalse();
+            assertThat(row.getOrderByIndex())
+                .as("NULL orderByIndex column should coerce to 0 (not NFE)")
+                .isZero();
+        }
     }
+
+    /** Literal backing-table name for the NULL-row regression fixture. */
+    private static final String NULL_ROW_TABLE_NAME = "nr_null_row_test";
+
+    /** Literal DDL for the NULL-row regression fixture — idempotent across runs. */
+    private static final String CREATE_NULL_ROW_TABLE = """
+            CREATE TABLE IF NOT EXISTS nr_null_row_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
+
+    /** Literal INSERT for the NULL-row regression fixture — both flag columns NULL. */
+    private static final String INSERT_NULL_ROW = """
+            INSERT INTO nr_null_row_test (code, description, active_col, orderby_col)
+            VALUES ('A', 'Alpha', NULL, NULL)""";
+
+    /** Literal backing-table name for the all-codes distinct-row regression fixture. */
+    private static final String ALL_CODES_TABLE_NAME = "cfv_all_codes_test";
+
+    /** Literal DDL for the all-codes distinct-row regression fixture — idempotent across runs. */
+    private static final String CREATE_ALL_CODES_TABLE = """
+            CREATE TABLE IF NOT EXISTS cfv_all_codes_test (
+                code_col VARCHAR(10),
+                name_col VARCHAR(100)
+            )""";
+
+    /** Literal INSERT for the all-codes distinct-row regression fixture. */
+    private static final String INSERT_ALL_CODES_ROWS = """
+            INSERT INTO cfv_all_codes_test (code_col, name_col)
+            VALUES ('A', 'Alpha'), ('B', 'Beta')""";
+
+    /** Literal backing-table name for the save-null-string regression fixture. */
+    private static final String SAVE_NULL_STRING_TABLE_NAME = "svc_null_string_test";
+
+    /** Literal DDL for the save-null-string regression fixture — idempotent across runs. */
+    private static final String CREATE_SAVE_NULL_STRING_TABLE = """
+            CREATE TABLE IF NOT EXISTS svc_null_string_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
 
     // =========================================================================
     // GetCodeFieldValues tests
@@ -586,7 +683,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      * Tests for {@link LookupDao#GetCodeFieldValues(LookupTableDefValue, String)}.
      *
      * <p>This method builds dynamic SQL from the field definitions and executes
-     * via {@code DBPreparedHandler}. It also calls back to {@code GetCode} for
+     * it via JPA native query APIs. It also calls back to {@code GetCode} for
      * fields with lookup tables. Tests verify the field-list loading and
      * behavior when no matching code row is found.</p>
      */
@@ -596,8 +693,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return field list even when data table query fails")
-        void shouldReturnFieldList_whenDataTableQueryFails() {
+        @DisplayName("should propagate SQL error when backing data table is missing")
+        void shouldPropagateSqlError_whenDataTableQueryFails() {
             // Given - table def pointing to a nonexistent data table
             String tableId = nextTableId("CF");
             insertLookupTableDef(tableId, "nonexistent_table_cf");
@@ -608,14 +705,12 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
             assertThat(tableDef).isNotNull();
 
-            // When - SQL referencing "nonexistent_table_cf" will fail;
-            // DAO catches SQLException and returns the field list as-is
-            @SuppressWarnings("unchecked")
-            List<FieldDefValue> result = lookupDao.GetCodeFieldValues(tableDef, "TEST_CODE");
-
-            // Then - returns the field definition list (values not populated due to SQL error)
-            assertThat(result).isNotNull();
-            assertThat(result).hasSize(2);
+            // When / Then — post-JPA-migration behaviour (#1559 Task 5): the EntityManager
+            // propagates the SQLGrammarException. Previously DBPreparedHandler caught it
+            // and the method returned the unpopulated field definitions.
+            assertThatThrownBy(() -> lookupDao.GetCodeFieldValues(tableDef, "TEST_CODE"))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("nonexistent_table_cf");
         }
 
         @Test
@@ -651,8 +746,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return empty list when data table query fails")
-        void shouldReturnEmptyList_whenDataTableQueryFails() {
+        @DisplayName("should propagate SQL error when backing data table is missing")
+        void shouldPropagateSqlError_whenDataTableQueryFails() {
             // Given - table def pointing to nonexistent data table
             String tableId = nextTableId("CA");
             insertLookupTableDef(tableId, "nonexistent_all_table");
@@ -662,13 +757,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
             LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
 
-            // When - DBPreparedHandler will fail on missing table
-            @SuppressWarnings("unchecked")
-            List<List> result = lookupDao.GetCodeFieldValues(tableDef);
-
-            // Then
-            assertThat(result).isNotNull();
-            assertThat(result).isEmpty();
+            // When / Then — post-JPA-migration behaviour (#1559 Task 5): the EntityManager
+            // propagates the SQLGrammarException rather than silently returning empty.
+            assertThatThrownBy(() -> lookupDao.GetCodeFieldValues(tableDef))
+                .isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("nonexistent_all_table");
         }
 
         @Test
@@ -684,11 +777,56 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
             // When
             @SuppressWarnings("unchecked")
-            List<List> result = lookupDao.GetCodeFieldValues(tableDef);
+            List<List<FieldDefValue>> result = (List<List<FieldDefValue>>) (List<?>) lookupDao.GetCodeFieldValues(tableDef);
 
             // Then
             assertThat(result).isNotNull();
             assertThat(result).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return distinct field lists when multiple rows are loaded")
+        void shouldReturnDistinctFieldLists_whenMultipleRowsLoaded() {
+            // Given
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_ALL_CODES_TABLE).executeUpdate();
+                session.createNativeQuery("DELETE FROM " + ALL_CODES_TABLE_NAME).executeUpdate();
+                session.createNativeQuery(INSERT_ALL_CODES_ROWS).executeUpdate();
+                return null;
+            });
+
+            String tableId = nextTableId("CG");
+            insertLookupTableDef(tableId, ALL_CODES_TABLE_NAME);
+            insertField(tableId, "code_col", 1, 1);
+            insertField(tableId, "name_col", 2, 2);
+            hibernateTemplate.flush();
+
+            LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<List<FieldDefValue>> result = (List<List<FieldDefValue>>) (List<?>) lookupDao.GetCodeFieldValues(tableDef);
+
+            // Then
+            assertThat(result).hasSize(2);
+
+            List<FieldDefValue> firstRow = result.stream()
+                .filter(row -> "A".equals(row.get(0).getVal()))
+                .findFirst()
+                .orElseThrow();
+
+            List<FieldDefValue> secondRow = result.stream()
+                .filter(row -> "B".equals(row.get(0).getVal()))
+                .findFirst()
+                .orElseThrow();
+
+            assertThat(firstRow).isNotSameAs(secondRow);
+            assertThat(firstRow.get(0)).isNotSameAs(secondRow.get(0));
+            assertThat(firstRow.get(0).getVal()).isEqualTo("A");
+            assertThat(firstRow.get(1).getVal()).isEqualTo("Alpha");
+            assertThat(secondRow.get(0).getVal()).isEqualTo("B");
+            assertThat(secondRow.get(1).getVal()).isEqualTo("Beta");
         }
     }
 
@@ -700,13 +838,12 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      * Tests for {@link LookupDao#SaveCodeValue(boolean, LookupTableDefValue, List)} and
      * {@link LookupDao#SaveCodeValue(boolean, LookupCodeValue)}.
      *
-     * <p>These methods use raw JDBC for INSERT/UPDATE operations via
-     * {@code DbConnectionFilter.getThreadLocalDbConnection()}, which obtains a
-     * separate connection outside the Spring-managed test transaction. Full
-     * insert/update testing requires the raw JDBC connection to share the same
-     * transaction, which only happens in the production servlet filter context.</p>
+     * <p>These methods now use native SQL through the JPA {@code EntityManager}.
+     * Full insert/update testing still requires broader fixture setup than this
+     * class currently provides, so these tests stay focused on the code paths
+     * that execute before the final SQL write.</p>
      *
-     * <p>Tests here verify the code paths that execute <em>before</em> JDBC calls:
+     * <p>Tests here verify the code paths that execute <em>before</em> the final SQL write:
      * the LookupCodeValue-to-FieldDefValue mapping logic, and behavior when the
      * table definition or field definitions are invalid.</p>
      */
@@ -809,6 +946,53 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
+        @Tag("regression")
+        @DisplayName("should persist nullable string fields and read them back as empty strings")
+        void shouldPersistNullStringFields_withTypedNullBindingAndDefaultEmptyStrings() throws SQLException {
+            // Given - a simple backing table with a nullable VARCHAR column. The legacy
+            // JDBC path used PreparedStatement.setString(..., null), which sent a typed
+            // SQL NULL on insert, and Misc.getString(...) which read SQL NULL back as "".
+            // The JPA migration regressed both halves: untyped native-query null binding
+            // on write, and null-preserving asString() on read.
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_SAVE_NULL_STRING_TABLE).executeUpdate();
+                session.createNativeQuery("DELETE FROM " + SAVE_NULL_STRING_TABLE_NAME).executeUpdate();
+                return null;
+            });
+
+            String tableId = nextTableId("SN");
+            insertLookupTableDef(tableId, SAVE_NULL_STRING_TABLE_NAME);
+            insertFieldFull(tableId, "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            LookupCodeValue codeValue = new LookupCodeValue();
+            codeValue.setPrefix(tableId);
+            codeValue.setCode("A");
+            codeValue.setDescription(null);
+            codeValue.setActive(true);
+            codeValue.setOrderByIndex(7);
+
+            // When
+            lookupDao.SaveCodeValue(true, codeValue);
+
+            // Then - insert succeeds with a typed SQL NULL, and the read path restores
+            // the historic NULL -> "" coercion for both real nullable columns and the
+            // synthetic missing generic-idx columns.
+            LookupCodeValue saved = lookupDao.GetCode(tableId, "A");
+            assertThat(saved).isNotNull();
+            assertThat(saved.getCode()).isEqualTo("A");
+            assertThat(saved.getDescription()).isEmpty();
+            assertThat(saved.isActive()).isTrue();
+            assertThat(saved.getOrderByIndex()).isEqualTo(7);
+            assertThat(saved.getParentCode()).isEmpty();
+            assertThat(saved.getBuf1()).isEmpty();
+        }
+
+        @Test
+        @Tag("create")
         @DisplayName("should throw NullPointerException from SaveCodeValue(LookupCodeValue) when table def is missing")
         void shouldThrowNpe_whenTableDefIsMissingForCodeValueOverload() {
             // Given - LookupCodeValue with a prefix that has no table definition
@@ -854,8 +1038,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             insertOrgCode("CHILD", "Child Org", "PARENTCHILD", "PARENT,CHILD,");
             hibernateTemplate.flush();
 
-            // When — the fixed implementation uses HqlQueryHelper with "%" + orgCode
-            // as the parameter value, which is valid HQL and executes without error.
+            // When — the fixed implementation uses JpqlQueryHelper with "%" + orgCode
+            // as the parameter value, which is valid JPQL and executes without error.
             // "PARENTCHILD".indexOf("PARENT") >= 0 → true (CHILD is within PARENT).
             boolean result = lookupDao.inOrg("PARENT", "CHILD");
 
@@ -1065,12 +1249,12 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      *   <li>If first count is zero, count of program_queue entries for programs under the org</li>
      * </ol>
      *
-     * <p><b>SQL injection risk:</b> The orgCd parameter is concatenated directly into SQL
-     * strings without parameterization. This is a known security issue documented for
-     * future remediation during EntityManager migration.</p>
+     * <p><b>SQL injection remediation:</b> The orgCd parameter was previously concatenated
+     * directly into SQL strings. This has been fixed — the method now uses parameterized
+     * queries with {@code DBPreparedHandlerParam} and {@code CONCAT()} instead of Oracle-style
+     * {@code ||} concatenation.</p>
      *
-     * <p><b>H2 compatibility:</b> The SQL uses Oracle-style concatenation ({@code ||})
-     * which H2 supports, but references tables (admission, program_queue) that don't
+     * <p><b>H2 compatibility:</b> References tables (admission, program_queue) that don't
      * exist in the test schema by default.</p>
      */
     @Nested
@@ -1079,22 +1263,36 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("aggregate")
-        @DisplayName("should use string concatenation in SQL - documents injection risk for migration")
-        void shouldDocumentSqlInjectionRisk_inGetCountOfActiveClient() {
-            // Given - This test documents that getCountOfActiveClient builds SQL with
-            // string concatenation of the orgCd parameter:
-            //   "... where codecsv like '%' || '" + orgCd + ",' || '%'"
-            // This is a SQL injection vulnerability that should be fixed during
-            // the EntityManager migration.
+        @DisplayName("should treat SQL injection payload as literal string via parameterized query")
+        void shouldTreatInjectionPayloadAsLiteral_inGetCountOfActiveClient() {
+            // Given - getCountOfActiveClient now uses a JPA named-parameter native
+            // query via entityManager(), so the orgCd value is bound as a literal
+            // parameter. A SQL injection payload should not cause a syntax error.
 
-            // When/Then - DbConnectionFilter does obtain a connection in the Spring test
-            // context, so SQL is executed. The injected payload causes a syntax error
-            // in H2 (embedded semicolons in string literals break multi-statement parsing),
-            // resulting in a JdbcSQLSyntaxErrorException (extends java.sql.SQLException).
-            // This confirms the SQL injection risk: the orgCd value is concatenated
-            // directly into the query string.
-            assertThatThrownBy(() -> lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --"))
-                .isInstanceOf(java.sql.SQLException.class);
+            // When/Then - The injection payload is safely escaped and treated as a
+            // literal LIKE pattern parameter. The query executes without error (though
+            // it may throw a persistence exception for missing tables in the test
+            // schema, the point is it does NOT throw due to SQL injection syntax
+            // breakage). If the underlying tables don't exist, we accept that as a
+            // valid outcome too.
+            try {
+                int count = lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --");
+                assertThat(count).isGreaterThanOrEqualTo(0);
+            } catch (java.sql.SQLException | RuntimeException e) {
+                // Acceptable if caused by missing test tables (admission, program_queue),
+                // but NOT by SQL injection. Verify the underlying error is table-related
+                // by walking the cause chain.
+                Throwable cause = e;
+                StringBuilder messages = new StringBuilder();
+                while (cause != null) {
+                    if (cause.getMessage() != null) {
+                        messages.append(cause.getMessage()).append(" | ");
+                    }
+                    cause = cause.getCause();
+                }
+                assertThat(messages.toString().toLowerCase())
+                    .containsAnyOf("not found", "doesn't exist", "no such table");
+            }
         }
     }
 

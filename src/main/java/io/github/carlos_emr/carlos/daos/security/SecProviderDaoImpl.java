@@ -33,18 +33,16 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockMode;
-import org.hibernate.Session;
-import org.hibernate.query.Query;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import jakarta.persistence.TypedQuery;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
-import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
 @Transactional
-public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProviderDao {
+public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
 
     private static final Set<String> ALLOWED_PROPERTIES = Set.of(
@@ -56,7 +54,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            currentSession().persist(transientInstance);
+            entityManager().persist(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -69,9 +67,9 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         logger.debug("saving Provider instance");
         try {
             if (transientInstance.getProviderNo() == null) {
-                currentSession().persist(transientInstance);
+                entityManager().persist(transientInstance);
             } else {
-                currentSession().merge(transientInstance);
+                entityManager().merge(transientInstance);
             }
             logger.debug("save successful");
         } catch (RuntimeException re) {
@@ -84,7 +82,13 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            currentSession().remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities.
+            // JPA EntityManager.remove() requires a managed instance, so reattach via
+            // merge() first when the caller passes a detached entity.
+            SecProvider managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -96,7 +100,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public SecProvider findById(java.lang.String id) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            SecProvider instance = currentSession().find(SecProvider.class, id);
+            SecProvider instance = entityManager().find(SecProvider.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);
@@ -109,7 +113,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         logger.debug("getting Provider instance with id: " + id);
         try {
             String sql = "from SecProvider where id=?1 and status=?2";
-            List lst = HqlQueryHelper.find(currentSession(), sql, id, status);
+            List lst = JpqlQueryHelper.find(entityManager(), sql, id, status);
             if (lst.size() == 0)
                 return null;
             else
@@ -140,7 +144,7 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
             if (!ALLOWED_PROPERTIES.contains(propertyName)) {
                 throw new IllegalArgumentException("Invalid property name: " + propertyName);
             }
-            return HqlQueryHelper.find(currentSession(),
+            return JpqlQueryHelper.find(entityManager(),
                     "FROM SecProvider WHERE " + propertyName + " = ?1", value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
@@ -235,8 +239,8 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public List findAll() {
         logger.debug("finding all Provider instances");
         try {
-            Query<SecProvider> queryObject = currentSession().createQuery("from SecProvider", SecProvider.class);
-            return queryObject.list();
+            TypedQuery<SecProvider> queryObject = entityManager().createQuery("from SecProvider", SecProvider.class);
+            return queryObject.getResultList();
         } catch (RuntimeException re) {
             logger.error("find all failed", re);
             throw re;
@@ -246,9 +250,8 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     @Override
     public SecProviderDao merge(SecProviderDao detachedInstance) {
         logger.debug("merging Provider instance");
-        Session session = currentSession();
         try {
-            SecProviderDao result = (SecProviderDao) session.merge(detachedInstance);
+            SecProviderDao result = (SecProviderDao) entityManager().merge(detachedInstance);
             logger.debug("merge successful");
             return result;
         } catch (RuntimeException re) {
@@ -260,9 +263,8 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     @Override
     public void attachDirty(SecProviderDao instance) {
         logger.debug("attaching dirty Provider instance");
-        Session session = currentSession();
         try {
-            session.merge(instance);
+            entityManager().merge(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
@@ -274,7 +276,15 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
         try {
-            currentSession().lock(instance, LockMode.NONE);
+            // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
+            // If the entity is already managed, there is nothing to do. If it is detached, merge() is
+            // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
+            // if the detached state differs from the database row. Callers relying on the old "clean"
+            // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            // Pre-existing: parameter type should be SecProvider (entity), not SecProviderDao (interface).
+            if (!entityManager().contains(instance)) {
+                entityManager().merge(instance);
+            }
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

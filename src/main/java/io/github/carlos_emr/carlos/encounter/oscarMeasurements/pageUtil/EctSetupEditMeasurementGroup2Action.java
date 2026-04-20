@@ -59,14 +59,20 @@ public class EctSetupEditMeasurementGroup2Action extends ActionSupport {
 
     public String execute() throws ServletException, IOException {
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+            // CWE-501: validate groupName BEFORE any DAO use or session storage
+            if (groupName != null && (groupName.length() > 100 || !groupName.matches("[^\\p{Cntrl}]+"))) {
+                throw new SecurityException("Invalid measurement group name");
+            }
+
             EctTypeDisplayNameBeanHandler hd = new EctTypeDisplayNameBeanHandler(groupName, false);
             Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();
             hd = new EctTypeDisplayNameBeanHandler(groupName, true);
             Collection allTypeDisplayName = hd.getTypeDisplayNameVector();
 
             HttpSession session = request.getSession();
-            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName);
-            session.setAttribute("allTypeDisplayNames", allTypeDisplayName);
+            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (existing types for group)
+            session.setAttribute("allTypeDisplayNames", allTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
+            // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             session.setAttribute("groupName", groupName);
             return "continue";
 

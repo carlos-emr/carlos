@@ -49,10 +49,10 @@ public class FrmPolicyRecord extends FrmRecord {
             props.setProperty("formCreated", DateUtils.getDateTime());
 
         } else {
-            String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
+            String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no = ? AND ID = ?";
             FrmRecordHelp frmRec = new FrmRecordHelp();
             frmRec.setDateFormat("dd/MM/yyyy");
-            props = frmRec.getFormRecord(sql);
+            props = frmRec.getFormRecord(sql, demographicNo, existingID);
         }
 
         return props;
@@ -61,11 +61,11 @@ public class FrmPolicyRecord extends FrmRecord {
     @Override
     public int saveFormRecord(Properties props) throws SQLException {
         String demographicNo = props.getProperty("demographic_no");
-        String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no=" + demographicNo + " AND ID=0";
+        String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no=? AND ID=0";
         FrmRecordHelp frmRec = new FrmRecordHelp();
         frmRec.setDateFormat("dd/MM/yyyy");
 
-        return frmRec.saveFormRecord(props, sql);
+        return frmRec.saveFormRecord(props, sql, demographicNo);
     }
 
     @Override
@@ -79,8 +79,8 @@ public class FrmPolicyRecord extends FrmRecord {
     }
 
     public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
-        String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no = " + demographicNo + " AND ID = " + existingID;
-        return ((new FrmRecordHelp()).getPrintRecord(sql));
+        String sql = "SELECT * FROM formNoShowPolicy WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
     }
 
 }

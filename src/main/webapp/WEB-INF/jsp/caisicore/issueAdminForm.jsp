@@ -1,3 +1,4 @@
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%--
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -27,13 +28,14 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
     <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_admin");%>
+    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin");%>
 </security:oscarSec>
 <%
     if (!authed) {
@@ -44,25 +46,25 @@
 <title>MyIssues ~ Issue Details</title>
 <p>Please fill in issue's information below:</p>
 <!-- form action="/issueAdmin" focus="issueAdmin.code" onsubmit="return validateIssueAdminForm(this)" -->
-<form action="${pageContext.request.contextPath}/issueAdmin.do" method="post" focus="issueAdmin.code">
+<form action="${pageContext.request.contextPath}/issueAdmin" method="post" focus="issueAdmin.code">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="id" id="id"/>
     <input type="hidden" name="update_date_web" id="update_date_web"/>
 
     <div style="color: red">
-    <%@ include file="/caisicore/messages.jsp" %>
+    <%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
     <table>
         <tr>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.code"/>:</th>
+            <th><fmt:message key="issueAdmin.code"/>:</th>
             <td><input type="text" name="issueAdmin.code" id="issueAdmin.code" /></td>
         </tr>
         <tr>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.description"/>:</th>
+            <th><fmt:message key="issueAdmin.description"/>:</th>
             <td><input type="text" name="issueAdmin.description" id="issueAdmin.description" /></td>
         </tr>
         <tr>
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.role"/>:</th>
+            <th><fmt:message key="issueAdmin.role"/>:</th>
             <td>
                 <%
                     String role = (String) request.getAttribute("issueRole");
@@ -73,12 +75,10 @@
                     <c:choose>
                         <c:when
                                 test="${caisiRole.name == issueAdminForm.map.issueAdmin.role}">
-                            <option value="<c:out value="${caisiRole.name}"/>" selected><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}" selected>${carlos:forHtml(caisiRole.name)}</option>
                         </c:when>
                         <c:otherwise>
-                            <option value="<c:out value="${caisiRole.name}"/>"><c:out
-                                    value="${caisiRole.name}"/></option>
+                            <option value="${carlos:forHtmlAttribute(caisiRole.name)}">${carlos:forHtml(caisiRole.name)}</option>
                         </c:otherwise>
                     </c:choose>
                 </c:forEach>
@@ -86,7 +86,7 @@
         </tr>
         <!--
 <tr>
-     <th><fmt:setBundle basename="oscarResources"/><fmt:message key="issueAdmin.update_date"/>: </th>
+     <th><fmt:message key="issueAdmin.update_date"/>: </th>
      <td><input type="text" name="issueAdmin.update_date" id="issueAdmin.update_date" /></td>
 </tr>
 -->

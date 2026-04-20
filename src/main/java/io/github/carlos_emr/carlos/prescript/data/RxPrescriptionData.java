@@ -2202,12 +2202,12 @@ public class RxPrescriptionData {
             }
             if (getSpecial() == null || getSpecial().length() < 4) {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
-                logger.warn("drug special appears to be null or empty : {}", LogSanitizer.sanitize(getSpecial()));
+                logger.warn("drug special appears to be null or empty : {}", LogSanitizer.sanitize(getSpecial())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
             String parsedSpecial = RxUtil.replace(this.getSpecial(), "'", "");
             //if (parsedSpecial == null || parsedSpecial.length() < 6) {
             if (parsedSpecial == null || parsedSpecial.length() < 4) {
-                logger.warn("drug special after parsing appears to be null or empty : {}", LogSanitizer.sanitize(parsedSpecial));
+                logger.warn("drug special after parsing appears to be null or empty : {}", LogSanitizer.sanitize(parsedSpecial)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             }
 
             FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
