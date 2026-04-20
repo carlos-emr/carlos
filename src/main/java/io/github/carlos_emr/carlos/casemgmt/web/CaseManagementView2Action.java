@@ -588,9 +588,8 @@ public class CaseManagementView2Action extends ActionSupport {
         // deal with local notes
         startTime = System.currentTimeMillis();
         Collection<CaseManagementNote> localNotes = caseManagementNoteDao.findNotesByDemographicAndIssueCode(demographicNo, checkedCodeList.toArray(new String[0]));
-        //show locked notes anyway: localNotes = manageLockedNotes(localNotes, true);
-        localNotes = manageLockedNotes(localNotes, false);
-        
+        // Password/unlock flows have been removed, so legacy locked notes remain visible.
+
         // Only filter if we have a valid program ID
         if (programId != null && !programId.equals("0") && !programId.isEmpty()) {
             localNotes = caseManagementMgr.filterNotes(loggedInInfo, loggedInInfo.getLoggedInProviderNo(), localNotes, programId);
@@ -874,19 +873,6 @@ public class CaseManagementView2Action extends ActionSupport {
         return filteredNotes;
     }
 
-    private List<CaseManagementNote> manageLockedNotes(List<CaseManagementNote> notes, boolean removeLockedNotes) {
-        if (!removeLockedNotes) {
-            return notes;
-        }
-        List<CaseManagementNote> notesNoLocked = new ArrayList<CaseManagementNote>();
-        for (CaseManagementNote note : notes) {
-            if (!note.isLocked()) {
-                notesNoLocked.add(note);
-            }
-        }
-        return notesNoLocked;
-    }
-
     private List<CaseManagementNote> applyProviderFilters(List<CaseManagementNote> notes, String[] providerNo) {
         boolean filter = false;
         List<CaseManagementNote> filteredNotes = new ArrayList<CaseManagementNote>();
@@ -1104,7 +1090,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         // need to apply issue filter
         notes = caseManagementMgr.getActiveNotes(demoNo, issueIds);
-        notes = manageLockedNotes(notes, true);
+        // Password/unlock flows have been removed, so legacy locked notes remain visible.
 
         logger.debug("FETCHED {} NOTES filtered by {}", notes.size(), LogSanitizer.sanitize(StringUtils.join(issueIds, ",")));
         logger.debug("REFERER {}", LogSanitizer.sanitize(request.getRequestURL().toString()));
@@ -1181,7 +1167,8 @@ public class CaseManagementView2Action extends ActionSupport {
         searchBean.setSearchStartDate(this.getSearchStartDate());
         searchBean.setSearchText(this.getSearchText());
         List<CaseManagementNote> results = caseManagementMgr.search(searchBean);
-        Collection<CaseManagementNote> filtered1 = manageLockedNotes(results, false);
+        // Password/unlock flows have been removed, so legacy locked notes remain visible.
+        Collection<CaseManagementNote> filtered1 = results;
         
         // Only filter if we have a valid program ID
         List<CaseManagementNote> filteredResults;
@@ -1268,19 +1255,6 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         return (false);
-    }
-
-    private Collection<CaseManagementNote> manageLockedNotes(Collection<CaseManagementNote> notes, boolean removeLockedNotes) {
-        if (!removeLockedNotes) {
-            return notes;
-        }
-        List<CaseManagementNote> notesNoLocked = new ArrayList<CaseManagementNote>();
-        for (CaseManagementNote note : notes) {
-            if (!note.isLocked()) {
-                notesNoLocked.add(note);
-            }
-        }
-        return notesNoLocked;
     }
 
     private ArrayList<NoteDisplay> applyProviderFilter(ArrayList<NoteDisplay> notes, String[] providerName) {

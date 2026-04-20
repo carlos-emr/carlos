@@ -1777,10 +1777,10 @@ function updateCPPNote() {
 
     }
 
-// send password to server for auth to display locked Note
     var sessionExpiredError;
 
-//display unlock note password text field and submit button
+// Check whether another provider currently has this note open for editing.
+// Returns the server's edit-lock status as JSON-derived string ("true"/"false"/"").
     function NoteisLocked(nId) {
 
         var noteIsLocked = "";
