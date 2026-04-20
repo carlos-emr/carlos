@@ -186,7 +186,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     /**
      * Receives uploaded files from the Struts 7 multipart upload lifecycle and
-     * stores the first validated upload for later processing.
+     * stores the first uploaded file reference for later validation and processing.
      *
      * @param uploadedFiles List<UploadedFile> the uploaded files supplied by Struts
      */
@@ -194,7 +194,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.clientImage = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.clientImage = new File(uploaded.getAbsolutePath());
             this.clientImageFileName = uploaded.getOriginalName();
         }
     }

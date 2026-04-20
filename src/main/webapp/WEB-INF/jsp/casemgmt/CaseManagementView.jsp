@@ -49,7 +49,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     Logger logger = MiscUtils.getLogger();
 
