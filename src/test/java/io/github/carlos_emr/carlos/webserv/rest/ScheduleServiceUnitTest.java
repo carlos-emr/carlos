@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import java.lang.reflect.Method;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -127,19 +126,16 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         Response response = service.saveSearchConfig(123, new SearchConfigTo1());
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
-        assertThat(response.getEntity()).isEqualTo("Internal server error");
+        assertThat(response.getEntity()).isEqualTo("Failed to save search configuration");
     }
 
     @Test
     @DisplayName("should return missing filter sentinel when filter class name is null")
-    void shouldReturnMissingFilterSentinel_whenFilterClassNameIsNull() throws Exception {
+    void shouldReturnMissingFilterSentinel_whenFilterClassNameIsNull() {
         FilterDefinition filterDefinition = new FilterDefinition();
         filterDefinition.setFilterClassName(null);
 
-        Method method = ScheduleService.class.getDeclaredMethod("findUnknownFilter", List.class);
-        method.setAccessible(true);
-
-        String unknownFilter = (String) method.invoke(service, List.of(filterDefinition));
+        String unknownFilter = service.findUnknownFilter(List.of(filterDefinition));
 
         assertThat(unknownFilter).isEqualTo("<missing filterClassName>");
     }

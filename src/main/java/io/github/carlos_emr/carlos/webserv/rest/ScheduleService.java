@@ -670,7 +670,7 @@ public class ScheduleService extends AbstractServiceImpl {
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
             return Response.status(Status.INTERNAL_SERVER_ERROR)
-                    .entity("Internal server error")
+                    .entity("Failed to save search configuration")
                     .build();
         }
 
@@ -705,7 +705,7 @@ public class ScheduleService extends AbstractServiceImpl {
         return null;
     }
 
-    private String findUnknownFilter(List<FilterDefinition> filters) {
+    String findUnknownFilter(List<FilterDefinition> filters) {
         if (filters == null) {
             return null;
         }
