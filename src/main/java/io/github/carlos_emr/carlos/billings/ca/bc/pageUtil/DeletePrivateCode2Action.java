@@ -78,10 +78,19 @@ public final class DeletePrivateCode2Action extends ActionSupport {
 
         String serviceCode = request.getParameter("code");
         if (serviceCode == null || serviceCode.isBlank()) {
-            serviceCode = "-1";
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "code is required");
+            return NONE;
         }
 
-        new BillingCodeData().deleteBillingCode(serviceCode);
+        final String normalizedServiceCode = serviceCode.trim();
+        try {
+            Integer.parseInt(normalizedServiceCode);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "code must be numeric");
+            return NONE;
+        }
+
+        new BillingCodeData().deleteBillingCode(normalizedServiceCode);
 
         return SUCCESS;
     }
