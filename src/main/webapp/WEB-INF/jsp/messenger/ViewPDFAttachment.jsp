@@ -109,8 +109,7 @@
 <html lang="${pageContext.request.locale.language}">
 <head>
     <meta charset="UTF-8">
-    <%@ include file="/includes/global-head.jspf" %>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <%
         // Extract and store PDF attachment data for processing
@@ -120,6 +119,7 @@
 
     <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
 </head>
+<fmt:message key="global.btnClose" var="closeLabel"/>
 <body>
 <div class="container-fluid px-2 py-2">
 
@@ -132,7 +132,7 @@
         <button type="button"
                 class="btn-close"
                 onclick="this.closest('.alert').style.display='none'"
-                aria-label="Close"></button>
+                aria-label="${closeLabel}"></button>
     </div>
 
     <%-- Page header bar --%>
