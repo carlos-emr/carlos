@@ -105,7 +105,9 @@ import org.w3c.dom.Document;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ScheduleService extends AbstractServiceImpl {
 
+    private static final String MISSING_FILTER_DEFINITION_SENTINEL = "<missing filterDefinition>";
     private static final String MISSING_FILTER_KEY_SENTINEL = "<missing filterClassName>";
+    private static final String MISSING_PROVIDER_SENTINEL = "<missing provider>";
 
     Logger logger = MiscUtils.getLogger();
 
@@ -691,7 +693,10 @@ public class ScheduleService extends AbstractServiceImpl {
         Map<String, Provider> providers = searchConfig.getProviders();
         if (providers != null) {
             for (Provider provider : providers.values()) {
-                unknownFilter = findUnknownFilter(provider == null ? null : provider.getFilter());
+                if (provider == null) {
+                    return MISSING_PROVIDER_SENTINEL;
+                }
+                unknownFilter = findUnknownFilter(provider.getFilter());
                 if (unknownFilter != null) {
                     return unknownFilter;
                 }
@@ -705,7 +710,10 @@ public class ScheduleService extends AbstractServiceImpl {
             return null;
         }
         for (FilterDefinition fd : filters) {
-            if (fd == null || fd.getFilterClassName() == null) {
+            if (fd == null) {
+                return MISSING_FILTER_DEFINITION_SENTINEL;
+            }
+            if (fd.getFilterClassName() == null) {
                 return MISSING_FILTER_KEY_SENTINEL;
             }
             if (!FilterRegistry.isKnown(fd.getFilterClassName())) {

@@ -33,11 +33,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
-import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,7 +59,6 @@ import static org.mockito.Mockito.when;
  * @since 2026-04-20
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("ScheduleService unit tests")
 @Tag("unit")
 @Tag("fast")
@@ -93,12 +89,15 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return bad request when search configuration id is missing")
-    void shouldReturnBadRequest_whenSearchConfigurationIdIsMissing() {
-        Response response = service.saveSearchConfig(0, new SearchConfigTo1());
+    @DisplayName("should return bad request when search configuration id is null or zero")
+    void shouldReturnBadRequest_whenSearchConfigurationIdIsNullOrZero() {
+        Response nullIdResponse = service.saveSearchConfig(null, new SearchConfigTo1());
+        Response zeroIdResponse = service.saveSearchConfig(0, new SearchConfigTo1());
 
-        assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
-        assertThat(response.getEntity()).isEqualTo("Invalid search configuration id");
+        assertThat(nullIdResponse.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        assertThat(nullIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
+        assertThat(zeroIdResponse.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        assertThat(zeroIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
         verify(appointmentSearchDao, never()).find(any());
     }
 
@@ -137,13 +136,10 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         FilterDefinition filterDefinition = new FilterDefinition();
         filterDefinition.setFilterClassName(null);
 
-        SearchConfig searchConfig = new SearchConfig();
-        searchConfig.setFilters(List.of(filterDefinition));
-
-        Method method = ScheduleService.class.getDeclaredMethod("findUnknownFilter", SearchConfig.class);
+        Method method = ScheduleService.class.getDeclaredMethod("findUnknownFilter", List.class);
         method.setAccessible(true);
 
-        String unknownFilter = (String) method.invoke(service, searchConfig);
+        String unknownFilter = (String) method.invoke(service, List.of(filterDefinition));
 
         assertThat(unknownFilter).isEqualTo("<missing filterClassName>");
     }
