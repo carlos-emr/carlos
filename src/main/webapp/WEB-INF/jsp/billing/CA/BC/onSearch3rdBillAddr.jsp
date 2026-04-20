@@ -340,6 +340,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return org.owasp.encoder.SafeEncode.forJavaScript(d);
+        return SafeEncode.forJavaScript(d);
     }
 %>
