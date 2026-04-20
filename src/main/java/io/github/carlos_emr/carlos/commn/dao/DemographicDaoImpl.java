@@ -1507,16 +1507,32 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     @Override
     public String getOrderField(String orderBy, boolean nativeQuery) {
         if (!nativeQuery) {
-            orderBy = getOrderField(orderBy);
-        } else {
-            if (orderBy.equals("dob")) {
-                orderBy = "de.year_of_birth, de.month_of_birth, de.date_of_birth ";
-            } else {
-                orderBy = "de." + orderBy;
-            }
+            return getOrderField(orderBy);
         }
 
-        return orderBy;
+        String orderByField = "de.last_name, de.first_name";
+
+        if ("last_name".equals(orderBy) || "last_name, first_name".equals(orderBy)) {
+            orderByField = "de.last_name, de.first_name";
+        } else if ("demographic_no".equals(orderBy)) {
+            orderByField = "de.demographic_no";
+        } else if ("chart_no".equals(orderBy)) {
+            orderByField = "de.chart_no";
+        } else if ("sex".equals(orderBy)) {
+            orderByField = "de.sex";
+        } else if ("dob".equals(orderBy)) {
+            orderByField = "de.year_of_birth, de.month_of_birth, de.date_of_birth";
+        } else if ("provider_no".equals(orderBy)) {
+            orderByField = "de.provider_no";
+        } else if ("roster_status".equals(orderBy)) {
+            orderByField = "de.roster_status";
+        } else if ("patient_status".equals(orderBy)) {
+            orderByField = "de.patient_status";
+        } else if ("phone".equals(orderBy)) {
+            orderByField = "de.phone";
+        }
+
+        return orderByField;
     }
 
     @Override

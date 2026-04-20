@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.DemographicCriterion;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -65,6 +68,12 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DemographicDaoImpl demographicDaoImpl;
+
+    @Autowired
+    private DemographicExtDao demographicExtDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private Demographic demo1, demo2, demo3, demo4;
     private String uniquePrefix;
@@ -117,8 +126,8 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
      * @return Demographic the persisted demographic entity with a generated ID
      */
     private Demographic createDemographicWithRoster(String firstName, String lastName,
-                                                     String hcType, String hin, String patientStatus,
-                                                     String rosterStatus) {
+                                                      String hcType, String hin, String patientStatus,
+                                                      String rosterStatus) {
         Demographic demo = new Demographic();
         demo.setFirstName(firstName);
         demo.setLastName(lastName);
@@ -136,6 +145,18 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         demographicDao.save(demo);
         hibernateTemplate.flush();
         return demo;
+    }
+
+    /**
+     * Persists a demographic extension row for the provided patient and flushes it for native-query visibility.
+     *
+     * @param demographicNo Integer the demographic number
+     * @param key String the demographic extension key
+     * @param value String the demographic extension value
+     */
+    private void createDemographicExt(Integer demographicNo, String key, String value) {
+        demographicExtDao.saveDemographicExt(demographicNo, key, value);
+        entityManager.flush();
     }
 
     /**
@@ -568,6 +589,50 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_MONTH, -days);
             return cal.getTime();
+        }
+    }
+
+    /**
+     * Regression tests for {@link DemographicDaoImpl#getOrderField(String, boolean)} native query allowlisting.
+     *
+     * <p>These tests pin the native-query branch to the same approved sort fields as the HQL branch so
+     * future callers cannot inject arbitrary SQL into {@code ORDER BY} clauses.</p>
+     */
+    @Nested
+    @DisplayName("Native order-by allowlist")
+    @Tag("regression")
+    class NativeOrderByAllowlist {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return safe native default when order-by is unknown")
+        void shouldReturnSafeNativeDefault_whenOrderByIsUnknown() {
+            assertThat(demographicDaoImpl.getOrderField("last_name desc", true))
+                .isEqualTo("de.last_name, de.first_name");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return composite native date-of-birth ordering")
+        void shouldReturnCompositeNativeDateOfBirthOrdering_whenOrderByIsDob() {
+            assertThat(demographicDaoImpl.getOrderField("dob", true))
+                .isEqualTo("de.year_of_birth, de.month_of_birth, de.date_of_birth");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should use safe default when native ext search receives non-whitelisted order-by")
+        void shouldUseSafeDefault_whenNativeExtSearchReceivesNonWhitelistedOrderBy() {
+            createDemographicExt(demo1.getDemographicNo(), DemographicExt.DemographicProperty.demo_cell.name(), "555-1111");
+            createDemographicExt(demo2.getDemographicNo(), DemographicExt.DemographicProperty.demo_cell.name(), "555-2222");
+
+            List<Demographic> results = demographicDao.searchDemographicByExtKeyAndValueLikeAndStatus(
+                DemographicExt.DemographicProperty.demo_cell, "555", null, 10, 0, "last_name desc, de.hin",
+                null, true);
+
+            assertThat(results)
+                .extracting(Demographic::getDemographicNo)
+                .containsExactly(demo2.getDemographicNo(), demo1.getDemographicNo());
         }
     }
 
