@@ -44,20 +44,18 @@ import static org.mockito.Mockito.when;
 @DisplayName("AppointmentStatusMgrImpl unit tests")
 class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
-    private AppointmentStatusDao appointmentStatusDao;
     private CacheManager cacheManager;
-    private Cache appointmentStatusesCache;
 
     @BeforeEach
     void setUp() {
-        appointmentStatusDao = createAndRegisterMock(AppointmentStatusDao.class);
+        createAndRegisterMock(AppointmentStatusDao.class);
         cacheManager = createAndRegisterMock(CacheManager.class);
-        appointmentStatusesCache = mock(Cache.class);
     }
 
     @Test
     @DisplayName("should clear appointment status cache when legacy dirty flag is set")
     void shouldClearAppointmentStatusCache_whenLegacyDirtyFlagSet() {
+        Cache appointmentStatusesCache = mock(Cache.class);
         when(cacheManager.getCache("appointmentStatuses")).thenReturn(appointmentStatusesCache);
 
         AppointmentStatusMgrImpl.setCacheIsDirty(true);

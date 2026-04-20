@@ -55,8 +55,22 @@ import org.springframework.cache.CacheManager;
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static AppointmentStatusDao appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
-    private static CacheManager cacheManager = SpringUtils.getBean(CacheManager.class);
+    private static AppointmentStatusDao appointStatusDao;
+    private static CacheManager cacheManager;
+
+    private static AppointmentStatusDao getAppointmentStatusDao() {
+        if (appointStatusDao == null) {
+            appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
+        }
+        return appointStatusDao;
+    }
+
+    private static CacheManager getCacheManager() {
+        if (cacheManager == null) {
+            cacheManager = SpringUtils.getBean(CacheManager.class);
+        }
+        return cacheManager;
+    }
 
     /**
      * Returns the active appointment statuses, backed by the DAO-level Spring cache.
@@ -64,7 +78,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
      * @return List of active AppointmentStatus instances (unmodifiable, from cache)
      */
     public static List<AppointmentStatus> getCachedActiveStatuses() {
-        return appointStatusDao.findActive();
+        return getAppointmentStatusDao().findActive();
     }
 
     /**
@@ -106,7 +120,7 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
             return;
         }
 
-        Cache cache = cacheManager.getCache("appointmentStatuses");
+        Cache cache = getCacheManager().getCache("appointmentStatuses");
         if (cache != null) {
             cache.clear();
         } else {
@@ -115,43 +129,43 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     public List<AppointmentStatus> getAllStatus() {
-        return appointStatusDao.findAll();
+        return getAppointmentStatusDao().findAll();
     }
 
     public List<AppointmentStatus> getAllActiveStatus() {
-        return appointStatusDao.findActive();
+        return getAppointmentStatusDao().findActive();
     }
 
     public AppointmentStatus getStatus(int ID) {
-        return appointStatusDao.find(ID);
+        return getAppointmentStatusDao().find(ID);
     }
 
     public void changeStatus(int ID, int iActive) {
-        appointStatusDao.changeStatus(ID, iActive);
+        getAppointmentStatusDao().changeStatus(ID, iActive);
     }
 
     public void modifyStatus(int ID, String strDesc, String strColor) {
-        appointStatusDao.modifyStatus(ID, strDesc, strColor);
+        getAppointmentStatusDao().modifyStatus(ID, strDesc, strColor);
     }
 
     public int checkStatusUsuage(List<AppointmentStatus> allStatus) {
-        return appointStatusDao.checkStatusUsuage(allStatus);
+        return getAppointmentStatusDao().checkStatusUsuage(allStatus);
     }
 
     public void reset() {
-        appointStatusDao.modifyStatus(1, "To Do", "#FDFEC7");
-        appointStatusDao.modifyStatus(2, "Daysheet Printed", "#FDFEC7");
-        appointStatusDao.modifyStatus(3, "Here", "#00ee00");
-        appointStatusDao.modifyStatus(4, "Picked", "#FFBBFF");
-        appointStatusDao.modifyStatus(5, "Empty Room", "#FFFF33");
-        appointStatusDao.modifyStatus(6, "Costumized 1", "#897DF8");
-        appointStatusDao.modifyStatus(7, "Costumized 2", "#897DF8");
-        appointStatusDao.modifyStatus(8, "Costumized 3", "#897DF8");
-        appointStatusDao.modifyStatus(9, "Costumized 4", "#897DF8");
-        appointStatusDao.modifyStatus(10, "Costumized 5", "#897DF8");
-        appointStatusDao.modifyStatus(11, "Costumized 6", "#897DF8");
-        appointStatusDao.modifyStatus(12, "No Show", "#cccccc");
-        appointStatusDao.modifyStatus(13, "Cancelled", "#999999");
-        appointStatusDao.modifyStatus(14, "Billed", "#3ea4e1");
+        getAppointmentStatusDao().modifyStatus(1, "To Do", "#FDFEC7");
+        getAppointmentStatusDao().modifyStatus(2, "Daysheet Printed", "#FDFEC7");
+        getAppointmentStatusDao().modifyStatus(3, "Here", "#00ee00");
+        getAppointmentStatusDao().modifyStatus(4, "Picked", "#FFBBFF");
+        getAppointmentStatusDao().modifyStatus(5, "Empty Room", "#FFFF33");
+        getAppointmentStatusDao().modifyStatus(6, "Costumized 1", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(7, "Costumized 2", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(8, "Costumized 3", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(9, "Costumized 4", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(10, "Costumized 5", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(11, "Costumized 6", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(12, "No Show", "#cccccc");
+        getAppointmentStatusDao().modifyStatus(13, "Cancelled", "#999999");
+        getAppointmentStatusDao().modifyStatus(14, "Billed", "#3ea4e1");
     }
 }
