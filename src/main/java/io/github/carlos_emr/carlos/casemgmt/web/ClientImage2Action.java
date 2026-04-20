@@ -27,10 +27,12 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.ActionSupport;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
@@ -47,8 +49,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.List;
 
-public class ClientImage2Action extends ActionSupport {
+public class ClientImage2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -83,13 +86,28 @@ public class ClientImage2Action extends ActionSupport {
 
         log.info("client image upload requested");
 
+        if (id == null || id.isBlank()) {
+            addActionError("No client selected.");
+            return ERROR;
+        }
+
+        if (clientImage == null || clientImageFileName == null || clientImageFileName.isBlank()) {
+            addActionError("Please select an image to upload.");
+            return ERROR;
+        }
+
         // Get file extension from original filename
         String type = null;
-        if (clientImageFileName != null && clientImageFileName.contains(".")) {
-            type = clientImageFileName.substring(clientImageFileName.lastIndexOf('.') + 1).toLowerCase();
+        if (clientImageFileName.contains(".")) {
+            type = normalizeImageType(clientImageFileName.substring(clientImageFileName.lastIndexOf('.') + 1));
         }
 
         log.info("extension = " + type);
+
+        if (type == null) {
+            addActionError("Only GIF and JPG image types are allowed for the client photo.");
+            return ERROR;
+        }
 
         // Ensure that the upload directory is correct and create a new image object that will be saved to the client
         try {
@@ -119,6 +137,21 @@ public class ClientImage2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    private String normalizeImageType(String imageType) {
+        if (imageType == null) {
+            return null;
+        }
+
+        String normalized = imageType.trim().toLowerCase();
+        if ("jpg".equals(normalized) || "jpeg".equals(normalized) || "image/jpeg".equals(normalized) || "image/jpg".equals(normalized)) {
+            return "jpg";
+        }
+        if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
+            return "gif";
+        }
+        return null;
+    }
+
     public String deleteImage() {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
@@ -143,6 +176,15 @@ public class ClientImage2Action extends ActionSupport {
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            this.clientImage = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.clientImageFileName = uploaded.getOriginalName();
+        }
     }
 
     @StrutsParameter

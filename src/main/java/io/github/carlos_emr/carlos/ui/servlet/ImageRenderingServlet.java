@@ -131,8 +131,9 @@ public final class ImageRenderingServlet extends HttpServlet {
             try {
                 // get image
                 ClientImage clientImage = clientImageDAO.getClientImage(Integer.parseInt(clientId));
-                if (clientImage != null && "jpg".equalsIgnoreCase(clientImage.getImage_type())) {
-                    renderImage(response, clientImage.getImage_data(), "jpeg");
+                String imageType = getRenderableImageType(clientImage);
+                if (imageType != null) {
+                    renderImage(response, clientImage.getImage_data(), imageType);
                     return;
                 } else {
                     renderImage(response, getDefaultImage(request), "jpeg");
@@ -145,11 +146,38 @@ public final class ImageRenderingServlet extends HttpServlet {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
+    private static String getRenderableImageType(ClientImage clientImage) {
+        if (clientImage == null || clientImage.getImage_data() == null || clientImage.getImage_data().length == 0) {
+            return null;
+        }
+
+        String imageType = clientImage.getImage_type();
+        if (imageType == null) {
+            return null;
+        }
+
+        String normalized = imageType.trim().toLowerCase();
+        if ("jpg".equals(normalized) || "jpeg".equals(normalized) || "image/jpeg".equals(normalized) || "image/jpg".equals(normalized)) {
+            return "jpeg";
+        }
+        if ("gif".equals(normalized) || "image/gif".equals(normalized)) {
+            return "gif";
+        }
+        if ("png".equals(normalized) || "image/png".equals(normalized)) {
+            return "png";
+        }
+        return null;
+    }
+
     private static byte[] getDefaultImage(HttpServletRequest request) {
         String defaultClientImage = "/images/defaultG_img.jpg";
 
         try (ByteArrayOutputStream bais = new ByteArrayOutputStream();
              InputStream is = request.getSession().getServletContext().getResourceAsStream(defaultClientImage)) {
+            if (is == null) {
+                logger.warn("Default client image not found at {}", defaultClientImage);
+                return null;
+            }
             byte[] byteChunk = new byte[1024];
             int n;
             while ((n = is.read(byteChunk)) > 0) {
