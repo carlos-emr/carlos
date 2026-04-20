@@ -46,6 +46,8 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path EFORM_UTIL =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/eform/EFormUtil.java");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -79,6 +81,14 @@ class EFormJspMigrationRegressionTest {
 
         assertThat(struts).contains("<action name=\"eform/displayImage\"");
         assertThat(struts).contains("<action name=\"eform/displayImage.do\"");
+    }
+
+    @Test
+    @DisplayName("loadEForm should normalize fid to a String for the edit JSP")
+    void shouldNormalizeFidToString_whenReadingLoadEFormImplementation() throws IOException {
+        String eformUtil = Files.readString(EFORM_UTIL, StandardCharsets.UTF_8);
+
+        assertThat(eformUtil).contains("curht.put(\"fid\", eform.getId().toString());");
     }
 
     @Test
