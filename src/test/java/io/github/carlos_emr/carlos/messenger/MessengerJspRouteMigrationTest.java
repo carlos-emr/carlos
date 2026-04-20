@@ -45,6 +45,8 @@ class MessengerJspRouteMigrationTest {
             Path.of("src/main/webapp/WEB-INF/jsp/messenger/attachmentFrameset.jsp");
     private static final Path GENERATE_PREVIEW =
             Path.of("src/main/webapp/WEB-INF/jsp/messenger/generatePreviewPDF.jsp");
+    private static final Path SELF_CLOSE_AND_REFRESH_OPENER =
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp");
     private static final Path LEGACY_ADJUST_ATTACHMENTS =
             Path.of("src/main/webapp/messenger/AdjustAttachments.jsp");
 
@@ -77,6 +79,47 @@ class MessengerJspRouteMigrationTest {
                 .doesNotContain("echarthistoryprint.jsp")
                 .doesNotContain("PrintDrugProfile2.jsp")
                 .doesNotContain("/securityError.jsp?type=_msg");
+    }
+
+    @Test
+    @DisplayName("attachment frameset should encode the locale lang attribute")
+    void attachmentFramesetShouldEncodeLocaleLangAttribute() throws Exception {
+        String jsp = Files.readString(ATTACHMENT_FRAMESET);
+
+        assertThat(jsp)
+                .contains("<%@ taglib uri=\"owasp.encoder.jakarta\" prefix=\"e\" %>")
+                .contains("<html lang=\"${e:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
+    }
+
+    @Test
+    @DisplayName("generate preview JSP should localize attachment titles and restore checked batch indexes")
+    void generatePreviewJspShouldLocalizeAttachmentTitlesAndRestoreIndexes() throws Exception {
+        String jsp = Files.readString(GENERATE_PREVIEW);
+
+        assertThat(jsp)
+                .contains("<fmt:message key=\"messenger.generatePreviewPDF.information\" var=\"informationLabel\"/>")
+                .contains("<fmt:message key=\"messenger.generatePreviewPDF.encounter\" var=\"encounterLabel\"/>")
+                .contains("request.getParameterValues(\"indexArray\")")
+                .contains("selectedIndexes.contains(")
+                .contains("checked")
+                .contains("<html lang=\"${e:forHtmlAttribute(pageContext.request.locale.language)}\">")
+                .doesNotContain("pageContext.setAttribute(\"demoTitleValue\", demoName + \" information\");")
+                .doesNotContain("pageContext.setAttribute(\"ecTitleValue\", \"Encounter: \" + ec.getTimestamp().toString());")
+                .doesNotContain("<html lang=\"${pageContext.request.locale.language}\">");
+    }
+
+    @Test
+    @DisplayName("self-close helper should always close the popup in finally")
+    void selfCloseHelperShouldAlwaysClosePopup() throws Exception {
+        String jsp = Files.readString(SELF_CLOSE_AND_REFRESH_OPENER);
+
+        assertThat(jsp)
+                .contains("try {")
+                .contains("} catch (e) {")
+                .contains("} finally {")
+                .contains("!top.opener.closed")
+                .contains("top.window.close();");
     }
 
     @Test

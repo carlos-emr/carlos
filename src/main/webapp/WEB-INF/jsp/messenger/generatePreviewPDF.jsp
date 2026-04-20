@@ -85,6 +85,11 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
+<fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
+<fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
+<fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
+<fmt:message key="messenger.generatePreviewPDF.msgAttachingCount" var="jsAttachingTemplate"/>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -139,9 +144,11 @@
     request.getSession().setAttribute("EctSessionBean", bean);
 
     // Expose display variables as page attributes for EL/OWASP encoding
+    String informationLabel = (String) pageContext.findAttribute("informationLabel");
+    String encounterLabel = (String) pageContext.findAttribute("encounterLabel");
     pageContext.setAttribute("demoName", demoName);
     // Build the demographic titleArray metadata value (used as PDF attachment title)
-    pageContext.setAttribute("demoTitleValue", demoName + " information");
+    pageContext.setAttribute("demoTitleValue", demoName + " " + informationLabel);
 
     // Resolve encounter data for the patient
     EChart ec = eChartDao.getLatestChart(Integer.parseInt(demographic_no));
@@ -149,7 +156,7 @@
     if (ec != null) {
         pageContext.setAttribute("ecTimestamp", ec.getTimestamp().toString());
         // Build encounter titleArray metadata value (used as PDF attachment title)
-        pageContext.setAttribute("ecTitleValue", "Encounter: " + ec.getTimestamp().toString());
+        pageContext.setAttribute("ecTitleValue", encounterLabel + " " + ec.getTimestamp().toString());
     }
 
     // Compute URIs for each document type
@@ -182,15 +189,16 @@
 
     String rxUri = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo;
     pageContext.setAttribute("rxUri", rxUri);
+
+    Set<String> selectedIndexes = new HashSet<>();
+    String[] submittedIndexes = request.getParameterValues("indexArray");
+    if (submittedIndexes != null) {
+        selectedIndexes.addAll(Arrays.asList(submittedIndexes));
+    }
 %>
 
-<%-- Pre-compute i18n message strings for use in JavaScript and hidden form fields --%>
-<fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
-<fmt:message key="messenger.generatePreviewPDF.msgAttachingCount" var="jsAttachingTemplate"/>
-<fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
-
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>
@@ -379,8 +387,10 @@
                         <input type="checkbox" name="uriArray"
                                value="<%=Encode.forHtmlAttribute(demoUri)%>"
                                style="display:none"/>
+                        <% String demoIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
-                               value="<%= Integer.toString(indexCount++) %>"/>
+                               value="<%= demoIndex %>"
+                               <%= selectedIndexes.contains(demoIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
                                value="${e:forHtmlAttribute(demoTitleValue)}"
                                style="display:none"/>
@@ -413,8 +423,10 @@
                         <input type="checkbox" name="uriArray"
                                value="<%=Encode.forHtmlAttribute(ecUri)%>"
                                style="display:none"/>
+                        <% String encounterIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
-                               value="<%= Integer.toString(indexCount++) %>"/>
+                               value="<%= encounterIndex %>"
+                               <%= selectedIndexes.contains(encounterIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
                                value="${e:forHtmlAttribute(ecTitleValue)}"
                                style="display:none"/>
@@ -444,8 +456,10 @@
                         <input type="checkbox" name="uriArray"
                                value="<%=Encode.forHtmlAttribute(rxUri)%>"
                                style="display:none"/>
+                        <% String prescriptionIndex = Integer.toString(indexCount++); %>
                         <input type="checkbox" name="indexArray"
-                               value="<%= Integer.toString(indexCount++) %>"/>
+                               value="<%= prescriptionIndex %>"
+                               <%= selectedIndexes.contains(prescriptionIndex) ? "checked" : "" %>/>
                         <input type="checkbox" name="titleArray"
                                value="${e:forHtmlAttribute(currentPrescTitle)}"
                                style="display:none"/>
