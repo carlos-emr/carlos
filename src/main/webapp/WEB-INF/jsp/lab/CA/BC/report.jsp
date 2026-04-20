@@ -301,9 +301,16 @@
             </td>
             <td class="Text" nowrap class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= hl7_obx.getUnits() %>' context="html"/>
             </td>
+            <%
+                String rawObxNote = hl7_obx.getNote() != null ? hl7_obx.getNote() : "";
+                String normalizedObxNote = rawObxNote.replace("\\.br\\", " ");
+                String previewObxNote = normalizedObxNote.length() < 20
+                        ? normalizedObxNote
+                        : normalizedObxNote.substring(0, 20);
+            %>
             <td class="Text" nowrap
-                title="<carlos:encode value='<%= hl7_obx.getNote().replaceAll("\\\\\\.br\\\\", " ") %>' context="htmlAttribute"/>"
-                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= ((hl7_obx.getNote().length() < 20) ? hl7_obx.getNote() : hl7_obx.getNote().substring(0, 20)).replaceAll("\\\\\\.br\\\\", " ") %>' context="html"/>
+                title="<carlos:encode value='<%= normalizedObxNote %>' context="htmlAttribute"/>"
+                class="<%=(other? "LightBG" : "WhiteBG")%>"><carlos:encode value='<%= previewObxNote %>' context="html"/>
             </td>
         </tr>
         <%

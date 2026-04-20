@@ -49,8 +49,6 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Date;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Locale;
 
 import org.owasp.encoder.Encode;
@@ -136,16 +134,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
     public CaseManagementNote getLastSaved(HttpServletRequest request, String demono, String providerNo, CaseManagementManager caseManagementMgr) {
         HttpSession session = request.getSession();
         String programId = (String) session.getAttribute("case_program_id");
-        Map unlockedNotesMap = this.getUnlockedNotesMap(request);
-        return caseManagementMgr.getLastSaved(programId, demono, providerNo, unlockedNotesMap);
-    }
-
-    protected Map getUnlockedNotesMap(HttpServletRequest request) {
-        Map<Long, Boolean> map = (Map<Long, Boolean>) request.getSession().getAttribute("unlockedNoteMap");
-        if (map == null) {
-            map = new HashMap<Long, Boolean>();
-        }
-        return map;
+        return caseManagementMgr.getLastSaved(programId, demono, providerNo);
     }
 
     private void createAndSaveNewNote(LoggedInInfo loggedInInfo, String demographicNo, String programNo, CaseManagementManager caseManagementMgr, Date today, String noteBody, String signNote) {
@@ -174,7 +163,6 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
         note.setReporter_caisi_role(role);
         note.setReporter_program_team("0");
-        note.setPassword(null);
         note.setLocked(false);
         note.setHistory(noteBody);
         note.setUpdate_date(today);

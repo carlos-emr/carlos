@@ -31,28 +31,18 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import jakarta.persistence.PersistenceException;
-
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.EncounterUtil;
-
-import io.github.carlos_emr.carlos.util.SqlUtils;
 
 public interface CaseManagementNoteDAO {
 
@@ -253,64 +243,20 @@ public interface CaseManagementNoteDAO {
     /**
      * Get the count of demographic Id's based on the providerId and encounterType,
      * 2 numbers will be provided, the unique count and the non unique count (which
-     * just represents the
-     * number of encounters in general) All encounter types are represented in the
-     * resulting hashMap, even ones with 0 counts.
+     * just represents the number of encounters in general). All encounter types are
+     * represented in the resulting hashMap, even ones with 0 counts.
      *
-     * @param programId can be null at which point it's across the entire agency
+     * @param programId Integer the program number, or {@code null} to span all programs
+     * @param roleId int the {@code reporter_caisi_role} to match
+     * @param startDate Date inclusive lower bound on {@code observation_date}
+     * @param endDate Date exclusive upper bound on {@code observation_date}
+     * @return EncounterCounts non-null aggregate; maps are zero-initialised for
+     *         {@link EncounterUtil.EncounterType} values that had no matching rows
+     * @throws org.springframework.dao.DataAccessException if the underlying query fails
+     * @since 2026-04-12
      */
-    public static EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
-                                                                                  Date startDate, Date endDate) {
-        Connection c = null;
-        try {
-            EncounterCounts results = new EncounterCounts();
-            c = DbConnectionFilter.getThreadLocalDbConnection();
-
-            // get the numbers broken down by encounter types
-            {
-                String sqlCommand = "select encounter_type,count(demographic_no), count(distinct demographic_no) from casemgmt_note where reporter_caisi_role=? and observation_date>=? and observation_date<?"
-                        + (programId == null ? "" : " and program_no=?") + " group by encounter_type";
-                PreparedStatement ps = c.prepareStatement(sqlCommand);
-                ps.setInt(1, roleId);
-                ps.setTimestamp(2, new Timestamp(startDate.getTime()));
-                ps.setTimestamp(3, new Timestamp(endDate.getTime()));
-                if (programId != null)
-                    ps.setInt(4, programId);
-
-                ResultSet rs = ps.executeQuery();
-
-                while (rs.next()) {
-                    EncounterUtil.EncounterType encounterType = EncounterUtil
-                            .getEncounterTypeFromOldDbValue(rs.getString(1));
-                    results.nonUniqueCounts.put(encounterType, rs.getInt(2));
-                    results.uniqueCounts.put(encounterType, rs.getInt(3));
-                }
-            }
-
-            // get the numbers in total, not broken down.
-            {
-                String sqlCommand = "select count(distinct demographic_no) from casemgmt_note where reporter_caisi_role=? and observation_date>=? and observation_date<?"
-                        + (programId == null ? "" : " and program_no=?");
-                PreparedStatement ps = c.prepareStatement(sqlCommand);
-                ps.setInt(1, roleId);
-                ps.setTimestamp(2, new Timestamp(startDate.getTime()));
-                ps.setTimestamp(3, new Timestamp(endDate.getTime()));
-                if (programId != null)
-                    ps.setInt(4, programId);
-
-                ResultSet rs = ps.executeQuery();
-                rs.next();
-
-                results.totalUniqueCount = rs.getInt(1);
-            }
-
-            return (results);
-        } catch (SQLException e) {
-            throw (new PersistenceException(e));
-        } finally {
-            SqlUtils.closeResources(c, null, null);
-        }
-    }
+    EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
+                                                                    Date startDate, Date endDate);
 
     /**
      * Returns lightweight note DTOs with pre-joined provider name, eliminating

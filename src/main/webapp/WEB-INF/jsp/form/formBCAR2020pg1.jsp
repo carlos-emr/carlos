@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -182,8 +183,6 @@
     <div id="maincontent" class="flex-container">
 
         <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
-
         <c:if test="${param.warning eq 'history'}">
             <script type="text/javascript">
                 if (!confirm("Warning: older version.\n\nContents of this form will overwrite newer versions if saved.\n\nSelect 'OK' to continue.")) {

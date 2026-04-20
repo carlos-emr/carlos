@@ -327,7 +327,6 @@ public class EctMeasurements2Action extends ActionSupport {
             cmn.setReporter_caisi_role(reporter_caisi_role);
 
             cmn.setReporter_program_team("0");
-            cmn.setPassword("NULL");
             cmn.setLocked(false);
             cmn.setHistory(textOnEncounter + "-----hi story----");
             cmn.setPosition(0);

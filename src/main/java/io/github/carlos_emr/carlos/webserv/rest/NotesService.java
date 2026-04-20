@@ -131,6 +131,7 @@ public class NotesService extends AbstractServiceImpl {
      * from different providers do not corrupt the structure.</p>
      */
     private static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> editList = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private static final int MAX_EDIT_LIST_SIZE = 10000;
 
     @Autowired
     private NoteService noteService;
@@ -527,14 +528,6 @@ public class NotesService extends AbstractServiceImpl {
         }
 
 
-        // update password
-		/*
-		String passwd = cform.getCaseNote().getPassword();
-		if (passwd != null && passwd.trim().length() > 0) {
-			note.setPassword(passwd);
-			note.setLocked(true);
-		}
-		 */
         Date now = new Date();
 
         Date observationDate = note.getObservationDate();
@@ -1277,8 +1270,7 @@ public class NotesService extends AbstractServiceImpl {
             // A hack to load last unsigned note when not specifying a particular note to edit
             // if there is no unsigned note load a new one
 
-            Map unlockedNotesMap = null; //NEED THIS ??
-            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo, unlockedNotesMap)) == null) {
+            if ((note = caseManagementMgr.getLastSaved("" + programId, "" + demographicNo, providerNo)) == null) {
 //				session.setAttribute("newNote", "true");
 //				//session.setAttribute("issueStatusChanged", "false");
 
@@ -1314,7 +1306,6 @@ public class NotesService extends AbstractServiceImpl {
 //		if (!note.isIncludeissue()) cform.setIncludeIssue("off");
 //		else cform.setIncludeIssue("on");
 
-//		boolean passwd = caseManagementMgr.getEnabled();
 //		String chain = request.getParameter("chain");
 
 
@@ -1881,12 +1872,10 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.errorResponse("Parameter error");
 
-        ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList == null) {
-            noteList = new ConcurrentHashMap<String, Long>();
-            editList.put(noteUUID, noteList);
+        ConcurrentHashMap<String, Long> noteList = editList.computeIfAbsent(noteUUID, k -> new ConcurrentHashMap<String, Long>());
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
         }
-        clearDanglingFlags();
 
         boolean success = true;
 
@@ -1915,15 +1904,16 @@ public class NotesService extends AbstractServiceImpl {
         String[] noteUUIDs = editList.keySet().toArray(new String[editList.keySet().size()]);
         for (String uuid : noteUUIDs) {
             ConcurrentHashMap<String, Long> noteList = editList.get(uuid);
+            if (noteList == null) continue; // concurrent removal
             String[] providerNos = noteList.keySet().toArray(new String[noteList.keySet().size()]);
             for (String providerNo : providerNos) {
                 Long editTime = noteList.get(providerNo);
+                if (editTime == null) continue; // concurrent removal
                 // 360,000 ms = 6 minutes; UI heartbeat renews every ~5 min, so 6 min means the session is stale
                 if (now - editTime >= 360000)
                     noteList.remove(providerNo);
             }
             if (noteList.isEmpty()) editList.remove(uuid);
-            else editList.put(uuid, noteList);
         }
     }
 
@@ -1946,6 +1936,10 @@ public class NotesService extends AbstractServiceImpl {
     public RestResponse<String> checkEditNoteNew(@QueryParam("noteUUID") String noteUUID, @QueryParam("userId") String providerNo) {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty())
             return RestResponse.successResponse(null);
+
+        if (editList.size() > MAX_EDIT_LIST_SIZE) {
+            clearDanglingFlags();
+        }
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
         if (noteList == null) return RestResponse.successResponse(null);
@@ -1981,8 +1975,11 @@ public class NotesService extends AbstractServiceImpl {
         if (noteUUID == null || noteUUID.trim().isEmpty() || providerNo == null || providerNo.trim().isEmpty()) return;
 
         ConcurrentHashMap<String, Long> noteList = editList.get(noteUUID);
-        if (noteList != null && noteList.containsKey(providerNo)) noteList.remove(providerNo);
-        if (noteList.isEmpty()) editList.remove(noteUUID);
-        else editList.put(noteUUID, noteList);
+        if (noteList != null) {
+            noteList.remove(providerNo);
+            if (noteList.isEmpty()) {
+                editList.remove(noteUUID);
+            }
+        }
     }
 }
