@@ -22,11 +22,16 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,9 +45,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -65,10 +74,14 @@ import static org.mockito.Mockito.when;
 @DisplayName("DocumentPreview2Action Unit Tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("documentManager")
 class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<EDocUtil> eDocUtilMock;
+    private MockedStatic<EFormUtil> eFormUtilMock;
+    private MockedStatic<HRMUtil> hrmUtilMock;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -82,13 +95,17 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private EDoc mockEDoc;
+
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private DocumentPreview2Action action;
 
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        response = new MockHttpServletResponse();
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -114,6 +131,15 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+        if (eDocUtilMock != null) {
+            eDocUtilMock.close();
+        }
+        if (eFormUtilMock != null) {
+            eFormUtilMock.close();
+        }
+        if (hrmUtilMock != null) {
+            hrmUtilMock.close();
         }
     }
 
@@ -150,6 +176,86 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_con");
+    }
+
+    @Test
+    @DisplayName("should return bad request when method is unsupported")
+    void shouldReturnBadRequest_whenMethodIsUnsupported() {
+        request.setParameter("method", "notARealMethod");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should hide protected metadata when consult access lacks read privileges")
+    void shouldHideProtectedMetadata_whenConsultAccessLacksReadPrivileges() {
+        request.setParameter("method", "fetchConsultDocuments");
+        request.setParameter("demographicNo", "123");
+
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("allDocuments")).isEqualTo(List.of());
+        assertThat(request.getAttribute("allHRMDocuments")).isEqualTo(List.of());
+        assertThat(request.getAttribute("allLabsSortedByVersions")).isEqualTo(List.of());
+        assertThat(request.getAttribute("allForms")).isEqualTo(List.of());
+        assertThat(request.getAttribute("allEForms")).isEqualTo(List.of());
+
+        eDocUtilMock.verifyNoInteractions();
+        eFormUtilMock.verifyNoInteractions();
+        hrmUtilMock.verifyNoInteractions();
+        verify(mockDocumentAttachmentManager, never()).getAllLabsSortedByVersions(any(), any());
+        verify(mockFormsManager, never()).getEncounterFormsbyDemographicNumber(any(), any(), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("should populate edoc list when edoc read privilege is granted")
+    void shouldPopulateEdocList_whenEdocReadPrivilegeIsGranted() {
+        request.setParameter("method", "fetchConsultDocuments");
+        request.setParameter("demographicNo", "123");
+
+        List<EDoc> expectedDocuments = List.of(mockEDoc);
+
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+        eDocUtilMock.when(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "123", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE))
+                .thenReturn(new ArrayList<>(expectedDocuments));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("allDocuments")).isEqualTo(expectedDocuments);
+        eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "123", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
+    }
+
+    @Test
+    @DisplayName("should use edoc read privilege when fetching eform documents")
+    void shouldUseEdocReadPrivilege_whenFetchingEformDocuments() {
+        request.setParameter("method", "fetchEFormDocuments");
+        doReturn("fetchDocuments").when(action).fetchEFormDocuments();
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_con", SecurityInfoManager.WRITE, null);
     }
 
     @Test

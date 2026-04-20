@@ -37,6 +37,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -61,6 +62,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * @see PathValidationUtils
  */
 public class DocumentPreview2Action extends ActionSupport {
+    private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -89,55 +92,50 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String method = request.getParameter("method");
-        ensureMethodPrivilege(loggedInInfo, method);
+        String requestMethod = request.getParameter("method");
+        String method = StringUtils.isNullOrEmpty(requestMethod)
+                ? FETCH_CONSULT_DOCUMENTS
+                : requestMethod;
 
-        if (method != null) {
-            if (method.equalsIgnoreCase("fetchEFormDocuments"))
+        switch (method.toLowerCase(Locale.ROOT)) {
+            case "fetcheformdocuments":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 return fetchEFormDocuments();
-            else if (method.equalsIgnoreCase("renderEDocPDF")) {
+            case "renderedocpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEDocPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderEFormPDF")) {
+            case "rendereformpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderEFormPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderHrmPDF")) {
+            case "renderhrmpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderHrmPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderLabPDF")) {
+            case "renderlabpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderLabPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderFormPDF")) {
+            case "renderformpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderFormPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("renderPDF")) {
+            case "renderpdf":
+                requirePrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ);
                 renderPDF();
                 return null;
-            }
-            else if (method.equalsIgnoreCase("fetchConsultDocuments"))
+            case "fetchconsultdocuments":
+                requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
+            default:
+                logger.warn("Unsupported previewDocs method requested: {}", LogSanitizer.sanitize(method));
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
         }
-
-        return fetchConsultDocuments();
     }
 
-    private void ensureMethodPrivilege(LoggedInInfo loggedInInfo, String method) {
-        boolean requiresEdocPrivilege = "fetchEFormDocuments".equalsIgnoreCase(method)
-                || "renderEDocPDF".equalsIgnoreCase(method)
-                || "renderEFormPDF".equalsIgnoreCase(method)
-                || "renderHrmPDF".equalsIgnoreCase(method)
-                || "renderLabPDF".equalsIgnoreCase(method)
-                || "renderFormPDF".equalsIgnoreCase(method)
-                || "renderPDF".equalsIgnoreCase(method);
-
-        String securityObjectName = requiresEdocPrivilege ? "_edoc" : "_con";
-        String privilege = requiresEdocPrivilege ? SecurityInfoManager.READ : SecurityInfoManager.WRITE;
-
+    private void requirePrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, null)) {
             throw new SecurityException("missing required sec object (" + securityObjectName + ")");
         }
@@ -388,9 +386,12 @@ public class DocumentPreview2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
+        Integer demographicId = Integer.valueOf(demographicNo);
 
-        populateCommonDocs(loggedInInfo, demographicNo);
-		List<EFormData> allEForms = EFormUtil.listPatientEformsCurrent(Integer.valueOf(demographicNo), true);
+        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
+		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)
+                ? EFormUtil.listPatientEformsCurrent(demographicId, true)
+                : new ArrayList<>();
         request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
@@ -422,9 +423,10 @@ public class DocumentPreview2Action extends ActionSupport {
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
+        Integer demographicId = Integer.parseInt(demographicNo);
 
-        populateCommonDocs(loggedInInfo, demographicNo);
-		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, Integer.parseInt(demographicNo), Integer.parseInt(fdid));
+        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
+		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, Integer.parseInt(fdid));
 		request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
@@ -481,15 +483,27 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param loggedInInfo Information about the logged-in user
      * @param demographicNo Demographic number of the patient
      */
-    private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo) {
-        List<EDoc> allDocuments = EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE);
-        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false);
-        List<AttachmentLabResultData> allLabsSortedByVersions = documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo);
-        List<EctFormData.PatientForm> allForms = formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, Integer.parseInt(demographicNo), false, true);
+    private void populateCommonDocs(LoggedInInfo loggedInInfo, String demographicNo, Integer demographicId) {
+        List<EDoc> allDocuments = hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)
+                ? EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
+                : new ArrayList<>();
+        ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)
+                ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
+                : new ArrayList<>();
+        List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)
+                ? documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo)
+                : new ArrayList<>();
+        List<EctFormData.PatientForm> allForms = hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, null)
+                ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicId, false, true)
+                : new ArrayList<>();
 
         request.setAttribute("allDocuments", allDocuments);
         request.setAttribute("allHRMDocuments", allHRMDocuments);
 		request.setAttribute("allLabsSortedByVersions", allLabsSortedByVersions);
 		request.setAttribute("allForms", allForms);
+    }
+
+    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, Object target) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
     }
 }
