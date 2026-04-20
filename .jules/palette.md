@@ -1,0 +1,3 @@
+## 2024-05-18 - Accessibility in Dynamically Constructed Elements
+**Learning:** In legacy JSPs, anchor tags (`<a>`) used purely as buttons (with `onclick` handlers) often omit the `href` attribute, breaking keyboard focusability, especially when dynamically constructed via JavaScript strings for data tables. Similarly, `href="javascript:void();"` is invalid syntax and does not prevent default action or scroll like `href="javascript:void(0);"` does.
+**Action:** When auditing or adding JavaScript-constructed interactive elements in JSPs, ensure pseudo-buttons use `href="javascript:void(0);"`, include `aria-label` for icon-only actions, and set `aria-hidden="true"` on purely decorative inner elements (like `<i>` or `<span>` icon classes).
