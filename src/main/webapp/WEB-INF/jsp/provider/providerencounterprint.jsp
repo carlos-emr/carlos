@@ -143,7 +143,9 @@
                 <table width="100%" cellspacing="0" cellpadding="2" border="1"
                        datasrc='#xml_list'>
                     <%
-                        String encounterReason = subject.substring(2).replace("|", " ");
+                        String encounterReason = (subject != null && subject.length() >= 2)
+                                ? subject.substring(2).replace("|", " ")
+                                : "";
                     %>
                     <tr>
                         <td><carlos:encode value='<%= encounter_date %>' context="html"/> <carlos:encode value='<%= encounter_time %>' context="html"/><br>

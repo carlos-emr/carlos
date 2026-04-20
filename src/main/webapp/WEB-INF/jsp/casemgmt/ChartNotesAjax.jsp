@@ -75,6 +75,8 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSanitizer" %>
+<%@page import="java.util.Objects" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -146,9 +148,20 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     @SuppressWarnings("unchecked")
     ArrayList<NoteDisplay> notesToDisplay = (ArrayList<NoteDisplay>) request.getAttribute("notesToDisplay");
     if (notesToDisplay == null) {
-        MiscUtils.getLogger().warn("notesToDisplay request attribute missing for demographic " + demographicNo);
+        // Programming defect: every supported entry path sets this attribute. Surface a
+        // visible error so the clinician doesn't mistake a broken render for an empty chart.
+        MiscUtils.getLogger().error(
+                "notesToDisplay request attribute missing for demographic {} — upstream action misconfigured",
+                LogSanitizer.sanitize(demographicNo));
+%>
+<div class="alert alert-danger" role="alert">
+    Unable to load encounter notes. Please refresh the page.
+    If the problem persists, contact your administrator.
+</div>
+<%
+        return;
     }
-    int noteSize = notesToDisplay == null ? 0 : notesToDisplay.size();
+    int noteSize = notesToDisplay.size();
 
     SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
     Date dToday = new Date();
@@ -798,11 +811,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                             && !note.isInvoice() && !note.isEmailNote()) {
                         unLockedNotes.add(note.getNoteId());
                     }
-                }
             %>
         </div><!-- end of note contents -->
     </div>
     <!-- end of note wrapper -->
+    <%
+                }
+            %>
 <% } %> <%-- END OF "not empty notesToDisplay" --%>
 
 
@@ -844,11 +859,13 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 <%
     boolean renderMoreNotesScript = request.getAttribute("moreNotes") == null;
-    boolean noteLocked = renderMoreNotesScript && casemgmtNoteLock.isLocked();
+    boolean hasNoteLock = casemgmtNoteLock != null;
+    boolean noteLocked = renderMoreNotesScript && hasNoteLock && casemgmtNoteLock.isLocked();
     boolean noteLockedBySameUser = renderMoreNotesScript
+            && hasNoteLock
             && !noteLocked
             && casemgmtNoteLock.isLockedBySameUser()
-            && !casemgmtNoteLock.getSessionId().equals(request.getRequestedSessionId());
+            && !Objects.equals(casemgmtNoteLock.getSessionId(), request.getRequestedSessionId());
 
     String singleLineFormat = "false";
     if (renderMoreNotesScript) {
@@ -858,7 +875,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         }
     }
 
-    String oscarMsg = bean.oscarMsg;
+    String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : "";
     boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
     if (hasOscarMsg) {
         bean.reason = "";
@@ -885,7 +902,12 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     %>];
     unLockedNoteIds.forEach(function(id) {
         var el = document.getElementById('n' + id);
-        if (el) el.addEventListener('click', fullView);
+        if (el) {
+            el.addEventListener('click', fullView);
+        } else {
+            // Element should exist — eligibility predicate above must match DOM emission.
+            console.warn('ChartNotesAjax: missing DOM node n' + id + ' for fullView click handler');
+        }
     });
 </script>
 
