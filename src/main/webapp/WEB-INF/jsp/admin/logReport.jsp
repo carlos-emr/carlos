@@ -249,8 +249,7 @@ for (int i = 0; i < vec.size(); i++) {
             <td><carlos:encode value='<%= propName.getProperty(prop.getProperty("provider_no"), "") %>' context="html"/></td>
             <% } %>
             <td><carlos:encode value='<%= prop.getProperty("demographic_no", "") %>' context="html"/></td>
-            <% pageContext.setAttribute("logData", prop.getProperty("data", "")); %>
-            <td>${carlos:forHtmlContentWithBreaks(logData)}</td>
+            <td><%= SafeEncode.forHtmlContentWithBreaks(prop.getProperty("data", "")) %></td>
         </tr>
 
                 <% } %>

@@ -94,10 +94,28 @@ public final class SafeEncode {
      * @return String the HTML-encoded content with newline characters rendered as {@code <br/>}
      */
     public static String forHtmlContentWithBreaks(String value) {
-        return forHtmlContent(nz(value))
-                .replace("\r\n", "\n")
-                .replace('\r', '\n')
-                .replace("\n", "<br/>");
+        String encoded = forHtmlContent(nz(value));
+        if (encoded.indexOf('\n') < 0 && encoded.indexOf('\r') < 0) {
+            return encoded;
+        }
+
+        StringBuilder builder = new StringBuilder(encoded.length() + 16);
+        for (int i = 0; i < encoded.length(); i++) {
+            char current = encoded.charAt(i);
+            if (current == '\r') {
+                builder.append("<br/>");
+                if (i + 1 < encoded.length() && encoded.charAt(i + 1) == '\n') {
+                    i++;
+                }
+                continue;
+            }
+            if (current == '\n') {
+                builder.append("<br/>");
+                continue;
+            }
+            builder.append(current);
+        }
+        return builder.toString();
     }
 
     public static void forHtmlContent(Writer out, String value) throws IOException {
