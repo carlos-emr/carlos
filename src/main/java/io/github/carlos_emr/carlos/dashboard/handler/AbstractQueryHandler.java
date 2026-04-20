@@ -28,11 +28,13 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import jakarta.persistence.Query;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
 import org.hibernate.query.NativeQuery;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML.RangeType;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
@@ -42,11 +44,19 @@ import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface.Limit;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public abstract class AbstractQueryHandler extends AbstractHibernateDao {
+// @Transactional at class level so the protected execute() / execute(String)
+// entry points are both covered when subclasses (DrilldownQueryHandler,
+// ExportQueryHandler, IndicatorQueryHandler) invoke them via super.execute(...).
+// A method-level annotation is not enough here: the no-arg execute() delegates
+// to execute(getQuery()) through this.execute(...), a self-invocation that
+// would bypass Spring's transactional proxy.
+@Transactional(readOnly = true)
+public abstract class AbstractQueryHandler extends AbstractJpaDao {
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -77,31 +87,32 @@ public abstract class AbstractQueryHandler extends AbstractHibernateDao {
 
         setResultList(null);
 
-        Transaction tx = null;
-        try (Session session = getSessionFactory().openSession()) {
-            tx = session.beginTransaction();
-            NativeQuery<?> sqlQuery = session.createNativeQuery(query);
-            // TODO H6-MIGRATE: setResultTransformer() is removed from Query in H6.
-            // Replace with setTupleTransformer() using a lambda-based tuple transformer (H6-only API).
-            sqlQuery.setResultTransformer(org.hibernate.transform.AliasToEntityMapResultTransformer.INSTANCE);
-            List<?> results = sqlQuery.getResultList();
+        try {
+            Query jpaQuery = entityManager().createNativeQuery(query); // nosemgrep: hibernate-sqli -- query is a dashboard XML-configured read-only SELECT; validated by caller
+            // Replaces the removed Hibernate 5 AliasToEntityMapResultTransformer: emit
+            // each row as a LinkedHashMap keyed by the column alias, preserving insertion
+            // order so downstream consumers that iterate by position still see consistent
+            // column ordering.
+            NativeQuery<?> hibernateQuery = jpaQuery.unwrap(NativeQuery.class);
+            hibernateQuery.setTupleTransformer((tuple, aliases) -> {
+                Map<String, Object> map = new LinkedHashMap<>();
+                for (int i = 0; i < aliases.length; i++) {
+                    String key = (aliases[i] != null && !aliases[i].isEmpty())
+                            ? aliases[i]
+                            : "col" + i;
+                    map.put(key, tuple[i]);
+                }
+                return map;
+            });
+            List<?> results = hibernateQuery.getResultList();
 
             //TODO work on method to detect and exclude demographic files that are
             // defined in the securityInfoManager object.
 
             setResultList(results);
-            tx.commit();
-
             return results;
         } catch (Exception e) {
-            if (tx != null) {
-                try {
-                    tx.rollback();
-                } catch (Exception rollbackEx) {
-                    e.addSuppressed(rollbackEx);
-                }
-            }
-            logger.error("Query execution failed");
+            logger.error("Query execution failed", e);
             throw new RuntimeException("Error executing query", e);
         }
     }
