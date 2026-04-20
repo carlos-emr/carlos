@@ -726,7 +726,7 @@
             if (codeToAdd.indexOf(dxCode) >= 0 || codeMatch != null) {
                 var dxCodeMatch = codeMatch == null ? dxCode : codeMatch;
                 <%for (String pcode : patientDx) {%>
-                if (dxCodeMatch ==<%=pcode%>) dxCode = -1;
+                if (dxCodeMatch == "<carlos:encode value='<%= pcode %>' context="javaScriptBlock"/>") dxCode = -1;
                 <%}%>
                 if (dxCode != -1 && codeMatch != null) {
                     document.titlesearch.codeMatchToPatientDx.value = codeMatch;
