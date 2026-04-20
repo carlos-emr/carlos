@@ -43,6 +43,9 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * @author root
  */
 public final class BillingCodeData implements Comparable {
+    /**
+     * DAO used for billing service persistence operations.
+     */
     private final BillingServiceDao billingServiceDao;
   
 
@@ -83,7 +86,7 @@ public final class BillingCodeData implements Comparable {
     }
 
     /**
-     * Creates a new instance backed by the supplied DAO.
+     * Creates a new instance backed by the supplied DAO. Package-private for testing.
      *
      * @param billingServiceDao BillingServiceDao the DAO to use for billing service persistence operations
      */
