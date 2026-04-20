@@ -54,7 +54,7 @@ class LogoutBroadcastFilterUnitTest {
     private CarlosProperties carlosProperties;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         carlosProperties = mock(CarlosProperties.class);
 
         carlosPropertiesMock = mockStatic(CarlosProperties.class);

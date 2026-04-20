@@ -230,7 +230,7 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Appends the inline logout broadcast and session heartbeat script to the response.
+     * Appends the inline logout broadcast and session heartbeat script through the wrapped response.
      *
      * @param delegatingResponse DelegatingServletResponse the wrapped response
      * @param contextPath String the servlet context path
