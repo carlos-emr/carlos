@@ -104,7 +104,7 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturn400_whenCodeIsMissing() throws Exception {
+    void shouldSendBadRequestError_whenCodeIsMissing() throws Exception {
         try (MockedConstruction<BillingCodeData> ignored = mockConstruction(BillingCodeData.class)) {
             DeletePrivateCode2Action action = new DeletePrivateCode2Action();
 
@@ -116,7 +116,7 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturn400_whenCodeIsBlank() throws Exception {
+    void shouldSendBadRequestError_whenCodeIsBlank() throws Exception {
         mockRequest.setParameter("code", "   ");
 
         try (MockedConstruction<BillingCodeData> ignored = mockConstruction(BillingCodeData.class)) {
@@ -130,7 +130,7 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturn400_whenCodeIsNonNumeric() throws Exception {
+    void shouldSendBadRequestError_whenCodeIsNonNumeric() throws Exception {
         mockRequest.setParameter("code", "abc");
 
         try (MockedConstruction<BillingCodeData> ignored = mockConstruction(BillingCodeData.class)) {
