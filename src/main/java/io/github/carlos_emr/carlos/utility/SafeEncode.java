@@ -94,7 +94,7 @@ public final class SafeEncode {
      * @return String the HTML-encoded content with newline characters rendered as {@code <br/>}
      */
     public static String forHtmlContentWithBreaks(String value) {
-        String encoded = forHtmlContent(nz(value));
+        String encoded = forHtmlContent(value);
         StringBuilder builder = null;
         for (int i = 0; i < encoded.length(); i++) {
             char current = encoded.charAt(i);
