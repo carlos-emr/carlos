@@ -138,8 +138,8 @@
             const fromPicker = flatpickr("#startDateInput", fromPickerOptions);
             const toPicker = flatpickr("#endDateInput", toPickerOptions);
             // Expose pickers so allYear() can update Flatpickr state, not just .value
-            window._ticklerFromPicker = fromPicker;
-            window._ticklerToPicker = toPicker;
+            window._FromPicker = fromPicker;
+            window._ToPicker = toPicker;
         
             function syncFrom(selectedDates, dateStr, instance) {
               const fromDate = instance.selectedDates[0];
@@ -207,16 +207,17 @@
             <label for="startDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgAllQueriesExecutedFrom"/>:
             </label>
+            <fmt:message key="yyyy-mm-dd" var="datePlaceholder"/>
             <input type="text" id="startDateInput" name="startDate"
                    value="${carlos:forHtmlAttribute(startDate)}"
-                   class="form-control form-control-sm" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                   class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(datePlaceholder)}"
                    style="width:8em"/>
             <label for="endDateInput" class="form-label form-label-sm mb-0">
                 <fmt:message key="oscarReport.RptByExample.MsgTo"/>
             </label>
             <input type="text" id="endDateInput" name="endDate"
                    value="${carlos:forHtmlAttribute(endDate)}"
-                   class="form-control form-control-sm" placeholder="<fmt:message key="yyyy-mm-dd"/>"
+                   class="form-control form-control-sm" placeholder="${carlos:forHtmlAttribute(datePlaceholder)}"
                    style="width:8em"/>
             <button type="submit" class="btn btn-primary btn-sm"><fmt:message key="oscarReport.RptByExample.MsgRefresh"/></button>
         </form>
