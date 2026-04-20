@@ -1879,9 +1879,18 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should return results when findByExample is called with a SecProvider entity")
         void shouldReturnResults_whenFindByExampleCalledWithEntity() {
+            createProvider(uniquePrefix + "FBE1", "ExampleFirst1", "ExampleLast1", "1");
+            createProvider(uniquePrefix + "FBE2", "ExampleFirst2", "ExampleLast2", "1");
+            hibernateTemplate.flush();
+
             SecProvider example = new SecProvider();
-            List results = secProviderDao.findByExample(example);
-            assertThat(results).isNotNull();
+            @SuppressWarnings("unchecked")
+            List<SecProvider> results = secProviderDao.findByExample(example);
+
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(SecProvider::getProviderNo)
+                .contains(uniquePrefix + "FBE1", uniquePrefix + "FBE2");
         }
     }
 }
