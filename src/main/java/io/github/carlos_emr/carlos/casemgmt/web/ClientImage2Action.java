@@ -65,13 +65,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("User session is not valid");
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new SecurityException("missing required security object (_demographic)");
-        }
+        validateWritePrivilege();
 
         String method = request.getParameter("method");
         if ("deleteImage".equals(method)) {
@@ -81,6 +75,8 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     }
 
     public String saveImage() {
+        validateWritePrivilege();
+
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
@@ -153,6 +149,8 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     }
 
     public String deleteImage() {
+        validateWritePrivilege();
+
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
@@ -176,6 +174,16 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    private void validateWritePrivilege() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("User session is not valid");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
     }
 
     @Override

@@ -175,7 +175,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         try (ByteArrayOutputStream bais = new ByteArrayOutputStream();
              InputStream is = request.getSession().getServletContext().getResourceAsStream(defaultClientImage)) {
             if (is == null) {
-                logger.warn("Default client image not found at {}", defaultClientImage);
+                logger.warn("Default client image not found at {}. Ensure the web application image resources are deployed correctly.", defaultClientImage);
                 return null;
             }
             byte[] byteChunk = new byte[1024];

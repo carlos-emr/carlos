@@ -85,6 +85,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         request.setParameter("method", "saveImage");
         request.getSession().setAttribute("clientId", "123");
 
+        registerMock(ClientImageManager.class, clientImageManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -92,9 +95,6 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
-
-        registerMock(ClientImageManager.class, clientImageManager);
-        registerMock(SecurityInfoManager.class, securityInfoManager);
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("w"), isNull()))
                 .thenReturn(true);
