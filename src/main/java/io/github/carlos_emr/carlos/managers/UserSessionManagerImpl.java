@@ -33,20 +33,20 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpSession;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementation of the {@link UserSessionManager} interface.
- * This class manages user sessions using a HashMap to store the association between user sec codes and HttpSessions.
+ * This class manages user sessions using a ConcurrentHashMap to store the association between user sec codes and HttpSessions.
  */
 @Service
 public class UserSessionManagerImpl implements UserSessionManager {
 
     public static final String KEY_USER_SECURITY_CODE = "UserSecurityCode";
     private static final Logger logger = MiscUtils.getLogger();
-    private static final Map<Integer, HttpSession> userSessionMap = new HashMap<>();
+    private static final Map<Integer, HttpSession> userSessionMap = new ConcurrentHashMap<>();
 
     /**
      * Registers a user session with the given user sec code and HttpSession.
@@ -57,18 +57,20 @@ public class UserSessionManagerImpl implements UserSessionManager {
      */
     @Override
     public void registerUserSession(Integer userSecurityCode, HttpSession session) {
-        if (this.isUserSessionRegistered(userSecurityCode))
-            // Explicitly invalidate the previous session if it exists
+        purgeInvalidSessions();
+
+        // Atomically detach any previously registered session to avoid a TOCTOU race
+        // with unregisterUserSession() / session invalidation on other threads.
+        HttpSession previousSession = userSessionMap.remove(userSecurityCode);
+        if (previousSession != null) {
             try {
-                HttpSession previousSession = userSessionMap.get(userSecurityCode);
                 logger.debug("Existing User Session found, invalidating: {}", previousSession.getId());
-
                 previousSession.invalidate();
-
                 logger.debug("Previous user session successfully invalidated");
             } catch (IllegalStateException e) {
                 MiscUtils.getLogger().debug(e.getMessage());
             }
+        }
 
         // Register the new session, overwrite previous registry
         userSessionMap.put(userSecurityCode, session);
@@ -108,6 +110,22 @@ public class UserSessionManagerImpl implements UserSessionManager {
         } else {
             throw new UserSessionNotFoundException("User session not registered");
         }
+    }
+
+    /**
+     * Removes entries for HttpSessions that have been invalidated by the container.
+     * Safety net for sessions that expire without triggering OscarSessionListener.
+     */
+    private void purgeInvalidSessions() {
+        userSessionMap.entrySet().removeIf(entry -> {
+            try {
+                entry.getValue().getId(); // throws IllegalStateException if invalidated
+                return false;
+            } catch (IllegalStateException e) {
+                logger.debug("Purging invalidated session for security code: {}", entry.getKey());
+                return true;
+            }
+        });
     }
 
     /**
