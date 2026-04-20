@@ -82,6 +82,11 @@ public final class BillingCodeData implements Comparable {
         this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
     }
 
+    /**
+     * Creates a new instance backed by the supplied DAO.
+     *
+     * @param billingServiceDao BillingServiceDao the DAO to use for billing service persistence operations
+     */
     BillingCodeData(BillingServiceDao billingServiceDao) {
         this.billingServiceDao = billingServiceDao;
     }
@@ -122,6 +127,12 @@ public final class BillingCodeData implements Comparable {
         }
     }
 
+    /**
+     * Removes a private billing code from database by numeric identifier.
+     *
+     * @param codeId int - the billing service primary key to remove
+     * @return boolean - {@code true} when the billing code exists and is removed, otherwise {@code false}
+     */
     public boolean deleteBillingCode(int codeId) {
         BillingService billingService = billingServiceDao.find(codeId);
         if (billingService == null) {

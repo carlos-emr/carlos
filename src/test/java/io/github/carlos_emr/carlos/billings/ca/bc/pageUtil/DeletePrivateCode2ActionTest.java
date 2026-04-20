@@ -104,7 +104,7 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturn400_whenCodeMissing() throws Exception {
+    void shouldReturn400_whenCodeIsMissing() throws Exception {
         try (MockedConstruction<BillingCodeData> ignored = mockConstruction(BillingCodeData.class)) {
             DeletePrivateCode2Action action = new DeletePrivateCode2Action();
 
