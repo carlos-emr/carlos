@@ -37,8 +37,10 @@ import java.sql.Types;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
- * @deprecated Use JPA ({@code entityManager().createNativeQuery(...)}) instead;
- * no new code should be written against this class. Scheduled for removal once
+ * @deprecated Use JPA via {@link jakarta.persistence.EntityManager#createNativeQuery(String)}
+ * instead. In DAO code, obtain the entity manager from
+ * {@code AbstractJpaDao#entityManager()} before creating the native query. No
+ * new code should be written against this class. Scheduled for removal once
  * remaining callers migrate.
  */
 @Deprecated(forRemoval = true)
