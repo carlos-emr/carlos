@@ -70,7 +70,8 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
         return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
-    @Cacheable(value = "appointmentStatuses", key = "'status:' + #status")
+    @Cacheable(value = "appointmentStatuses", key = "'status:' + #status",
+               condition = "#status != null && !#status.isEmpty()")
     @Override
     public AppointmentStatus findByStatus(String status) {
         if (status == null || status.length() == 0) {

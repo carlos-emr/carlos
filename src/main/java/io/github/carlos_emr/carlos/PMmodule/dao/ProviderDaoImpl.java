@@ -88,7 +88,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return provider;
     }
 
-    @Cacheable(value = "providerNames", key = "'name:' + #providerNo")
+    @Cacheable(value = "providerNames", key = "'name:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()")
     @Override
     public String getProviderName(String providerNo) {
 
@@ -112,7 +113,8 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return providerName;
     }
 
-    @Cacheable(value = "providerNames", key = "'nameLastFirst:' + #providerNo")
+    @Cacheable(value = "providerNames", key = "'nameLastFirst:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()")
     @Override
     public String getProviderNameLastFirst(String providerNo) {
         if (providerNo == null || providerNo.length() <= 0) {

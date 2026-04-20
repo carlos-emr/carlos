@@ -53,7 +53,7 @@ import org.springframework.context.annotation.Configuration;
  * @since 2026-04-20
  */
 @Configuration
-@EnableCaching(proxyTargetClass = true)
+@EnableCaching(proxyTargetClass = true)  // CGLIB proxies: consistent with proxy-target-class=true on <tx:annotation-driven> and <aop:aspectj-autoproxy> in applicationContext.xml
 public class CacheConfig {
 
     /**
