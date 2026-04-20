@@ -34,6 +34,7 @@
  *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
+ *   <li>{@code tickler/ViewAddTickler} / {@code tickler/ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
  * </ul>
  *
  * @param {string} url - URL to test
@@ -47,7 +48,9 @@ function isForceWindowUrl(url) {
         'appointmentsearch.jsp',
         'Scratch',
         'CalendarPopup.jsp',
-        'CalendarPopup'
+        'CalendarPopup',
+        'ViewAddTickler',
+        'ForwardDemographicTickler'
     ];
     const normalizedUrl = String(url).split('#')[0].split('?')[0];
     return forceWindowPaths.some(function(path) {

@@ -1,0 +1,52 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.tickler;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Locks the opener-dependent tickler add routes into Oscar.js's force-window
+ * list so the "Open Encounters in Tab" preference cannot reopen the
+ * Save-and-Write blank-window regression.
+ *
+ * @since 2026-04-20
+ */
+@DisplayName("Tickler popup routing regressions")
+@Tag("unit")
+@Tag("tickler")
+@Tag("javascript")
+class TicklerPopupRoutingRegressionTest {
+
+    private static final Path OSCAR_JS = Path.of("src/main/webapp/share/javascript/Oscar.js");
+
+    @Test
+    @DisplayName("should keep opener-dependent tickler add routes in the force-window list")
+    void shouldKeepTicklerAddRoutes_inTheForceWindowList() throws IOException {
+        String oscarJs = Files.readString(OSCAR_JS, StandardCharsets.UTF_8);
+        String forceWindowSection = oscarJs.substring(
+                oscarJs.indexOf("const forceWindowPaths = ["),
+                oscarJs.indexOf("];", oscarJs.indexOf("const forceWindowPaths = [")));
+
+        assertThat(forceWindowSection).contains("'ViewAddTickler'");
+        assertThat(forceWindowSection).contains("'ForwardDemographicTickler'");
+    }
+}
