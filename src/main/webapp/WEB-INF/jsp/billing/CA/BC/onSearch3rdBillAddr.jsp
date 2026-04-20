@@ -340,6 +340,6 @@
         if (d == null || d.trim().equals("")) {
             return "";
         }
-        return SafeEncode.forJavaScript(d);
+        return SafeEncode.forJavaScriptAttribute(d);
     }
 %>
