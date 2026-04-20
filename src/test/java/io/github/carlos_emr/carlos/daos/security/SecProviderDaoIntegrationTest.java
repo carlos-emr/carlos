@@ -1850,12 +1850,16 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
             saved.setFirstName("MergedFirst");
             SecProvider merged = secProviderDao.merge(saved);
-            entityManager.flush();
-            entityManager.clear();
-            SecProvider reloaded = secProviderDao.findById(saved.getProviderNo());
 
             assertThat(merged).isNotNull();
             assertThat(merged.getFirstName()).isEqualTo("MergedFirst");
+            assertThat(entityManager.contains(merged))
+                .as("merge() must return a managed entity, not the detached instance")
+                .isTrue();
+
+            entityManager.flush();
+            entityManager.clear();
+            SecProvider reloaded = secProviderDao.findById(saved.getProviderNo());
             assertThat(reloaded).isNotNull();
             assertThat(reloaded.getFirstName()).isEqualTo("MergedFirst");
         }
@@ -1886,8 +1890,9 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should return results when findByExample is called with a SecProvider entity")
         void shouldReturnResults_whenFindByExampleCalledWithEntity() {
-            createProvider(uniquePrefix + "FBE1", "ExampleFirst1", "ExampleLast1", "1");
-            createProvider(uniquePrefix + "FBE2", "ExampleFirst2", "ExampleLast2", "1");
+            // provider_no is VARCHAR(6); uniquePrefix is 4 chars, so suffix must be <= 2 chars.
+            createProvider(uniquePrefix + "E1", "ExampleFirst1", "ExampleLast1", "1");
+            createProvider(uniquePrefix + "E2", "ExampleFirst2", "ExampleLast2", "1");
             hibernateTemplate.flush();
 
             SecProvider example = new SecProvider();
@@ -1897,7 +1902,7 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
             assertThat(results)
                 .isNotEmpty()
                 .extracting(SecProvider::getProviderNo)
-                .contains(uniquePrefix + "FBE1", uniquePrefix + "FBE2");
+                .contains(uniquePrefix + "E1", uniquePrefix + "E2");
         }
     }
 }
