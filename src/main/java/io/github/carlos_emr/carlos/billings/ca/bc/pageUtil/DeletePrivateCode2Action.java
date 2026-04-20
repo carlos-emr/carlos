@@ -83,14 +83,15 @@ public final class DeletePrivateCode2Action extends ActionSupport {
         }
 
         final String normalizedServiceCode = serviceCode.trim();
+        final int billingServiceId;
         try {
-            Integer.parseInt(normalizedServiceCode);
+            billingServiceId = Integer.parseInt(normalizedServiceCode);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "code must be numeric");
             return NONE;
         }
 
-        new BillingCodeData().deleteBillingCode(normalizedServiceCode);
+        new BillingCodeData().deleteBillingCode(billingServiceId);
 
         return SUCCESS;
     }

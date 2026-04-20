@@ -33,6 +33,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,10 +57,7 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         registerMock(BillingServiceDao.class, mockBillingServiceDao);
-
-        java.lang.reflect.Field billingServiceDaoField = BillingCodeData.class.getDeclaredField("billingServiceDao");
-        billingServiceDaoField.setAccessible(true);
-        billingServiceDaoField.set(null, mockBillingServiceDao);
+        BillingCodeData.setBillingServiceDao(mockBillingServiceDao);
 
         billingCodeData = new BillingCodeData();
     }
@@ -67,13 +65,13 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReturnFalse_whenCodeIdIsBlank() {
         assertThat(billingCodeData.deleteBillingCode("   ")).isFalse();
-        verify(mockBillingServiceDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
+        verify(mockBillingServiceDao, never()).find(anyInt());
     }
 
     @Test
     void shouldReturnFalse_whenCodeIdIsNonNumeric() {
         assertThat(billingCodeData.deleteBillingCode("abc")).isFalse();
-        verify(mockBillingServiceDao, never()).find(org.mockito.ArgumentMatchers.anyInt());
+        verify(mockBillingServiceDao, never()).find(anyInt());
     }
 
     @Test
@@ -82,7 +80,7 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
 
         assertThat(billingCodeData.deleteBillingCode("123")).isFalse();
         verify(mockBillingServiceDao).find(123);
-        verify(mockBillingServiceDao, never()).remove(org.mockito.ArgumentMatchers.anyInt());
+        verify(mockBillingServiceDao, never()).remove(anyInt());
     }
 
     @Test

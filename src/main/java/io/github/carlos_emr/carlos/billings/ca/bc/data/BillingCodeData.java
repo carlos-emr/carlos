@@ -110,20 +110,25 @@ public final class BillingCodeData implements Comparable {
             return false;
         }
 
-        final int billingServiceId;
         try {
-            billingServiceId = Integer.parseInt(codeId.trim());
+            return deleteBillingCode(Integer.parseInt(codeId.trim()));
         } catch (NumberFormatException e) {
             return false;
         }
+    }
 
-        BillingService billingService = billingServiceDao.find(billingServiceId);
+    public boolean deleteBillingCode(int codeId) {
+        BillingService billingService = billingServiceDao.find(codeId);
         if (billingService == null) {
             return false;
         }
 
         billingServiceDao.remove(billingService.getId());
         return true;
+    }
+
+    static void setBillingServiceDao(BillingServiceDao billingServiceDao) {
+        BillingCodeData.billingServiceDao = billingServiceDao;
     }
 
     public boolean addBillingCode(String code, String desc, String val) {

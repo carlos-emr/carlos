@@ -148,12 +148,12 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
         mockRequest.setParameter("code", "123");
 
         try (MockedConstruction<BillingCodeData> mockedConstruction = mockConstruction(BillingCodeData.class,
-                (mock, context) -> when(mock.deleteBillingCode("123")).thenReturn(false))) {
+                (mock, context) -> when(mock.deleteBillingCode(123)).thenReturn(false))) {
             DeletePrivateCode2Action action = new DeletePrivateCode2Action();
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(mockedConstruction.constructed()).hasSize(1);
-            verify(mockedConstruction.constructed().get(0)).deleteBillingCode("123");
+            verify(mockedConstruction.constructed().get(0)).deleteBillingCode(123);
         }
     }
 
@@ -162,12 +162,12 @@ class DeletePrivateCode2ActionTest extends CarlosUnitTestBase {
         mockRequest.setParameter("code", "123");
 
         try (MockedConstruction<BillingCodeData> mockedConstruction = mockConstruction(BillingCodeData.class,
-                (mock, context) -> when(mock.deleteBillingCode("123")).thenReturn(true))) {
+                (mock, context) -> when(mock.deleteBillingCode(123)).thenReturn(true))) {
             DeletePrivateCode2Action action = new DeletePrivateCode2Action();
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(mockedConstruction.constructed()).hasSize(1);
-            verify(mockedConstruction.constructed().get(0)).deleteBillingCode("123");
+            verify(mockedConstruction.constructed().get(0)).deleteBillingCode(123);
         }
     }
 }
