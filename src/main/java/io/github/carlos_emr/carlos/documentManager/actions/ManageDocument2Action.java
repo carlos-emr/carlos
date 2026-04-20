@@ -911,8 +911,10 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
+        // Reject path separators before validatePath(): that helper sanitizes by stripping
+        // directory components, but display() must fail closed rather than serve a different file.
         if (filename != null && (filename.contains("/") || filename.contains("\\"))) {
-            throw new IllegalStateException("Invalid document filename for eDoc (ID " + d.getId() + ")");
+            throw new IllegalStateException("Document filename contains path separators for eDoc (ID " + d.getId() + ")");
         }
 
         Path file = PathValidationUtils.validatePath(filename, new File(DOCUMENT_DIR)).toPath();
