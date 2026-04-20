@@ -166,6 +166,9 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("window.__carlosLogoutActive=true;");
     }
 
+    /**
+     * Mock response that refuses writer access so the filter must fall back to the output stream.
+     */
     private static class WriterUnavailableMockHttpServletResponse extends MockHttpServletResponse {
 
         private final ByteArrayOutputStream body = new ByteArrayOutputStream();
@@ -196,7 +199,12 @@ class LogoutBroadcastFilterUnitTest {
             return outputStream;
         }
 
-        String getBodyAsString() {
+        /**
+         * Returns the body written through the fallback output stream path.
+         *
+         * @return String response body captured by the mock output stream
+         */
+        private String getBodyAsString() {
             return body.toString(StandardCharsets.UTF_8);
         }
     }
