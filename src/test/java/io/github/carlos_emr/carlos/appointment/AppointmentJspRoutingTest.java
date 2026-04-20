@@ -91,8 +91,9 @@ class AppointmentJspRoutingTest {
         assertThat(appointmentControl).contains("/appointment/editappointment");
 
         // Must redirect — not forward — to extensionless action targets so that
-        // the nested-forward-through-CsrfGuard-wrapper issue cannot drop the body
-        assertThat(appointmentControl).contains("response.sendRedirect(");
+        // the nested-forward-through-CsrfGuard-wrapper issue cannot drop the body.
+        // Assert the dispatch-specific redirect call, not unrelated security/logout redirects.
+        assertThat(appointmentControl).contains("response.sendRedirect(redirectUrl");
         assertThat(appointmentControl)
                 .as("appointmentcontrol.jsp must not forward to extensionless Struts actions; "
                         + "nested forward through CsrfGuardScriptInjectionFilter drops the response body")
