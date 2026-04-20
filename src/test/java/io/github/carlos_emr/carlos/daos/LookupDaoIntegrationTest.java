@@ -40,6 +40,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import jakarta.persistence.PersistenceException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -491,7 +493,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // stack. The pre-migration DBPreparedHandler path swallowed SQLException and
             // returned an empty list; that catch is gone.
             assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "C1", "desc"))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("nonexistent_data_table");
         }
     }
@@ -547,7 +549,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // propagates SQLGrammarException as a PersistenceException rather than
             // silently returning empty (which was the DBPreparedHandler behaviour).
             assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("no_such_table");
         }
 
@@ -707,7 +709,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // propagates the SQLGrammarException. Previously DBPreparedHandler caught it
             // and the method returned the unpopulated field definitions.
             assertThatThrownBy(() -> lookupDao.GetCodeFieldValues(tableDef, "TEST_CODE"))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("nonexistent_table_cf");
         }
 
@@ -758,7 +760,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // When / Then — post-JPA-migration behaviour (#1559 Task 5): the EntityManager
             // propagates the SQLGrammarException rather than silently returning empty.
             assertThatThrownBy(() -> lookupDao.GetCodeFieldValues(tableDef))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(PersistenceException.class)
                 .hasMessageContaining("nonexistent_all_table");
         }
 
