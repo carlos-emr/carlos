@@ -606,8 +606,16 @@
             }
 
             function allYear() {
-                document.serviceform.xml_appointment_date.value = "8888-12-31";
-                document.serviceform.xml_vdate.value = "1900-01-01";
+                if (window._ticklerToPicker) {
+                    window._ticklerToPicker.setDate("8888-12-31", true);
+                } else {
+                    document.serviceform.xml_appointment_date.value = "8888-12-31";
+                }
+                if (window._ticklerFromPicker) {
+                    window._ticklerFromPicker.setDate("1900-01-01", true);
+                } else {
+                    document.serviceform.xml_vdate.value = "1900-01-01";
+                }
             }
 
             function Check(e) { e.checked = true; }
@@ -712,6 +720,9 @@
 
             const fromPicker = flatpickr("#xml_vdate", fromPickerOptions);
             const toPicker = flatpickr("#xml_appointment_date", toPickerOptions);
+            // Expose pickers so allYear() can update Flatpickr state, not just .value
+            window._ticklerFromPicker = fromPicker;
+            window._ticklerToPicker = toPicker;
         
             function syncFrom(selectedDates, dateStr, instance) {
               const fromDate = instance.selectedDates[0];
