@@ -155,7 +155,7 @@ class LogoutBroadcastFilterUnitTest {
         HttpSession session = request.getSession(true);
         session.setAttribute("user", "123");
 
-        WriterUnavailableMockHttpServletResponse response = new WriterUnavailableMockHttpServletResponse();
+        MockResponseWithUnavailableWriter response = new MockResponseWithUnavailableWriter();
 
         FilterChain chain = (servletRequest, servletResponse) ->
                 servletResponse.setContentType("text/html;charset=UTF-8");
@@ -171,7 +171,7 @@ class LogoutBroadcastFilterUnitTest {
      *
      * @since 2026-04-20
      */
-    private static class WriterUnavailableMockHttpServletResponse extends MockHttpServletResponse {
+    private static class MockResponseWithUnavailableWriter extends MockHttpServletResponse {
 
         private final ByteArrayOutputStream body = new ByteArrayOutputStream();
 
