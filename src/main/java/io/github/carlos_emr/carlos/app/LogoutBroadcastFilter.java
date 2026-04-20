@@ -170,11 +170,8 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        // Pass through without wrapping - Tomcat 11's RequestDispatcher.forward()
-        // is incompatible with response wrappers that suppress flush/close.
-        // The script is injected by CsrfGuardScriptInjectionFilter instead,
-        // or appended directly after the chain completes.
-        chain.doFilter(request, response);
+        DelegatingServletResponse delegatingResponse = new DelegatingServletResponse((HttpServletResponse) response);
+        chain.doFilter(request, delegatingResponse);
 
         // Only inject for authenticated sessions
         HttpSession session = httpRequest.getSession(false);
@@ -182,10 +179,8 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-
         // Only inject for HTML responses
-        String contentType = httpResponse.getContentType();
+        String contentType = delegatingResponse.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("text/html")) {
             return;
         }
@@ -196,17 +191,14 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        // Don't inject if response is already committed (forward/redirect already sent)
-        if (httpResponse.isCommitted()) {
-            return;
-        }
-
         try {
-            String script = buildScript(httpRequest.getContextPath(), httpRequest.getLocale());
-            httpResponse.getWriter().print(script);
+            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+        } catch (IOException e) {
+            logger.debug("Skipping logout broadcast script injection because the script could not be written.", e);
+            return;
         } catch (IllegalStateException e) {
-            // getWriter() fails if getOutputStream() was already called - skip injection
-            logger.debug("Cannot inject logout script - output stream already obtained", e);
+            logger.debug("Skipping logout broadcast script injection because the response writer was unavailable and the output stream write failed.", e);
+            return;
         }
     }
 
@@ -246,26 +238,71 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
-     * Appends the inline logout broadcast and session heartbeat script to the response.
+     * Appends the inline logout broadcast and session heartbeat script through the wrapped response.
      *
-     * @param response ServletResponse the original response for output
      * @param delegatingResponse DelegatingServletResponse the wrapped response
      * @param contextPath String the servlet context path
      * @param locale Locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
-    private void appendScript(ServletResponse response, DelegatingServletResponse delegatingResponse,
-                              String contextPath, Locale locale) throws IOException {
+    private void appendScript(DelegatingServletResponse delegatingResponse, String contextPath, Locale locale)
+            throws IOException {
 
         String script = buildScript(contextPath, locale);
 
         if (delegatingResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
+            writeScriptToOutputStream(delegatingResponse, script);
         } else if (delegatingResponse.isResponseWriterObtained()) {
-            response.getWriter().print(script);
+            writeScriptToWriter(delegatingResponse, script);
+        } else {
+            writeScriptWithBestAvailableOutput(delegatingResponse, script);
         }
+    }
 
-        response.flushBuffer();
+    /**
+     * Writes the injected script through the servlet output stream path.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if the output stream write fails
+     */
+    private void writeScriptToOutputStream(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        delegatingResponse.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
+        delegatingResponse.flushBuffer();
+    }
+
+    /**
+     * Writes the injected script through the servlet writer path.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if the writer flush fails
+     */
+    private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        delegatingResponse.getWriter().print(script);
+        delegatingResponse.flushBuffer();
+    }
+
+    /**
+     * Writes the injected script using the best available output mechanism.
+     *
+     * <p>This method prefers the writer path for standard HTML rendering and falls back
+     * to the output stream when the writer is unavailable due to mixed response state.
+     *
+     * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param script String the script content to append
+     * @throws IOException if writing fails for the selected output path
+     */
+    private void writeScriptWithBestAvailableOutput(DelegatingServletResponse delegatingResponse, String script)
+            throws IOException {
+        try {
+            writeScriptToWriter(delegatingResponse, script);
+        } catch (IllegalStateException e) {
+            logger.debug("Response writer unavailable during logout script injection; retrying with output stream.", e);
+            writeScriptToOutputStream(delegatingResponse, script);
+        }
     }
 
     /**

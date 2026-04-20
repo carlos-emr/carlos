@@ -59,10 +59,23 @@
 <body>
 
 <script>
-    // Refresh the parent window to show updated data
-    top.opener.location.reload();
-    // Close this popup window
-    top.window.close();
+    // Notify the opener that PDF attachments are ready.
+    // Using a targeted callback instead of location.reload() preserves any
+    // request-attribute-backed state in the opener (e.g. demographic_no in
+    // CreateMessage.jsp, which is set by a Struts forward and is not in the URL).
+    try {
+        if (top.opener && !top.opener.closed && typeof top.opener.onAttachmentAdded === 'function') {
+            top.opener.onAttachmentAdded();
+        } else if (top.opener && !top.opener.closed) {
+            // Fallback for any other opener that does not expose the callback
+            top.opener.location.reload();
+        }
+    } catch (e) {
+        // Opener may be unavailable or cross-origin.
+    } finally {
+        // Close this popup window regardless of opener state
+        top.window.close();
+    }
 </script>
 
 </body>
