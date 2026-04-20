@@ -108,6 +108,7 @@
     int curYear = cal.get(Calendar.YEAR);
     int curMonth = (cal.get(Calendar.MONTH) + 1);
     int curDay = cal.get(Calendar.DAY_OF_MONTH);
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <!doctype html>
@@ -115,6 +116,9 @@
 
 <head>
     <title><fmt:message key="admin.admin.page.title"/></title>
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
@@ -293,6 +297,9 @@
 </head>
 
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <div class="container-fluid">
     <div class="d-print-none d-flex justify-content-end align-items-center gap-3">
         <span class="d-flex align-items-center gap-1">

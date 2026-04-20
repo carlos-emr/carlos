@@ -411,6 +411,22 @@ popupPage2(queryString, 'appointment', height, width);
 
 var openEncounterInTab = <%=openEncounterInTab%>;
 
+function appendQueryParam(url, key, value) {
+var joiner = url.indexOf('?') === -1 ? '?' : '&';
+return url + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value);
+}
+
+function openScheduleSection(url, popupAction) {
+if (openEncounterInTab) {
+window.location.href = appendQueryParam(url, 'scheduleNav', '1');
+return false;
+}
+if (typeof popupAction === 'function') {
+popupAction();
+}
+return false;
+}
+
 function setfocus() {
 this.focus();
 }

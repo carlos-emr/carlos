@@ -74,6 +74,7 @@
 
 <%
     boolean authed = true;
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc,_admin,_admin.edocdelete" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -163,6 +164,9 @@
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet" type="text/css"/>
 
@@ -394,6 +398,9 @@
 
     </head>
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
 
     <div class="container" style="margin-bottom: 25px">
         <h2>

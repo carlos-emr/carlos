@@ -100,6 +100,7 @@
     if (!authed) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <%
@@ -185,6 +186,9 @@
              primary (#337ab7). Required because messenger pages don't use global-head.jspf. --%>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+        <% if (showScheduleNav) { %>
+            <link rel="stylesheet" href="<%=request.getContextPath() %>/css/topnav.css">
+        <% } %>
 
         <style>
         tr.newMessage td {
@@ -291,6 +295,9 @@
     </head>
 
     <body class="BodyStyle" onload="window.focus()" onunload="return uload()">
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
 <%-- Page header: uses page-header-bar pattern (matching search.jsp and reportindex.jsp)
      with page-header-bar--flex to place the title and search form side-by-side. The
      search form is capped at 450px via page-header-search-form to avoid dominating

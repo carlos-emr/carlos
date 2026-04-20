@@ -62,6 +62,7 @@
     if (!authed2) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -129,6 +130,9 @@
 <html lang="${flatpickrLanguage}">
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <title><fmt:message key="report.reportindex.title"/></title>
 
         <!-- Flatpickr -->
@@ -255,6 +259,9 @@
 
     </head>
     <body onload="setfocus()">
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <%
         GregorianCalendar now = new GregorianCalendar();
         GregorianCalendar cal = (GregorianCalendar) now.clone();

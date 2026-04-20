@@ -92,6 +92,7 @@
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
@@ -224,6 +225,9 @@
 
     <head>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <title>
             <fmt:message key="ectViewConsultationRequests.title"/>
         </title>
@@ -314,6 +318,9 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <div class="container-fluid p-0">
 
         <!-- Page Header -->
