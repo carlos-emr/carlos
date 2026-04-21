@@ -563,6 +563,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return sanitized.toArray(new String[0]);
     }
 
+    static String resolveReporterProgramTeam(AdmissionManager admissionManager, String programNo, String demographicNo) {
+        try {
+            Admission admission = admissionManager.getAdmission(programNo, Integer.valueOf(demographicNo));
+            if (admission == null || admission.getTeamId() == null) {
+                return "0";
+            }
+            return String.valueOf(admission.getTeamId());
+        } catch (Exception e) {
+            logger.error("Error", e);
+            return "0";
+        }
+    }
+
     private void setOrRemove(HttpSession session, String key, String value) {
         if (value != null) {
             session.setAttribute(key, value); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -996,8 +1009,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         AdmissionManager admissionManager = (AdmissionManager) ctx.getBean(AdmissionManager.class);
 
         String role = null;
-        String team = null;
-
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
@@ -1007,12 +1018,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        try {
-            team = String.valueOf((admissionManager.getAdmission(note.getProgram_no(), Integer.valueOf(note.getDemographic_no()))).getTeamId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            team = "0";
-        }
+        String team = resolveReporterProgramTeam(admissionManager, note.getProgram_no(), note.getDemographic_no());
         note.setReporter_program_team(team);
         if (appointmentNo != null && appointmentNo.length() > 0) {
             try {
@@ -1751,13 +1757,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        String team = null;
-        try {
-            team = String.valueOf((admissionManager.getAdmission(note.getProgram_no(), Integer.valueOf(note.getDemographic_no()))).getTeamId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            team = "0";
-        }
+        String team = resolveReporterProgramTeam(admissionManager, note.getProgram_no(), note.getDemographic_no());
 
         note.setReporter_program_team(team);
 
