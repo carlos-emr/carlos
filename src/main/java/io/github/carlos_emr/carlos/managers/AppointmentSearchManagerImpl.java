@@ -157,10 +157,11 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                     for (FilterDefinition className : filterClassNames) {
                         String filterClassName = className.getFilterClassName();
                         if (!FilterRegistry.isKnown(filterClassName)) {
+                            String sanitizedName = LogSanitizer.sanitize(filterClassName);
                             logger.error("Unknown AvailableTimeSlotFilter key in search configuration: {}",
-                                    LogSanitizer.sanitize(filterClassName));
+                                    sanitizedName);
                             throw new AppointmentSearchManager.AppointmentSearchException(
-                                    "Unknown AvailableTimeSlotFilter key: " + LogSanitizer.sanitize(filterClassName));
+                                    "Unknown AvailableTimeSlotFilter key: " + sanitizedName);
                         }
                         AvailableTimeSlotFilter filterClassInstance = FilterRegistry.create(filterClassName);
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());

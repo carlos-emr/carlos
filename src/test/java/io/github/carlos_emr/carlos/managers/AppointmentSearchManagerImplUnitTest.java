@@ -89,7 +89,7 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should throw AppointmentSearchException when provider filter key is unknown")
-    void shouldThrowAppointmentSearchException_whenProviderFilterKeyIsUnknown() {
+    void shouldThrowAppointmentSearchException_whenFilterKeyIsUnknown() {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         Calendar startDate = Calendar.getInstance();
 
