@@ -136,7 +136,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
-            throw new SecurityException("Invalid imagefile path");
+            throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }
 
