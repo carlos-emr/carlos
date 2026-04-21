@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +36,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Unit tests for {@link AppointmentStatusMgrImpl} legacy cache invalidation hooks.
  *
@@ -44,11 +49,12 @@ import static org.mockito.Mockito.when;
 @DisplayName("AppointmentStatusMgrImpl unit tests")
 class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
+    private AppointmentStatusDao appointmentStatusDao;
     private CacheManager cacheManager;
 
     @BeforeEach
     void setUp() {
-        createAndRegisterMock(AppointmentStatusDao.class);
+        appointmentStatusDao = createAndRegisterMock(AppointmentStatusDao.class);
         cacheManager = createAndRegisterMock(CacheManager.class);
     }
 
@@ -70,5 +76,39 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
         AppointmentStatusMgrImpl.setCacheIsDirty(false);
 
         verify(cacheManager, never()).getCache("appointmentStatuses");
+    }
+
+    @Test
+    @DisplayName("should resolve fresh Spring beans on each static call instead of caching them")
+    void shouldResolveFreshSpringBeans_onEachStaticCall() {
+        AppointmentStatus firstStatus = new AppointmentStatus();
+        firstStatus.setId(1);
+        when(appointmentStatusDao.findActive()).thenReturn(List.of(firstStatus));
+
+        assertThat(AppointmentStatusMgrImpl.getCachedActiveStatuses())
+                .extracting(AppointmentStatus::getId)
+                .containsExactly(1);
+
+        AppointmentStatusDao secondAppointmentStatusDao = createAndRegisterMock(AppointmentStatusDao.class);
+        AppointmentStatus secondStatus = new AppointmentStatus();
+        secondStatus.setId(2);
+        when(secondAppointmentStatusDao.findActive()).thenReturn(List.of(secondStatus));
+
+        assertThat(AppointmentStatusMgrImpl.getCachedActiveStatuses())
+                .extracting(AppointmentStatus::getId)
+                .containsExactly(2);
+
+        Cache firstCache = mock(Cache.class);
+        when(cacheManager.getCache("appointmentStatuses")).thenReturn(firstCache);
+        AppointmentStatusMgrImpl.setCacheIsDirty(true);
+        verify(cacheManager).getCache("appointmentStatuses");
+        verify(firstCache).clear();
+
+        CacheManager secondCacheManager = createAndRegisterMock(CacheManager.class);
+        Cache secondCache = mock(Cache.class);
+        when(secondCacheManager.getCache("appointmentStatuses")).thenReturn(secondCache);
+        AppointmentStatusMgrImpl.setCacheIsDirty(true);
+        verify(secondCacheManager).getCache("appointmentStatuses");
+        verify(secondCache).clear();
     }
 }

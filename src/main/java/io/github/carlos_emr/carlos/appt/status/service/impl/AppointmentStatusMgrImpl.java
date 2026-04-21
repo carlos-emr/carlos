@@ -58,21 +58,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static AppointmentStatusDao appointStatusDao;
-    private static CacheManager cacheManager;
 
     private static AppointmentStatusDao getAppointmentStatusDao() {
-        if (appointStatusDao == null) {
-            appointStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
-        }
-        return appointStatusDao;
+        return SpringUtils.getBean(AppointmentStatusDao.class);
     }
 
     private static CacheManager getCacheManager() {
-        if (cacheManager == null) {
-            cacheManager = SpringUtils.getBean(CacheManager.class);
-        }
-        return cacheManager;
+        return SpringUtils.getBean(CacheManager.class);
     }
 
     /**
@@ -90,8 +82,8 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
      *
      * @param cachedActiveStatuses ignored
      */
-    @SuppressWarnings("unchecked")
-    public static synchronized void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
+    @Deprecated
+    public static void setCachedActiveStatuses(List<AppointmentStatus> cachedActiveStatuses) {
         // No-op: DAO-level Spring cache handles this
     }
 
@@ -185,12 +177,12 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
         getAppointmentStatusDao().modifyStatus(3, "Here", "#00ee00");
         getAppointmentStatusDao().modifyStatus(4, "Picked", "#FFBBFF");
         getAppointmentStatusDao().modifyStatus(5, "Empty Room", "#FFFF33");
-        getAppointmentStatusDao().modifyStatus(6, "Costumized 1", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(7, "Costumized 2", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(8, "Costumized 3", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(9, "Costumized 4", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(10, "Costumized 5", "#897DF8");
-        getAppointmentStatusDao().modifyStatus(11, "Costumized 6", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(6, "Customized 1", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(7, "Customized 2", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(8, "Customized 3", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(9, "Customized 4", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(10, "Customized 5", "#897DF8");
+        getAppointmentStatusDao().modifyStatus(11, "Customized 6", "#897DF8");
         getAppointmentStatusDao().modifyStatus(12, "No Show", "#cccccc");
         getAppointmentStatusDao().modifyStatus(13, "Cancelled", "#999999");
         getAppointmentStatusDao().modifyStatus(14, "Billed", "#3ea4e1");
