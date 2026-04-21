@@ -1804,7 +1804,9 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 } %>
 
         function switchProvider(value) {
-            if (value === -1) {
+            value = value.toString();
+
+            if (value === "-1") {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
@@ -1827,9 +1829,16 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                 }
             } else {
                 let origValue = value;
-                value = value.replace(/[^A-Za-z0-9]+/g, '');
-                if (typeof providerData["prov_" + value.toString()] != "undefined") {
-                    value = "prov_" + value;
+                if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                    let sanitizedValue = value.replace(/[^A-Za-z0-9_]+/g, '');
+                    if (Object.prototype.hasOwnProperty.call(providerData, "prov_" + sanitizedValue)) {
+                        value = "prov_" + sanitizedValue;
+                    } else {
+                        value = sanitizedValue;
+                    }
+                }
+                if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                    return;
                 }
                 document.getElementById("letterheadName").value = origValue;
                 document.getElementById("letterheadAddress").value = providerData[value]['address'];
