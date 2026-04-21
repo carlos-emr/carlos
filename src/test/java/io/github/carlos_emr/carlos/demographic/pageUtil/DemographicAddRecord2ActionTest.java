@@ -93,7 +93,10 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo("validationError");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
-        assertThat((List<String>) mockRequest.getAttribute("fieldLengthValidationErrors"))
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
