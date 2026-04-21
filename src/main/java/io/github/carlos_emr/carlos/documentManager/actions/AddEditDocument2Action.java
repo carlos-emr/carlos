@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,6 +84,8 @@ import org.openpdf.text.pdf.PdfReader;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
@@ -105,7 +108,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @see PathValidationUtils
  * @since 2006-07-27
  */
-public class AddEditDocument2Action extends ActionSupport {
+public class AddEditDocument2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -128,8 +131,16 @@ public class AddEditDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        File uploadedDocFile = this.getDocFile();
+        if (uploadedDocFile == null) {
+            response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
+            response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
+            return null;
+        }
+
         int numberOfPages = 0;
-        String fileName = MiscUtils.sanitizeFileName(this.getDocFile().getName());
+        String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
+        String fileName = MiscUtils.sanitizeFileName(originalFileName);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
         EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A', UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", 0);
@@ -144,14 +155,14 @@ public class AddEditDocument2Action extends ActionSupport {
         }
 
         // save local file;
-        if (this.getDocFile().length() == 0) {
+        if (uploadedDocFile.length() == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        File file = writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName); // write file to local dir
+        File file = writeLocalFile(Files.newInputStream(uploadedDocFile.toPath()), fileName); // write file to local dir
 
-        if (!file.exists() || file.length() < this.getDocFile().length()) {
+        if (!file.exists() || file.length() < uploadedDocFile.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
             response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
             return null;
@@ -306,6 +317,10 @@ public class AddEditDocument2Action extends ActionSupport {
                 throw new Exception();
             }
             File docFile = this.getDocFile();
+            if (docFile == null) {
+                errors.put("uploaderror", "dms.error.uploadError");
+                throw new FileNotFoundException();
+            }
             if (docFile.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -605,6 +620,22 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             IOUtils.closeQuietly(fin);
         }
         return ret;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles == null) {
+            return;
+        }
+
+        for (UploadedFile uploaded : uploadedFiles) {
+            String inputName = uploaded.getInputName();
+            if ("docFile".equals(inputName) || "filedata".equals(inputName)) {
+                this.docFile = new File(uploaded.getAbsolutePath());
+                this.docFileFileName = uploaded.getOriginalName();
+                this.docFileContentType = uploaded.getContentType();
+            }
+        }
     }
 
     private boolean filled(String s) {
