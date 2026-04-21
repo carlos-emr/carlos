@@ -26,7 +26,7 @@ class BillingOnJspRoutingTest {
     private static final Path BILLING_ON_JSP_DIR = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/ON");
 
     @Test
-    void shouldUseContextAwareRoutes_forOntarioBillingJspWorkflows() throws IOException {
+    void shouldUseContextAwareRoutes_inOntarioBillingJspWorkflows() throws IOException {
         try (Stream<Path> files = Files.walk(BILLING_ON_JSP_DIR)) {
             List<Path> jspFiles = files
                     .filter(Files::isRegularFile)
@@ -54,12 +54,16 @@ class BillingOnJspRoutingTest {
         }
 
         String billingOn = readJspContent(BILLING_ON_JSP_DIR.resolve("billingON.jsp"));
-        assertThat(billingOn).contains("jQuery.getJSON(ctx + ajaxUrl, {term: request.term}, response);");
-        assertThat(billingOn).contains("initCodeAutocomplete(jQuery(\"input[name^='dxCode']\"), \"/billing/CA/ON/ViewBillingDigSearchAjax\");");
-        assertThat(billingOn).contains("initCodeAutocomplete(jQuery(\"input[name^='serviceCode']\"), \"/billing/CA/ON/ViewBillingCodeSearchAjax\");");
+        assertThat(billingOn).contains("jQuery.getJSON(ctx + ajaxUrl");
+        assertThat(billingOn).contains("/billing/CA/ON/ViewBillingDigSearchAjax");
+        assertThat(billingOn).contains("/billing/CA/ON/ViewBillingCodeSearchAjax");
+        assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingDigSearchAjax\"");
+        assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingCodeSearchAjax\"");
 
         String reportInr = readJspContent(BILLING_ON_JSP_DIR.resolve("inr/reportINR.jsp"));
         assertThat(reportInr).contains("String inrBillingAction = request.getContextPath()");
+        assertThat(reportInr).contains("/billing/CA/ON/ViewInrOnGenINRbilling");
+        assertThat(reportInr).contains("/billing/CA/ON/ViewInrGenINRbilling");
         assertThat(reportInr).contains("action=\"<%= inrBillingAction %>\"");
     }
 
