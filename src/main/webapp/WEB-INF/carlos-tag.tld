@@ -9,9 +9,11 @@
         (`&lt;carlos:encode&gt;`) and EL functions (`${carlos:forXxx(...)}`).
         Declare with: `&lt;%@ taglib uri="carlos" prefix="carlos" %&gt;`.
 
-        The EL function names intentionally mirror `org.owasp.encoder.Encode`
-        method names exactly, so migration from `${e:forXxx(...)}` is a literal
-        prefix rename (`e:` → `carlos:`).
+        Most EL function names intentionally mirror `org.owasp.encoder.Encode`
+        method names exactly, so migration from `${e:forXxx(...)}` is usually a
+        literal prefix rename (`e:` → `carlos:`). CARLOS may also expose
+        additional null-safe convenience functions where the view layer needs
+        safe rendering behaviour beyond the OWASP baseline.
     </description>
     <display-name>CARLOS EMR tags</display-name>
     <tlib-version>1.0</tlib-version>
@@ -61,10 +63,11 @@
     <!-- ============================================================
          EL FUNCTIONS: ${carlos:forXxx(value)}
 
-         Names match org.owasp.encoder.Encode.forXxx() one-to-one so that
+         Most names match org.owasp.encoder.Encode.forXxx() one-to-one so that
          ${e:forXxx(x)} migrates to ${carlos:forXxx(x)} as a 2-character
          prefix rename. Each function delegates to SafeEncode.forXxx(x)
-         which coalesces null to empty.
+         which coalesces null to empty; CARLOS-specific convenience helpers may
+         extend that set where needed.
          ============================================================ -->
 
     <function>
@@ -79,6 +82,13 @@
         <name>forHtmlContent</name>
         <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
         <function-signature>java.lang.String forHtmlContent(java.lang.String)</function-signature>
+    </function>
+
+    <function>
+        <description>Null-safe HTML content encoding with newline-to-&lt;br/&gt; conversion.</description>
+        <name>forHtmlContentWithBreaks</name>
+        <function-class>io.github.carlos_emr.carlos.utility.SafeEncode</function-class>
+        <function-signature>java.lang.String forHtmlContentWithBreaks(java.lang.String)</function-signature>
     </function>
 
     <function>

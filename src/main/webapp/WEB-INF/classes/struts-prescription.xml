@@ -31,6 +31,9 @@
         <action name="rx/choosePatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxChoosePatient2Action">
             <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
         </action>
+        <action name="rx/searchPatient" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchPatient2Action">
+            <result name="success">/WEB-INF/jsp/rx/Print.jsp</result>
+        </action>
         <action name="rx/searchDrug" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchDrug2Action">
             <result name="success">/WEB-INF/jsp/rx/ChooseDrug.jsp</result>
             <result name="error">/WEB-INF/jsp/error/500.jsp</result>

@@ -185,12 +185,13 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should get functional user types linked to program")
+        @DisplayName("should get functional users linked to program")
         void shouldGetFunctionalUsers_byProgram() {
-            // Note: getFunctionalUsers(Long programId) returns List<FunctionalUserType> —
-            // the user types associated with the program, not ProgramFunctionalUser records.
-            List<FunctionalUserType> results = programFunctionalUserDAO.getFunctionalUsers(testProgramId1);
+            // getFunctionalUsers(Long programId) returns the ProgramFunctionalUser
+            // records (program/user-type/provider links) associated with the program.
+            List<ProgramFunctionalUser> results = programFunctionalUserDAO.getFunctionalUsers(testProgramId1);
             assertThat(results).hasSize(2);
+            assertThat(results).allMatch(pfu -> testProgramId1.equals(pfu.getProgramId()));
         }
 
         @Test
