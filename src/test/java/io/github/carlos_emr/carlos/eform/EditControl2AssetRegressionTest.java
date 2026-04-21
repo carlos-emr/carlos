@@ -51,8 +51,15 @@ class EditControl2AssetRegressionTest {
     void shouldKeepBlankTemplateSameOrigin_whenEditorBootstraps() throws IOException {
         String script = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
 
+        // Ensure the option points to the blank.rtl template
         assertThat(script).contains("<option value=\"blank.rtl\">blank</option>");
+        // Ensure the iframe srcdoc uses the same-origin blank template
         assertThat(script).contains(".srcdoc = blankTemplate;");
-        assertThat(script).doesNotContain("data:text/html");
+        assertThat(script).doesNotContain("data:text/html;charset=utf-8,");
+
+        // Ensure the runtime cfg_template default is aligned with the blank.rtl template
+        assertThat(script).contains("var cfg_template = 'blank.rtl';");
+        // Guard against reintroducing the old 'blank' default
+        assertThat(script).doesNotContain("var cfg_template = 'blank';");
     }
 }
