@@ -33,7 +33,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for package-private helper methods on {@link CaseManagementEntry2Action}.
+ * Unit tests for the package-private sanitization helpers and reporter-team fallback helper on
+ * {@link CaseManagementEntry2Action}.
  *
  * <p>These helpers are package-private static methods and do not require a Spring context.
  *
@@ -41,7 +42,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("security")
-@DisplayName("CaseManagementEntry2Action helper methods")
+@DisplayName("CaseManagementEntry2Action sanitization and reporter-team helpers")
 class CaseManagementEntry2ActionSanitizationUnitTest {
 
     // ------------------------------------------------------------------

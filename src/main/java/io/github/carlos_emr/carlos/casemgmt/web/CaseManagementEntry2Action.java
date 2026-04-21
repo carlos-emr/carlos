@@ -579,7 +579,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             return String.valueOf(admission.getTeamId());
         } catch (Exception e) {
-            logger.error("Error resolving reporter program team", e);
+            logger.error("Error resolving reporter program team (programNo={}, demographicNoPresent={})",
+                    LogSanitizer.sanitize(String.valueOf(programNo)), StringUtils.isNotBlank(demographicNo), e);
             return "0";
         }
     }
