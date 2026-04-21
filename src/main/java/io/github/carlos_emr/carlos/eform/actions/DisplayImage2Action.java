@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
+    static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -85,7 +86,11 @@ public class DisplayImage2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+        String fileName = request.getParameter("imagefile");
+        if (!hasReadPrivilege(loggedInInfo, fileName)) {
+            if (VACCINE_BRANDS_FILE.equals(fileName)) {
+                throw new SecurityException("missing required sec object (_eform or _prevention)");
+            }
             throw new SecurityException("missing required sec object (_eform)");
         }
 
@@ -106,6 +111,15 @@ public class DisplayImage2Action extends ActionSupport {
                 stream.close();
             }
         }
+    }
+
+    boolean hasReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
+        if (securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+            return true;
+        }
+
+        return VACCINE_BRANDS_FILE.equals(fileName)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null);
     }
 
     public StreamData process() throws Exception {
