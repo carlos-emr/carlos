@@ -87,10 +87,12 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         String fileName = request.getParameter("imagefile");
-        if (!hasReadPrivilege(loggedInInfo, fileName)) {
-            if (VACCINE_BRANDS_FILE.equals(fileName)) {
+        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)
+                    && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
                 throw new SecurityException("missing required sec object (_eform or _prevention)");
             }
+        } else if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
@@ -111,15 +113,6 @@ public class DisplayImage2Action extends ActionSupport {
                 stream.close();
             }
         }
-    }
-
-    boolean hasReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
-            return true;
-        }
-
-        return VACCINE_BRANDS_FILE.equals(fileName)
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null);
     }
 
     public StreamData process() throws Exception {
