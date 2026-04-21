@@ -124,10 +124,14 @@ public class DisplayImage2Action extends ActionSupport {
      * authorization checks before delegating to this method for path validation and
      * MIME type stream handling.</p>
      *
+     * @deprecated Prefer {@link #execute()} so CARLOS EMR authorization is enforced
+     *             before streaming. Callers that invoke this method directly must
+     *             perform their own authorization checks first.
      * @return StreamData resolved stream and content type for the requested asset
      * @throws Exception if the request parameter is invalid, the directory is unavailable,
      *                   the path fails validation, or the file cannot be opened
      */
+    @Deprecated
     public StreamData process() throws Exception {
         String fileName = request.getParameter("imagefile");
         File file = getValidatedImageFile(fileName);

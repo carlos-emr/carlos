@@ -68,6 +68,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("eform")
 class DisplayImage2ActionTest extends CarlosUnitTestBase {
+    private static final String VACCINE_BRANDS_JSON = "[{\"name\":\"Tdap\",\"value\":\"Adacel\"}]";
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -146,7 +147,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         @DisplayName("should stream vaccine brands when prevention read privilege is granted")
         void shouldStreamVaccineBrands_whenPreventionReadPrivilegeGranted() throws Exception {
             mockRequest.setParameter("imagefile", DisplayImage2Action.VACCINE_BRANDS_FILE);
-            Files.writeString(tempDir.resolve(DisplayImage2Action.VACCINE_BRANDS_FILE), "[{\"name\":\"Tdap\",\"value\":\"Adacel\"}]", StandardCharsets.UTF_8);
+            Files.writeString(tempDir.resolve(DisplayImage2Action.VACCINE_BRANDS_FILE), VACCINE_BRANDS_JSON, StandardCharsets.UTF_8);
 
             when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
                     .thenReturn(false);
@@ -173,6 +174,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
                     .hasMessageContaining("_eform");
 
             verify(mockSecurityInfoManager, never()).hasPrivilege(eq(mockLoggedInInfo), eq("_prevention"), eq("r"), isNull());
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
         }
 
         @Test
