@@ -160,9 +160,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        File file = writeLocalFile(Files.newInputStream(uploadedDocFile.toPath()), fileName); // write file to local dir
+        // Validate uploaded source is from an allowed temp directory before reading
+        File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
+        File file = writeLocalFile(Files.newInputStream(validatedSource.toPath()), fileName); // write file to local dir
 
-        if (!file.exists() || file.length() < uploadedDocFile.length()) {
+        if (!file.exists() || file.length() < validatedSource.length()) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
             response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
             return null;
@@ -622,19 +624,37 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return ret;
     }
 
+    /**
+     * Binds Struts 7 {@link UploadedFile} instances to this action. The {@code docFile}
+     * input takes precedence over {@code filedata}; once a {@code docFile} entry has been
+     * bound, any subsequent entries (including additional {@code filedata} entries) are
+     * ignored to ensure deterministic selection regardless of list ordering.
+     *
+     * @param uploadedFiles List&lt;UploadedFile&gt; the uploads provided by the Struts file
+     *                      upload interceptor, or {@code null} if none were posted
+     */
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles == null) {
             return;
         }
 
+        UploadedFile selected = null;
         for (UploadedFile uploaded : uploadedFiles) {
             String inputName = uploaded.getInputName();
-            if ("docFile".equals(inputName) || "filedata".equals(inputName)) {
-                this.docFile = new File(uploaded.getAbsolutePath());
-                this.docFileFileName = uploaded.getOriginalName();
-                this.docFileContentType = uploaded.getContentType();
+            if ("docFile".equals(inputName)) {
+                selected = uploaded;
+                break;
             }
+            if (selected == null && "filedata".equals(inputName)) {
+                selected = uploaded;
+            }
+        }
+
+        if (selected != null) {
+            this.docFile = new File(selected.getAbsolutePath());
+            this.docFileFileName = selected.getOriginalName();
+            this.docFileContentType = selected.getContentType();
         }
     }
 
@@ -911,9 +931,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String docFileFileName;    
     private String docFileContentType; 
 
+    public String getDocFileFileName() {
+        return docFileFileName;
+    }
+
     @StrutsParameter
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
+    }
+
+    public String getDocFileContentType() {
+        return docFileContentType;
     }
 
     @StrutsParameter

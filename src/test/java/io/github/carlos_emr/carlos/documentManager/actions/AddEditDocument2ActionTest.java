@@ -116,8 +116,55 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
         assertThat(action.getDocFile()).isNotNull();
         assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
-        assertThat(readField("docFileFileName")).isEqualTo("echart-upload.pdf");
-        assertThat(readField("docFileContentType")).isEqualTo("application/pdf");
+        assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
+        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    @DisplayName("should capture Struts 7 filedata upload metadata when docFile is absent")
+    void shouldCaptureStruts7FiledataUploadMetadata_whenDocFileAbsent() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("filedata");
+        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn("html5-upload.pdf");
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+        assertThat(action.getDocFileFileName()).isEqualTo("html5-upload.pdf");
+        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    @DisplayName("should prefer docFile over filedata regardless of list ordering")
+    void shouldPreferDocFileOverFiledata_regardlessOfListOrdering() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        File filedataTemp = File.createTempFile("filedata-upload", ".pdf");
+        try {
+            UploadedFile filedataUpload = mock(UploadedFile.class);
+            when(filedataUpload.getInputName()).thenReturn("filedata");
+            when(filedataUpload.getAbsolutePath()).thenReturn(filedataTemp.getAbsolutePath());
+            when(filedataUpload.getOriginalName()).thenReturn("html5-upload.pdf");
+            when(filedataUpload.getContentType()).thenReturn("application/pdf");
+
+            UploadedFile docFileUpload = mock(UploadedFile.class);
+            when(docFileUpload.getInputName()).thenReturn("docFile");
+            when(docFileUpload.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+            when(docFileUpload.getOriginalName()).thenReturn("echart-upload.pdf");
+            when(docFileUpload.getContentType()).thenReturn("application/pdf");
+
+            // filedata appears first in the list - docFile must still win
+            action.withUploadedFiles(List.of(filedataUpload, docFileUpload));
+
+            assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+            assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
+        } finally {
+            Files.deleteIfExists(filedataTemp.toPath());
+        }
     }
 
     @Test
@@ -135,15 +182,5 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("failAdd");
         Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
-    }
-
-    private Object readField(String fieldName) {
-        try {
-            java.lang.reflect.Field field = AddEditDocument2Action.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return field.get(action);
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("Unable to read field " + fieldName, e);
-        }
     }
 }
