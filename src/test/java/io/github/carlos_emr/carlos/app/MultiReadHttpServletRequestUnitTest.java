@@ -605,7 +605,13 @@ class MultiReadHttpServletRequestUnitTest {
             MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
             String expectedLimitBytes = String.valueOf(MultiReadHttpServletRequest.MAX_BODY_SIZE);
 
-            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+            assertThatThrownBy(() -> {
+                ServletInputStream inputStream = wrapper.getInputStream();
+                byte[] buffer = new byte[8192];
+                while (inputStream.read(buffer) != -1) {
+                    // Keep reading in bounded chunks until the size limit is exceeded.
+                }
+            })
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining(expectedLimitBytes);
         }
