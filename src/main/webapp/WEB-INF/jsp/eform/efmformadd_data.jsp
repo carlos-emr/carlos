@@ -165,9 +165,10 @@
     // (e.g. Xbox toggle scripts, signForm() autoload, etc.). 'unsafe-inline' is therefore
     // required for script-src. As a result, CSP does not block inline script injection or
     // inline event-handler XSS on these pages. Its remaining defense-in-depth benefit here
-    // is primarily restricting external script sources to 'self' and blocking object/embed
-    // via object-src 'none'.
-    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'");
+    // is primarily restricting external script sources to 'self', blocking object/embed
+    // via object-src 'none', preventing <base> injection via base-uri 'none', and reducing
+    // clickjacking exposure via frame-ancestors 'self'.
+    response.setHeader("Content-Security-Policy", "script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(thisEForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>
