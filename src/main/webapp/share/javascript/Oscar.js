@@ -30,8 +30,8 @@
  * post updates back to the calling page) and cannot function correctly as standalone
  * browser tabs. These pages are:
  * <ul>
- *   <li>{@code addappointment.jsp} — appointment booking; needs schedule page context</li>
- *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
+ *   <li>{@code addappointment} — appointment booking; needs schedule page context</li>
+ *   <li>{@code editappointment} — appointment editing; needs schedule page context</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
  * </ul>
@@ -42,9 +42,9 @@
 function isForceWindowUrl(url) {
     if (!url) return false;
     const forceWindowPaths = [
-        'addappointment.jsp',
-        'appointmentcontrol.jsp',
-        'appointmentsearch.jsp',
+        'addappointment',
+        'editappointment',
+        'appointmentsearch',
         'Scratch',
         'CalendarPopup.jsp',
         'CalendarPopup'

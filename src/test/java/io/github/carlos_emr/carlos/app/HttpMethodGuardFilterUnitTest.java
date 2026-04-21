@@ -397,9 +397,8 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(request, response);
         }
 
-        // Note: the former test that targeted /appointment/appointmentcontrol.jsp
-        // has been removed. That JSP is now at /WEB-INF/jsp/appointment/appointmentcontrol.jsp
-        // and is reachable only via /appointment/appointmentcontrol
+        // Note: the former appointmentcontrol dispatcher route has been removed.
+        // Edit/add appointment flows now target their final action endpoints directly.
         // (ViewAppointment2Action gate). The public JSP path returns 404 at the
         // servlet layer before this filter ever sees it, so the prior test was
         // exercising a dead URL. End-to-end coverage of the gated action path lives in
