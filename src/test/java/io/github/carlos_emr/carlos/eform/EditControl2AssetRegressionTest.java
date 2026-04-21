@@ -53,6 +53,6 @@ class EditControl2AssetRegressionTest {
 
         assertThat(script).contains("<option value=\"blank.rtl\">blank</option>");
         assertThat(script).contains(".srcdoc = blankTemplate;");
-        assertThat(script).doesNotContain("data:text/html;charset=utf-8,");
+        assertThat(script).doesNotContain("data:text/html");
     }
 }
