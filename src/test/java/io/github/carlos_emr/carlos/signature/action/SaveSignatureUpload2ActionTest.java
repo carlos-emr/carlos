@@ -27,18 +27,26 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.UUID;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
+import org.owasp.encoder.Encode;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -116,7 +124,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should send 405 with Allow: POST on GET")
-        void shouldSend405_onGet() throws Exception {
+        void shouldReturn405_whenMethodIsGet() throws Exception {
             mockRequest.setMethod("GET");
 
             String result = action.execute();
@@ -183,7 +191,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should throw SecurityException when session is missing")
-        void shouldThrow_whenSessionMissing() {
+        void shouldThrowSecurityException_whenLoggedInInfoIsNull() {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                     .thenReturn(null);
             mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
@@ -195,7 +203,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should throw SecurityException when _con w is denied")
-        void shouldThrow_whenConWDenied() {
+        void shouldThrowSecurityException_whenMissingConWritePrivilege() {
             when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), isNull()))
                     .thenReturn(false);
             mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
@@ -212,29 +220,34 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return 400 when signatureKey is missing")
-        void shouldReturn400_whenKeyMissing() throws Exception {
+        void shouldReturn400_whenSignatureKeyIsNull() throws Exception {
+            action.execute();
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"../foo", "foo/bar", "foo.bar", ""})
+        @DisplayName("should return 400 when signatureKey contains non-alphanumeric characters")
+        void shouldReturn400_whenSignatureKeyContainsNonAlphanumeric(String invalidSignatureKey) throws Exception {
+            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, invalidSignatureKey);
             action.execute();
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         }
 
         @Test
-        @DisplayName("should return 400 and not write a file when signatureKey contains path-traversal")
-        void shouldReturn400_whenKeyHasPathTraversal() throws Exception {
-            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, "../etc/passwd");
+        @DisplayName("should return 400 when path validation throws")
+        void shouldReturn400_whenPathValidationThrows() throws Exception {
+            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
 
-            action.execute();
+            try (MockedStatic<PathValidationUtils> pathValidationUtilsMock = mockStatic(PathValidationUtils.class)) {
+                pathValidationUtilsMock.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                        .thenThrow(new SecurityException("simulated traversal"));
+
+                action.execute();
+            }
 
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-            File temp = new File(DigitalSignatureUtils.getTempFilePath("../etc/passwd"));
-            assertThat(temp).doesNotExist();
-        }
-
-        @Test
-        @DisplayName("should return 400 when signatureKey contains special characters")
-        void shouldReturn400_whenKeyHasSpecialChars() throws Exception {
-            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, "abc;rm-rf");
-            action.execute();
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
         }
     }
 
@@ -256,6 +269,23 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             File temp = new File(DigitalSignatureUtils.getTempFilePath(signatureKey));
             assertThat(temp).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("should return 400 when Base64 decode throws")
+        void shouldReturn400_whenBase64DecodeFails() throws Exception {
+            mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
+            mockRequest.setParameter("source", "IPAD");
+            mockRequest.setParameter("signatureImage", "data:image/png;base64,garbage");
+
+            try (MockedConstruction<Base64> ignored = mockConstruction(Base64.class,
+                    (mock, context) -> when(mock.decode(any(byte[].class)))
+                            .thenThrow(new IllegalArgumentException("bad base64")))) {
+                action.execute();
+            }
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
         }
 
         @Test
@@ -287,7 +317,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return 413 and delete partial file when upload exceeds 5 MB")
-        void shouldReturn413_andCleanup_whenUploadTooLarge() throws Exception {
+        void shouldReturn413_whenRawStreamUploadExceeds5MB() throws Exception {
             mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
             // 5 MB + 1 byte
             byte[] oversized = new byte[(5 * 1024 * 1024) + 1];
@@ -298,6 +328,50 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
             File temp = new File(DigitalSignatureUtils.getTempFilePath(signatureKey));
             assertThat(temp).doesNotExist();
+        }
+
+        @Test
+        @DisplayName("should delete temp file when IOException occurs during write")
+        void shouldDeleteTempFile_whenIOExceptionDuringWrite() throws Exception {
+            MockHttpServletRequest failingRequest = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return new ServletInputStream() {
+                        private final byte[] prefix = "abc".getBytes(StandardCharsets.US_ASCII);
+                        private int index = 0;
+
+                        @Override
+                        public int read() throws IOException {
+                            if (index < prefix.length) {
+                                return prefix[index++];
+                            }
+                            throw new IOException("Simulated stream failure");
+                        }
+
+                        @Override
+                        public boolean isFinished() {
+                            return false;
+                        }
+
+                        @Override
+                        public boolean isReady() {
+                            return true;
+                        }
+
+                        @Override
+                        public void setReadListener(ReadListener listener) {
+                        }
+                    };
+                }
+            };
+            failingRequest.setMethod("POST");
+            failingRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(failingRequest);
+
+            action.execute();
+
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
         }
 
         @Test
@@ -330,7 +404,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return 400 when demographicNo is non-numeric")
-        void shouldReturn400_whenDemographicNoNotNumeric() throws Exception {
+        void shouldReturn400_whenDemographicNoIsNotInteger() throws Exception {
             primeIpadUpload();
             mockRequest.setParameter("demographicNo", "not-a-number");
 
@@ -373,8 +447,8 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 200 with signatureId HTML fragment when manager returns a signature")
-        void shouldReturn200_withSignatureIdFragment_whenManagerSucceeds() throws Exception {
+        @DisplayName("should encode signatureId for HTML attribute when save succeeds")
+        void shouldEncodeSignatureIdForHtmlAttribute_whenSaveSucceeds() throws Exception {
             primeIpadUpload();
             mockRequest.setParameter("demographicNo", "42");
             mockRequest.setParameter(ModuleType.class.getSimpleName(), ModuleType.PRESCRIPTION.name());
@@ -388,9 +462,10 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(mockResponse.getContentType()).startsWith("text/html");
-            assertThat(mockResponse.getContentAsString())
-                    .contains("name=\"signatureId\"")
-                    .contains("value=\"777\"");
+            assertThat(mockResponse.getContentAsString()).isEqualTo(
+                    "<input type=\"hidden\" name=\"signatureId\" value=\""
+                            + Encode.forHtmlAttribute("777")
+                            + "\"/>");
         }
     }
 }
