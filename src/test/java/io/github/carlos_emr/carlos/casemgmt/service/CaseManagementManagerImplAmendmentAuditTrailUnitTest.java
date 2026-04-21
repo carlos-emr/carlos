@@ -183,6 +183,7 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
         assertThat(history).startsWith("Amended: added BP reading.\n");
         assertThat(history).contains(HISTORY_SEPARATOR);
         assertThat(history).contains("Initial assessment: patient stable.");
+        verify(mockNoteDao, times(1)).saveNote(note);
     }
 
     @Test
