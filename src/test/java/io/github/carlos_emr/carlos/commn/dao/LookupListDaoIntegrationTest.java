@@ -114,6 +114,7 @@ public class LookupListDaoIntegrationTest extends CarlosTestBase {
                             || l.getId().equals(ll4.getId()))
                     .toList();
             assertThat(created).containsExactly(ll4, ll1, ll3);
+            assertThat(result).doesNotContain(ll2);
         }
     }
 
