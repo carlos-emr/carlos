@@ -571,7 +571,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @param demographicNo String demographic identifier associated with the note; may be null
      * @return String team identifier when an admission with a non-null team ID exists; otherwise "0"
      */
-    static String resolveReporterProgramTeam(AdmissionManager admissionManager, String programNo, String demographicNo) {
+    static String resolveReporterProgramTeamId(AdmissionManager admissionManager, String programNo, String demographicNo) {
         if (!NumberUtils.isParsable(demographicNo)) {
             return "0";
         }
@@ -583,7 +583,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             return String.valueOf(admission.getTeamId());
         } catch (Exception e) {
-            logger.error("Error resolving reporter program team (programNoPresent={}, demographicNoPresent={}, exceptionType={})",
+            logger.error("Error resolving reporter program team admission lookup (programNoPresent={}, demographicNoPresent={}, exceptionType={})",
                     StringUtils.isNotBlank(programNo), StringUtils.isNotBlank(demographicNo),
                     e.getClass().getSimpleName(), e);
             return "0";
@@ -1032,7 +1032,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        String team = resolveReporterProgramTeam(admissionManager, note.getProgram_no(), note.getDemographic_no());
+        String team = resolveReporterProgramTeamId(admissionManager, note.getProgram_no(), note.getDemographic_no());
         note.setReporter_program_team(team);
         if (appointmentNo != null && appointmentNo.length() > 0) {
             try {
@@ -1771,7 +1771,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        String team = resolveReporterProgramTeam(admissionManager, note.getProgram_no(), note.getDemographic_no());
+        String team = resolveReporterProgramTeamId(admissionManager, note.getProgram_no(), note.getDemographic_no());
 
         note.setReporter_program_team(team);
 

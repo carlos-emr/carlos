@@ -33,7 +33,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the package-private sanitization helpers and reporter-team fallback helper on
+ * Unit tests for the package-private sanitization helpers and reporter team fallback helper on
  * {@link CaseManagementEntry2Action}.
  *
  * <p>These helpers are package-private static methods and do not require a Spring context.
@@ -42,7 +42,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("security")
-@DisplayName("CaseManagementEntry2Action sanitization and reporter-team helpers")
+@DisplayName("CaseManagementEntry2Action sanitization and reporter team helpers")
 class CaseManagementEntry2ActionSanitizationUnitTest {
 
     // ------------------------------------------------------------------
@@ -208,8 +208,8 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
-    @DisplayName("resolveReporterProgramTeam")
-    class ResolveReporterProgramTeam {
+    @DisplayName("resolveReporterProgramTeamId")
+    class ResolveReporterProgramTeamId {
 
         @Test
         @DisplayName("should return team ID when admission exists")
@@ -219,7 +219,7 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
             when(admissionManager.getAdmission("7", 42)).thenReturn(admission);
             when(admission.getTeamId()).thenReturn(15);
 
-            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "42"))
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
                     .isEqualTo("15");
         }
 
@@ -229,7 +229,7 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
             AdmissionManager admissionManager = mock(AdmissionManager.class);
             when(admissionManager.getAdmission("7", 42)).thenReturn(null);
 
-            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "42"))
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
                     .isEqualTo("0");
         }
 
@@ -239,7 +239,7 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
             AdmissionManager admissionManager = mock(AdmissionManager.class);
             when(admissionManager.getAdmission("7", 42)).thenThrow(new RuntimeException("boom"));
 
-            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "42"))
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "42"))
                     .isEqualTo("0");
         }
 
@@ -248,7 +248,7 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         void shouldReturnZero_whenDemographicNumberIsMalformed() {
             AdmissionManager admissionManager = mock(AdmissionManager.class);
 
-            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "abc"))
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "abc"))
                     .isEqualTo("0");
         }
     }
