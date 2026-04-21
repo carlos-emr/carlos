@@ -44,11 +44,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class EditControl2AssetRegressionTest {
 
     private static final Path EDIT_CONTROL_2_JS =
-            Path.of("src/main/webapp/WEB-INF/eform-assets/editControl2.js");
+            Path.of("src", "main", "webapp", "WEB-INF", "eform-assets", "editControl2.js");
 
     @Test
     @DisplayName("should keep the blank template fallback same-origin when the RTL editor bootstraps")
-    void shouldKeepBlankTemplateFallbackSameOrigin_whenRichTextLetterEditorBootstraps() throws IOException {
+    void shouldKeepBlankTemplateSameOrigin_whenEditorBootstraps() throws IOException {
         String script = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
 
         assertThat(script).contains("<option value=\"blank.rtl\">blank</option>");
