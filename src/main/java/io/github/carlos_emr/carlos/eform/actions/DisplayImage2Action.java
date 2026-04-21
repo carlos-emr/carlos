@@ -117,6 +117,17 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Resolves and streams the requested eForm asset outside the Struts execute flow.
+     *
+     * <p>{@link #execute()} remains the primary entry point because it applies the
+     * authorization checks before delegating to this method for path validation and
+     * MIME/type stream handling.</p>
+     *
+     * @return StreamData resolved stream and content type for the requested asset
+     * @throws Exception if the request parameter is invalid, the directory is unavailable,
+     *                   the path fails validation, or the file cannot be opened
+     */
     public StreamData process() throws Exception {
         String fileName = request.getParameter("imagefile");
         File file = getValidatedImageFile(fileName);

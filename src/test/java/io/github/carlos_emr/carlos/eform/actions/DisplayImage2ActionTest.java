@@ -204,5 +204,17 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_eform or _prevention");
         }
+
+        @Test
+        @DisplayName("should throw SecurityException when requested image path traverses outside allowed directory")
+        void shouldThrowSecurityException_whenRequestedImagePathTraversesOutsideAllowedDirectory() {
+            mockRequest.setParameter("imagefile", "../custom.json");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            assertThatThrownBy(() -> action.execute())
+                    .isInstanceOf(SecurityException.class);
+        }
     }
 }
