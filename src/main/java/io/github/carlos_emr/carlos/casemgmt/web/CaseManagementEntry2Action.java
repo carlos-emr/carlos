@@ -577,14 +577,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         try {
-            Admission admission = admissionManager.getAdmission(programNo, Integer.valueOf(demographicNo));
+            Admission admission = admissionManager.getAdmission(programNo, Integer.parseInt(demographicNo));
             if (admission == null || admission.getTeamId() == null) {
                 return "0";
             }
             return String.valueOf(admission.getTeamId());
         } catch (Exception e) {
-            logger.error("Error resolving reporter program team (programNo={}, demographicNoPresent={}, exceptionType={})",
-                    LogSanitizer.sanitize(String.valueOf(programNo)), StringUtils.isNotBlank(demographicNo),
+            logger.error("Error resolving reporter program team (programNoPresent={}, demographicNoPresent={}, exceptionType={})",
+                    StringUtils.isNotBlank(programNo), StringUtils.isNotBlank(demographicNo),
                     e.getClass().getSimpleName(), e);
             return "0";
         }
