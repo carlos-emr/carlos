@@ -717,23 +717,27 @@ class HttpMethodGuardFilterUnitTest {
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
         }
 
         @Test
-        @DisplayName("should pass through GET to prevention/AddPrevention with query parameters")
+        @DisplayName("should pass through GET to prevention/AddPrevention with the exact failing URL parameters")
         void shouldPassThrough_forGetToAddPreventionWithParams() throws Exception {
             // Reproduces the exact failing URL from the bug report:
             // /carlos/prevention/AddPrevention?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/prevention/AddPrevention");
             when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("4")).thenReturn("4");
             when(request.getParameter("prevention")).thenReturn("Tuberculosis");
             when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
 
             filter.doFilter(request, response, chain);
 
             verify(chain).doFilter(request, response);
             verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
         }
     }
 

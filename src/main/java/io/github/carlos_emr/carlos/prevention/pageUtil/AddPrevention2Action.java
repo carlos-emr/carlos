@@ -106,10 +106,16 @@ public class AddPrevention2Action extends ActionSupport {
         // reads the request parameters (prevention, demographic_no, id, snomedId,
         // lotNumber, prevResultDesc, ...) directly, so we simply forward to the form
         // without running the mutation code path — which would otherwise NPE on
-        // the null prevDate and attempt to insert an incomplete record.
+        // the null prevDate and attempt to insert an incomplete record. Any other
+        // HTTP method (PUT/PATCH/DELETE/OPTIONS/...) is rejected with 405.
         String httpMethod = request.getMethod();
-        if (!"POST".equalsIgnoreCase(httpMethod)) {
+        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
             return "form";
+        }
+        if (!"POST".equalsIgnoreCase(httpMethod)) {
+            response.setHeader("Allow", "GET, HEAD, POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
