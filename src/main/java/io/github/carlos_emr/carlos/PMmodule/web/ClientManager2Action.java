@@ -360,6 +360,7 @@ public class ClientManager2Action extends ActionSupport {
         // Use \d{1,9} (not \d{1,10}) to prevent Integer.parseInt overflow
         // (10-digit values can exceed Integer.MAX_VALUE = 2,147,483,647).
         if (id == null || !id.matches("\\d{1,9}")) {
+            logger.warn("Invalid id rejected in edit: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return ERROR;
         }
 
@@ -674,8 +675,8 @@ public class ClientManager2Action extends ActionSupport {
         String clientId = request.getParameter("dependentClientId");
         try {
             // Session read via getAttribute("user"), not a session write.
-            // Reads authenticated provider from own session (set by Login2Action post-auth).
-            // nosemgrep: tainted-session-from-http-request
+            // FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth).
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
         } catch (NumberFormatException e) {
             logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
