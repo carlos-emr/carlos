@@ -21,6 +21,12 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ContactDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
+import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
@@ -54,13 +60,39 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     private DemographicManager mockDemographicManager;
 
     @Mock
+    private ConsultationRequestDao mockConsultationRequestDao;
+
+    @Mock
+    private ConsultationRequestExtDao mockConsultationRequestExtDao;
+
+    @Mock
+    private ConsultationServiceDao mockConsultationServiceDao;
+
+    @Mock
+    private ContactDao mockContactDao;
+
+    @Mock
+    private FaxJobDao mockFaxJobDao;
+
+    @Mock
+    private FaxClientLogDao mockFaxClientLogDao;
+
+    @Mock
     private LoggedInInfo mockLoggedInInfo;
 
     private EctConsultationFormRequestUtil consultationFormRequestUtil;
 
     @BeforeEach
     void setUp() {
+        // EctConsultationFormRequestUtil's field initializers call SpringUtils.getBean(...)
+        // for every collaborator — register them all before constructing it.
         registerMock(DemographicManager.class, mockDemographicManager);
+        registerMock(ConsultationRequestDao.class, mockConsultationRequestDao);
+        registerMock(ConsultationRequestExtDao.class, mockConsultationRequestExtDao);
+        registerMock(ConsultationServiceDao.class, mockConsultationServiceDao);
+        registerMock(ContactDao.class, mockContactDao);
+        registerMock(FaxJobDao.class, mockFaxJobDao);
+        registerMock(FaxClientLogDao.class, mockFaxClientLogDao);
         consultationFormRequestUtil = new EctConsultationFormRequestUtil();
     }
 

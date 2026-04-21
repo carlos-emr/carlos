@@ -135,7 +135,13 @@ public class SecobjprivilegeDaoImpl extends AbstractJpaDao implements Secobjpriv
     public void delete(Secobjprivilege persistentInstance) {
         logger.debug("deleting Secobjprivilege instance");
         try {
-            entityManager().remove(persistentInstance);
+            // Pre-migration Hibernate Session.delete() accepted detached entities. JPA
+            // EntityManager.remove() requires a managed instance, so reattach via merge()
+            // when the caller passes a detached entity (mirrors SecProviderDaoImpl.delete).
+            Secobjprivilege managed = entityManager().contains(persistentInstance)
+                    ? persistentInstance
+                    : entityManager().merge(persistentInstance);
+            entityManager().remove(managed);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
