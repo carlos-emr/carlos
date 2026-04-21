@@ -39,6 +39,20 @@
 	<aop:aspectj-autoproxy proxy-target-class="true"/>
 
 	<bean class="io.github.carlos_emr.carlos.config.ServletContextConfig"/>
+	<!--
+		Registers the @Configuration class that declares @EnableCaching and the
+		Caffeine-backed CacheManager bean. Today CacheConfig is also picked up by
+		the broad <context:component-scan base-package="io.github.carlos_emr.carlos">
+		in spring_managers.xml, but that is the only discovery path — any future
+		change to that scan (e.g. adding use-default-filters="false", adding an
+		exclude-filter covering the config package, or replacing it with a
+		repository-only filter like test-context-full.xml uses) would silently
+		disable every @Cacheable / @CacheEvict in the application with no test
+		signal. The id="cacheConfig" matches the bean name the scanner would
+		generate from the class, so the scanner detects the existing definition
+		and skips re-registering it — one bean, no duplication.
+	-->
+	<bean id="cacheConfig" class="io.github.carlos_emr.carlos.config.CacheConfig"/>
     <!-- Enable annotation-driven transaction management with CGLIB proxies -->
     <tx:annotation-driven proxy-target-class="true"/>
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">

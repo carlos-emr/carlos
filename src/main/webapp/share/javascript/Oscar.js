@@ -30,9 +30,9 @@
  * post updates back to the calling page) and cannot function correctly as standalone
  * browser tabs. These pages are:
  * <ul>
- *   <li>{@code addappointment} / {@code addappointment.jsp} — appointment booking; callers still rely on popup-window scheduling context</li>
- *   <li>{@code appointmentcontrol} / {@code appointmentcontrol.jsp} — appointment editing; callers still rely on popup-window scheduling context</li>
- *   <li>{@code appointmentsearch} / {@code appointmentsearch.jsp} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
+ *   <li>{@code addappointment} — appointment booking; needs schedule page context</li>
+ *   <li>{@code editappointment} — appointment editing; needs schedule page context</li>
+ *   <li>{@code appointmentsearch} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
  *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
@@ -43,11 +43,8 @@
  */
 const forceWindowPaths = [
     'addappointment',
-    'addappointment.jsp',
-    'appointmentcontrol',
-    'appointmentcontrol.jsp',
+    'editappointment',
     'appointmentsearch',
-    'appointmentsearch.jsp',
     'Scratch',
     'CalendarPopup.jsp',
     'CalendarPopup',

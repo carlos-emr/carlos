@@ -540,6 +540,12 @@ class MultiReadHttpServletRequestUnitTest {
         }
 
         @Test
+        @DisplayName("should return multipart limit when configured for fifty megabytes")
+        void shouldReturnMultipartLimit_whenConfiguredForFiftyMegabytes() {
+            assertThat(MultiReadHttpServletRequest.MAX_BODY_SIZE).isEqualTo(50L * 1024 * 1024);
+        }
+
+        @Test
         @DisplayName("should extract CSRF token via getParameter() from multipart body")
         void shouldExtractCsrfToken_viaGetParameterFromMultipartBody() throws IOException {
             String boundary = "----TestBoundary";
@@ -582,6 +588,32 @@ class MultiReadHttpServletRequestUnitTest {
             // getInputStream() should still return the full body
             byte[] result = wrapper.getInputStream().readAllBytes();
             assertThat(result).isEqualTo(bodyBytes);
+        }
+
+        @Test
+        @DisplayName("should reject oversized multipart body when streaming exceeds configured limit")
+        void shouldRejectOversizedMultipartBody_whenStreamingExceedsConfiguredLimit() {
+            MockHttpServletRequest mock = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return streamingInputStream(MultiReadHttpServletRequest.MAX_BODY_SIZE + 1);
+                }
+            };
+            mock.setMethod("POST");
+            mock.setContentType("multipart/form-data; boundary=----TestBoundary");
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+            String expectedLimitBytes = String.valueOf(MultiReadHttpServletRequest.MAX_BODY_SIZE);
+
+            assertThatThrownBy(() -> {
+                ServletInputStream inputStream = wrapper.getInputStream();
+                byte[] buffer = new byte[8192];
+                while (inputStream.read(buffer) != -1) {
+                    // Keep reading in bounded chunks until the size limit is exceeded.
+                }
+            })
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining(expectedLimitBytes);
         }
 
         @Test
@@ -690,5 +722,55 @@ class MultiReadHttpServletRequestUnitTest {
             assertThat(parts).extracting(Part::getName)
                     .containsExactlyInAnyOrder("token", "file");
         }
+    }
+
+    private static ServletInputStream streamingInputStream(long totalBytes) {
+        return new ServletInputStream() {
+            private long remaining = totalBytes;
+
+            @Override
+            public int read() {
+                if (remaining <= 0) {
+                    return -1;
+                }
+                remaining--;
+                return 'a';
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) {
+                if (b == null) {
+                    throw new NullPointerException();
+                }
+                if (off < 0 || len < 0 || len > b.length - off) {
+                    throw new IndexOutOfBoundsException();
+                }
+                if (len == 0) {
+                    return 0;
+                }
+                if (remaining <= 0) {
+                    return -1;
+                }
+
+                int chunkSize = (int) Math.min(remaining, len);
+                java.util.Arrays.fill(b, off, off + chunkSize, (byte) 'a');
+                remaining -= chunkSize;
+                return chunkSize;
+            }
+
+            @Override
+            public boolean isFinished() {
+                return remaining <= 0;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(ReadListener listener) {
+            }
+        };
     }
 }

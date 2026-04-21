@@ -473,6 +473,72 @@ table#editDemographic tr:nth-of-type(odd) { background-color: #fff; }
 table#editDemographic tr:nth-of-type(even) { background-color: #f8f9fa; }
 
 /* ============================================================
+   12b. INLINE DATE-PART INPUTS
+   Year/month/day components inside a single td must stay on one
+   line. The base rule `table#editDemographic tr td input[type="text"]`
+   has specificity (1 ID + 1 attr + 4 elements). We match that level
+   here by including `tr td` so these later-defined rules take
+   precedence via cascade order (equal specificity, later wins).
+   ============================================================ */
+table#editDemographic tr td input[name$="_year"],
+table#editDemographic tr td input[name$="_month"],
+table#editDemographic tr td input[name$="_day"],
+table#editDemographic tr td input[name$="_date"][maxlength="2"],
+table#editDemographic tr td input[name="year_of_birth"] {
+    display: inline-block;
+    width: auto;
+    min-width: 3em;
+    padding: 4px 6px;
+    vertical-align: middle;
+}
+
+/* DOB single-date input — wider than the hidden year/month/day parts */
+table#editDemographic tr td input#dob {
+    display: inline-block;
+    width: auto;
+    min-width: 9em;
+    max-width: 12em;
+    padding: 4px 6px;
+    vertical-align: middle;
+}
+
+/* Keep calendar-picker date input and cal.gif icon on the same line */
+table#editDemographic tr td input#paper_chart_archived_date,
+table#editDemographic tr td input#waiting_list_referral_date {
+    display: inline-block;
+    width: auto;
+    max-width: 180px;
+    vertical-align: middle;
+}
+
+table#editDemographic img[id$="_cal"] {
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+/* ============================================================
+   12c. FIELD-LEVEL VALIDATION — highlight invalid fields
+   Rules are split so an unrecognized pseudo-class in one rule
+   does not invalidate the other.
+   ============================================================ */
+
+/* Fallback for browsers without :user-invalid support */
+table#editDemographic tr td input:invalid:not(:placeholder-shown),
+table#editDemographic tr td textarea:invalid:not(:placeholder-shown) {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Modern browsers: fires only after user interaction */
+table#editDemographic tr td input:user-invalid,
+table#editDemographic tr td select:user-invalid,
+table#editDemographic tr td textarea:user-invalid {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* ============================================================
    13. BUTTONS — flat --carlos-primary, matching search.jsp btn-primary
    ============================================================ */
 /* Default button style — primary blue */

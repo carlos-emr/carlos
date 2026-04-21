@@ -158,9 +158,13 @@
     addHiddenEmailProperties(loggedInInfo, eForm, eForm.getDemographicNo());
 
     // EForms are an intentional HTML rendering system — provider-authored templates are
-    // output unencoded. CSP mitigates stored XSS by blocking inline script execution
-    // while allowing external scripts from the same origin that eforms depend on.
-    response.setHeader("Content-Security-Policy", "script-src 'self'; object-src 'none'");
+    // output unencoded and routinely contain inline <script> blocks and inline event
+    // handlers (onload=, onclick=, onchange=) that are essential to eform functionality
+    // (e.g. Xbox toggle scripts, signForm() autoload, etc.). 'unsafe-inline' is therefore
+    // required for script-src. CSP still provides defense-in-depth by restricting default
+    // resource loading to 'self', restricting external script sources to 'self', blocking
+    // object/embed, preventing <base> injection, and disallowing cross-origin framing.
+    response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(eForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>

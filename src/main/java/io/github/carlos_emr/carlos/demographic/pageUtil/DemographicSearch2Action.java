@@ -77,7 +77,7 @@ public class DemographicSearch2Action extends ActionSupport {
 
         // "Search " (with trailing space) is set by appointment-context forms
         // (addappointment.jsp, editappointment.jsp, ticklerAdd.jsp, PatientSearch.jsp, etc.)
-        // and routed here via appointmentcontrol.jsp.
+        // so appointment workflows land on the appointment-specific search results view.
         String displaymode = request.getParameter("displaymode");
         if ("Search ".equals(displaymode)) {
             return "apptResults";
