@@ -30,10 +30,9 @@
  * post updates back to the calling page) and cannot function correctly as standalone
  * browser tabs. These pages are:
  * <ul>
- *   <li>{@code addappointment.jsp} — appointment booking; needs schedule page context</li>
- *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
- *   <li>{@code appointmentsearch.jsp} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
- *   <li>{@code appointmentsearch.jsp} — appointment search; needs popup-window behavior consistent with scheduling helpers</li>
+ *   <li>{@code addappointment} / {@code addappointment.jsp} — appointment booking; callers still rely on popup-window scheduling context</li>
+ *   <li>{@code appointmentcontrol} / {@code appointmentcontrol.jsp} — appointment editing; callers still rely on popup-window scheduling context</li>
+ *   <li>{@code appointmentsearch} / {@code appointmentsearch.jsp} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
  *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
@@ -45,8 +44,11 @@
 function isForceWindowUrl(url) {
     if (!url) return false;
     const forceWindowPaths = [
+        'addappointment',
         'addappointment.jsp',
+        'appointmentcontrol',
         'appointmentcontrol.jsp',
+        'appointmentsearch',
         'appointmentsearch.jsp',
         'Scratch',
         'CalendarPopup.jsp',

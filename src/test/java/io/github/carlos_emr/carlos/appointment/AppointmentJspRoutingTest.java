@@ -31,6 +31,7 @@ class AppointmentJspRoutingTest {
         String addRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp");
         String updateRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp");
         String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+        String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
 
         assertThat(editAppointment).contains("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
@@ -64,6 +65,10 @@ class AppointmentJspRoutingTest {
         assertThat(providerDay).contains("/appointment/addappointment?");
         assertThat(providerDay).contains("return ctx + '/appointment/addappointment'");
         assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
+
+        assertThat(oscarJs).contains("'addappointment'");
+        assertThat(oscarJs).contains("'appointmentcontrol'");
+        assertThat(oscarJs).contains("'appointmentsearch'");
     }
 
     private String readJspContent(String path) throws IOException {
