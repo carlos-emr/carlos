@@ -165,7 +165,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering eDoc. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -194,7 +194,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering eForm. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -223,7 +223,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering HRM. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -251,7 +251,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering Lab. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
@@ -273,7 +273,7 @@ public class DocumentPreview2Action extends ActionSupport {
             Path formPDFPath = documentAttachmentManager.renderDocument(request, response, DocumentType.FORM);
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
-            logger.error("Error occured while rendering Form. " + e.getMessage(), e);
+            logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
             generateResponse(response, e.getMessage());
         }
     }
