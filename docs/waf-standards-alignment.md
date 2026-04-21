@@ -16,6 +16,10 @@ Filter Chain Order (first to last):
 
 Rate limiting runs first because it is the cheapest check (counter increment) and provides the earliest rejection of abusive traffic before more expensive processing.
 
+Multipart upload size enforcement is currently handled by `CarlosCsrfGuardFilter`
+and `MultiReadHttpServletRequest`, which reject multipart request bodies larger
+than 50 MB before upload handlers execute.
+
 ---
 
 ## NIST SP 800-53 Mapping

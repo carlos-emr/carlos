@@ -540,6 +540,12 @@ class MultiReadHttpServletRequestUnitTest {
         }
 
         @Test
+        @DisplayName("should expose fifty megabyte multipart limit")
+        void shouldExposeFiftyMegabyteMultipartLimit() {
+            assertThat(MultiReadHttpServletRequest.MAX_BODY_SIZE).isEqualTo(50L * 1024 * 1024);
+        }
+
+        @Test
         @DisplayName("should extract CSRF token via getParameter() from multipart body")
         void shouldExtractCsrfToken_viaGetParameterFromMultipartBody() throws IOException {
             String boundary = "----TestBoundary";
@@ -582,6 +588,25 @@ class MultiReadHttpServletRequestUnitTest {
             // getInputStream() should still return the full body
             byte[] result = wrapper.getInputStream().readAllBytes();
             assertThat(result).isEqualTo(bodyBytes);
+        }
+
+        @Test
+        @DisplayName("should reject oversized multipart body when streaming exceeds configured limit")
+        void shouldRejectOversizedMultipartBody_whenStreamingExceedsConfiguredLimit() {
+            MockHttpServletRequest mock = new MockHttpServletRequest() {
+                @Override
+                public ServletInputStream getInputStream() {
+                    return streamingInputStream(MultiReadHttpServletRequest.MAX_BODY_SIZE + 1);
+                }
+            };
+            mock.setMethod("POST");
+            mock.setContentType("multipart/form-data; boundary=----TestBoundary");
+
+            MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
+
+            assertThatThrownBy(() -> wrapper.getInputStream().readAllBytes())
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("50 MB");
         }
 
         @Test
@@ -690,5 +715,33 @@ class MultiReadHttpServletRequestUnitTest {
             assertThat(parts).extracting(Part::getName)
                     .containsExactlyInAnyOrder("token", "file");
         }
+    }
+
+    private static ServletInputStream streamingInputStream(long totalBytes) {
+        return new ServletInputStream() {
+            private long remaining = totalBytes;
+
+            @Override
+            public int read() {
+                if (remaining-- <= 0) {
+                    return -1;
+                }
+                return 'a';
+            }
+
+            @Override
+            public boolean isFinished() {
+                return remaining <= 0;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(ReadListener listener) {
+            }
+        };
     }
 }
