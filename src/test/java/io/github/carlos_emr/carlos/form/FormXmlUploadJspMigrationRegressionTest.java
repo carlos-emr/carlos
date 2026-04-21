@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Covers the acceptance criteria for the XML upload entrypoint fix:
  * admin navigation opens the XML upload page via the routed URL,
  * {@code /form/formXmlUpload.jsp} is no longer referenced from production
- * callers, and the upload form still POSTs to the processing action.
+ * callers, and the upload form still POSTs to the processing action.</p>
  *
  * @since 2026-04-21
  */
