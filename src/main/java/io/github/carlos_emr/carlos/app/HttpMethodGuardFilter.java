@@ -145,11 +145,22 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
-            "addappointment"              // ViewAppointmentWrite2Action — view gate that loads the
+            "addappointment",             // ViewAppointmentWrite2Action — view gate that loads the
                                           // add-appointment form. The name starts with "add" so it
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
                                           // appointment/AddRecord (which IS a POST-only mutator).
+            "addprevention"               // AddPrevention2Action — dual-purpose action. GET loads
+                                          // the AddPreventionData.jsp form (popup links in
+                                          // prevention/index.jsp, TemplateFlowSheetPrint.jsp,
+                                          // AddPreventionDataDisambiguate.jsp, and review.jsp
+                                          // all navigate via GET with prevention=<type> &
+                                          // demographic_no=<id> query parameters). POST from the
+                                          // form saves/updates/deletes the prevention record.
+                                          // Since this filter only inspects GET (line ~349), the
+                                          // POST mutation path is unaffected and remains protected
+                                          // by CSRFGuard. The action's execute() returns the
+                                          // "form" view on GET to avoid executing mutation logic.
     );
 
     /**

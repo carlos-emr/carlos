@@ -700,6 +700,44 @@ class HttpMethodGuardFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("Dual-purpose actions (exempt mutator-prefixed names)")
+    class DualPurposeActions {
+
+        @Test
+        @DisplayName("should pass through GET to prevention/AddPrevention (loads form)")
+        void shouldPassThrough_forGetToAddPrevention() throws Exception {
+            // AddPrevention is in READ_ONLY_ACTION_NAMES because the popup links in
+            // prevention/index.jsp and other JSPs navigate to it via GET to load
+            // the AddPreventionData.jsp form; POST performs the actual save.
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/AddPrevention");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to prevention/AddPrevention with query parameters")
+        void shouldPassThrough_forGetToAddPreventionWithParams() throws Exception {
+            // Reproduces the exact failing URL from the bug report:
+            // /carlos/prevention/AddPrevention?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/AddPrevention");
+            when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("prevention")).thenReturn("Tuberculosis");
+            when(request.getParameter("demographic_no")).thenReturn("1");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+    }
+
+    @Nested
     @DisplayName("Action name extraction")
     class ActionNameExtraction {
 

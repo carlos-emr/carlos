@@ -98,6 +98,19 @@ public class AddPrevention2Action extends ActionSupport {
         if (sessionUser == null) {
             return "Logout";
         }
+
+        // Dual-purpose action: GET/HEAD requests open the AddPreventionData.jsp form
+        // (the popup links in prevention/index.jsp, TemplateFlowSheetPrint.jsp,
+        // AddPreventionDataDisambiguate.jsp, and review.jsp navigate via GET). POST
+        // submissions from that form perform the actual save/update/delete. The JSP
+        // reads the request parameters (prevention, demographic_no, id, snomedId,
+        // lotNumber, prevResultDesc, ...) directly, so we simply forward to the form
+        // without running the mutation code path — which would otherwise NPE on
+        // the null prevDate and attempt to insert an incomplete record.
+        String httpMethod = request.getMethod();
+        if (!"POST".equalsIgnoreCase(httpMethod)) {
+            return "form";
+        }
         String preventionType = request.getParameter("prevention");
         String demographic_no = request.getParameter("demographic_no");
         String id = request.getParameter("id");
