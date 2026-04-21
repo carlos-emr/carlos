@@ -563,6 +563,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return sanitized.toArray(new String[0]);
     }
 
+    /**
+     * Resolves the reporter program team identifier for a case-management note.
+     *
+     * @param admissionManager AdmissionManager used to load the admission for the current program and demographic
+     * @param programNo String program identifier associated with the note; may be null
+     * @param demographicNo String demographic identifier associated with the note; may be null
+     * @return String team identifier when an admission with a non-null team ID exists; otherwise "0"
+     */
     static String resolveReporterProgramTeam(AdmissionManager admissionManager, String programNo, String demographicNo) {
         try {
             Admission admission = admissionManager.getAdmission(programNo, Integer.valueOf(demographicNo));
@@ -571,7 +579,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             return String.valueOf(admission.getTeamId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error resolving reporter program team", e);
             return "0";
         }
     }
