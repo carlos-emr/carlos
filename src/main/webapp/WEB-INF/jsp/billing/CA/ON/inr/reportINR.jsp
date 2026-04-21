@@ -110,10 +110,13 @@
     </button>
 
     <% String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");
-
+        String inrBillingAction = request.getContextPath()
+                + (oscarVariables.getProperty("isNewONbilling", "").equals("true")
+                ? "/billing/CA/ON/ViewInrOnGenINRbilling"
+                : "/billing/CA/ON/ViewInrGenINRbilling");
     %>
     <form name="serviceform" method="post"
-          action="<%=oscarVariables.getProperty("isNewONbilling","").equals("true")? "<%= request.getContextPath() %>/billing/CA/ON/ViewInrOnGenINRbilling":"<%= request.getContextPath() %>/billing/CA/ON/ViewInrGenINRbilling" %>">
+          action="<%= inrBillingAction %>">
         Select provider
         <select name="provider" onChange="jumpMenu('parent',this,0)" class="form-select">
             <option value="#">Select Provider</option>

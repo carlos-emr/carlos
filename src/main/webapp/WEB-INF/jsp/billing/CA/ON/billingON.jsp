@@ -1276,10 +1276,10 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
         }
 
         // Dx diagnosis code fields
-        initCodeAutocomplete(jQuery("input[name^='dxCode']"), ctx + "/billing/CA/ON/ViewBillingDigSearchAjax");
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax");
 
         // Billing service code fields
-        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), ctx + "/billing/CA/ON/ViewBillingCodeSearchAjax");
+        initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax");
 
         // Referral doctor fields: referralCode and referralDocName both trigger search
         function initRefDocAutocomplete(inputEl) {
