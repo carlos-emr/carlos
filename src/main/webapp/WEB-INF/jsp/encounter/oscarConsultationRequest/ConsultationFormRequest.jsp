@@ -1803,6 +1803,9 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 	}
 } %>
 
+        /**
+         * Switches the displayed consultation letterhead for provider numbers, stored letterhead keys, and clinic fallback values.
+         */
         function switchProvider(value) {
             value = value.toString();
 
@@ -1830,6 +1833,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
             } else {
                 let origValue = value;
                 if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                    // Program letterhead keys use the stored prog_<id> format, so preserve underscores when normalizing.
                     let sanitizedValue = value.replace(/[^A-Za-z0-9_]+/g, '');
                     if (Object.prototype.hasOwnProperty.call(providerData, "prov_" + sanitizedValue)) {
                         value = "prov_" + sanitizedValue;
@@ -1838,7 +1842,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                     }
                 }
                 if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
-                    console.warn("Unable to resolve consultation letterhead selection.");
+                    console.warn("Unable to resolve consultation letterhead selection:", origValue);
                     return;
                 }
                 document.getElementById("letterheadName").value = origValue;
