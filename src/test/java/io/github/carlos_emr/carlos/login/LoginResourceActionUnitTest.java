@@ -128,7 +128,7 @@ class LoginResourceActionUnitTest {
         servlet.doGet(request, response);
 
         verify(response).setContentType("image/png");
-        verify(response, never()).sendError(anyInt(), anyString());
+        verify(response, never()).sendError(anyInt());
         verify(response, never()).setStatus(HttpServletResponse.SC_NO_CONTENT);
     }
 }
