@@ -35,7 +35,7 @@ class RemovedJspReferenceRegressionTest {
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
-    void shouldNotReferenceRemovedPmmodulePopups_whenRenderingAppointmentAdminDay() throws IOException {
+    void shouldNotReferenceRemovedPmmodulePopups_fromAppointmentAdminDayJsp() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"));
 
         assertThat(jsp)
@@ -45,7 +45,7 @@ class RemovedJspReferenceRegressionTest {
 
     @Test
     @DisplayName("SearchDrug3 should not reference removed TreatmentMyD JSP")
-    void shouldNotReferenceRemovedTreatmentMyDJsp_whenRenderingSearchDrug3() throws IOException {
+    void shouldNotReferenceRemovedTreatmentMyDJsp_fromSearchDrug3Jsp() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp"));
 
         assertThat(jsp).doesNotContain("/rx/TreatmentMyD.jsp");
