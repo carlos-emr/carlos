@@ -129,44 +129,8 @@
                 return true;
             }
 
-            function applyDemographicFieldLengthLimits() {
-                var fieldLengthLimits = {
-                    last_name: <%= Demographic.LAST_NAME_MAX_LENGTH %>,
-                    first_name: <%= Demographic.FIRST_NAME_MAX_LENGTH %>,
-                    middleNames: <%= Demographic.MIDDLE_NAMES_MAX_LENGTH %>,
-                    nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
-                    address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
-                    city: <%= Demographic.CITY_MAX_LENGTH %>,
-                    residentialAddress: <%= Demographic.RESIDENTIAL_ADDRESS_MAX_LENGTH %>,
-                    residentialCity: <%= Demographic.RESIDENTIAL_CITY_MAX_LENGTH %>,
-                    postal: <%= Demographic.POSTAL_MAX_LENGTH %>,
-                    residentialPostal: <%= Demographic.RESIDENTIAL_POSTAL_MAX_LENGTH %>,
-                    phone: <%= Demographic.PHONE_MAX_LENGTH %>,
-                    phone2: <%= Demographic.PHONE_MAX_LENGTH %>,
-                    email: <%= Demographic.EMAIL_MAX_LENGTH %>,
-                    hin: <%= Demographic.HIN_MAX_LENGTH %>,
-                    ver: <%= Demographic.VER_MAX_LENGTH %>,
-                    sin: <%= Demographic.SIN_MAX_LENGTH %>,
-                    chart_no: <%= Demographic.CHART_NO_MAX_LENGTH %>,
-                    r_doctor: 40,
-                    r_doctor_ohip: 6
-                };
-
-                for (var fieldName in fieldLengthLimits) {
-                    if (!Object.prototype.hasOwnProperty.call(fieldLengthLimits, fieldName)) {
-                        continue;
-                    }
-
-                    var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
-                    for (var i = 0; i < fields.length; i++) {
-                        fields[i].setAttribute('maxlength', fieldLengthLimits[fieldName]);
-                    }
-                }
-            }
-
-            document.addEventListener('DOMContentLoaded', applyDemographicFieldLengthLimits);
-
         </script>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 
