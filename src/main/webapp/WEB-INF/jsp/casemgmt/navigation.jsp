@@ -371,14 +371,14 @@
                                          new action route to avoid 404s. Fall back to the legacy value for
                                          forms not in the allow-list. --%>
                                     <%
-                                        io.github.carlos_emr.carlos.commn.model.EncounterForm __cf =
+                                        io.github.carlos_emr.carlos.commn.model.EncounterForm encounterForm =
                                                 (io.github.carlos_emr.carlos.commn.model.EncounterForm) pageContext.getAttribute("cf");
-                                        String __legacyFormValue = __cf.getFormValue();
-                                        String __resolvedActionPath = FormViewRoutes.resolveActionPath(__legacyFormValue);
-                                        String __formUrlBase = (__resolvedActionPath != null)
-                                                ? request.getContextPath() + __resolvedActionPath
-                                                : __legacyFormValue;
-                                        pageContext.setAttribute("formUrlBase", __formUrlBase);
+                                        String legacyFormValue = encounterForm.getFormValue();
+                                        String resolvedActionPath = FormViewRoutes.resolveActionPath(legacyFormValue);
+                                        String formUrlBase = (resolvedActionPath != null)
+                                                ? request.getContextPath() + resolvedActionPath
+                                                : legacyFormValue;
+                                        pageContext.setAttribute("formUrlBase", formUrlBase);
                                     %>
                                     <c:set var="value" value="${formUrlBase}${bean.demographicNo}&formId=0&provNo=${bean.providerNo}" />
                                     <c:set var="label" value="${cf.formName}" />
