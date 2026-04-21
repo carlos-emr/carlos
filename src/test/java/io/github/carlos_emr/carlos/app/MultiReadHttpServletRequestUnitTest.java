@@ -751,6 +751,27 @@ class MultiReadHttpServletRequestUnitTest {
             }
 
             @Override
+            public int read(byte[] b, int off, int len) {
+                if (b == null) {
+                    throw new NullPointerException();
+                }
+                if (off < 0 || len < 0 || len > b.length - off) {
+                    throw new IndexOutOfBoundsException();
+                }
+                if (len == 0) {
+                    return 0;
+                }
+                if (remaining <= 0) {
+                    return -1;
+                }
+
+                int chunkSize = (int) Math.min(remaining, len);
+                java.util.Arrays.fill(b, off, off + chunkSize, (byte) 'a');
+                remaining -= chunkSize;
+                return chunkSize;
+            }
+
+            @Override
             public boolean isFinished() {
                 return remaining <= 0;
             }
