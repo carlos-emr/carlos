@@ -540,7 +540,7 @@ class MultiReadHttpServletRequestUnitTest {
         }
 
         @Test
-        @DisplayName("should expose fifty megabyte multipart limit")
+        @DisplayName("should return multipart limit when configured for fifty megabytes")
         void shouldReturnMultipartLimit_whenConfiguredForFiftyMegabytes() {
             assertThat(MultiReadHttpServletRequest.MAX_BODY_SIZE).isEqualTo(50L * 1024 * 1024);
         }
@@ -727,27 +727,6 @@ class MultiReadHttpServletRequestUnitTest {
                     return -1;
                 }
                 return 'a';
-            }
-
-            @Override
-            public int read(byte[] b, int off, int len) {
-                if (b == null) {
-                    throw new NullPointerException();
-                }
-                if (off < 0 || len < 0 || len > b.length - off) {
-                    throw new IndexOutOfBoundsException();
-                }
-                if (len == 0) {
-                    return 0;
-                }
-                if (remaining <= 0) {
-                    return -1;
-                }
-
-                int chunkSize = (int) Math.min(remaining, len);
-                java.util.Arrays.fill(b, off, off + chunkSize, (byte) 'a');
-                remaining -= chunkSize;
-                return chunkSize;
             }
 
             @Override
