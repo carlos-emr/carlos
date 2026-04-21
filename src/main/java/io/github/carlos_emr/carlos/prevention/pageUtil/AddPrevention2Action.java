@@ -99,21 +99,13 @@ public class AddPrevention2Action extends ActionSupport {
             return "Logout";
         }
 
-        // Dual-purpose action: GET/HEAD requests open the AddPreventionData.jsp form
-        // (the popup links in prevention/index.jsp, TemplateFlowSheetPrint.jsp,
-        // AddPreventionDataDisambiguate.jsp, and review.jsp navigate via GET). POST
-        // submissions from that form perform the actual save/update/delete. The JSP
-        // reads the request parameters (prevention, demographic_no, id, snomedId,
-        // lotNumber, prevResultDesc, ...) directly, so we simply forward to the form
-        // without running the mutation code path — which would otherwise NPE on
-        // the null prevDate and attempt to insert an incomplete record. Any other
-        // HTTP method (PUT/PATCH/DELETE/OPTIONS/...) is rejected with 405.
+        // This mutating endpoint is POST-only. GET/HEAD form loads must target the
+        // dedicated view gate /prevention/ViewAddPreventionData, which preserves
+        // the historical _prevention w privilege but keeps the actual mutation path
+        // behind POST + CSRFGuard only.
         String httpMethod = request.getMethod();
-        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
-            return "form";
-        }
         if (!"POST".equalsIgnoreCase(httpMethod)) {
-            response.setHeader("Allow", "GET, HEAD, POST");
+            response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

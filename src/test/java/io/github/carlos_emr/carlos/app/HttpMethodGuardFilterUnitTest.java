@@ -700,17 +700,14 @@ class HttpMethodGuardFilterUnitTest {
     }
 
     @Nested
-    @DisplayName("Dual-purpose actions (exempt mutator-prefixed names)")
-    class DualPurposeActions {
+    @DisplayName("Prevention form view gate")
+    class PreventionFormViewGate {
 
         @Test
-        @DisplayName("should pass through GET to prevention/AddPrevention (loads form)")
-        void shouldPassThrough_forGetToAddPrevention() throws Exception {
-            // AddPrevention is in READ_ONLY_ACTION_NAMES because the popup links in
-            // prevention/index.jsp and other JSPs navigate to it via GET to load
-            // the AddPreventionData.jsp form; POST performs the actual save.
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData")
+        void shouldPassThrough_forGetToViewAddPreventionData() throws Exception {
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/prevention/AddPrevention");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
@@ -721,12 +718,13 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should pass through GET to prevention/AddPrevention with the exact failing URL parameters")
-        void shouldPassThrough_forGetToAddPreventionWithParams() throws Exception {
-            // Reproduces the exact failing URL from the bug report:
-            // /carlos/prevention/AddPrevention?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData with the exact failing URL parameters")
+        void shouldPassThrough_forGetToViewAddPreventionDataWithParams() throws Exception {
+            // Reproduces the original failing popup URL, now routed through the
+            // dedicated view gate instead of the POST-only AddPrevention action:
+            // /carlos/prevention/ViewAddPreventionData?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
             when(request.getMethod()).thenReturn("GET");
-            when(request.getRequestURI()).thenReturn("/carlos/prevention/AddPrevention");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
             when(request.getParameter("method")).thenReturn(null);
             when(request.getParameter("4")).thenReturn("4");
             when(request.getParameter("prevention")).thenReturn("Tuberculosis");

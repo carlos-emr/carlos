@@ -22,8 +22,9 @@ import org.junit.jupiter.api.*;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Unit tests for the four prevention gate actions:
+ * Unit tests for the prevention gate actions:
  * {@link ViewPreventionIndex2Action} (read),
+ * {@link ViewAddPreventionData2Action} (write-gated form view),
  * {@link ViewAddPreventionDataDisambiguate2Action} (read),
  * {@link ViewPreventionManager2Action} (conditional-POST write),
  * {@link ViewPreventionListManager2Action} (conditional-POST write).
@@ -57,6 +58,28 @@ class PreventionGate2ActionTest extends CarlosWebTestBase {
         void shouldThrowSecurityException_whenReadPrivilegeDenied() {
             denyPrivilege("_prevention", "r");
             assertThatThrownBy(() -> executeAction(new ViewPreventionIndex2Action()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_prevention");
+        }
+    }
+
+    @Nested
+    @DisplayName("ViewAddPreventionData2Action")
+    class AddPreventionDataGate {
+
+        @Test
+        @DisplayName("should return SUCCESS when _prevention write privilege granted")
+        void shouldReturnSuccess_whenWritePrivilegeGranted() throws Exception {
+            allowPrivilege("_prevention", "w");
+            assertThat(executeAction(new ViewAddPreventionData2Action()))
+                    .isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when _prevention write privilege denied")
+        void shouldThrowSecurityException_whenWritePrivilegeDenied() {
+            denyPrivilege("_prevention", "w");
+            assertThatThrownBy(() -> executeAction(new ViewAddPreventionData2Action()))
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_prevention");
         }
