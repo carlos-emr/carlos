@@ -23,57 +23,65 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import org.apache.struts2.ActionSupport;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Test suite for {@link DemographicUpdate2Action}.
+ * Unit tests for demographic add-record field length validation.
  *
- * <p>Focuses on verifying that this action enforces <strong>write</strong>
- * privilege ({@code "w"}) on {@code _demographic}, unlike the read-only
- * demographic actions that check {@code "r"}.
- *
- * @since 2026-04-04
+ * @since 2026-04-21
  */
-@DisplayName("DemographicUpdate2Action Tests")
+@DisplayName("DemographicAddRecord2Action Tests")
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicUpdate2ActionTest extends CarlosWebTestBase {
+class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
+
     @Mock
     private DemographicDao mockDemographicDao;
+
     private AutoCloseable mockCloseable;
-    private DemographicUpdate2Action action;
+    private DemographicAddRecord2Action action;
 
     @BeforeEach
     void setUp() throws Exception {
         mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         setSessionAttribute("user", TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicUpdate2Action();
+        action = new DemographicAddRecord2Action();
 
-        java.lang.reflect.Field secField = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
+        java.lang.reflect.Field secField = DemographicAddRecord2Action.class.getDeclaredField("securityInfoManager");
         secField.setAccessible(true);
         secField.set(action, mockSecurityInfoManager);
+
+        java.lang.reflect.Field demographicDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicDao");
+        demographicDaoField.setAccessible(true);
+        demographicDaoField.set(action, mockDemographicDao);
     }
 
     @AfterEach
@@ -84,64 +92,14 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should throw SecurityException when session is null")
-    void shouldThrowSecurityException_whenSessionIsNull() {
-        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
-        setSessionAttribute(key, null);
-
-        assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required session");
-    }
-
-    @Test
-    @DisplayName("should throw SecurityException when user lacks demographic write privilege")
-    void shouldThrowSecurityException_whenUserLacksWritePrivilege() {
-        denyPrivilege("_demographic", "w");
-
-        assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object (_demographic)");
-
-        verifySecurityCheck("_demographic", "w");
-    }
-
-    @Test
-    @DisplayName("should require write privilege, not read")
-    void shouldRequireWritePrivilege_notRead() {
-        // Allow read but deny write
-        allowPrivilege("_demographic", "r");
-        denyPrivilege("_demographic", "w");
-
-        assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class);
-
-        // Verify it checked for "w", not "r"
-        verify(mockSecurityInfoManager).hasPrivilege(
-                any(LoggedInInfo.class), eq("_demographic"), eq("w"), any());
-    }
-
-    @Test
-    @DisplayName("should return SUCCESS when user has demographic write privilege")
-    void shouldReturnSuccess_whenUserHasWritePrivilege() throws Exception {
+    @DisplayName("should return validationError when year of birth exceeds four characters")
+    void shouldReturnValidationError_whenYearOfBirthExceedsFourCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
-
-        String result = executeAction(action);
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-    }
-
-    @Test
-    @DisplayName("should return validationError when province exceeds twenty characters")
-    void shouldReturnValidationError_whenProvinceExceedsTwentyCharacters() throws Exception {
-        allowPrivilege("_demographic", "w");
-        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
-        addRequestParameter("demographic_no", "123");
-        addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
-
-        Demographic demographic = new Demographic(123);
-        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter("sex", "F");
+        addRequestParameter("year_of_birth", "20255");
 
         String result = executeAction(action);
 
@@ -151,7 +109,7 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         List<String> fieldLengthValidationErrors =
                 (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
         assertThat(fieldLengthValidationErrors)
-                .contains("Province exceeds maximum length of 20 characters.");
+                .contains("Year of birth exceeds maximum length of 4 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
@@ -159,13 +117,8 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     @DisplayName("should return validationError when last name exceeds thirty characters")
     void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
-        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
         mockRequest.setMethod("POST");
-        addRequestParameter("demographic_no", "123");
         addRequestParameter("last_name", "X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
-
-        Demographic demographic = new Demographic(123);
-        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
 
         String result = executeAction(action);
 

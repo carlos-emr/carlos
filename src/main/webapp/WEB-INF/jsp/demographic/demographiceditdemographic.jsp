@@ -148,6 +148,8 @@
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean" scope="session"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
+<%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
+
 
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
