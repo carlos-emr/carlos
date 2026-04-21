@@ -1808,7 +1808,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
          */
         function switchProvider(value) {
             if (value === null || value === undefined) {
-                console.warn("Unable to resolve consultation letterhead selection.");
+                console.warn("Unable to resolve consultation letterhead selection because no value was provided.");
                 return;
             }
             value = value.toString();
@@ -1847,7 +1847,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                     }
                 }
                 if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
-                    console.warn("Unable to resolve consultation letterhead selection.");
+                    console.warn("Unable to resolve consultation letterhead selection because no matching key was found.");
                     return;
                 }
                 document.getElementById("letterheadName").value = origValue;
