@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.prevention.gate;
  * under a dedicated view route. The form itself still posts to
  * {@code /prevention/AddPrevention} for the actual save/update/delete.
  *
+ * @see io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action
  * @since 2026-04-21
  */
 public final class ViewAddPreventionData2Action extends AbstractPreventionGate2Action {
