@@ -129,7 +129,8 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
                         .forEach(path -> {
                             try {
                                 Files.deleteIfExists(path);
-                            } catch (Exception ignored) {
+                            } catch (Exception e) {
+                                throw new RuntimeException("Failed to delete test temp path: " + path, e);
                             }
                         });
             }

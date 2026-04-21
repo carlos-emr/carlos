@@ -121,6 +121,7 @@ public class DisplayImage2Action extends ActionSupport {
             File validatedFile = PathValidationUtils.validatePath(fileName, eformDirectory);
             return VACCINE_BRANDS_FILE.equals(validatedFile.getName());
         } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Rejected vaccine-brands fallback for invalid eform image path");
             return false;
         }
     }
