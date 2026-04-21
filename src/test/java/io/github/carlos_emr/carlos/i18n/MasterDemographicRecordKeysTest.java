@@ -73,7 +73,11 @@ class MasterDemographicRecordKeysTest {
             "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"
     };
 
-    private static final Pattern FMT_KEY = Pattern.compile("fmt:message\\s+key=\"([^\"${}]+)\"");
+    private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
+    private static final Pattern JSP_COMMENT = Pattern.compile("<%--.*?--%>", Pattern.DOTALL);
+    private static final Pattern FMT_KEY = Pattern.compile(
+            "<fmt:message\\b[^>]*\\bkey\\s*=\\s*(['\"])([^'\"${}]+)\\1[^>]*/?>",
+            Pattern.DOTALL);
 
     /**
      * Keys that are not referenced via {@code <fmt:message>} in the JSP source, but
@@ -115,6 +119,29 @@ class MasterDemographicRecordKeysTest {
         }
     }
 
+    @Test
+    @DisplayName("should collect fmt:message keys when key attributes use single quotes or appear after other attributes")
+    void shouldCollectFmtMessageKeys_whenSingleQuotedOrAfterOtherAttributes() {
+        String jspContent = "<input value=\"<fmt:message key='demographic.demographiceditdemographic.clear'/>\"/>"
+                + "<fmt:message bundle='x' key=\"demographic.demographiceditdemographic.msgManageContacts\"/>";
+
+        assertThat(extractFmtMessageKeys(jspContent))
+                .containsExactly(
+                        "demographic.demographiceditdemographic.clear",
+                        "demographic.demographiceditdemographic.msgManageContacts");
+    }
+
+    @Test
+    @DisplayName("should ignore fmt:message keys that only appear inside HTML or JSP comments")
+    void shouldIgnoreFmtMessageKeys_whenOnlyInsideComments() {
+        String jspContent = "<!-- <fmt:message key=\"demographic.demographiceditdemographic.btnSwipeCard\"/> -->"
+                + "<%-- <fmt:message key='demographic.demographiceditdemographic.msgExport'/> --%>"
+                + "<fmt:message key=\"demographic.demographiceditdemographic.msgEdit\"/>";
+
+        assertThat(extractFmtMessageKeys(jspContent))
+                .containsExactly("demographic.demographiceditdemographic.msgEdit");
+    }
+
     private Set<String> collectMdrKeys() throws IOException {
         Set<String> keys = new LinkedHashSet<>();
         for (String jsp : MDR_JSPS) {
@@ -123,12 +150,22 @@ class MasterDemographicRecordKeysTest {
                     .as("MDR JSP %s should exist; update MDR_JSPS if it was renamed", jsp)
                     .isTrue();
             String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-            Matcher m = FMT_KEY.matcher(content);
-            while (m.find()) {
-                keys.add(m.group(1));
-            }
+            keys.addAll(extractFmtMessageKeys(content));
         }
         return keys;
+    }
+
+    private Set<String> extractFmtMessageKeys(String jspContent) {
+        Set<String> keys = new LinkedHashSet<>();
+        Matcher m = FMT_KEY.matcher(stripComments(jspContent));
+        while (m.find()) {
+            keys.add(m.group(2));
+        }
+        return keys;
+    }
+
+    private String stripComments(String jspContent) {
+        return JSP_COMMENT.matcher(HTML_COMMENT.matcher(jspContent).replaceAll("")).replaceAll("");
     }
 
     private Properties loadBundle(String locale) throws IOException {
