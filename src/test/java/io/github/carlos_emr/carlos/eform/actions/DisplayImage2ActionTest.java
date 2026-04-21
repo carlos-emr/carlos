@@ -124,9 +124,15 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             servletActionContextMock.close();
         }
         if (tempDir != null) {
-            Files.walk(tempDir)
-                    .sorted((left, right) -> right.compareTo(left))
-                    .forEach(path -> path.toFile().delete());
+            try (var paths = Files.walk(tempDir)) {
+                paths.sorted((left, right) -> right.compareTo(left))
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (Exception ignored) {
+                            }
+                        });
+            }
         }
     }
 

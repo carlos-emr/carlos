@@ -87,7 +87,7 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         String fileName = request.getParameter("imagefile");
-        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+        if (isVaccineBrandsRequest(fileName)) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)
                     && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
                 throw new SecurityException("missing required sec object (_eform or _prevention)");
@@ -112,6 +112,16 @@ public class DisplayImage2Action extends ActionSupport {
             if (stream != null) {
                 stream.close();
             }
+        }
+    }
+
+    private boolean isVaccineBrandsRequest(String fileName) {
+        try {
+            File eformDirectory = new File(CarlosProperties.getInstance().getEformImageDirectory());
+            File validatedFile = PathValidationUtils.validatePath(fileName, eformDirectory);
+            return VACCINE_BRANDS_FILE.equals(validatedFile.getName());
+        } catch (SecurityException e) {
+            return false;
         }
     }
 
