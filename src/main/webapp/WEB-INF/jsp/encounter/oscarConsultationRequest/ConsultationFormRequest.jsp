@@ -1804,7 +1804,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
 } %>
 
         function switchProvider(value) {
-            if (value === -1) {
+            if (value === "-1") {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
                 document.getElementById("letterheadAddressSpan").textContent = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
