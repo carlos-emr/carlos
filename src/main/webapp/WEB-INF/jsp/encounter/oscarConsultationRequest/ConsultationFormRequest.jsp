@@ -1807,7 +1807,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
          * Switches the displayed consultation letterhead for provider numbers, stored letterhead keys, and clinic fallback values.
          */
         function switchProvider(value) {
-            if (value == null) {
+            if (value === null || value === undefined) {
                 console.warn("Unable to resolve consultation letterhead selection.");
                 return;
             }
@@ -1836,32 +1836,33 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                 }
             } else {
                 let origValue = value;
-                if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                let resolvedValue = value;
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
                     // Program letterhead keys use the stored prog_<id> format, so preserve underscores when normalizing.
-                    let sanitizedValue = value.replace(/[^A-Za-z0-9_]+/g, '');
+                    let sanitizedValue = resolvedValue.replace(/[^A-Za-z0-9_]+/g, '');
                     if (Object.prototype.hasOwnProperty.call(providerData, "prov_" + sanitizedValue)) {
-                        value = "prov_" + sanitizedValue;
+                        resolvedValue = "prov_" + sanitizedValue;
                     } else {
-                        value = sanitizedValue;
+                        resolvedValue = sanitizedValue;
                     }
                 }
-                if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                if (!Object.prototype.hasOwnProperty.call(providerData, resolvedValue)) {
                     console.warn("Unable to resolve consultation letterhead selection.");
                     return;
                 }
                 document.getElementById("letterheadName").value = origValue;
-                document.getElementById("letterheadAddress").value = providerData[value]['address'];
-                document.getElementById("letterheadAddressSpan").textContent = providerData[value]['address'];
-                document.getElementById("letterheadPhone").value = providerData[value]['phone'];
-                document.getElementById("letterheadPhoneSpan").textContent = providerData[value]['phone'];
-                document.getElementById("letterheadFax").value = providerData[value]['fax'];
-                document.getElementById("letterheadFaxSpan").textContent = providerData[value]['fax'];
+                document.getElementById("letterheadAddress").value = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadAddressSpan").textContent = providerData[resolvedValue]['address'];
+                document.getElementById("letterheadPhone").value = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadPhoneSpan").textContent = providerData[resolvedValue]['phone'];
+                document.getElementById("letterheadFax").value = providerData[resolvedValue]['fax'];
+                document.getElementById("letterheadFaxSpan").textContent = providerData[resolvedValue]['fax'];
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
                     for(let option in faxAccountOptions.options) {
-                        if(faxAccountOptions.options[option].value === providerData[value]['fax'].replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = providerData[value]['fax'].replace(/[^0-9.]/g, '');
+                        if(faxAccountOptions.options[option].value === providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = providerData[resolvedValue]['fax'].replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
