@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.managers.FormsManager;
@@ -52,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -259,6 +261,29 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fall back to zero when fetch eform demographic is invalid")
+    void shouldFallBackToZero_whenFetchEformDemographicIsInvalid() {
+        request.setParameter("method", "fetchEFormDocuments");
+        request.setParameter("demographicNo", "abc");
+        request.setParameter("fdid", "not-a-number");
+
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+        when(mockDocumentAttachmentManager.getAllEFormsExpectFdid(mockLoggedInInfo, 0, 0)).thenReturn(List.of());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        verify(mockDocumentAttachmentManager).getAllEFormsExpectFdid(mockLoggedInInfo, 0, 0);
+        eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
+    }
+
+    @Test
     @DisplayName("should use edoc read privilege when rendering edoc pdf")
     void shouldUseEdocReadPrivilege_whenRenderingEdocPdf() {
         request.setParameter("method", "renderEDocPDF");
@@ -269,5 +294,19 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_edoc", SecurityInfoManager.READ, null);
         verify(mockSecurityInfoManager, never()).hasPrivilege(mockLoggedInInfo, "_con", SecurityInfoManager.WRITE, null);
+    }
+
+    @Test
+    @DisplayName("should return bad request when render edoc pdf id is invalid")
+    void shouldReturnBadRequest_whenRenderEdocPdfIdIsInvalid() {
+        request.setParameter("method", "renderEDocPDF");
+        request.setParameter("eDocId", "invalid");
+
+        String result = action.execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("Invalid eDocId");
+        verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.DOC), any());
     }
 }

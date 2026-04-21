@@ -157,9 +157,12 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderEDocPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String eDocId = request.getParameter("eDocId");
+        Integer eDocId = parseIntegerParameterOrRespondBadRequest(request.getParameter("eDocId"), "eDocId");
+        if (eDocId == null) {
+            return;
+        }
         try {
-            Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId));
+            Path docPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId);
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occured while rendering eDoc. " + e.getMessage(), e);
@@ -183,9 +186,12 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderEFormPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String eFormId = request.getParameter("eFormId");
+        Integer eFormId = parseIntegerParameterOrRespondBadRequest(request.getParameter("eFormId"), "eFormId");
+        if (eFormId == null) {
+            return;
+        }
         try {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
+            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occured while rendering eForm. " + e.getMessage(), e);
@@ -209,9 +215,12 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderHrmPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String hrmId = request.getParameter("hrmId");
+        Integer hrmId = parseIntegerParameterOrRespondBadRequest(request.getParameter("hrmId"), "hrmId");
+        if (hrmId == null) {
+            return;
+        }
         try {
-            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
+            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occured while rendering HRM. " + e.getMessage(), e);
@@ -234,9 +243,12 @@ public class DocumentPreview2Action extends ActionSupport {
      */
     public void renderLabPDF() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String segmentID = request.getParameter("segmentId");
+        Integer segmentId = parseIntegerParameterOrRespondBadRequest(request.getParameter("segmentId"), "segmentId");
+        if (segmentId == null) {
+            return;
+        }
         try {
-            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(segmentID));
+            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occured while rendering Lab. " + e.getMessage(), e);
@@ -430,7 +442,8 @@ public class DocumentPreview2Action extends ActionSupport {
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
-        Integer demographicId = Integer.parseInt(demographicNo);
+        Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
+        demographicNo = String.valueOf(demographicId);
         Integer fdidInt = 0;
         try {
             fdidInt = Integer.parseInt(fdid);
@@ -518,5 +531,25 @@ public class DocumentPreview2Action extends ActionSupport {
 
     private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, Object target) {
         return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
+    }
+
+    private Integer parseIntegerParameterOrDefault(String value, String parameterName, Integer defaultValue) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid {} received: {}. Falling back to {}.", parameterName, LogSanitizer.sanitize(value), defaultValue, e);
+            return defaultValue;
+        }
+    }
+
+    private Integer parseIntegerParameterOrRespondBadRequest(String value, String parameterName) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid {} received: {}", parameterName, LogSanitizer.sanitize(value), e);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, "Invalid " + parameterName);
+            return null;
+        }
     }
 }
