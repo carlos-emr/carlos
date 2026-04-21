@@ -163,12 +163,14 @@
     // style="position:absolute; ..." attributes used to lay fields over a background
     // image. 'unsafe-inline' is therefore required for both script-src and style-src.
     // As a result, CSP does not block inline script or inline style injection on these
-    // pages. Its defense-in-depth benefit here is restricting external script/style/
-    // connect sources to 'self' (via default-src), permitting data: URIs only for
-    // inline images and fonts that eForms commonly embed (patient label barcodes,
-    // signature bitmaps, DejaVu font), blocking object/embed via object-src 'none',
-    // preventing <base> injection via base-uri 'none', and reducing clickjacking
-    // exposure via frame-ancestors 'self'.
+    // pages. Its defense-in-depth benefit here is restricting external script sources
+    // to 'self' via script-src, external style sources to 'self' via style-src, and
+    // other resource types without explicit directives (for example, connect-src) to
+    // 'self' via default-src; permitting data: URIs only for inline images and fonts
+    // that eForms commonly embed (patient label barcodes, signature bitmaps, DejaVu
+    // font), blocking object/embed via object-src 'none', preventing <base> injection
+    // via base-uri 'none', and reducing clickjacking exposure via frame-ancestors
+    // 'self'.
     String cspHeaderValue = String.join("; ",
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline'",
