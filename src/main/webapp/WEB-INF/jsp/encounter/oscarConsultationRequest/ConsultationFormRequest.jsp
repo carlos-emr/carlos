@@ -1807,6 +1807,10 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
          * Switches the displayed consultation letterhead for provider numbers, stored letterhead keys, and clinic fallback values.
          */
         function switchProvider(value) {
+            if (value == null) {
+                console.warn("Unable to resolve consultation letterhead selection.");
+                return;
+            }
             value = value.toString();
 
             if (value === "-1") {
@@ -1842,7 +1846,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                     }
                 }
                 if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
-                    console.warn("Unable to resolve consultation letterhead selection:", origValue);
+                    console.warn("Unable to resolve consultation letterhead selection.");
                     return;
                 }
                 document.getElementById("letterheadName").value = origValue;
