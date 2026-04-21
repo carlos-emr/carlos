@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -89,7 +90,7 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should throw AppointmentSearchException when provider filter key is unknown")
     void shouldThrowAppointmentSearchException_whenProviderFilterKeyIsUnknown() {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         Calendar startDate = Calendar.getInstance();
 
         DayWorkSchedule dayWorkSchedule = new DayWorkSchedule();
@@ -98,7 +99,7 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
         dayWorkSchedule.setTimeSlots(timeSlots);
 
         FilterDefinition filterDefinition = new FilterDefinition();
-        filterDefinition.setFilterClassName("bad.Filter");
+        filterDefinition.setFilterClassName("UnknownFilterClass");
 
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenReturn(demographic);
         when(demographic.getProviderNo()).thenReturn("111");
@@ -111,6 +112,6 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> appointmentSearchManager.findAppointment(loggedInInfo, searchConfig, 123, 456L, startDate))
                 .isInstanceOf(AppointmentSearchManager.AppointmentSearchException.class)
-                .hasMessage("Unknown AvailableTimeSlotFilter key: bad.Filter");
+                .hasMessage("Unknown AvailableTimeSlotFilter key: UnknownFilterClass");
     }
 }
