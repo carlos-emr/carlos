@@ -169,7 +169,17 @@
     // signature bitmaps, DejaVu font), blocking object/embed via object-src 'none',
     // preventing <base> injection via base-uri 'none', and reducing clickjacking
     // exposure via frame-ancestors 'self'.
-    response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
+    String cspHeaderValue = String.join("; ",
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'self'"
+    );
+    response.setHeader("Content-Security-Policy", cspHeaderValue);
     response.setHeader("X-Content-Type-Options", "nosniff");
     out.print(eForm.getFormHtml()); // CodeQL[java/xss] eform HTML is intentionally unencoded
 %>
