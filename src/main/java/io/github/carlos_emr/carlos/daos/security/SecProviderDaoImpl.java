@@ -34,6 +34,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import jakarta.persistence.TypedQuery;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.cache.annotation.CacheEvict;
@@ -53,9 +54,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
             HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void save(SecProvider transientInstance) {
@@ -70,9 +71,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void saveOrUpdate(SecProvider transientInstance) {
@@ -91,9 +92,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void delete(SecProvider persistentInstance) {
@@ -264,9 +265,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public SecProvider merge(SecProvider detachedInstance) {
@@ -282,9 +283,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void attachDirty(SecProvider instance) {
@@ -299,9 +300,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void attachClean(SecProvider instance) {

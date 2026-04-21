@@ -201,6 +201,77 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
         });
     }
 
+    @Test
+    @DisplayName("should evict all three provider caches when ProviderDataDao batchPersist completes")
+    void shouldEvictAllThreeProviderCaches_whenProviderDataDaoBatchPersistCompletes() {
+        putCacheValue("providerNames", "name:__seed__", "Stale Name");
+        putCacheValue("activeProviders", "anyKey", "Stale Active");
+        putCacheValue("activeProviderSummaries", "anyKey", "Stale Summary");
+        assertThat(cacheEntryCount("providerNames")).isEqualTo(1);
+        assertThat(cacheEntryCount("activeProviders")).isEqualTo(1);
+        assertThat(cacheEntryCount("activeProviderSummaries")).isEqualTo(1);
+
+        String first = newProviderNo();
+        String second = newProviderNo();
+        providerNosToCleanUp.add(first);
+        providerNosToCleanUp.add(second);
+        providerDataDao.batchPersist(List.of(
+                buildProviderData(first, "Batch", "Persist1"),
+                buildProviderData(second, "Batch", "Persist2")
+        ));
+
+        assertThat(cacheEntryCount("providerNames")).isZero();
+        assertThat(cacheEntryCount("activeProviders")).isZero();
+        assertThat(cacheEntryCount("activeProviderSummaries")).isZero();
+    }
+
+    @Test
+    @DisplayName("should evict all three provider caches before batchPersist runs to prevent stale entries on partial failure")
+    void shouldEvictAllThreeProviderCaches_beforeBatchPersistRuns() {
+        putCacheValue("providerNames", "name:__seed__", "Stale Name");
+        putCacheValue("activeProviders", "anyKey", "Stale Active");
+        putCacheValue("activeProviderSummaries", "anyKey", "Stale Summary");
+
+        ProviderData invalid = buildProviderData(newProviderNo(), "Bad", "Data");
+        // provider_no is the PK column; clearing it forces a persistence failure.
+        invalid.set(null);
+
+        try {
+            providerDataDao.batchPersist(List.of(invalid));
+        } catch (RuntimeException expected) {
+            // Expected: persistence failure on null PK
+        }
+
+        assertThat(cacheEntryCount("providerNames"))
+                .as("providerNames must be evicted BEFORE batchPersist body runs")
+                .isZero();
+        assertThat(cacheEntryCount("activeProviders")).isZero();
+        assertThat(cacheEntryCount("activeProviderSummaries")).isZero();
+    }
+
+    @Test
+    @DisplayName("should evict all three provider caches when ProviderDataDao batchRemove completes")
+    void shouldEvictAllThreeProviderCaches_whenProviderDataDaoBatchRemoveCompletes() {
+        String firstNo = newProviderNo();
+        String secondNo = newProviderNo();
+        createProvider(firstNo, "Batch", "Remove1");
+        createProvider(secondNo, "Batch", "Remove2");
+
+        putCacheValue("providerNames", "name:__seed__", "Stale Name");
+        putCacheValue("activeProviders", "anyKey", "Stale Active");
+        putCacheValue("activeProviderSummaries", "anyKey", "Stale Summary");
+
+        ProviderData first = providerDataDao.findByProviderNo(firstNo);
+        ProviderData second = providerDataDao.findByProviderNo(secondNo);
+        providerDataDao.batchRemove(List.of(first, second));
+        providerNosToCleanUp.remove(firstNo);
+        providerNosToCleanUp.remove(secondNo);
+
+        assertThat(cacheEntryCount("providerNames")).isZero();
+        assertThat(cacheEntryCount("activeProviders")).isZero();
+        assertThat(cacheEntryCount("activeProviderSummaries")).isZero();
+    }
+
     private void createProvider(String providerNo, String firstName, String lastName) {
         providerNosToCleanUp.add(providerNo);
         transactionTemplate.executeWithoutResult(status -> {

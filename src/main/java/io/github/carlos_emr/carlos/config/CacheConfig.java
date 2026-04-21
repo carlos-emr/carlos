@@ -56,6 +56,16 @@ import org.springframework.context.annotation.Configuration;
 @EnableCaching(proxyTargetClass = true)  // CGLIB proxies: consistent with proxy-target-class=true on <tx:annotation-driven> and <aop:aspectj-autoproxy> in applicationContext.xml
 public class CacheConfig {
 
+    // Cache-name constants referenced from every @Cacheable / @CacheEvict annotation and
+    // from programmatic CacheManager.getCache(...) calls. Keeping these in one place means
+    // a typo fails at compile time rather than at first cache access.
+    public static final String PROVIDER_NAMES = "providerNames";
+    public static final String ACTIVE_PROVIDERS = "activeProviders";
+    public static final String ACTIVE_PROVIDER_SUMMARIES = "activeProviderSummaries";
+    public static final String APPOINTMENT_STATUSES = "appointmentStatuses";
+    public static final String MEASUREMENT_TYPES = "measurementTypes";
+    public static final String LOOKUP_LISTS = "lookupLists";
+
     /**
      * Creates and configures the application {@link CacheManager}.
      *
@@ -71,7 +81,9 @@ public class CacheConfig {
      *   <tr><td>{@code activeProviders}</td><td>10</td><td>5 min</td>
      *       <td>Keyed by filter variant; small cardinality</td></tr>
      *   <tr><td>{@code activeProviderSummaries}</td><td>1</td><td>5 min</td>
-     *       <td>Single summary DTO list</td></tr>
+     *       <td>Single summary DTO list; max=1 is deliberate — the caching method takes no
+     *       arguments so Spring uses {@code SimpleKey.EMPTY} as the sole key. Do not raise
+     *       the size without also giving the method a keyed signature.</td></tr>
      *   <tr><td>{@code appointmentStatuses}</td><td>5</td><td>30 min</td>
      *       <td>{@code 'all'}, {@code 'active'}, {@code 'status:X'}</td></tr>
      *   <tr><td>{@code measurementTypes}</td><td>10</td><td>60 min</td>
@@ -86,12 +98,12 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         SimpleCacheManager delegate = new SimpleCacheManager();
         delegate.setCaches(List.of(
-                buildCache("providerNames", 500, Duration.ofMinutes(15)),
-                buildCache("activeProviders", 10, Duration.ofMinutes(5)),
-                buildCache("activeProviderSummaries", 1, Duration.ofMinutes(5)),
-                buildCache("appointmentStatuses", 5, Duration.ofMinutes(30)),
-                buildCache("measurementTypes", 10, Duration.ofMinutes(60)),
-                buildCache("lookupLists", 50, Duration.ofMinutes(30))
+                buildCache(PROVIDER_NAMES, 500, Duration.ofMinutes(15)),
+                buildCache(ACTIVE_PROVIDERS, 10, Duration.ofMinutes(5)),
+                buildCache(ACTIVE_PROVIDER_SUMMARIES, 1, Duration.ofMinutes(5)),
+                buildCache(APPOINTMENT_STATUSES, 5, Duration.ofMinutes(30)),
+                buildCache(MEASUREMENT_TYPES, 10, Duration.ofMinutes(60)),
+                buildCache(LOOKUP_LISTS, 50, Duration.ofMinutes(30))
         ));
         delegate.afterPropertiesSet();
         return new TransactionAwareCacheManagerProxy(delegate);

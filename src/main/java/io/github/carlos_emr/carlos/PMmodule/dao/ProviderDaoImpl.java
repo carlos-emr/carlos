@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderFacilityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -88,8 +89,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return provider;
     }
 
-    @Cacheable(value = "providerNames", key = "'name:' + #providerNo",
-               condition = "#providerNo != null && !#providerNo.isEmpty()")
+    @Cacheable(value = CacheConfig.PROVIDER_NAMES, key = "'name:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()",
+               unless = "#result == null || #result.isEmpty()")
     @Override
     public String getProviderName(String providerNo) {
 
@@ -113,8 +115,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return providerName;
     }
 
-    @Cacheable(value = "providerNames", key = "'nameLastFirst:' + #providerNo",
-               condition = "#providerNo != null && !#providerNo.isEmpty()")
+    @Cacheable(value = CacheConfig.PROVIDER_NAMES, key = "'nameLastFirst:' + #providerNo",
+               condition = "#providerNo != null && !#providerNo.isEmpty()",
+               unless = "#result == null || #result.isEmpty()")
     @Override
     public String getProviderNameLastFirst(String providerNo) {
         if (providerNo == null || providerNo.length() <= 0) {
@@ -230,7 +233,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return rs;
     }
 
-    @Cacheable(value = "activeProviders", key = "'filter:true'")
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDERS, key = "'filter:true'")
     @Override
     public List<Provider> getActiveProviders() {
 
@@ -243,7 +246,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         return Collections.unmodifiableList(new ArrayList<>(rs));
     }
 
-    @Cacheable(value = "activeProviders", key = "'filter:' + #filterOutSystemAndImportedProviders")
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDERS, key = "'filter:' + #filterOutSystemAndImportedProviders")
     @Override
     public List<Provider> getActiveProviders(boolean filterOutSystemAndImportedProviders) {
 
@@ -458,9 +461,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void updateProvider(Provider provider) {
@@ -468,9 +471,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     }
 
     @Caching(evict = {
-        @CacheEvict(value = "providerNames",           allEntries = true),
-        @CacheEvict(value = "activeProviders",         allEntries = true),
-        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
     })
     @Override
     public void saveProvider(Provider provider) {
@@ -786,7 +789,7 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     private static final String PROVIDER_SUMMARIES_BY_IDS_HQL =
             "SELECT NEW io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO(p.ProviderNo, p.LastName, p.FirstName, p.Specialty, p.Status, p.Team) FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)";
 
-    @Cacheable(value = "activeProviderSummaries")
+    @Cacheable(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES)
     @Override
     public List<ProviderSummaryDTO> getActiveProviderSummaries() {
         TypedQuery<ProviderSummaryDTO> query = entityManager().createQuery(

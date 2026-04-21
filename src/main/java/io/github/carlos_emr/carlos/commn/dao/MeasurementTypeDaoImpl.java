@@ -37,6 +37,7 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
@@ -49,7 +50,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         super(MeasurementType.class);
     }
 
-    @Cacheable(value = "measurementTypes", key = "'allByType'")
+    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allByType'")
     @Override
     public List<MeasurementType> findAll() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.type";
@@ -58,7 +59,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
-    @Cacheable(value = "measurementTypes", key = "'allByName'")
+    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allByName'")
     @Override
     public List<MeasurementType> findAllOrderByName() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.typeDisplayName";
@@ -67,7 +68,7 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return Collections.unmodifiableList(new ArrayList<>(results));
     }
 
-    @Cacheable(value = "measurementTypes", key = "'allById'")
+    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allById'")
     @Override
     public List<MeasurementType> findAllOrderById() {
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.id";
@@ -121,23 +122,47 @@ public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> imp
         return query.getResultList();
     }
 
-    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
     @Override
     public void persist(AbstractModel<?> o) { super.persist(o); }
 
-    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
     @Override
     public void merge(AbstractModel<?> o) { super.merge(o); }
 
-    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
     @Override
     public void remove(AbstractModel<?> o) { super.remove(o); }
 
-    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
     @Override
     public boolean remove(Object id) { return super.remove(id); }
 
-    @CacheEvict(value = "measurementTypes", allEntries = true)
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true)
     @Override
     public MeasurementType saveEntity(MeasurementType entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy — so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<MeasurementType> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<MeasurementType> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<MeasurementType> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.MEASUREMENT_TYPES, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<MeasurementType> oList, int batchSize) { super.batchRemove(oList, batchSize); }
 }

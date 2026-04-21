@@ -32,6 +32,7 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -113,8 +114,10 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
      * but not {@code clear()}, so without this hook a {@code @PostUpdate}-triggered
      * clear would fire mid-transaction and remain in effect even if the originating
      * write later rolled back. A missing or misconfigured {@link CacheManager} is
-     * logged and swallowed so a cache-configuration fault never aborts a legitimate
-     * appointment-status write from inside a JPA lifecycle callback.</p>
+     * logged at ERROR — it is a deployment misconfiguration that pins stale appointment
+     * statuses for every reader up to the cache TTL — and swallowed so a cache-configuration
+     * fault never aborts a legitimate appointment-status write from inside a JPA
+     * lifecycle callback.</p>
      *
      * @param cacheIsDirty whether the legacy callback detected a write
      */
@@ -125,13 +128,13 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
         final Cache cache;
         try {
-            cache = getCacheManager().getCache("appointmentStatuses");
+            cache = getCacheManager().getCache(CacheConfig.APPOINTMENT_STATUSES);
         } catch (BeansException e) {
-            logger.warn("Appointment status cache invalidation skipped: CacheManager bean unavailable", e);
+            logger.error("Appointment status cache invalidation skipped: CacheManager bean unavailable — readers may see stale statuses until TTL expiry", e);
             return;
         }
         if (cache == null) {
-            logger.warn("Appointment status cache invalidation requested but cache 'appointmentStatuses' is not configured");
+            logger.error("Appointment status cache invalidation requested but cache '{}' is not configured — readers may see stale statuses until TTL expiry", CacheConfig.APPOINTMENT_STATUSES);
             return;
         }
 
