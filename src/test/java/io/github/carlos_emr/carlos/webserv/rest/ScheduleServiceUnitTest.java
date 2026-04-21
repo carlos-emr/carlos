@@ -46,7 +46,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,7 +88,9 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "securityInfoManager", securityInfoManager);
         injectDependency(service, "appointmentSearchDao", appointmentSearchDao);
 
-        when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(true);
+        // Lenient: some tests exercise paths that short-circuit before the privilege check
+        // (e.g. findUnknownFilter) or override the stub. Strict-by-default would fail those.
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(true);
     }
 
     @Test
@@ -99,7 +103,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         assertThat(nullIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
         assertThat(zeroIdResponse.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
         assertThat(zeroIdResponse.getEntity()).isEqualTo("Invalid search configuration id");
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
+        // Two saveSearchConfig invocations above → hasPrivilege is checked twice
+        verify(securityInfoManager, times(2)).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
         verify(appointmentSearchDao, never()).find(any());
     }
 

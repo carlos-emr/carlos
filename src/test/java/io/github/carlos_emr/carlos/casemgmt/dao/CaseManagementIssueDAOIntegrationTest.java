@@ -24,6 +24,8 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -61,6 +63,9 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
     @Autowired
     @Qualifier("CaseManagementIssueDAO")
     private CaseManagementIssueDAO caseManagementIssueDAO;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     @Autowired
     @Qualifier("IssueDAO")
@@ -181,14 +186,18 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
             Long savedId = cmi.getId();
 
-            // When
+            // When — deleteIssueById writes through the JPA EntityManager; flush and query
+            // via that same context so the DELETE is observable in the verification step
+            // (hibernateTemplate.flush/find read from the Hibernate Session, which doesn't
+            // see EntityManager-scheduled removes in the dual-context test harness).
             caseManagementIssueDAO.deleteIssueById(cmi);
-            hibernateTemplate.flush();
+            entityManager.flush();
 
-            // Then - verify via HibernateTemplate (same persistence context as DAO)
-            @SuppressWarnings("unchecked")
-            List<CaseManagementIssue> results = (List<CaseManagementIssue>) hibernateTemplate
-                .find("from CaseManagementIssue where id = ?1", savedId);
+            // Then
+            List<CaseManagementIssue> results = entityManager
+                .createQuery("from CaseManagementIssue where id = :id", CaseManagementIssue.class)
+                .setParameter("id", savedId)
+                .getResultList();
             assertThat(results).isEmpty();
         }
 

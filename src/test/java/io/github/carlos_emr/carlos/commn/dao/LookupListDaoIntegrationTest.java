@@ -103,9 +103,17 @@ public class LookupListDaoIntegrationTest extends CarlosTestBase {
 
             List<LookupList> result = dao.findAllActive();
 
-            assertThat(result).hasSizeGreaterThanOrEqualTo(3);
-            List<LookupList> firstThree = result.subList(0, 3);
-            assertThat(firstThree).containsExactly(ll4, ll1, ll3);
+            // Filter to just the three entries this test created — a sibling cache test
+            // (LookupListDaoCacheIntegrationTest#shouldEvictLookupListsCache_beforeBatchPersistRuns)
+            // runs in NOT_SUPPORTED propagation and can commit a row with null name when H2
+            // doesn't enforce the NOT NULL constraint production has. That row otherwise sorts
+            // ahead of "alpha" and breaks positional assertions here.
+            List<LookupList> created = result.stream()
+                    .filter(l -> l.getId().equals(ll1.getId())
+                            || l.getId().equals(ll3.getId())
+                            || l.getId().equals(ll4.getId()))
+                    .toList();
+            assertThat(created).containsExactly(ll4, ll1, ll3);
         }
     }
 

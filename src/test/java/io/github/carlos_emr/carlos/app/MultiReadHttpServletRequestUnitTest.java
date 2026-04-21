@@ -603,7 +603,7 @@ class MultiReadHttpServletRequestUnitTest {
             mock.setContentType("multipart/form-data; boundary=----TestBoundary");
 
             MultiReadHttpServletRequest wrapper = new MultiReadHttpServletRequest(mock);
-            String expectedLimitBytes = String.valueOf(MultiReadHttpServletRequest.MAX_BODY_SIZE);
+            String expectedLimitMb = (MultiReadHttpServletRequest.MAX_BODY_SIZE / (1024 * 1024)) + " MB";
 
             assertThatThrownBy(() -> {
                 ServletInputStream inputStream = wrapper.getInputStream();
@@ -613,7 +613,7 @@ class MultiReadHttpServletRequestUnitTest {
                 }
             })
                     .isInstanceOf(IOException.class)
-                    .hasMessageContaining(expectedLimitBytes);
+                    .hasMessageContaining(expectedLimitMb);
         }
 
         @Test
