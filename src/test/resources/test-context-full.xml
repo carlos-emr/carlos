@@ -46,10 +46,11 @@
     <context:annotation-config/>
     <tx:annotation-driven proxy-target-class="true"/>
 
-    <!-- Mirrors applicationContext.xml: registers the @Configuration class that declares
-         @EnableCaching and the Caffeine CacheManager bean. Tests that rely on @Cacheable /
-         @CacheEvict behaviour (or inject CacheManager) need this bean present in the
-         test context just like production. -->
+    <!-- Mirrors the production Spring wiring in spring_managers.xml / component-based
+         configuration by registering the @Configuration class that declares
+         @EnableCaching and the Caffeine CacheManager bean. Tests that rely on
+         @Cacheable / @CacheEvict behaviour (or inject CacheManager) need this bean
+         present in the test context just like production. -->
     <bean class="io.github.carlos_emr.carlos.config.CacheConfig"/>
 
     <!-- Properties -->
