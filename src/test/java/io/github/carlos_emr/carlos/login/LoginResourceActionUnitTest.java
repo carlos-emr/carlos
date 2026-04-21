@@ -84,7 +84,7 @@ class LoginResourceActionUnitTest {
         servlet.doGet(request, response);
 
         verify(response).setStatus(HttpServletResponse.SC_NO_CONTENT);
-        verify(response, never()).sendError(eq(HttpServletResponse.SC_NOT_FOUND), anyString());
+        verify(response, never()).sendError(HttpServletResponse.SC_NOT_FOUND);
     }
 
     @Test
