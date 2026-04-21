@@ -40,6 +40,8 @@
     <!-- Exclude pattern structure:
          1. Exclude extension-based static/direct view requests, except the one legacy
             Rich Text Letter template endpoint that still needs to reach Struts.
+            Examples: /styles/app.css => excluded, /eform/other.jsp => excluded,
+            /eform/efmformrtl_templates.jsp => allowed through to Struts.
          2. Exclude internal WEB-INF resources.
          3. Exclude non-Struts servlet and CSRFGuard endpoints handled elsewhere. -->
     <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
