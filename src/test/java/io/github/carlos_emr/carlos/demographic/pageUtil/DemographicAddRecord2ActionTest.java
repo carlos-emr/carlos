@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -58,11 +59,12 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     @Mock
     private DemographicDao mockDemographicDao;
 
+    private AutoCloseable mockCloseable;
     private DemographicAddRecord2Action action;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
 
@@ -80,6 +82,13 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         java.lang.reflect.Field demographicDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicDao");
         demographicDaoField.setAccessible(true);
         demographicDaoField.set(action, mockDemographicDao);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockCloseable != null) {
+            mockCloseable.close();
+        }
     }
 
     @Test

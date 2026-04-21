@@ -56,11 +56,12 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     private static final String TEST_PROVIDER = "999998";
     @Mock
     private DemographicDao mockDemographicDao;
+    private AutoCloseable mockCloseable;
     private DemographicUpdate2Action action;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mockCloseable = MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
@@ -73,6 +74,13 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         java.lang.reflect.Field secField = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
         secField.setAccessible(true);
         secField.set(action, mockSecurityInfoManager);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockCloseable != null) {
+            mockCloseable.close();
+        }
     }
 
     @Test
