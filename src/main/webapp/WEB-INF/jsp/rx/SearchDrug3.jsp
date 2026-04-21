@@ -1840,15 +1840,6 @@ function popForm2(scriptId){
         }
     }
 
-     function callTreatments(textId,id){
-         var ele = document.getElementById(textId);
-         var url = ctx + "/rx/TreatmentMyD.jsp"
-         var ran_number=Math.round(Math.random()*1000000);
-         var params = "demographicNo=<%=demoNo%>&cond="+encodeURIComponent(ele.value)+"&rand="+ran_number;  //hack to get around ie caching the page
-         CarlosAjax.updater(id,url, {method:'get',parameters:params});
-         var tmEl=document.getElementById('treatmentsMyD'); tmEl.style.display=(tmEl.style.display==='none')?'':'none';
-     }
-
      function callAdditionWebService(url,id){
          var contextPath = '${carlos:forJavaScript(ctx)}';
          if (url.indexOf(contextPath) !== 0) {

@@ -1302,32 +1302,6 @@
 
                 </caisi:isModuleLoad>
 
-                <%
-                    boolean anonymousEnabled = false;
-                    if (loggedInInfo1.getCurrentFacility() != null) {
-                        anonymousEnabled = loggedInInfo1.getCurrentFacility().isEnableAnonymous();
-                    }
-                    if (anonymousEnabled) {
-                %>
-                &nbsp;&nbsp;(<a href="#" onclick="popupPage(710, 1024,
-                '<%=(request.getContextPath() + "/PMmodule/createAnonymousClient.jsp")%>?programId=<%=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID)%>');return false;">New
-                Anon Client</a>)
-                <%
-                    }
-                %>
-                <%
-                    boolean epe = false;
-                    if (loggedInInfo1.getCurrentFacility() != null) {
-                        epe = loggedInInfo1.getCurrentFacility().isEnablePhoneEncounter();
-                    }
-                    if (epe) {
-                %>
-                &nbsp;&nbsp;(<a href="#" onclick="popupPage(710, 1024,
-                '<%=(request.getContextPath() + "/PMmodule/createPEClient.jsp")%>?programId=<%=(String)session.getAttribute(SessionConstants.CURRENT_PROGRAM_ID)%>');return false;">Phone
-                Encounter</a>)
-                <%
-                    }
-                %>
             </td>
 
             <td class="title noprint">
