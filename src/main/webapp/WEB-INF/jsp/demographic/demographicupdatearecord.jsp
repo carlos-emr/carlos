@@ -76,7 +76,7 @@
     <span style="color:red;">One or more demographic fields exceed the maximum allowed length.</span><br><br>
     <ul>
         <% for (String validationError : fieldLengthValidationErrors) { %>
-        <li><carlos:encode value='<%= validationError %>' context="html"/></li>
+        <li><carlos:encode value='<%= validationError %>'/></li>
         <% } %>
     </ul>
     <a href="#" onClick="history.go(-1);return false;"><b>&lt;-
