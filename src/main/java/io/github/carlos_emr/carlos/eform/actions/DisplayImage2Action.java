@@ -87,12 +87,15 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         String fileName = request.getParameter("imagefile");
-        if (isVaccineBrandsRequest(fileName)) {
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)
+        boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
+        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+            File eformDirectory = new File(CarlosProperties.getInstance().getEformImageDirectory());
+            PathValidationUtils.validatePath(fileName, eformDirectory);
+            if (!hasEformRead
                     && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
                 throw new SecurityException("missing required sec object (_eform or _prevention)");
             }
-        } else if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+        } else if (!hasEformRead) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
@@ -112,17 +115,6 @@ public class DisplayImage2Action extends ActionSupport {
             if (stream != null) {
                 stream.close();
             }
-        }
-    }
-
-    private boolean isVaccineBrandsRequest(String fileName) {
-        try {
-            File eformDirectory = new File(CarlosProperties.getInstance().getEformImageDirectory());
-            File validatedFile = PathValidationUtils.validatePath(fileName, eformDirectory);
-            return VACCINE_BRANDS_FILE.equals(validatedFile.getName());
-        } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Rejected vaccine-brands fallback for invalid eform image path");
-            return false;
         }
     }
 
