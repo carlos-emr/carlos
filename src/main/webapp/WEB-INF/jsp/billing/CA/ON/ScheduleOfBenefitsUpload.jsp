@@ -150,7 +150,7 @@
                     </div>
                 </form>
                 <% } else { %>
-                <a href="/billing/CA/ON/benefitScheduleUpload">Try again</a>
+                <a href="<%= request.getContextPath() %>/billing/CA/ON/benefitScheduleUpload">Try again</a>
                 <%}%>
             </div><!--#2-->
 

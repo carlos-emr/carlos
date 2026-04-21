@@ -359,7 +359,7 @@
         </tr>
     </table>
 
-    <form method="post" name="baseur0" action="/billing/CA/ON/ViewBillingONFavourite">
+    <form method="post" name="baseur0" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONFavourite">
         <table style="width:100%;">
             <tr>
                 <td style="width:50%; text-align: center;"><select name="name" id="name">
@@ -386,7 +386,7 @@
 
         </table>
     </form>
-    <form method="post" name="baseurl" action="/billing/CA/ON/ViewBillingONFavourite">
+    <form method="post" name="baseurl" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONFavourite">
         <table style="width:100%;" class="table table-striped table-sm">
 
             <tr class="myGreen">

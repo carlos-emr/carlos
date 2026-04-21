@@ -78,7 +78,7 @@
     </tr>
 </table>
 
-<form method="post" name="titlesearch" action="/billing/CA/ON/ViewBillingONHistorySpec">
+<form method="post" name="titlesearch" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONHistorySpec">
     <table style="width:95%; margin:auto;">
         <tr>
             <td style="text-align:left"><carlos:encode value='<%= request.getParameter("demo_name") != null ? request.getParameter("demo_name") : "" %>' context="html"/>

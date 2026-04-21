@@ -51,7 +51,7 @@
 <body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <form action="/billing/CA/ON/ViewOnGenRAError">
+    <form action="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRAError">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing
                 Reconcilliation - Error Report</font></th>

@@ -411,7 +411,7 @@
         </h4>
     </div>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingONReport">
+    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONReport">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>>

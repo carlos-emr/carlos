@@ -112,7 +112,7 @@
         </span>
     </div>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ViewBillingReportControl">
+    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingReportControl">
         <div class="d-flex flex-wrap align-items-center gap-2" style="margin-bottom:10px;">
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="unbilled" checked>

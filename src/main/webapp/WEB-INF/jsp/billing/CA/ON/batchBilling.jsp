@@ -131,7 +131,7 @@
             var providerNo = provider.options[provider.selectedIndex].value;
 
             if (providerNo != "#") {
-                eval(targ + ".location='/billing/CA/ON/BatchBill?provider_no=" + providerNo + "&service_code=" + service + "'");
+                eval(targ + ".location='<%= request.getContextPath() %>/billing/CA/ON/BatchBill?provider_no=" + providerNo + "&service_code=" + service + "'");
             }
 
         }

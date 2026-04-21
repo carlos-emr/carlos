@@ -119,7 +119,7 @@
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
-      action="/billing/CA/ON/BillingCodeUpdate">
+      action="<%= request.getContextPath() %>/billing/CA/ON/BillingCodeUpdate">
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"

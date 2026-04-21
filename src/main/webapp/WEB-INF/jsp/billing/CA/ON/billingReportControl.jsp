@@ -116,7 +116,7 @@
 
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="/billing/CA/ON/ViewBillingReportControl">
+          action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingReportControl">
         <tr>
             <td width="50%" align="right"><font size="2" color="#333333"
                                                 face="Verdana, Arial, Helvetica, sans-serif"> <input
@@ -166,10 +166,10 @@
             <td></td>
             <td align="right"><B>Date</B> &nbsp; <font size="1"
                                                        face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                                               onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
+                                                                                               onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
                 <input type="text" name="xml_vdate" size="10" value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>">
                 <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                       onClick="openBrWindow('/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
+                                                                       onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
                     To:</a></font> <input type="text" name="xml_appointment_date" size="10"
                                           value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"></td>
             <td></td>
