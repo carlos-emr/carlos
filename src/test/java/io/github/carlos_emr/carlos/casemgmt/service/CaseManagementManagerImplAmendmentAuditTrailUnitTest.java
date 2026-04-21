@@ -35,16 +35,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Regression tests that lock in the clinical-note amendment audit-trail contract
@@ -78,7 +76,6 @@ import static org.mockito.Mockito.when;
  * @see CaseManagementNote
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("CaseManagementManagerImpl.saveNote() amendment audit-trail contract")
 @Tag("unit")
 @Tag("fast")
@@ -137,8 +134,11 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
         injectDependency(manager, "caseManagementNoteDAO", mockNoteDao);
         injectDependency(manager, "eChartDao", mockEChartDao);
 
-        // eChartDao.saveEchart is the tail call of saveNote; stub a harmless return.
-        when(mockEChartDao.saveEchart(any(CaseManagementNote.class), any(), anyString(), any()))
+        // eChartDao.saveEchart is the tail call of saveNote. Stubbed leniently
+        // because not every test path exercises it (e.g. when the AbandonOldChart
+        // property short-circuits the call), and unused-stub strictness would
+        // otherwise fail those tests.
+        lenient().when(mockEChartDao.saveEchart(any(CaseManagementNote.class), any(), anyString(), any()))
                 .thenReturn("");
     }
 
