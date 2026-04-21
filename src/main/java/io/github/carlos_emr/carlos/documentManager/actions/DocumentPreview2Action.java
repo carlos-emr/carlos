@@ -386,7 +386,14 @@ public class DocumentPreview2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
-        Integer demographicId = Integer.valueOf(demographicNo);
+        Integer demographicId;
+        try {
+            demographicId = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid demographicNo received: {}. Falling back to 0.", LogSanitizer.sanitize(demographicNo), e);
+            demographicNo = "0";
+            demographicId = 0;
+        }
 
         populateCommonDocs(loggedInInfo, demographicNo, demographicId);
 		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)
