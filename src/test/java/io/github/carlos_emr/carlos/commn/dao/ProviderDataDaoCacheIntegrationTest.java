@@ -163,7 +163,7 @@ class ProviderDataDaoCacheIntegrationTest extends CarlosTestBase {
                     .satisfies(summary -> {
                         assertThat(summary.getFirstName()).isEqualTo("John");
                         assertThat(summary.getLastName()).isEqualTo("Smith");
-            });
+                    });
         });
 
         putCacheValue("providerNames", "name:" + providerNo, "Stale Provider Name");
