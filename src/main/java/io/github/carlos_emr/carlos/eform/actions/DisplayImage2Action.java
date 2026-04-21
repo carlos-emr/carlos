@@ -122,7 +122,7 @@ public class DisplayImage2Action extends ActionSupport {
      *
      * <p>{@link #execute()} remains the primary entry point because it applies the
      * authorization checks before delegating to this method for path validation and
-     * MIME/type stream handling.</p>
+     * MIME type stream handling.</p>
      *
      * @return StreamData resolved stream and content type for the requested asset
      * @throws Exception if the request parameter is invalid, the directory is unavailable,

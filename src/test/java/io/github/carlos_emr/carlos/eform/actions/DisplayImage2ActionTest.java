@@ -28,6 +28,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -125,7 +126,7 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
         if (tempDir != null) {
             try (var paths = Files.walk(tempDir)) {
-                paths.sorted((left, right) -> right.compareTo(left))
+                paths.sorted(Comparator.reverseOrder())
                         .forEach(path -> {
                             try {
                                 Files.deleteIfExists(path);
