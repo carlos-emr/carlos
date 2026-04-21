@@ -83,6 +83,28 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should return validationError when year of birth exceeds four characters")
+    void shouldReturnValidationError_whenYearOfBirthExceedsFourCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter("sex", "F");
+        addRequestParameter("year_of_birth", "20255");
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .contains("Year of birth exceeds maximum length of 4 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
     @DisplayName("should return validationError when last name exceeds thirty characters")
     void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");

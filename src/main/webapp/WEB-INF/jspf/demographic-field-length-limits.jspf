@@ -41,6 +41,7 @@
             nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
             address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
             city: <%= Demographic.CITY_MAX_LENGTH %>,
+            year_of_birth: <%= Demographic.YEAR_OF_BIRTH_MAX_LENGTH %>,
             residentialAddress: <%= Demographic.RESIDENTIAL_ADDRESS_MAX_LENGTH %>,
             residentialCity: <%= Demographic.RESIDENTIAL_CITY_MAX_LENGTH %>,
             postal: <%= Demographic.POSTAL_MAX_LENGTH %>,

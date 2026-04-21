@@ -124,6 +124,30 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should return validationError when province exceeds twenty characters")
+    void shouldReturnValidationError_whenProvinceExceedsTwentyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        mockRequest.setMethod("POST");
+        addRequestParameter("demographic_no", "123");
+        addRequestParameter("province", "X".repeat(Demographic.PROVINCE_MAX_LENGTH + 1));
+
+        Demographic demographic = new Demographic(123);
+        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
+                .contains("Province exceeds maximum length of 20 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
+    @Test
     @DisplayName("should return validationError when last name exceeds thirty characters")
     void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
@@ -139,7 +163,10 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo("validationError");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
-        assertThat((List<String>) mockRequest.getAttribute("fieldLengthValidationErrors"))
+        @SuppressWarnings("unchecked")
+        List<String> fieldLengthValidationErrors =
+                (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
+        assertThat(fieldLengthValidationErrors)
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
