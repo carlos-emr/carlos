@@ -38,6 +38,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -46,11 +47,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RxUpdateDrugref2Action extends ActionSupport {
+    private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -74,11 +77,17 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     }
 
     public String updateDB() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        String s = drugref.updateDB();
-
         HashMap<String, Object> d = new HashMap<String, Object>();
-        d.put("result", s);
+        try {
+            RxDrugRef drugref = new RxDrugRef();
+            String s = drugref.updateDB();
+            d.put("result", s);
+        } catch (Exception e) {
+            // DrugRef service unavailable — log and return a JSON error payload so the
+            // client can render a friendly "unavailable" message instead of a 500 page.
+            logger.warn("DrugRef updateDB failed; treating service as unavailable", e);
+            d.put("result", null);
+        }
         response.setContentType("text/x-json;charset=UTF-8");
 
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
@@ -87,8 +96,21 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     }
 
     private String verify() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        Map<String, String> verify = drugref.verify();
+        Map<String, String> verify;
+        try {
+            RxDrugRef drugref = new RxDrugRef();
+            verify = drugref.verify();
+        } catch (Exception e) {
+            // DrugRef service unavailable — log and return a JSON payload with null fields.
+            // The existing clients (TopLinks2.jspf, updateDrugref.jsp) treat a null
+            // lastUpdate as "DrugRef unavailable" and show a friendly banner instead
+            // of a 500 error page in the Rx print-preview modal.
+            logger.warn("DrugRef verify failed; treating service as unavailable", e);
+            verify = new HashMap<>();
+            verify.put("lastUpdate", null);
+            verify.put("drugDatabase", null);
+            verify.put("version", null);
+        }
         response.setContentType("text/x-json;charset=UTF-8");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(verify);
         response.getWriter().write(jsonArray.toString());
@@ -96,10 +118,17 @@ public class RxUpdateDrugref2Action extends ActionSupport {
     }
 
     private String getLastUpdate() throws Exception, ServletException {
-        RxDrugRef drugref = new RxDrugRef();
-        String s = drugref.getLastUpdateTime();
         HashMap<String, String> d = new HashMap<String, String>();
-        d.put("lastUpdate", s);
+        try {
+            RxDrugRef drugref = new RxDrugRef();
+            String s = drugref.getLastUpdateTime();
+            d.put("lastUpdate", s);
+        } catch (Exception e) {
+            // DrugRef service unavailable — return a null lastUpdate so clients can
+            // render a friendly unavailable message rather than a 500 error page.
+            logger.warn("DrugRef getLastUpdateTime failed; treating service as unavailable", e);
+            d.put("lastUpdate", null);
+        }
         response.setContentType("text/x-json;charset=UTF-8");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString());
