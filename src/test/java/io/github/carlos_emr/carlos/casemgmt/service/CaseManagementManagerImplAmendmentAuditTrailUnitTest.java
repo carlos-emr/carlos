@@ -87,9 +87,21 @@ import static org.mockito.Mockito.when;
 @Tag("audit")
 public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends CarlosUnitTestBase {
 
-    /** Verbatim separator written by {@link CaseManagementManagerImpl#saveNote}. */
+    /**
+     * Verbatim separator written by {@link CaseManagementManagerImpl#saveNote}.
+     *
+     * <p>Intentionally hard-coded here (not shared with production code) so that any
+     * change to the separator format — including whitespace — trips this test. An
+     * amendment separator is part of the medical-legal audit-record format; silent
+     * changes must surface immediately.</p>
+     */
     private static final String HISTORY_SEPARATOR =
             "   ----------------History Record----------------   ";
+
+    private static final String TEST_PROVIDER_NO = "999998";
+    private static final String TEST_DEMOGRAPHIC_NO = "1001";
+    private static final String TEST_USER_NAME = "Dr. Smith";
+    private static final String TEST_ROLE_NAME = "doctor";
 
     @Mock
     private CaseManagementNoteDAO mockNoteDao;
@@ -133,8 +145,8 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
     private CaseManagementNote noteWithContent(String content) {
         CaseManagementNote note = new CaseManagementNote();
         note.setNote(content);
-        note.setDemographic_no("1001");
-        note.setProviderNo("999998");
+        note.setDemographic_no(TEST_DEMOGRAPHIC_NO);
+        note.setProviderNo(TEST_PROVIDER_NO);
         return note;
     }
 
@@ -146,7 +158,7 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
         CaseManagementNote note = noteWithContent("Initial assessment: patient stable.");
 
         // When: it is saved for the first time
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         // Then: history is seeded with the current content so the first revision is
         // part of the permanent record.
@@ -163,7 +175,7 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
         note.setHistory("Initial assessment: patient stable.");
 
         // When: it is saved again (i.e. amended)
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         // Then: the new content is prepended, the "History Record" separator is
         // emitted verbatim, and the original content is still present at the tail.
@@ -179,14 +191,14 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
     void shouldPreserveOriginalContent_acrossMultipleAmendments() {
         // Given: the first save establishes the baseline history
         CaseManagementNote note = noteWithContent("Original: presenting complaint.");
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         // When: two successive amendments are applied
         note.setNote("Amendment 1: added allergy info.");
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         note.setNote("Amendment 2: added medication list.");
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         // Then: both amendments AND the original content are all still present.
         // This is the key medical-legal guarantee: amendments append; originals
@@ -213,7 +225,7 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
         CaseManagementNote note = noteWithContent("line1\r\nline2\rline3");
 
         // When: it is saved
-        manager.saveNote(null, note, "999998", "Dr. Smith", null, "doctor");
+        manager.saveNote(null, note, TEST_PROVIDER_NO, TEST_USER_NAME, null, TEST_ROLE_NAME);
 
         // Then: the history is stored with LF-only line endings so the audit
         // record is consistent regardless of client platform.
