@@ -35,9 +35,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Read-scope view gate for appointment JSPs that render lists, cards, search
  * forms, and print views. Requires {@code _appointment r}. Accepts GET, HEAD,
- * and POST — POST is required for the tickler ({@code ticklerAdd.jsp}) and
- * alternate-contact ({@code AddAlternateContact.jsp}) search-handoff forms
- * that submit to {@code appointmentcontrol}.
+ * and POST because some legacy appointment views still submit form data before
+ * rendering a JSP response.
  *
  * @since 2026-04-14
  */

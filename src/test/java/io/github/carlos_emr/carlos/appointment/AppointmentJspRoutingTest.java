@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class AppointmentJspRoutingTest {
 
     @Test
-    void shouldUseExtensionlessRoutes_forAllAppointmentWorkflows() throws IOException {
+    void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
         String editAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/editappointment.jsp");
         String addAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
         String editRepeat = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp");
@@ -31,13 +31,27 @@ class AppointmentJspRoutingTest {
         String addRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp");
         String updateRecord = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentupdatearecord.jsp");
         String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+        String demographicApptHistory = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/demographicappthistory.jsp");
+        String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
+        String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
+        String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
+        String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
 
-        assertThat(editAppointment).contains("/appointment/appointmentcontrol");
+        assertThat(editAppointment).contains("/demographic/DemographicSearch");
+        assertThat(editAppointment).contains("/appointment/UpdateRecord");
+        assertThat(editAppointment).contains("/appointment/DeleteRecord");
+        assertThat(editAppointment).contains("/appointment/appointmentgrouprecords");
+        assertThat(editAppointment).contains("/appointment/CutRecord");
+        assertThat(editAppointment).contains("/appointment/appointmentcopyrecord");
+        assertThat(editAppointment).contains("/appointment/appointmentviewrecordcard");
+        assertThat(editAppointment).doesNotContain("/appointment/appointmentcontrol");
         assertThat(editAppointment).contains("/appointment/appointmenteditrepeatbooking");
-        assertThat(editAppointment).doesNotContain("ACTION=\"appointmentcontrol.jsp\"");
-        assertThat(editAppointment).doesNotContain("window.location='appointmentcontrol.jsp");
         assertThat(editAppointment).doesNotContain("appointmenteditrepeatbooking.jsp");
 
+        assertThat(addAppointment).contains("/appointment/AddRecord");
+        assertThat(addAppointment).contains("/appointment/appointmentgrouprecords");
+        assertThat(addAppointment).contains("/demographic/DemographicSearch");
+        assertThat(addAppointment).doesNotContain("/appointment/appointmentcontrol");
         assertThat(addAppointment).contains("/appointment/appointmentrepeatbooking");
         assertThat(addAppointment).doesNotContain("appointmentrepeatbooking.jsp");
 
@@ -62,80 +76,58 @@ class AppointmentJspRoutingTest {
         assertThat(updateRecord).doesNotContain("printappointment.jsp?appointment_no=");
 
         assertThat(providerDay).contains("/appointment/addappointment?");
+        assertThat(providerDay).contains("/appointment/editappointment?");
+        assertThat(providerDay).doesNotContain("/appointment/appointmentcontrol");
         assertThat(providerDay).contains("return ctx + '/appointment/addappointment'");
         assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
+
+        assertThat(demographicApptHistory).contains("/appointment/editappointment?demographic_no=");
+        assertThat(demographicApptHistory).doesNotContain("/appointment/appointmentcontrol");
+
+        assertThat(ticklerAdd).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"");
+        assertThat(ticklerAdd).contains("name=\"displaymode\" value=\"Search \"");
+        assertThat(ticklerAdd).doesNotContain("/appointment/appointmentcontrol");
+
+        assertThat(addAlternateContact).contains("action=\"<%= request.getContextPath() %>/demographic/DemographicSearch\"");
+        assertThat(addAlternateContact).contains("name=\"displaymode\"");
+        assertThat(addAlternateContact).contains("value=\"Search \"");
+        assertThat(addAlternateContact).doesNotContain("/appointment/appointmentcontrol");
+
+        assertThat(oscarJs).contains("'addappointment'");
+        assertThat(oscarJs).contains("'editappointment'");
+        assertThat(oscarJs).doesNotContain("appointmentcontrol.jsp");
+
+        assertThat(schedulingStruts).doesNotContain("<action name=\"appointment/appointmentcontrol\"");
     }
 
     /**
-     * Regression test for the "Editappointment fails" blank-page bug.
+     * Regression test for the direct-call refactor that removed the
+     * appointmentcontrol dispatcher entirely.
      *
-     * <p>{@code appointmentcontrol.jsp} is the dispatcher that routes each
-     * {@code displaymode} (edit / Add Appointment / Copy / ...) to its
-     * per-operation target. For extensionless Struts action targets the
-     * dispatch method depends on the incoming HTTP method:</p>
-     *
-     * <ul>
-     *   <li><b>GET/HEAD</b> (popup links from the schedule grid, demographic
-     *   appt history, etc. — {@code displaymode=edit}, {@code PrintCard}):
-     *   use {@code response.sendRedirect()}. A JSP forward into a Struts
-     *   action produces a nested dispatch chain that is captured twice by
-     *   {@code CsrfGuardScriptInjectionFilter}'s response wrapper; under
-     *   Tomcat 11 the nested-wrapper/forward combination drops the
-     *   innermost JSP's body and the popup opens blank (HTTP 200, 0 bytes).
-     *   A 302 sidesteps the nested-forward case entirely.</li>
-     *
-     *   <li><b>POST</b> (EDITAPPT/ADDAPPT form submissions carrying
-     *   {@code displaymode=Update Appt / Delete Appt / Cut / Copy /
-     *   Add Appointment / Group Action / Search }): must still use
-     *   {@code forward()}. A 302 turns the POST into a GET and drops the
-     *   form body; the mutator targets ({@code UpdateRecord},
-     *   {@code DeleteRecord}, {@code CutRecord}, {@code AddRecord}) are
-     *   blocked by {@code HttpMethodGuardFilter} on GET and also rely on
-     *   POST parameters that a redirect would discard.</li>
-     * </ul>
-     *
-     * <p>Internal JSP/JSPF/HTML fragments must still be composed via
-     * {@code include()}.</p>
+     * <p>The original blank-page bug came from routing the edit popup through
+     * appointmentcontrol.jsp, which then nested into other actions/JSPs.
+     * Known live callers must now go directly to their final endpoints so the
+     * dispatcher route is not part of the flow anymore.</p>
      */
     @Test
-    void shouldUseSendRedirect_forExtensionlessActionTargetsInAppointmentControl() throws IOException {
-        String appointmentControl = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/appointmentcontrol.jsp");
+    void shouldNotReferenceAppointmentControl_inLiveCallersOrRoutes() throws IOException {
+        String editAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/editappointment.jsp");
+        String addAppointment = readJspContent("src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp");
+        String providerDay = readJspContent("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp");
+        String demographicApptHistory = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/demographicappthistory.jsp");
+        String ticklerAdd = readJspContent("src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp");
+        String addAlternateContact = readJspContent("src/main/webapp/WEB-INF/jsp/demographic/AddAlternateContact.jsp");
+        String schedulingStruts = readJspContent("src/main/webapp/WEB-INF/classes/struts-scheduling.xml");
+        String oscarJs = readJspContent("src/main/webapp/share/javascript/Oscar.js");
 
-        // Edit dispatch must still target the extensionless Struts action
-        assertThat(appointmentControl).contains("\"edit\"");
-        assertThat(appointmentControl).contains("/appointment/editappointment");
-
-        // GET/HEAD path: dispatch-specific redirect call (not unrelated
-        // security/logout redirects elsewhere in the file)
-        assertThat(appointmentControl).contains("response.sendRedirect(redirectUrl");
-
-        // POST path: must still forward() so mutator targets (UpdateRecord,
-        // DeleteRecord, CutRecord, AddRecord) receive the form body. A 302
-        // would turn the POST into a GET and HttpMethodGuardFilter would
-        // block the request with 405.
-        assertThat(appointmentControl).contains("\"POST\".equalsIgnoreCase(request.getMethod())");
-        assertThat(appointmentControl).contains("request.getRequestDispatcher(target).forward(request, response)");
-
-        // Query string must be preserved on the redirect path so the target
-        // action sees appointment_no / demographic_no / provider_no /
-        // displaymode / dboperation
-        assertThat(appointmentControl).contains("request.getQueryString()");
-
-        // include() must remain available for internal JSP/JSPF/HTML fragments
-        assertThat(appointmentControl).contains("request.getRequestDispatcher(target).include(");
-
-        // Structural ordering: the .jsp/.jspf/.html include branch must come
-        // first, then the POST forward() branch, then the GET/HEAD
-        // sendRedirect() fallback. If the order regresses (e.g. redirect
-        // before the POST check) a POST would be 302-redirected and lose its
-        // form body.
-        int includeIdx = appointmentControl.indexOf("request.getRequestDispatcher(target).include(");
-        int postIdx = appointmentControl.indexOf("\"POST\".equalsIgnoreCase(request.getMethod())");
-        int forwardIdx = appointmentControl.indexOf("request.getRequestDispatcher(target).forward(request, response)");
-        int redirectIdx = appointmentControl.indexOf("response.sendRedirect(redirectUrl");
-        assertThat(includeIdx).isLessThan(postIdx);
-        assertThat(postIdx).isLessThan(forwardIdx);
-        assertThat(forwardIdx).isLessThan(redirectIdx);
+        assertThat(editAppointment).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(addAppointment).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(providerDay).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(demographicApptHistory).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(ticklerAdd).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(addAlternateContact).doesNotContain("/appointment/appointmentcontrol");
+        assertThat(schedulingStruts).doesNotContain("<action name=\"appointment/appointmentcontrol\"");
+        assertThat(oscarJs).doesNotContain("appointmentcontrol.jsp");
     }
 
     private String readJspContent(String path) throws IOException {

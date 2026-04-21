@@ -348,7 +348,7 @@ ef = '<%=request.getContextPath()%>/demographic/DemographicApptHistory?demograph
                         <c:set var="__enc_6"><carlos:encode value='<%= appointment.getId().toString() %>' context="uriComponent"/></c:set>
                         <td align=                                              
 "center"><a href=#
-                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/appointmentcontrol?demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&appointment_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&displaymode=edit&dboperation=search');return false;"><carlos:encode value='<%= appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "" %>' context="html"/>
+                                              onClick="popupPageNew(360,680, '<%= request.getContextPath() %>/appointment/editappointment?demographic_no=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&appointment_no=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&dboperation=search');return false;"><carlos:encode value='<%= appointment.getAppointmentDate() != null ? appointment.getAppointmentDate().toString() : "" %>' context="html"/>
                         </a></td>
                         <td align="center"><carlos:encode value='<%= appointment.getStartTime() != null ? appointment.getStartTime().toString() : "" %>' context="html"/>
                         </td>
