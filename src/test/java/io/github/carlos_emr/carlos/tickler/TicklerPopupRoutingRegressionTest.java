@@ -67,7 +67,11 @@ class TicklerPopupRoutingRegressionTest {
                 .isTrue();
 
         String forceWindowPathsBody = matcher.group("body");
-        assertThat(VIEW_ADD_TICKLER_PATTERN.matcher(forceWindowPathsBody).find()).isTrue();
-        assertThat(FORWARD_DEMOGRAPHIC_TICKLER_PATTERN.matcher(forceWindowPathsBody).find()).isTrue();
+        assertThat(VIEW_ADD_TICKLER_PATTERN.matcher(forceWindowPathsBody).find())
+                .as("forceWindowPaths should include the 'ViewAddTickler' route")
+                .isTrue();
+        assertThat(FORWARD_DEMOGRAPHIC_TICKLER_PATTERN.matcher(forceWindowPathsBody).find())
+                .as("forceWindowPaths should include the 'ForwardDemographicTickler' route")
+                .isTrue();
     }
 }

@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -20,6 +22,9 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 @Tag("appointment")
 class AppointmentJspRoutingTest {
+
+    private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
+            "(?:var|let|const)\\s+forceWindowPaths\\s*=\\s*\\[(?<body>[\\s\\S]*?)]\\s*;?");
 
     @Test
     void shouldUseExtensionlessRoutes_forAllAppointmentWorkflows() throws IOException {
@@ -66,9 +71,20 @@ class AppointmentJspRoutingTest {
         assertThat(providerDay).contains("return ctx + '/appointment/addappointment'");
         assertThat(providerDay).doesNotContain("/appointment/addappointment.jsp");
 
-        assertThat(oscarJs).contains("'addappointment'");
-        assertThat(oscarJs).contains("'appointmentcontrol'");
-        assertThat(oscarJs).contains("'appointmentsearch'");
+        Matcher forceWindowPathsMatcher = FORCE_WINDOW_PATHS_PATTERN.matcher(oscarJs);
+        assertThat(forceWindowPathsMatcher.find())
+                .as("Oscar.js should declare the forceWindowPaths list")
+                .isTrue();
+        String forceWindowPathsBody = forceWindowPathsMatcher.group("body");
+        assertThat(forceWindowPathsBody)
+                .as("forceWindowPaths should include the extensionless 'addappointment' route")
+                .contains("'addappointment'");
+        assertThat(forceWindowPathsBody)
+                .as("forceWindowPaths should include the extensionless 'appointmentcontrol' route")
+                .contains("'appointmentcontrol'");
+        assertThat(forceWindowPathsBody)
+                .as("forceWindowPaths should include the extensionless 'appointmentsearch' route")
+                .contains("'appointmentsearch'");
     }
 
     private String readJspContent(String path) throws IOException {

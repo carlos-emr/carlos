@@ -41,21 +41,22 @@
  * @param {string} url - URL to test
  * @returns {boolean} true if the URL must always open as a popup window
  */
+const forceWindowPaths = [
+    'addappointment',
+    'addappointment.jsp',
+    'appointmentcontrol',
+    'appointmentcontrol.jsp',
+    'appointmentsearch',
+    'appointmentsearch.jsp',
+    'Scratch',
+    'CalendarPopup.jsp',
+    'CalendarPopup',
+    'ViewAddTickler',
+    'ForwardDemographicTickler'
+];
+
 function isForceWindowUrl(url) {
     if (!url) return false;
-    const forceWindowPaths = [
-        'addappointment',
-        'addappointment.jsp',
-        'appointmentcontrol',
-        'appointmentcontrol.jsp',
-        'appointmentsearch',
-        'appointmentsearch.jsp',
-        'Scratch',
-        'CalendarPopup.jsp',
-        'CalendarPopup',
-        'ViewAddTickler',
-        'ForwardDemographicTickler'
-    ];
     const normalizedUrl = String(url).split('#')[0].split('?')[0];
     return forceWindowPaths.some(function(path) {
         const index = normalizedUrl.lastIndexOf(path);
