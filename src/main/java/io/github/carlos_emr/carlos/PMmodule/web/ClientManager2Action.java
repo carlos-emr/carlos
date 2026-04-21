@@ -356,6 +356,16 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
+        // Validate id is present and numeric before DAO lookup or session writes.
+        // Use \d{1,9} (not \d{1,10}) to prevent Integer.parseInt overflow
+        // (10-digit values can exceed Integer.MAX_VALUE = 2,147,483,647).
+        // Also require a positive value, since DemographicDaoImpl.getClientByDemographicNo
+        // throws IllegalArgumentException when demographicNo <= 0.
+        if (id == null || !id.matches("\\d{1,9}") || Integer.parseInt(id) <= 0) {
+            logger.warn("Invalid id rejected in edit: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            return ERROR;
+        }
+
         setEditAttributes(request, id);
 
         LogAction.log("read", "pmm client record", id, request);
@@ -666,7 +676,10 @@ public class ClientManager2Action extends ActionSupport {
     public String remove_joint_admission() {
         String clientId = request.getParameter("dependentClientId");
         try {
-            clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth)
+            // Session read via getAttribute("user"), not a session write.
+            // FP (CWE-501): reads authenticated provider from own session (set by Login2Action post-auth).
+            // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
         } catch (NumberFormatException e) {
             logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             setEditAttributes(request, request.getParameter("clientId"));

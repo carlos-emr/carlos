@@ -82,7 +82,7 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="SearchPatient.jsp">
+                            <div class="DivCCBreadCrumbs"><a href="${pageContext.request.contextPath}/rx/ViewPrint">
                                 <fmt:message key="SearchPatient.title"/></a> > <b><fmt:message key="ChoosePatient.title"/></b></div>
                         </td>
                     </tr>
@@ -103,7 +103,8 @@
                             <table>
                                 <tr>
                                     <td><fmt:message key="ChoosePatient.textBox"/></td>
-                                    <td><input type="checkbox" name="surname" size="16" maxlength="16" />
+                                    <td><input type="text" name="surname" size="16" maxlength="16"
+                                               value="<c:out value='${requestScope.searchSurname}'/>" />
                                     </td>
                                     <td><input type="submit" name="submit" value="Search" class="ControlPushButton"/></td>
                                 </tr>
@@ -115,6 +116,45 @@
                             <div class="DivContentSectionHead"><fmt:message key="ChoosePatient.choose"/></div>
                         </td>
                     </tr>
+                    <c:if test="${requestScope.searchPerformed == true}">
+                        <tr>
+                            <td>
+                                <c:choose>
+                                    <c:when test="${empty requestScope.searchSurname}">
+                                        <div><fmt:message key="SearchPatient.surname"/> <fmt:message key="admin.securityrecord.msgIsRequired"/></div>
+                                    </c:when>
+                                    <c:when test="${empty requestScope.searchResults}">
+                                        <div><fmt:message key="ChoosePatient.emptySearch"/></div>
+                                    </c:when>
+                                </c:choose>
+                            </td>
+                        </tr>
+                    </c:if>
+                    <c:if test="${not empty requestScope.searchResults}">
+                        <tr>
+                            <td>
+                                <table width="100%" border="0" cellpadding="2" cellspacing="0">
+                                    <tr>
+                                        <th align="left">Patient</th>
+                                        <th align="left">Sex</th>
+                                        <th align="left">Age</th>
+                                        <th align="left">Chart No.</th>
+                                    </tr>
+                                    <c:forEach var="patient" items="${requestScope.searchResults}">
+                                        <c:url var="choosePatientUrl" value="/rx/choosePatient">
+                                            <c:param name="demographicNo" value="${patient.demographicNo}"/>
+                                        </c:url>
+                                        <tr>
+                                            <td><a href="${choosePatientUrl}"><c:out value="${patient.surname}"/>, <c:out value="${patient.firstName}"/></a></td>
+                                            <td><c:out value="${patient.sex}"/></td>
+                                            <td><c:out value="${patient.age}"/></td>
+                                            <td><c:out value="${patient.chartNo}"/></td>
+                                        </tr>
+                                    </c:forEach>
+                                </table>
+                            </td>
+                        </tr>
+                    </c:if>
 
 
                     <!----End new rows here-->

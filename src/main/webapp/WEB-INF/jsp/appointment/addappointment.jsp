@@ -1133,7 +1133,7 @@ Ontario, Canada
         <% } %>
 
         <form name="ADDAPPT" id="addappt" method="post"
-              action="<%=request.getContextPath()%>/appointment/appointmentcontrol"
+              action="<%=request.getContextPath()%>/appointment/AddRecord"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
             <input type="hidden" name="year" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' context="htmlAttribute"/>">
@@ -1226,6 +1226,7 @@ Ontario, Canada
                                         value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                                         placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
+                                           formaction="<%=request.getContextPath()%>/demographic/DemographicSearch"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
                                            title="${carlos:forHtmlAttribute(btnSearchMsg)}"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
@@ -1477,6 +1478,7 @@ Ontario, Canada
                    <% } else { %><fmt:message key="appointment.addappointment.btnAddAppointment"/><% } %>"
                             <%=disabled%>>
                     <input type="submit" id="groupButton" class="btn btn-primary"
+                           formaction="<%=request.getContextPath()%>/appointment/appointmentgrouprecords"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Group Appt'"
                            value="<fmt:message key="appointment.addappointment.btnGroupAppt"/>"
                             <%=disabled%>>

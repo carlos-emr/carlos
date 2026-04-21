@@ -1812,7 +1812,6 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                 return;
             }
             value = value.toString();
-
             if (value === "-1") {
                 document.getElementById("letterheadName").value = value;
                 document.getElementById("letterheadAddress").value = '<%=SafeEncode.forJavaScript(clinic.getClinicAddress()) + " " + SafeEncode.forJavaScript(clinic.getClinicCity()) + " " + SafeEncode.forJavaScript(clinic.getClinicProvince()) + " " + SafeEncode.forJavaScript(clinic.getClinicPostal()) %>';
