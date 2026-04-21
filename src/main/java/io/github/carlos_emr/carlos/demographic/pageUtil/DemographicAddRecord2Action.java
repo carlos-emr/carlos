@@ -236,6 +236,15 @@ public class DemographicAddRecord2Action extends ActionSupport {
             demographic.setPatientStatusDate(new Date());
         }
 
+        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        if (!fieldLengthValidationErrors.isEmpty()) {
+            logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
+                    String.join("; ", fieldLengthValidationErrors));
+            request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
+        }
+
         // --- HIN duplicate check ---
         boolean hinDupCheckException = false;
         String hcType = request.getParameter("hc_type");

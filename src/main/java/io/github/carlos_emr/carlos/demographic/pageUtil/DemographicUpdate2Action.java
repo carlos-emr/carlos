@@ -259,6 +259,15 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographic.setPatientStatusDate(null);
         }
 
+        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        if (!fieldLengthValidationErrors.isEmpty()) {
+            logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
+                    String.join("; ", fieldLengthValidationErrors));
+            request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
+        }
+
         if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
             List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();

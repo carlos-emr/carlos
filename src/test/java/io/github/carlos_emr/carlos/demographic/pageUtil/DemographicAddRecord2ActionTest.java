@@ -1,0 +1,100 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.pageUtil;
+
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for demographic add-record field length validation.
+ *
+ * @since 2026-04-21
+ */
+@DisplayName("DemographicAddRecord2Action Tests")
+@Tag("unit")
+@Tag("web")
+@Tag("demographic")
+class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
+
+    private static final String TEST_PROVIDER = "999998";
+
+    @Mock
+    private DemographicDao mockDemographicDao;
+
+    private DemographicAddRecord2Action action;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
+        replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+        setSessionAttribute("user", TEST_PROVIDER);
+        String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
+        setSessionAttribute(key, mockLoggedInInfo);
+
+        action = new DemographicAddRecord2Action();
+
+        java.lang.reflect.Field secField = DemographicAddRecord2Action.class.getDeclaredField("securityInfoManager");
+        secField.setAccessible(true);
+        secField.set(action, mockSecurityInfoManager);
+
+        java.lang.reflect.Field demographicDaoField = DemographicAddRecord2Action.class.getDeclaredField("demographicDao");
+        demographicDaoField.setAccessible(true);
+        demographicDaoField.set(action, mockDemographicDao);
+    }
+
+    @Test
+    @DisplayName("should return validationError when last name exceeds thirty characters")
+    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat((List<String>) mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .contains("Last name exceeds maximum length of 30 characters.");
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+}
