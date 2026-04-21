@@ -40,7 +40,7 @@ class EFormViewRoutesTest {
     }
 
     @Test
-    void shouldResolveLegacyRichTextLetterTemplateJspRoute() {
+    void shouldResolveRichTextLetterTemplateRoutes_toSameInternalView() {
         assertThat(EFormViewRoutes.resolve("eform/efmformrtl_templates"))
                 .isEqualTo(new EFormViewRoutes.Route(
                         "/WEB-INF/jsp/eform/efmformrtl_templates.jsp",

@@ -37,7 +37,9 @@
     <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
     <constant name="struts.serve.static" value="true" />
     <constant name="struts.serve.static.browserCache" value="true" />
-    <constant name="struts.action.excludePattern" value=".*\.(css|js|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
+    <!-- Keep the legacy Rich Text Letter template endpoint routable through Struts
+         while continuing to block direct JSP entrypoints everywhere else. -->
+    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
     <constant name="struts.multipart.maxSize" value="52428800" />
     <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default

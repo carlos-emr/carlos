@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -50,6 +52,10 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
+    private static final Path STRUTS_XML =
+            Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
+            "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
     @Test
     @DisplayName("patient eForm list should not reference the missing PHR action and should keep live view/delete actions")
@@ -83,12 +89,20 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("struts eForm config should keep the legacy Rich Text Letter template JSP compatibility route")
-    void shouldKeepLegacyRichTextLetterTemplateCompatibilityRoute_whenReadingStrutsEFormConfig()
+    void shouldKeepLegacyRichTextLetterTemplateCompatibilityRoute_whenReadingStrutsConfigs()
             throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String globalStruts = Files.readString(STRUTS_XML, StandardCharsets.UTF_8);
+        Matcher matcher = STRUTS_ACTION_EXCLUDE_PATTERN.matcher(globalStruts);
 
         assertThat(struts).contains("<action name=\"eform/efmformrtl_templates\"");
         assertThat(struts).contains("<action name=\"eform/efmformrtl_templates.jsp\"");
+        assertThat(matcher.find()).isTrue();
+
+        Pattern excludePattern = Pattern.compile(matcher.group(1));
+        assertThat(excludePattern.matcher("/eform/efmformrtl_templates.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/carlos/eform/efmformrtl_templates.jsp").matches()).isFalse();
+        assertThat(excludePattern.matcher("/eform/other.jsp").matches()).isTrue();
     }
 
     @Test
