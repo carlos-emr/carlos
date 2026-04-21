@@ -359,7 +359,9 @@ public class ClientManager2Action extends ActionSupport {
         // Validate id is present and numeric before DAO lookup or session writes.
         // Use \d{1,9} (not \d{1,10}) to prevent Integer.parseInt overflow
         // (10-digit values can exceed Integer.MAX_VALUE = 2,147,483,647).
-        if (id == null || !id.matches("\\d{1,9}")) {
+        // Also require a positive value, since DemographicDaoImpl.getClientByDemographicNo
+        // throws IllegalArgumentException when demographicNo <= 0.
+        if (id == null || !id.matches("\\d{1,9}") || Integer.parseInt(id) <= 0) {
             logger.warn("Invalid id rejected in edit: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
             return ERROR;
         }
