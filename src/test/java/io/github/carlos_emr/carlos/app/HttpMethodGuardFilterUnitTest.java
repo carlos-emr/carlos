@@ -726,9 +726,11 @@ class HttpMethodGuardFilterUnitTest {
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
             when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("method")).thenReturn(null);
             when(request.getParameter("4")).thenReturn("4");
             when(request.getParameter("prevention")).thenReturn("Tuberculosis");
             when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
             when(request.getParameter("prevResultDesc")).thenReturn("");
 
             filter.doFilter(request, response, chain);
