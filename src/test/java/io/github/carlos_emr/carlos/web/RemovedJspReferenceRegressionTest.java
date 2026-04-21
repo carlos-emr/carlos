@@ -30,8 +30,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Stale removed JSP reference tests")
-class StaleRemovedJspReferenceTest {
+@DisplayName("Removed JSP reference regression tests")
+class RemovedJspReferenceRegressionTest {
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
