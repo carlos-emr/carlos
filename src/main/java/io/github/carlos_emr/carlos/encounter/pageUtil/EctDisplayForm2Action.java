@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 import io.github.carlos_emr.carlos.lab.LabRequestReportLink;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -170,7 +171,17 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                     // we add all unhidden forms to the pop up menu
                     if (!encounterForm.isHidden()) {
                         hash = Math.abs(winName.hashCode());
-                        String newFormPath = encounterForm.getFormValue() + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "");
+                        // Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
+                        // Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
+                        // form/* Struts wildcard action, so translate the legacy path to the
+                        // new action route to avoid 404s. Fall back to the legacy value if
+                        // the form is not in the allow-list (e.g. custom/extension forms).
+                        String legacyFormValue = encounterForm.getFormValue();
+                        String resolvedActionPath = FormViewRoutes.resolveActionPath(legacyFormValue);
+                        String formUrlBase = (resolvedActionPath != null)
+                                ? request.getContextPath() + resolvedActionPath
+                                : legacyFormValue;
+                        String newFormPath = formUrlBase + bean.demographicNo + "&formId=0&provNo=" + bean.providerNo + "&parentAjaxId=" + cmd + ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "");
                         Dao.addPopUpMenu(700, 960, String.valueOf(hash) + "new", newFormPath);
                         key = StringUtils.maxLenString(encounterForm.getFormName(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + " (new)";
                         Dao.addPopUpText(encounterForm.getFormName());
