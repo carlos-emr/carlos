@@ -81,6 +81,8 @@ scheme="https"
 secure="true"
 SSLEnabled="true"
 relaxedQueryChars="[]"
+maxPostSize="52428800"
+maxSwallowSize="52428800"
 maxHttpHeaderSize="8192"
 minSpareThreads="25" 
 acceptCount="100"
@@ -96,6 +98,8 @@ ciphers=" TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, TLS_ECDHE_RSA_WITH_AES_256_GC
     <!-- this connection needed for drugref2  -->
 <Connector port="8080" protocol="HTTP/1.1"
                connectionTimeout="20000"
+               maxPostSize="52428800"
+               maxSwallowSize="52428800"
                URIEncoding="UTF-8"
                redirectPort="8443" />
 
