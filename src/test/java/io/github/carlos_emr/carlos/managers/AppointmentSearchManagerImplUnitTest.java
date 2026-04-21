@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -78,6 +77,9 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
     @Mock
     private Demographic demographic;
 
+    @Mock
+    private LoggedInInfo loggedInInfo;
+
     private AppointmentSearchManagerImpl appointmentSearchManager;
 
     @BeforeEach
@@ -90,7 +92,6 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should throw AppointmentSearchException when provider filter key is unknown")
     void shouldThrowAppointmentSearchException_whenFilterKeyIsUnknown() {
-        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         Calendar startDate = Calendar.getInstance();
 
         DayWorkSchedule dayWorkSchedule = new DayWorkSchedule();
