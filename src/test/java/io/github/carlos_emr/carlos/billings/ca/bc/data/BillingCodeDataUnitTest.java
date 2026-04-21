@@ -84,7 +84,7 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDeleteBillingCode_whenBillingCodeExists() {
         BillingService billingService = new BillingService();
-        billingService.setId(123);
+        billingService.setBillingserviceNo(123);
         when(mockBillingServiceDao.find(123)).thenReturn(billingService);
 
         assertThat(billingCodeData.deleteBillingCode("123")).isTrue();

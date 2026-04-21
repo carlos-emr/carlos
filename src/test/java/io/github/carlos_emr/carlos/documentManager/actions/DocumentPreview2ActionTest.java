@@ -319,7 +319,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when render edoc pdf id is invalid")
-    void shouldReturnBadRequest_whenRenderEdocPdfIdIsInvalid() {
+    void shouldReturnBadRequest_whenRenderEdocPdfIdIsInvalid() throws Exception {
         request.setParameter("method", "renderEDocPDF");
         request.setParameter("eDocId", "invalid");
 

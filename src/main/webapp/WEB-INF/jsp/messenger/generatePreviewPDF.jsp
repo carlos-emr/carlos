@@ -202,7 +202,7 @@
 <head>
     <meta charset="UTF-8">
     <title>CARLOS - <fmt:message key="messenger.generatePreviewPDF.title"/></title>
-    <%@ include file="/includes/global-head.jspf" %>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <script>
         // i18n message strings for JavaScript dialogs

@@ -524,7 +524,7 @@ public class DocumentPreview2Action extends ActionSupport {
 		request.setAttribute("allForms", allForms);
     }
 
-    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, Object target) {
+    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String securityObjectName, String privilege, String target) {
         return securityInfoManager.hasPrivilege(loggedInInfo, securityObjectName, privilege, target);
     }
 
