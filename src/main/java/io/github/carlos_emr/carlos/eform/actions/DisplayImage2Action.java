@@ -89,8 +89,6 @@ public class DisplayImage2Action extends ActionSupport {
         String fileName = request.getParameter("imagefile");
         boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
-            File eformDirectory = new File(CarlosProperties.getInstance().getEformImageDirectory());
-            PathValidationUtils.validatePath(fileName, eformDirectory);
             if (!hasEformRead
                     && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
                 throw new SecurityException("missing required sec object (_eform or _prevention)");
@@ -99,7 +97,8 @@ public class DisplayImage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        StreamData data = process();
+        File validatedFile = getValidatedImageFile(fileName);
+        StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
         InputStream stream = data.stream();
 
@@ -119,8 +118,12 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     public StreamData process() throws Exception {
-
         String fileName = request.getParameter("imagefile");
+        File file = getValidatedImageFile(fileName);
+        return process(file, fileName);
+    }
+
+    private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
         }
@@ -131,7 +134,10 @@ public class DisplayImage2Action extends ActionSupport {
             throw new Exception("Directory: " + home_dir + " does not exist");
         }
 
-        File file = PathValidationUtils.validatePath(fileName, directory);
+        return PathValidationUtils.validatePath(fileName, directory);
+    }
+
+    private StreamData process(File file, String fileName) throws Exception {
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         
