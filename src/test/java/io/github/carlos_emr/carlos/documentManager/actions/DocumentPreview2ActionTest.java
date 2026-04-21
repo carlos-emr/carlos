@@ -262,7 +262,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should fall back to zero when fetch eform demographic is invalid")
-    void shouldFallBackToZero_whenFetchEformDemographicIsInvalid() {
+    void shouldFallBackToZero_whenFetchingEformDemographicWithInvalidValue() {
         request.setParameter("method", "fetchEFormDocuments");
         request.setParameter("demographicNo", "abc");
         request.setParameter("fdid", "not-a-number");

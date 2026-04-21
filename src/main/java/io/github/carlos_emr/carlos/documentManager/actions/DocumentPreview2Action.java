@@ -443,7 +443,7 @@ public class DocumentPreview2Action extends ActionSupport {
         String demographicNo = StringUtils.isNullOrEmpty(request.getParameter("demographicNo")) ? "0" : request.getParameter("demographicNo");
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
         Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
-        demographicNo = String.valueOf(demographicId);
+        String sanitizedDemographicNo = String.valueOf(demographicId);
         Integer fdidInt = 0;
         try {
             fdidInt = Integer.parseInt(fdid);
@@ -451,7 +451,7 @@ public class DocumentPreview2Action extends ActionSupport {
             fdidInt = 0;
         }
 
-        populateCommonDocs(loggedInInfo, demographicNo, demographicId);
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
 
