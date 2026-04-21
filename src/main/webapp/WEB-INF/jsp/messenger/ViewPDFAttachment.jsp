@@ -69,6 +69,7 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*" %>
