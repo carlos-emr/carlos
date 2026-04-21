@@ -37,7 +37,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
@@ -47,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
 import io.github.carlos_emr.carlos.appointment.search.AppointmentType;
@@ -66,21 +66,6 @@ import org.w3c.dom.Document;
 public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
 
     private static Logger logger = MiscUtils.getLogger();
-
-    /**
-     * Whitelist of allowed {@link AvailableTimeSlotFilter} implementation class names.
-     *
-     * <p>Filter class names are stored in XML configuration in the database. Only classes
-     * in this set may be instantiated via reflection to prevent arbitrary class loading
-     * (CWE-470).</p>
-     */
-    private static final Set<String> ALLOWED_FILTER_CLASSES = Set.of(
-            "io.github.carlos_emr.carlos.appointment.search.filters.ExistingAppointmentFilter",
-            "io.github.carlos_emr.carlos.appointment.search.filters.FutureApptFilter",
-            "io.github.carlos_emr.carlos.appointment.search.filters.MultiUnitFilter",
-            "io.github.carlos_emr.carlos.appointment.search.filters.OpenAccessFilter",
-            "io.github.carlos_emr.carlos.appointment.search.filters.SufficientContiguousTimeFilter"
-    );
 
     @Autowired
     private OscarAppointmentDao appointmentDao;
@@ -171,19 +156,14 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                 if (filterClassNames != null) {
                     for (FilterDefinition className : filterClassNames) {
                         String filterClassName = className.getFilterClassName();
-                        if (filterClassName == null || !ALLOWED_FILTER_CLASSES.contains(filterClassName)) {
-                            logger.warn("Rejected unauthorized appointment filter class: {}",
-                                    LogSanitizer.sanitize(filterClassName));
-                            throw new SecurityException("Unauthorized appointment filter class");
+                        if (!FilterRegistry.isKnown(filterClassName)) {
+                            String sanitizedName = LogSanitizer.sanitize(filterClassName);
+                            logger.error("Unknown AvailableTimeSlotFilter key in search configuration: {}",
+                                    sanitizedName);
+                            throw new AppointmentSearchManager.AppointmentSearchException(
+                                    "Unknown AvailableTimeSlotFilter key: " + sanitizedName);
                         }
-                        AvailableTimeSlotFilter filterClassInstance;
-                        try {
-                            @SuppressWarnings("unchecked")
-                            Class<AvailableTimeSlotFilter> filterClass = (Class<AvailableTimeSlotFilter>) Class.forName(filterClassName); // nosemgrep: unsafe-reflection -- filterClassName is validated against ALLOWED_FILTER_CLASSES whitelist above
-                            filterClassInstance = filterClass.getDeclaredConstructor().newInstance();
-                        } catch (ReflectiveOperationException e) {
-                            throw new AppointmentSearchManager.AppointmentSearchException("Failed to instantiate appointment filter", e);
-                        }
+                        AvailableTimeSlotFilter filterClassInstance = FilterRegistry.create(filterClassName);
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());
                         /// keep? or change ? recordFilterForSearchedProvider(doc,searchedProviderRecord,dayWorkScheduleTransfer,filterClassInstance.getClass().getSimpleName(), providerAppointments);
                         if (providerAppointments.size() == 0) {
