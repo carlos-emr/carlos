@@ -34,8 +34,11 @@ import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import jakarta.persistence.TypedQuery;
+import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
@@ -50,6 +53,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
             ADDRESS, PHONE, WORK_PHONE, OHIP_NO, RMA_NO, BILLING_NO,
             HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
@@ -62,6 +70,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
@@ -78,6 +91,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
@@ -246,6 +264,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public SecProvider merge(SecProvider detachedInstance) {
         logger.debug("merging Provider instance");
@@ -259,6 +282,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void attachDirty(SecProvider instance) {
         logger.debug("attaching dirty Provider instance");
@@ -271,6 +299,11 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
         }
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = CacheConfig.PROVIDER_NAMES,             allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDERS,           allEntries = true),
+        @CacheEvict(value = CacheConfig.ACTIVE_PROVIDER_SUMMARIES,  allEntries = true)
+    })
     @Override
     public void attachClean(SecProvider instance) {
         logger.debug("attaching clean Provider instance");
@@ -278,8 +311,9 @@ public class SecProviderDaoImpl extends AbstractJpaDao implements SecProviderDao
             // JPA has no direct equivalent of Hibernate Session.lock(entity, LockMode.NONE) for reattach.
             // If the entity is already managed, there is nothing to do. If it is detached, merge() is
             // the only JPA-standard reattach path — unlike lock(NONE), merge may trigger UPDATE on flush
-            // if the detached state differs from the database row. Callers relying on the old "clean"
-            // (no-UPDATE) semantics must ensure the instance is not dirty before calling.
+            // if the detached state differs from the database row. This method therefore evicts the
+            // provider caches alongside the other mutating methods, and callers relying on the old
+            // "clean" (no-UPDATE) semantics must ensure the instance is not dirty before calling.
             if (!entityManager().contains(instance)) {
                 entityManager().merge(instance);
             }
