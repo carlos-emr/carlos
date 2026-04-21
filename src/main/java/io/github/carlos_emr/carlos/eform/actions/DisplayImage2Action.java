@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
@@ -117,31 +118,12 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
-    /**
-     * Resolves and streams the requested eForm asset outside the Struts execute flow.
-     *
-     * <p>{@link #execute()} remains the primary entry point because it applies the
-     * authorization checks before delegating to this method for path validation and
-     * MIME type stream handling.</p>
-     *
-     * @deprecated Prefer {@link #execute()} so CARLOS EMR authorization is enforced
-     *             before streaming. Callers that invoke this method directly must
-     *             perform their own authorization checks first.
-     * @return StreamData resolved stream and content type for the requested asset
-     * @throws Exception if the request parameter is invalid, the directory is unavailable,
-     *                   the path fails validation, or the file cannot be opened
-     */
-    @Deprecated
-    public StreamData process() throws Exception {
-        String fileName = request.getParameter("imagefile");
-        File file = getValidatedImageFile(fileName);
-        return process(file, fileName);
-    }
-
     private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
         }
+
+        validateRequestedFileName(fileName);
 
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -150,6 +132,12 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         return PathValidationUtils.validatePath(fileName, directory);
+    }
+
+    private void validateRequestedFileName(String fileName) {
+        if (!fileName.equals(FilenameUtils.getName(fileName))) {
+            throw new SecurityException("Invalid imagefile path");
+        }
     }
 
     private StreamData process(File file, String fileName) throws Exception {
