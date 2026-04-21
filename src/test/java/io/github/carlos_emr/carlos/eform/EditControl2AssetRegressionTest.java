@@ -45,12 +45,22 @@ class EditControl2AssetRegressionTest {
 
     private static final Path EDIT_CONTROL_2_JS =
             Path.of("src", "main", "webapp", "WEB-INF", "eform-assets", "editControl2.js");
+    private static final Path RELEASE_EDIT_CONTROL_2_JS =
+            Path.of("release", "editControl2.js");
 
     @Test
     @DisplayName("should keep the blank template fallback same-origin when the RTL editor bootstraps")
     void shouldKeepBlankTemplateSameOrigin_whenEditorBootstraps() throws IOException {
-        String script = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+        String packagedScript = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+        String releaseScript = Files.readString(RELEASE_EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
 
+        assertThat(releaseScript).isEqualTo(packagedScript);
+
+        assertBlankTemplateSameOriginInvariant(packagedScript);
+        assertBlankTemplateSameOriginInvariant(releaseScript);
+    }
+
+    private void assertBlankTemplateSameOriginInvariant(String script) {
         // Ensure the option points to the blank.rtl template
         assertThat(script).contains("<option value=\"blank.rtl\">blank</option>");
         // Ensure the iframe srcdoc uses the same-origin blank template
