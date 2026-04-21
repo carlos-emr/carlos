@@ -54,7 +54,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mockStatic;
@@ -121,7 +120,7 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(FormsManager.class, mockFormsManager);
 
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), isNull())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
 
         action = spy(new DocumentPreview2Action());
     }
@@ -189,6 +188,28 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should fall back to zero demographic when fetch consult demographic is invalid")
+    void shouldFallBackToZeroDemographic_whenFetchConsultDemographicIsInvalid() {
+        request.setParameter("method", "fetchConsultDocuments");
+        request.setParameter("demographicNo", "not-a-number");
+
+        eDocUtilMock = mockStatic(EDocUtil.class);
+        eFormUtilMock = mockStatic(EFormUtil.class);
+        hrmUtilMock = mockStatic(HRMUtil.class);
+        eDocUtilMock.when(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE))
+                .thenReturn(new ArrayList<>());
+        eFormUtilMock.when(() -> EFormUtil.listPatientEformsCurrent(0, true)).thenReturn(new ArrayList<>());
+        hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, "0", false))
+                .thenReturn(new ArrayList<>());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fetchDocuments");
+        eDocUtilMock.verify(() -> EDocUtil.listDocs(mockLoggedInInfo, "demographic", "0", null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE));
+        eFormUtilMock.verify(() -> EFormUtil.listPatientEformsCurrent(0, true));
     }
 
     @Test

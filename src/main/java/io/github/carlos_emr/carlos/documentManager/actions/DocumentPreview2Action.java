@@ -408,7 +408,7 @@ public class DocumentPreview2Action extends ActionSupport {
         }
 
         populateCommonDocs(loggedInInfo, demographicNo, demographicId);
-		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)
+		List<EFormData> allEForms = hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)
                 ? EFormUtil.listPatientEformsCurrent(demographicId, true)
                 : new ArrayList<>();
         request.setAttribute("allEForms", allEForms);
@@ -444,12 +444,7 @@ public class DocumentPreview2Action extends ActionSupport {
         String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? "0" : request.getParameter("fdid");
         Integer demographicId = parseIntegerParameterOrDefault(demographicNo, "demographicNo", 0);
         String sanitizedDemographicNo = String.valueOf(demographicId);
-        Integer fdidInt = 0;
-        try {
-            fdidInt = Integer.parseInt(fdid);
-        } catch (NumberFormatException e) {
-            fdidInt = 0;
-        }
+        Integer fdidInt = parseIntegerParameterOrDefault(fdid, "fdid", 0);
 
         populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
