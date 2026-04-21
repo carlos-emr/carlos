@@ -382,7 +382,7 @@
                                     %>
                                     <c:set var="value" value="${formUrlBase}${bean.demographicNo}&formId=0&provNo=${bean.providerNo}" />
                                     <c:set var="label" value="${cf.formName}" />
-                                    <option value="${value}">${label}</option>
+                                    <option value="${carlos:forHtmlAttribute(value)}">${carlos:forHtmlContent(label)}</option>
                                 </c:if>
                             </c:forEach>
                         </select>
