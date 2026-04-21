@@ -111,6 +111,6 @@ class AppointmentSearchManagerImplUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> appointmentSearchManager.findAppointment(loggedInInfo, searchConfig, 123, 456L, startDate))
                 .isInstanceOf(AppointmentSearchManager.AppointmentSearchException.class)
-                .hasMessageContaining("Unknown AvailableTimeSlotFilter key");
+                .hasMessage("Unknown AvailableTimeSlotFilter key: bad.Filter");
     }
 }
