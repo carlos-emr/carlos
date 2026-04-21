@@ -107,7 +107,8 @@ public final class DateUtils {
             }
             return Date.from(instant);
         } catch (DateTimeParseException e) {
-            throw (ParseException) new ParseException(e.getMessage(), e.getErrorIndex()).initCause(e);
+            int idx = Math.max(0, e.getErrorIndex());
+            throw (ParseException) new ParseException(e.getMessage(), idx).initCause(e);
         }
     }
 
