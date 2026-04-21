@@ -1838,6 +1838,7 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
                     }
                 }
                 if (!Object.prototype.hasOwnProperty.call(providerData, value)) {
+                    console.warn("Unable to resolve consultation letterhead selection.");
                     return;
                 }
                 document.getElementById("letterheadName").value = origValue;
