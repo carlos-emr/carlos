@@ -32,9 +32,10 @@
  * <ul>
  *   <li>{@code addappointment.jsp} — appointment booking; needs schedule page context</li>
  *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
+ *   <li>{@code appointmentsearch.jsp} — appointment search; needs popup-window behavior consistent with scheduling helpers</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
- *   <li>{@code tickler/ViewAddTickler} / {@code tickler/ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
+ *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
  * </ul>
  *
  * @param {string} url - URL to test
