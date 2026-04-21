@@ -39,6 +39,8 @@ public final class EFormViewRoutes {
                     new Route("/WEB-INF/jsp/eform/efmformapconfig_lookup.jsp", Privilege.EFORM_READ)),
             Map.entry("eform/efmformrtl_templates",
                     new Route("/WEB-INF/jsp/eform/efmformrtl_templates.jsp", Privilege.EFORM_READ)),
+            Map.entry("eform/efmformrtl_templates.jsp",
+                    new Route("/WEB-INF/jsp/eform/efmformrtl_templates.jsp", Privilege.EFORM_READ)),
             Map.entry("eform/efmformmanager",
                     new Route("/WEB-INF/jsp/eform/efmformmanager.jsp", Privilege.EFORM_WRITE)),
             Map.entry("eform/efmformmanagerdeleted",
