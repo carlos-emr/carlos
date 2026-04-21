@@ -45,8 +45,10 @@ import org.apache.struts2.ServletActionContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -54,6 +56,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class RxUpdateDrugref2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** RFC 8259 JSON content type. Replaces the legacy non-standard {@code text/x-json}. */
+    private static final String JSON_CONTENT_TYPE = "application/json;charset=UTF-8";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -76,62 +82,53 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         return getLastUpdate();
     }
 
-    public String updateDB() throws Exception, ServletException {
-        HashMap<String, Object> d = new HashMap<String, Object>();
-        try {
-            RxDrugRef drugref = new RxDrugRef();
-            String s = drugref.updateDB();
-            d.put("result", s);
-        } catch (Exception e) {
-            // DrugRef service unavailable — log and return a JSON error payload so the
-            // client can render a friendly "unavailable" message instead of a 500 page.
-            logger.warn("DrugRef updateDB failed; treating service as unavailable", e);
-            d.put("result", null);
-        }
-        response.setContentType("text/x-json;charset=UTF-8");
-
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+    public String updateDB() throws IOException, ServletException {
+        Map<String, Object> d = new HashMap<>();
+        d.put("result", runOrFallback("updateDB", () -> new RxDrugRef().updateDB(), null));
+        writeJson(d);
         return null;
     }
 
-    private String verify() throws Exception, ServletException {
-        Map<String, String> verify;
-        try {
-            RxDrugRef drugref = new RxDrugRef();
-            verify = drugref.verify();
-        } catch (Exception e) {
-            // DrugRef service unavailable — log and return a JSON payload with null fields.
-            // The existing clients (TopLinks2.jspf, updateDrugref.jsp) treat a null
-            // lastUpdate as "DrugRef unavailable" and show a friendly banner instead
-            // of a 500 error page in the Rx print-preview modal.
-            logger.warn("DrugRef verify failed; treating service as unavailable", e);
-            verify = new HashMap<>();
-            verify.put("lastUpdate", null);
-            verify.put("drugDatabase", null);
-            verify.put("version", null);
-        }
-        response.setContentType("text/x-json;charset=UTF-8");
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(verify);
-        response.getWriter().write(jsonArray.toString());
+    private String verify() throws IOException, ServletException {
+        // On failure, supply a payload with null fields — existing clients
+        // (TopLinks2.jspf, updateDrugref.jsp) treat a null lastUpdate as
+        // "DrugRef unavailable" and render a friendly banner instead of
+        // the HTTP 500 errorpage.jsp painted into the Rx print-preview iframe.
+        Map<String, String> fallback = new HashMap<>();
+        fallback.put("lastUpdate", null);
+        fallback.put("drugDatabase", null);
+        fallback.put("version", null);
+        writeJson(runOrFallback("verify", () -> new RxDrugRef().verify(), fallback));
         return null;
     }
 
-    private String getLastUpdate() throws Exception, ServletException {
-        HashMap<String, String> d = new HashMap<String, String>();
-        try {
-            RxDrugRef drugref = new RxDrugRef();
-            String s = drugref.getLastUpdateTime();
-            d.put("lastUpdate", s);
-        } catch (Exception e) {
-            // DrugRef service unavailable — return a null lastUpdate so clients can
-            // render a friendly unavailable message rather than a 500 error page.
-            logger.warn("DrugRef getLastUpdateTime failed; treating service as unavailable", e);
-            d.put("lastUpdate", null);
-        }
-        response.setContentType("text/x-json;charset=UTF-8");
-        ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
-        response.getWriter().write(jsonArray.toString());
+    private String getLastUpdate() throws IOException, ServletException {
+        Map<String, String> d = new HashMap<>();
+        d.put("lastUpdate", runOrFallback("getLastUpdateTime", () -> new RxDrugRef().getLastUpdateTime(), null));
+        writeJson(d);
         return null;
+    }
+
+    /**
+     * Invokes a DrugRef call and returns its result, substituting {@code fallback}
+     * (and logging) when the call throws. Failures are logged at {@code WARN} as a
+     * compact one-liner and at {@code DEBUG} with the full stack trace, so that
+     * repeated calls during a DrugRef outage (UI polling, admin retries) don't
+     * flood the logs with stack traces at warn level.
+     */
+    private <T> T runOrFallback(String operation, Callable<T> call, T fallback) {
+        try {
+            return call.call();
+        } catch (Exception e) {
+            logger.warn("DrugRef {} failed; treating service as unavailable: {}", operation, e.toString());
+            logger.debug("DrugRef {} failure details", operation, e);
+            return fallback;
+        }
+    }
+
+    private void writeJson(Object payload) throws IOException {
+        response.setContentType(JSON_CONTENT_TYPE);
+        ObjectNode json = (ObjectNode) objectMapper.valueToTree(payload);
+        response.getWriter().write(json.toString());
     }
 }
