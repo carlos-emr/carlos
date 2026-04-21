@@ -86,6 +86,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FAMILY_DOCTOR_MAX_LENGTH = 80;
     public static final int SIN_MAX_LENGTH = 15;
     public static final int ROSTER_TERMINATION_REASON_MAX_LENGTH = 2;
+    public static final int REFERRING_DOCTOR_INPUT_MAX_LENGTH = 40;
+    public static final int REFERRING_DOCTOR_OHIP_INPUT_MAX_LENGTH = 6;
 
     private final static Pattern FD_LAST_NAME = Pattern.compile(".*<([fr])d>([^, ]*), .*</([fr])d>.*");
     private final static Pattern FD_FIRST_NAME = Pattern.compile(".*<([fr])d>[^, ]*, (.*)</([fr])d>.*");
