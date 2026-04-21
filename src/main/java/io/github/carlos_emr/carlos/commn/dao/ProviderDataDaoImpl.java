@@ -37,6 +37,9 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -49,6 +52,46 @@ public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implement
     public ProviderDataDaoImpl() {
         super(ProviderData.class);
     }
+
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @Caching(evict = {
+        @CacheEvict(value = "providerNames", allEntries = true),
+        @CacheEvict(value = "activeProviders", allEntries = true),
+        @CacheEvict(value = "activeProviderSummaries", allEntries = true)
+    })
+    @Override
+    public ProviderData saveEntity(ProviderData entity) { return super.saveEntity(entity); }
 
     @SuppressWarnings("unchecked")
     @Override
