@@ -99,7 +99,7 @@ class LoginResourceActionUnitTest {
 
     @Test
     @DisplayName("should return 400 when filename is empty after sanitization")
-    void shouldReturn400_whenPathContainsDirectoryTraversal() throws Exception {
+    void shouldReturn400_whenFilenameIsEmptyAfterSanitization() throws Exception {
         // A path that results in an empty filename after sanitization
         when(request.getPathInfo()).thenReturn("/");
 
