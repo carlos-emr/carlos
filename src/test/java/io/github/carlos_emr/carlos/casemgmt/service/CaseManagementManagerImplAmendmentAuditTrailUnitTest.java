@@ -106,7 +106,8 @@ public class CaseManagementManagerImplAmendmentAuditTrailUnitTest extends Carlos
     @Mock
     private EChartDao mockEChartDao;
 
-    // Required by CaseManagementNote's static field initializer (SpringUtils.getBean).
+    // Required by CaseManagementNote's instance field initializers, which call
+    // SpringUtils.getBean(...) during object construction.
     @Mock
     private CaseManagementNoteLinkDAO mockNoteLinkDao;
 
