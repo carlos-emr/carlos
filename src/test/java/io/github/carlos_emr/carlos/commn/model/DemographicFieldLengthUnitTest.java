@@ -75,7 +75,7 @@ class DemographicFieldLengthUnitTest {
         assertThat(demographic.validateFieldLengths())
                 .contains("Province exceeds maximum length of 20 characters.")
                 .contains("Residential province exceeds maximum length of 20 characters.")
-                .contains("Sex exceeds maximum length of 1 characters.")
+                .contains("Sex exceeds maximum length of 1 character.")
                 .contains("Month of birth exceeds maximum length of 2 characters.")
                 .contains("Date of birth exceeds maximum length of 2 characters.")
                 .contains("Year of birth exceeds maximum length of 4 characters.")
