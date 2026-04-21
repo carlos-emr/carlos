@@ -242,5 +242,14 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
             assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "42"))
                     .isEqualTo("0");
         }
+
+        @Test
+        @DisplayName("should return zero when demographic number is malformed")
+        void shouldReturnZero_whenDemographicNumberIsMalformed() {
+            AdmissionManager admissionManager = mock(AdmissionManager.class);
+
+            assertThat(CaseManagementEntry2Action.resolveReporterProgramTeam(admissionManager, "7", "abc"))
+                    .isEqualTo("0");
+        }
     }
 }

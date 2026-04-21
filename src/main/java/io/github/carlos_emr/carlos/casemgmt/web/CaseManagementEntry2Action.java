@@ -572,6 +572,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return String team identifier when an admission with a non-null team ID exists; otherwise "0"
      */
     static String resolveReporterProgramTeam(AdmissionManager admissionManager, String programNo, String demographicNo) {
+        if (!NumberUtils.isParsable(demographicNo)) {
+            return "0";
+        }
+
         try {
             Admission admission = admissionManager.getAdmission(programNo, Integer.valueOf(demographicNo));
             if (admission == null || admission.getTeamId() == null) {
@@ -579,8 +583,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             return String.valueOf(admission.getTeamId());
         } catch (Exception e) {
-            logger.error("Error resolving reporter program team (programNo={}, demographicNoPresent={})",
-                    LogSanitizer.sanitize(String.valueOf(programNo)), StringUtils.isNotBlank(demographicNo), e);
+            logger.error("Error resolving reporter program team (programNo={}, demographicNoPresent={}, exceptionType={})",
+                    LogSanitizer.sanitize(String.valueOf(programNo)), StringUtils.isNotBlank(demographicNo),
+                    e.getClass().getSimpleName(), e);
             return "0";
         }
     }
