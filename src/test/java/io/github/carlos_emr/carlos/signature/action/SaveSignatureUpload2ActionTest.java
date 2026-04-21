@@ -227,8 +227,8 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {"../foo", "foo/bar", "foo.bar", ""})
-        @DisplayName("should return 400 when signatureKey contains non-alphanumeric characters")
-        void shouldReturn400_whenSignatureKeyContainsNonAlphanumeric(String invalidSignatureKey) throws Exception {
+        @DisplayName("should return 400 when signatureKey is empty or contains non-alphanumeric characters")
+        void shouldReturn400_whenSignatureKeyIsEmptyOrContainsNonAlphanumeric(String invalidSignatureKey) throws Exception {
             mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, invalidSignatureKey);
             action.execute();
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
@@ -338,14 +338,21 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                 public ServletInputStream getInputStream() {
                     return new ServletInputStream() {
                         private final byte[] prefix = "abc".getBytes(StandardCharsets.US_ASCII);
-                        private int index = 0;
+                        private boolean firstRead = true;
+
+                        @Override
+                        public int read(byte[] b, int off, int len) throws IOException {
+                            if (firstRead) {
+                                firstRead = false;
+                                System.arraycopy(prefix, 0, b, off, Math.min(len, prefix.length));
+                                return Math.min(len, prefix.length);
+                            }
+                            throw new IOException("Simulated stream failure");
+                        }
 
                         @Override
                         public int read() throws IOException {
-                            if (index < prefix.length) {
-                                return prefix[index++];
-                            }
-                            throw new IOException("Simulated stream failure");
+                            throw new IOException("Single-byte read not supported by this test stream");
                         }
 
                         @Override
@@ -458,14 +465,17 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                     any(LoggedInInfo.class), eq(signatureKey), eq(42), eq(ModuleType.PRESCRIPTION)))
                     .thenReturn(saved);
 
-            action.execute();
+            try (MockedStatic<Encode> encodeMock = mockStatic(Encode.class)) {
+                encodeMock.when(() -> Encode.forHtmlAttribute("777")).thenReturn("encoded-777");
 
-            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-            assertThat(mockResponse.getContentType()).startsWith("text/html");
-            assertThat(mockResponse.getContentAsString()).isEqualTo(
-                    "<input type=\"hidden\" name=\"signatureId\" value=\""
-                            + Encode.forHtmlAttribute("777")
-                            + "\"/>");
+                action.execute();
+
+                assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+                assertThat(mockResponse.getContentType()).startsWith("text/html");
+                assertThat(mockResponse.getContentAsString()).isEqualTo(
+                        "<input type=\"hidden\" name=\"signatureId\" value=\"encoded-777\"/>");
+                encodeMock.verify(() -> Encode.forHtmlAttribute("777"));
+            }
         }
     }
 }
