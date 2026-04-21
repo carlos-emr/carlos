@@ -45,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-04-20
  */
+@Tag("unit")
 @Tag("appointment")
 @DisplayName("AppointmentStatusMgrImpl unit tests")
 class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
