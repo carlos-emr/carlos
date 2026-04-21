@@ -85,6 +85,7 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(jsp).contains("/form/xmlUpload");
         assertThat(jsp).contains("enctype=\"multipart/form-data\"");
+        assertThat(jsp).containsPattern("(?is)<form\\b[^>]*\\bmethod\\s*=\\s*['\"]post['\"]");
     }
 
     @Test
