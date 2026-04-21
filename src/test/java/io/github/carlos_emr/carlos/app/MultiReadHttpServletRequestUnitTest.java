@@ -724,9 +724,10 @@ class MultiReadHttpServletRequestUnitTest {
 
             @Override
             public int read() {
-                if (remaining-- <= 0) {
+                if (remaining <= 0) {
                     return -1;
                 }
+                remaining--;
                 return 'a';
             }
 
