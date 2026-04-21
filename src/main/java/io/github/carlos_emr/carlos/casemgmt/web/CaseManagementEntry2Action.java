@@ -572,12 +572,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return String team identifier when an admission with a non-null team ID exists; otherwise "0"
      */
     static String resolveReporterProgramTeamId(AdmissionManager admissionManager, String programNo, String demographicNo) {
-        if (!NumberUtils.isParsable(demographicNo)) {
+        if (!NumberUtils.isParsable(programNo) || !NumberUtils.isParsable(demographicNo)) {
+            return "0";
+        }
+
+        int parsedProgramNo = Integer.parseInt(programNo);
+        int parsedDemographicNo = Integer.parseInt(demographicNo);
+        if (parsedProgramNo <= 0 || parsedDemographicNo <= 0) {
             return "0";
         }
 
         try {
-            Admission admission = admissionManager.getAdmission(programNo, Integer.parseInt(demographicNo));
+            Admission admission = admissionManager.getAdmission(String.valueOf(parsedProgramNo), parsedDemographicNo);
             if (admission == null || admission.getTeamId() == null) {
                 return "0";
             }
