@@ -60,7 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
-<%@ page import="io.github.carlos_emr.carlos.util.SafeEncode" %
+<%@ page import="io.github.carlos_emr.carlos.util.SafeEncode" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -282,7 +282,7 @@
                                     }
                             %>
                             <option value="<%=SafeEncode.forHtmlAttribute(provider.getProviderNo())%>" <%=selected%>><%=SafeEncode.forHtml(provider.getFormattedName())%>
-+                            </option>
+                            </option>
                             <%
                                 }
                             %>
