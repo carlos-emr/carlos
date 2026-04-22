@@ -1,3 +1,5 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -174,7 +176,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
                           <button type="submit"
@@ -189,7 +191,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
     </div>
