@@ -32,7 +32,6 @@
 
     @since 2026-04-21
 --%>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <script type="text/javascript">
     function applyDemographicFieldLengthLimits() {
         var fieldLengthLimits = {
