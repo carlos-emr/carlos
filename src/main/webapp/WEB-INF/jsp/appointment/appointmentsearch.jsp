@@ -104,7 +104,7 @@
     for (int x = 1; x <= 9; x++) {
         startTimeOfDayOptions.add(new LabelValueBean("0" + String.valueOf(x) + ":00", String.valueOf(x)));
     }
-    for (int x = 10; x <= 24; x++) {
+    for (int x = 10; x <= 23; x++) {
         startTimeOfDayOptions.add(new LabelValueBean(String.valueOf(x) + ":00", String.valueOf(x)));
     }
     List<LabelValueBean> endTimeOfDayOptions = new ArrayList<LabelValueBean>();
