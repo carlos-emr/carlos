@@ -145,7 +145,7 @@ public class HttpMethodGuardFilter implements Filter {
                                           // action name 'createdate' matches the unconditional
                                           // "create" mutator prefix, so we exempt it here and rely
                                           // on the action's own POST check for mutations.
-            "addappointment"              // ViewAppointmentWrite2Action — view gate that loads the
+            "addappointment"             // ViewAppointmentWrite2Action — view gate that loads the
                                           // add-appointment form. The name starts with "add" so it
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
