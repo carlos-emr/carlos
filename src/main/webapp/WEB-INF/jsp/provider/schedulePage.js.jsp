@@ -416,8 +416,8 @@ var joiner = url.indexOf('?') === -1 ? '?' : '&';
 return url + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value);
 }
 
-function openScheduleSection(url, popupAction) {
-if (openEncounterInTab) {
+function openScheduleSection(url, popupAction, clickEvent) {
+if (openEncounterInTab && !(clickEvent && clickEvent.altKey)) {
 window.location.href = appendQueryParam(url, 'scheduleNav', '1');
 return false;
 }

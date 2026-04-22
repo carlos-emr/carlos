@@ -1006,7 +1006,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(){ popupOscarRx(600,1024,'<%=scheduleMessengerUrlForJsAttribute%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(){ popupOscarRx(600,1024,'<%=scheduleMessengerUrlForJsAttribute%>'); }, event);"
                                            title="<fmt:message key="global.messenger"/>">
                                               <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                     </li>
@@ -1016,7 +1016,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                     <li id="con">
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrlForJsAttribute%>', function(){ popupOscarRx(625,1024,'<%=scheduleConsultationUrlForJsAttribute%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrlForJsAttribute%>', function(){ popupOscarRx(625,1024,'<%=scheduleConsultationUrlForJsAttribute%>'); }, event);"
                                            title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
                                               <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                     </li>
@@ -1037,7 +1037,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(){ popup('700', '1024', '<%=scheduleDocumentReportUrlForJsAttribute%>', 'edocView'); });"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(){ popup('700', '1024', '<%=scheduleDocumentReportUrlForJsAttribute%>', 'edocView'); }, event);"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1047,7 +1047,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrlForJsAttribute%>', function(){ popupPage2('<%=scheduleReportIndexUrlForJsAttribute%>','reportPage'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrlForJsAttribute%>', function(){ popupPage2('<%=scheduleReportIndexUrlForJsAttribute%>','reportPage'); }, event);"
                                            TITLE='<fmt:message key="global.genReport"/>'><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1078,7 +1078,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(){ newWindow('<%=scheduleAdministrationUrlForJsAttribute%>','admin'); });"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(){ newWindow('<%=scheduleAdministrationUrlForJsAttribute%>','admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>
