@@ -974,10 +974,12 @@
                             <%
                                 String loggedInProviderNo = loggedInInfo1.getLoggedInProviderNo();
                                 Provider loggedInProvider = loggedInInfo1.getLoggedInProvider();
+                                String loggedInProviderFirstName = loggedInProvider != null ? loggedInProvider.getFirstName() : null;
+                                String loggedInProviderLastName = loggedInProvider != null ? loggedInProvider.getLastName() : null;
                                 String loggedInProviderName = StringUtils.trim(
-                                        StringUtils.defaultString(loggedInProvider != null ? loggedInProvider.getFirstName() : null)
+                                        StringUtils.defaultString(loggedInProviderFirstName)
                                                 + " "
-                                                + StringUtils.defaultString(loggedInProvider != null ? loggedInProvider.getLastName() : null));
+                                                + StringUtils.defaultString(loggedInProviderLastName));
                                 String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
                                 String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
                                 String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
