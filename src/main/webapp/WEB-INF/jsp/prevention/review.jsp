@@ -38,6 +38,7 @@
 <%@page import="org.hl7.fhir.dstu3.model.codesystems.PractitionerSpecialty" %>
 <%@page import="org.hl7.fhir.dstu3.model.ContactPoint" %>
 <%@page import="org.hl7.fhir.dstu3.model.Identifier" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="org.hl7.fhir.dstu3.model.HumanName" %>
 <%@page import="org.hl7.fhir.dstu3.model.Immunization" %>
 <%@page import="org.hl7.fhir.dstu3.model.Patient" %>
@@ -853,7 +854,7 @@
                            value="Submit" <%=(!validationErrors.isEmpty()) ? " disabled=\"disabled\" " : "" %>/>
                     &nbsp;&nbsp;
                     <input type="button" value="Edit Prevention"
-                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/ViewAddPreventionData?id=<%=preventionId %>&demographic_no=<%=demographicNo%>'"/>
+                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/ViewAddPreventionData?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(preventionId)))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(demographicNo)))%>'"/>
                     &nbsp;&nbsp;
                     <input type="button" value="Cancel" onClick="window.close()"/>
                 </form>

@@ -137,6 +137,7 @@
         <action name="prevention/AddPrevention" class="io.github.carlos_emr.carlos.prevention.pageUtil.AddPrevention2Action">
             <result name="success">/WEB-INF/jsp/prevention/close.jsp</result>
             <result name="review">/WEB-INF/jsp/prevention/review.jsp</result>
+            <result name="form">/WEB-INF/jsp/prevention/AddPreventionData.jsp</result>
         </action>
         <action name="prevention/PreventionReport" class="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReport2Action">
             <result name="success">/WEB-INF/jsp/prevention/PreventionReporting.jsp</result>
