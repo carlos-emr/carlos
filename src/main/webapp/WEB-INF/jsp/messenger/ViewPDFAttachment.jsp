@@ -74,7 +74,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
@@ -174,7 +174,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
                           <button type="submit"
@@ -189,7 +189,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
     </div>
