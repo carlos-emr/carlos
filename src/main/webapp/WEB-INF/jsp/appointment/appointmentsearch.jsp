@@ -29,39 +29,6 @@
 
 --%>
 
-
-<%--
-
-    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
-    This software is published under the GPL GNU General Public License.
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-    This software was written for the
-    Department of Family Medicine
-    McMaster University
-    Hamilton
-    Ontario, Canada
-
-
-    Now maintained by the CARLOS EMR Project (2026+).
-    https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
---%>
-
-
 <!--
     Search Next Appointment
     ================================
@@ -92,8 +59,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -132,23 +99,21 @@
     String startTime = request.getParameter("startTime") != null ? request.getParameter("startTime") : "9";
     String endTime = request.getParameter("endTime") != null ? request.getParameter("endTime") : "17";
     List<LabelValueBean> startTimeOfDayOptions = new ArrayList<LabelValueBean>();
-    startTimeOfDayOptions.add(new LabelValueBean("midnight", "0"));
-    for (int x = 1; x <= 11; x++) {
-        startTimeOfDayOptions.add(new LabelValueBean(x + " am", String.valueOf(x)));
+    startTimeOfDayOptions.add(new LabelValueBean("00:00", "0"));
+    for (int x = 1; x <= 9; x++) {
+        startTimeOfDayOptions.add(new LabelValueBean("0" + String.valueOf(x) + ":00", String.valueOf(x)));
     }
-    startTimeOfDayOptions.add(new LabelValueBean("noon", "12"));
-    for (int x = 1; x <= 11; x++) {
-        startTimeOfDayOptions.add(new LabelValueBean(x + " pm", String.valueOf(x + 12)));
+    for (int x = 10; x <= 24; x++) {
+        startTimeOfDayOptions.add(new LabelValueBean(String.valueOf(x) + ":00", String.valueOf(x)));
     }
     List<LabelValueBean> endTimeOfDayOptions = new ArrayList<LabelValueBean>();
-    for (int x = 1; x <= 11; x++) {
-        endTimeOfDayOptions.add(new LabelValueBean(x + " am", String.valueOf(x)));
+    for (int x = 1; x <= 9; x++) {
+        endTimeOfDayOptions.add(new LabelValueBean("0" + String.valueOf(x) + ":00", String.valueOf(x)));
     }
-    endTimeOfDayOptions.add(new LabelValueBean("noon", "12"));
-    for (int x = 1; x <= 11; x++) {
-        endTimeOfDayOptions.add(new LabelValueBean(x + " pm", String.valueOf(x + 12)));
+    for (int x = 10; x <= 24; x++) {
+        endTimeOfDayOptions.add(new LabelValueBean(String.valueOf(x) + ":00", String.valueOf(x)));
     }
-    // endTimeOfDayOptions.add(new LabelValueBean("midnight","0"));
+
 
     //code
     String code = request.getParameter("code") != null ? request.getParameter("code") : "";
@@ -315,12 +280,12 @@
                             <option value=""><fmt:message key="provider.appointmentprovideradminmonth.formAllProviders"/></option>
                             <%
                                 for (Provider provider : providers) {
-                                    String selected = new String();
+                                    String selected = "";
                                     if (providerNo.equals(provider.getProviderNo())) {
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%=provider.getProviderNo()%>" <%=selected%>><%=provider.getFormattedName()%>
+                            <option value="<%= Encode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= Encode.forHtml(provider.getFormattedName()) %>
                             </option>
                             <%
                                 }
@@ -431,7 +396,7 @@
                             <fmt:message key="global.btnSubmit"/>
                         </button>
                         &nbsp;&nbsp;
-                        <button type="button" class="btn btn-secondary btn-sm" value="Close" onclick="window.close();window.opener.location.reload();"/>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="window.close();window.opener.location.reload();">
                             <fmt:message key="global.btnBack"/>
                         </button>
                     </div>
@@ -449,12 +414,12 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%=result.getProviderNo()%>','<%=result.getYear()%>','<%=result.getMonth()%>','<%=result.getDay()%>','<%=result.getStartTime()%>','<%=result.getEndTime()%>','<%=result.getDuration()%>');">
-                            <td><%=dayFormatter.format(result.getDate()) %>
+                         onclick="selectSlot('<%= Encode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= Encode.forJavaScript(result.getStartTime()) %>','<%= Encode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
+                            <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
-                            <td><%=timeFormatter.format(result.getDate()) %>
+                            <td><%= timeFormatter.format(result.getDate()) %>
                             </td>
-                            <td><%=result.getProvider().getFormattedName() %>
+                            <td><%= Encode.forHtml(result.getProvider().getFormattedName()) %>
                             </td>
                         </tr>
                         <% } %>
