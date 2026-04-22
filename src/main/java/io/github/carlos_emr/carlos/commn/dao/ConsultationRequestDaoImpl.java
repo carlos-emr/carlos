@@ -36,6 +36,8 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
+import org.apache.commons.lang3.time.DateFormatUtils;
+
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
@@ -138,10 +140,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             query.setParameter("team", team);
         }
         if (startDate != null) {
-            query.setParameter("startDate", startDate);
+            query.setParameter("startDate", DateFormatUtils.ISO_DATETIME_FORMAT.format(startDate));
         }
         if (endDate != null) {
-            query.setParameter("endDate", endDate);
+            query.setParameter("endDate", DateFormatUtils.ISO_DATETIME_FORMAT.format(endDate));
         }
 
         query.setFirstResult(offset != null ? offset : 0);
