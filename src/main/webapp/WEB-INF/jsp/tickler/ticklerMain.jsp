@@ -92,6 +92,8 @@
     boolean isDemoView = !"0".equals(demographic_no) && demographic_no != null;
     pageContext.setAttribute("hasDemoView", isDemoView);
 
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+
     Map<String, View> ticklerView = viewDao.getView("tickler", userRole, user_no);
 
     String providerview = "all";
@@ -157,6 +159,9 @@
 <html lang="${flatpickrLanguage}">
     <head>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
@@ -761,6 +766,9 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <div class="container">
         <div class="searchBox">
 

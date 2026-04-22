@@ -986,17 +986,19 @@
                                 String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
                                 String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
                                 String scheduleAdministrationUrl = request.getContextPath() + "/administration";
+                                String scheduleTicklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
                                 String scheduleMessengerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleMessengerUrl);
                                 String scheduleConsultationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleConsultationUrl);
                                 String scheduleDocumentReportUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleDocumentReportUrl);
                                 String scheduleReportIndexUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleReportIndexUrl);
                                 String scheduleAdministrationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleAdministrationUrl);
+                                String scheduleTicklerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleTicklerUrl);
                             %>
                             <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
                                     <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ViewTicklerMain','${carlos:forJavaScript(ticklerTitle)}');return false;"
+                                       ONCLICK="return openScheduleSection('<%=scheduleTicklerUrlForJsAttribute%>', function(){ popupPage2('<%=scheduleTicklerUrlForJsAttribute%>','${carlos:forJavaScript(ticklerTitle)}'); }, event);"
                                        TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
                                         <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
                                 </li>
