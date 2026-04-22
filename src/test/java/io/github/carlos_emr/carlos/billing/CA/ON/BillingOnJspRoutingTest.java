@@ -67,6 +67,14 @@ class BillingOnJspRoutingTest {
         assertThat(reportInr).contains("action=\"<%= inrBillingAction %>\"");
     }
 
+    @Test
+    void shouldInitializeDefaultBillingForm_withServerDerivedBillTypeOnPageLoad() throws IOException {
+        String billingOn = readJspContent(BILLING_ON_JSP_DIR.resolve("billingON.jsp"));
+
+        assertThat(billingOn)
+                .contains("if (typeof toggleDiv === 'function') toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= defaultBillFormName %>' context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= defaultBillType %>' context=\"javaScriptAttribute\"/>');");
+    }
+
     private String readJspContent(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
     }

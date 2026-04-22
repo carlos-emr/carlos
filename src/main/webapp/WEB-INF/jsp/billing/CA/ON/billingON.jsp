@@ -1339,7 +1339,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function') toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillType %>' context="javaScriptAttribute"/>');">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
