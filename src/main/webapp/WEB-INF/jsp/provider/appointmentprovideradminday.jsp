@@ -973,16 +973,22 @@
 
                             <%
                                 String loggedInProviderNo = loggedInInfo1.getLoggedInProviderNo();
+                                Provider loggedInProvider = loggedInInfo1.getLoggedInProvider();
                                 String loggedInProviderName = StringUtils.trim(
-                                        StringUtils.defaultString(loggedInInfo1.getLoggedInProvider().getFirstName())
+                                        StringUtils.defaultString(loggedInProvider != null ? loggedInProvider.getFirstName() : null)
                                                 + " "
-                                                + StringUtils.defaultString(loggedInInfo1.getLoggedInProvider().getLastName()));
+                                                + StringUtils.defaultString(loggedInProvider != null ? loggedInProvider.getLastName() : null));
                                 String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
                                 String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
                                 String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
                                 String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
                                 String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
                                 String scheduleAdministrationUrl = request.getContextPath() + "/administration";
+                                String scheduleMessengerUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleMessengerUrl);
+                                String scheduleConsultationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleConsultationUrl);
+                                String scheduleDocumentReportUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleDocumentReportUrl);
+                                String scheduleReportIndexUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleReportIndexUrl);
+                                String scheduleAdministrationUrlForJsAttribute = SafeEncode.forJavaScriptAttribute(scheduleAdministrationUrl);
                             %>
                             <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
@@ -998,9 +1004,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrl%>', function(){ popupOscarRx(600,1024,'<%=scheduleMessengerUrl%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(){ popupOscarRx(600,1024,'<%=scheduleMessengerUrlForJsAttribute%>'); });"
                                            title="<fmt:message key="global.messenger"/>">
-                                             <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                              <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1008,9 +1014,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                     <li id="con">
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrl%>', function(){ popupOscarRx(625,1024,'<%=scheduleConsultationUrl%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrlForJsAttribute%>', function(){ popupOscarRx(625,1024,'<%=scheduleConsultationUrlForJsAttribute%>'); });"
                                            title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
-                                             <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
+                                              <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1029,7 +1035,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrl%>', function(){ popup('700', '1024', '<%=scheduleDocumentReportUrl%>', 'edocView'); });"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(){ popup('700', '1024', '<%=scheduleDocumentReportUrlForJsAttribute%>', 'edocView'); });"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1039,7 +1045,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrl%>', function(){ popupPage2('<%=scheduleReportIndexUrl%>','reportPage'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrlForJsAttribute%>', function(){ popupPage2('<%=scheduleReportIndexUrlForJsAttribute%>','reportPage'); });"
                                            TITLE='<fmt:message key="global.genReport"/>'><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1070,7 +1076,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrl%>', function(){ newWindow('<%=scheduleAdministrationUrl%>','admin'); });"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(){ newWindow('<%=scheduleAdministrationUrlForJsAttribute%>','admin'); });"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>
