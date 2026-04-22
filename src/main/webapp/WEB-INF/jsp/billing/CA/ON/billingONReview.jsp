@@ -43,10 +43,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*,java.math.*,java.net.*,java.sql.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.appt.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.administration.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*, java.util.Properties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.*, java.util.Properties" %>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -343,7 +343,7 @@
             var d = elementName;
             //t0 = escape("document.forms[0].elements[\'"+d+"\'].value");
             t0 = d;
-            popupPage('600', '700', '/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
+            popupPage('600', '700', '<%= request.getContextPath() %>/billing/CA/ON/ViewOnSearch3rdBillAddr?param=' + t0);
         }
 
         function showtotal() {
@@ -488,7 +488,7 @@
             } else if (settle == "Settle") {
                 document.forms['titlesearch'].btnPressed.value = 'Settle';
                 document.forms['titlesearch'].submit();
-                popupPage(700, 720, '/billing/CA/ON/ViewBillingON3rdInv');
+                popupPage(700, 720, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv');
             }
 
             return checkedMethod;
@@ -1241,7 +1241,7 @@
                    style="width: 150px;"/>
             <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="Settle & Print Invoice"
-                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'/billing/CA/ON/ViewBillingON3rdInv');"
+                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv');"
                    style="width: 160px;"/>
             <input type="hidden" name="btnPressed" value="">
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>

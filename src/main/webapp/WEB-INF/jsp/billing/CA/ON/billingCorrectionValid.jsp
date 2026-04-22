@@ -313,7 +313,7 @@
         billingPatientDataBean.setCity(request.getParameter("demo_city"));
         billingPatientDataBean.setPostal(request.getParameter("demo_postal"));
         billingPatientDataBean.setSex(request.getParameter("demo_sex"));
-        response.sendRedirect("/billing/CA/ON/BillingCorrectionReview");
+        response.sendRedirect(request.getContextPath() + "/billing/CA/ON/BillingCorrectionReview");
     } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
     }
 

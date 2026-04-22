@@ -133,7 +133,7 @@
 %>
 
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <form action="/billing/CA/ON/ViewOnGenRASummary">
+    <form action="<%= request.getContextPath() %>/billing/CA/ON/ViewOnGenRASummary">
         <tr class="myDarkGreen">
             <th align='LEFT'><font color="#FFFFFF"> Billing
                 Reconcilliation - Summary Report</font></th>
