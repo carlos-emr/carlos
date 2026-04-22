@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -139,7 +140,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
 
         int numberOfPages = 0;
-        String originalFileName = filled(this.docFileFileName) ? this.docFileFileName : uploadedDocFile.getName();
+        File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
+        String originalFileName = resolveUploadedFileName(validatedSource, this.docFileFileName);
         String fileName = MiscUtils.sanitizeFileName(originalFileName);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String user = loggedInInfo.getLoggedInProviderNo();
@@ -155,25 +157,26 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
 
         // save local file;
-        if (uploadedDocFile.length() == 0) {
+        if (validatedSource.length() == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        // Validate uploaded source is from an allowed temp directory before reading
-        File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
-        File file = writeLocalFile(Files.newInputStream(validatedSource.toPath()), fileName); // write file to local dir
+        // Validate uploaded source at point of use for static analysis visibility
+        try (InputStream inputStream = Files.newInputStream(validatedSource.toPath())) {
+            File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
-        if (!file.exists() || file.length() < validatedSource.length()) {
-            response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
-            response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
-            return null;
-        }
+            if (!file.exists() || file.length() < validatedSource.length()) {
+                response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
+                response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
+                return null;
+            }
 
-        if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
-            newDoc.setContentType("application/pdf");
-            // get number of pages when document is pdf;
-            numberOfPages = countNumOfPages(fileName);
+            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+                newDoc.setContentType("application/pdf");
+                // get number of pages when document is pdf;
+                numberOfPages = countNumOfPages(fileName);
+            }
         }
         newDoc.setNumberOfPages(numberOfPages);
         String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -323,12 +326,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
-            if (docFile.length() == 0) {
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            if (validatedDocFile.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
             }
             // sanitize the original file name first
-            String fileName1 = MiscUtils.sanitizeFileName(this.docFileFileName);
+            String fileName1 = MiscUtils.sanitizeFileName(resolveUploadedFileName(validatedDocFile, this.docFileFileName));
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName1, "", this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'A', this.getObservationDate(), "", "", this.getFunction(), this.getFunctionId());
             newDoc.setDocPublic(this.getDocPublic());
@@ -340,7 +344,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            File file = writeLocalFile(Files.newInputStream(docFile.toPath()), fileName2);
+            try (InputStream inputStream = Files.newInputStream(validatedDocFile.toPath())) {
+                writeLocalFile(inputStream, fileName2);
+            }
             newDoc.setContentType(this.docFileContentType);
 
             if (fileName2.toLowerCase().endsWith(".pdf")) {
@@ -471,7 +477,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
-                    fileName = MiscUtils.sanitizeFileName(this.docFileFileName);
+                    fileName = MiscUtils.sanitizeFileName(resolveUploadedFileName(docFile, this.docFileFileName));
                     updateFileContent = true; // set update to true
                 }
             }
@@ -507,9 +513,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
+                File validatedDocFile = PathValidationUtils.validateUpload(this.getDocFile());
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
-                writeLocalFile(Files.newInputStream(this.getDocFile().toPath()), fileName);
+                try (InputStream inputStream = Files.newInputStream(validatedDocFile.toPath())) {
+                    writeLocalFile(inputStream, fileName);
+                }
                 if (fileName.toLowerCase().endsWith(".pdf")) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
@@ -652,10 +661,19 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         if (selected != null) {
-            this.docFile = new File(selected.getAbsolutePath());
-            this.docFileFileName = selected.getOriginalName();
+            File validatedUpload = PathValidationUtils.validateUpload(new File(selected.getAbsolutePath()));
+            this.docFile = validatedUpload;
+            this.docFileFileName = resolveUploadedFileName(validatedUpload, selected.getOriginalName());
             this.docFileContentType = selected.getContentType();
         }
+    }
+
+    private String resolveUploadedFileName(File uploadedFile, String originalName) {
+        String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : uploadedFile.getName();
+        if (!filled(candidate)) {
+            candidate = uploadedFile.getName();
+        }
+        return candidate;
     }
 
     private boolean filled(String s) {
