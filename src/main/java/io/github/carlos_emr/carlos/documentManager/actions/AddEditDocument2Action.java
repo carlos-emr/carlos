@@ -169,7 +169,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (InputStream inputStream = Files.newInputStream(validatedSourcePath)) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
-            if (!file.exists() || file.length() < validatedSource.length()) {
+            if (file == null || !file.exists() || file.length() < validatedSource.length()) {
                 response.setHeader("oscar_error", props.getString("dms.addDocument.errorNoWrite"));
                 response.sendError(500, props.getString("dms.addDocument.errorNoWrite"));
                 return null;

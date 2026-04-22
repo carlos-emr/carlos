@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -31,14 +32,17 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -63,6 +67,9 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    @Mock
+    private ProgramManager2 mockProgramManager;
+
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private AddEditDocument2Action action;
@@ -82,8 +89,10 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        registerMock(ProgramManager2.class, mockProgramManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         action = new AddEditDocument2Action();
     }
@@ -202,6 +211,29 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
             assertThat(action.getDocFileFileName()).isEqualTo("echart-upload.pdf");
         } finally {
             Files.deleteIfExists(filedataTemp.toPath());
+        }
+    }
+
+    @Test
+    @DisplayName("should return write error when html5 upload file write fails")
+    void shouldReturnWriteError_whenHtml5UploadFileWriteFails() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+        Files.writeString(tempUploadFile.toPath(), "test");
+
+        action.setDocFile(tempUploadFile);
+        action.setDocFileFileName("echart-upload.pdf");
+        action.setAppointmentNo("123");
+
+        try (MockedStatic<AddEditDocument2Action> addEditDocumentActionMock = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
+            addEditDocumentActionMock.when(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echart-upload.pdf")))
+                    .thenReturn(null);
+
+            String result = action.html5MultiUpload();
+
+            assertThat(result).isNull();
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
+                    .getString("dms.addDocument.errorNoWrite"));
         }
     }
 
