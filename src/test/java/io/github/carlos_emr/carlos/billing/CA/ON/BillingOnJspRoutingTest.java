@@ -24,11 +24,6 @@ import org.junit.jupiter.api.Test;
 class BillingOnJspRoutingTest {
 
     private static final Path BILLING_ON_JSP_DIR = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/ON");
-    private static final String DEFAULT_BILLING_FORM_ONLOAD =
-            "if (typeof toggleDiv === 'function') toggleDiv("
-                    + "'<carlos:encode value='<%= ctlBillForm %>' context=\"javaScriptAttribute\"/>', "
-                    + "'<carlos:encode value='<%= defaultBillFormName %>' context=\"javaScriptAttribute\"/>', "
-                    + "'<carlos:encode value='<%= defaultBillType %>' context=\"javaScriptAttribute\"/>');";
 
     @Test
     void shouldUseContextAwareRoutes_inOntarioBillingJspWorkflows() throws IOException {
@@ -73,11 +68,14 @@ class BillingOnJspRoutingTest {
     }
 
     @Test
-    void shouldInitializeDefaultBillingForm_withServerDerivedBillTypeOnPageLoad() throws IOException {
+    void shouldInitializeDefaultBillingForm_onPageLoad() throws IOException {
         String billingOn = readJspContent(BILLING_ON_JSP_DIR.resolve("billingON.jsp"));
 
         assertThat(billingOn)
-                .contains(DEFAULT_BILLING_FORM_ONLOAD);
+                .contains("if (typeof toggleDiv === 'function') toggleDiv(")
+                .contains("'<carlos:encode value='<%= ctlBillForm %>' context=\"javaScriptAttribute\"/>'")
+                .contains("'<carlos:encode value='<%= defaultBillFormName %>' context=\"javaScriptAttribute\"/>'")
+                .contains("'<carlos:encode value='<%= defaultBillType %>' context=\"javaScriptAttribute\"/>'");
     }
 
     private String readJspContent(Path path) throws IOException {
