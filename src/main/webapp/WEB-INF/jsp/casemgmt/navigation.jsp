@@ -50,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.gate.FormViewRoutes" %>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
@@ -364,9 +365,24 @@
                             <option value="null" selected>-add new form-</option>
                             <c:forEach var="cf" items="${casemgmt_newFormBeans}">
                                 <c:if test="${cf.hidden}">
-                                    <c:set var="value" value="${sessionScope.casemgmt_oscar_baseurl}/appointment/${cf.formValue}${bean.demographicNo}&formId=0&provNo=${bean.providerNo}" />
+                                    <%-- Legacy form_value stores paths like "../form/formX.jsp?demographic_no=".
+                                         Form JSPs now live under /WEB-INF/jsp/form/ and are served by the
+                                         form/* Struts wildcard action, so translate the legacy path to the
+                                         new action route to avoid 404s. Fall back to the legacy value for
+                                         forms not in the allow-list. --%>
+                                    <%
+                                        io.github.carlos_emr.carlos.commn.model.EncounterForm encounterForm =
+                                                (io.github.carlos_emr.carlos.commn.model.EncounterForm) pageContext.getAttribute("cf");
+                                        String legacyFormValue = encounterForm.getFormValue();
+                                        String resolvedActionPath = FormViewRoutes.resolveActionPath(legacyFormValue);
+                                        String formUrlBase = (resolvedActionPath != null)
+                                                ? request.getContextPath() + resolvedActionPath
+                                                : legacyFormValue;
+                                        pageContext.setAttribute("formUrlBase", formUrlBase);
+                                    %>
+                                    <c:set var="value" value="${formUrlBase}${bean.demographicNo}&formId=0&provNo=${bean.providerNo}" />
                                     <c:set var="label" value="${cf.formName}" />
-                                    <option value="${value}">${label}</option>
+                                    <option value="${carlos:forHtmlAttribute(value)}">${carlos:forHtmlContent(label)}</option>
                                 </c:if>
                             </c:forEach>
                         </select>
