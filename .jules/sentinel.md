@@ -1,0 +1,4 @@
+## 2024-05-15 - SQL Injection via Unparameterized IN Clause
+**Vulnerability:** The `updateApptStatus` method in `OscarAppointmentDaoImpl` constructed a JPA query using string concatenation for an `IN` clause: `createQuery("update Appointment set status=?1 where id in (" + idClean.toString() + ")")`.
+**Learning:** Legacy developers often concatenated dynamically constructed strings directly into queries for `IN` clauses instead of using parameters, bypassing ORM security and potentially allowing SQL injection if the values aren't strictly numeric or filtered. Although `idClean` had an `isNumeric` check, defensive programming dictates that parameterized queries should always be used.
+**Prevention:** In JPA/Hibernate, use `Collection` or `List` types to parameterize `IN` clauses. Do not construct `IN` clauses via string concatenation. For instance, `query.setParameter(2, idList)` dynamically substitutes the values safely at execution time.
