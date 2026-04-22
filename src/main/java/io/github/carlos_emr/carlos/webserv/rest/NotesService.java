@@ -1328,7 +1328,9 @@ public class NotesService extends AbstractServiceImpl {
             logger.debug("Fetched Note {}", note != null ? note.getId() : null);
         }
 
-        logger.debug("Populate Note with editors");
+        if (logger.isDebugEnabled()) {
+            logger.debug("Populate Note with editors");
+        }
         this.caseManagementMgr.getEditors(note);
 
 

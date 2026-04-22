@@ -45,6 +45,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
+import java.util.Objects;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
@@ -62,9 +63,10 @@ public final class DateUtils {
 
     private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
     private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
-    private static final DateTimeFormatter DEFAULT_DATE_FORMATTER = DateTimeFormatter.ofPattern(dateFormatString);
+    private static final DateTimeFormatter DEFAULT_DATE_FORMATTER =
+            createCachedFormatterIfPresent(dateFormatString);
     private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER =
-            DateTimeFormatter.ofPattern(dateFormatString + " " + timeFormatString);
+            createCachedFormatterIfPresent(dateFormatString, timeFormatString);
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
@@ -95,13 +97,29 @@ public final class DateUtils {
     }
 
     private static DateTimeFormatter getDefaultFormatter(String pattern) {
-        if (dateFormatString.equals(pattern)) {
-            return DEFAULT_DATE_FORMATTER;
+        if (Objects.equals(dateFormatString, pattern)) {
+            if (DEFAULT_DATE_FORMATTER != null) {
+                return DEFAULT_DATE_FORMATTER;
+            }
         }
-        if ((dateFormatString + " " + timeFormatString).equals(pattern)) {
-            return DEFAULT_DATE_TIME_FORMATTER;
+        String configuredDateTimePattern = dateFormatString != null && timeFormatString != null
+                ? dateFormatString + " " + timeFormatString
+                : null;
+        if (Objects.equals(configuredDateTimePattern, pattern)) {
+            if (DEFAULT_DATE_TIME_FORMATTER != null) {
+                return DEFAULT_DATE_TIME_FORMATTER;
+            }
         }
         return DateTimeFormatter.ofPattern(pattern);
+    }
+
+    private static DateTimeFormatter createCachedFormatterIfPresent(String... patternParts) {
+        for (String patternPart : patternParts) {
+            if (patternPart == null || patternPart.trim().isEmpty()) {
+                return null;
+            }
+        }
+        return DateTimeFormatter.ofPattern(String.join(" ", patternParts));
     }
 
     /**
