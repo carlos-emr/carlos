@@ -32,23 +32,28 @@
  * <ul>
  *   <li>{@code addappointment} — appointment booking; needs schedule page context</li>
  *   <li>{@code editappointment} — appointment editing; needs schedule page context</li>
+ *   <li>{@code appointmentsearch} — appointment search popup; uses {@code window.opener} to refresh the caller before closing</li>
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
+ *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
  * </ul>
  *
  * @param {string} url - URL to test
  * @returns {boolean} true if the URL must always open as a popup window
  */
+const forceWindowPaths = [
+    'addappointment',
+    'editappointment',
+    'appointmentsearch',
+    'Scratch',
+    'CalendarPopup.jsp',
+    'CalendarPopup',
+    'ViewAddTickler',
+    'ForwardDemographicTickler'
+];
+
 function isForceWindowUrl(url) {
     if (!url) return false;
-    const forceWindowPaths = [
-        'addappointment',
-        'editappointment',
-        'appointmentsearch',
-        'Scratch',
-        'CalendarPopup.jsp',
-        'CalendarPopup'
-    ];
     const normalizedUrl = String(url).split('#')[0].split('?')[0];
     return forceWindowPaths.some(function(path) {
         const index = normalizedUrl.lastIndexOf(path);

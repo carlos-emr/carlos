@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -20,6 +22,9 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 @Tag("appointment")
 class AppointmentJspRoutingTest {
+
+    private static final Pattern FORCE_WINDOW_PATHS_PATTERN = Pattern.compile(
+            "(?:var|let|const)\\s+forceWindowPaths\\s*=\\s*\\[(?<body>[\\s\\S]*?)]\\s*;?");
 
     @Test
     void shouldRouteLiveAppointmentCallers_directlyToFinalTargets() throws IOException {
@@ -95,8 +100,17 @@ class AppointmentJspRoutingTest {
         assertThat(addAlternateContact).contains("value=\"Search \"");
         assertThat(addAlternateContact).doesNotContain("/appointment/appointmentcontrol");
 
-        assertThat(oscarJs).contains("'addappointment'");
-        assertThat(oscarJs).contains("'editappointment'");
+        Matcher forceWindowPathsMatcher = FORCE_WINDOW_PATHS_PATTERN.matcher(oscarJs);
+        assertThat(forceWindowPathsMatcher.find())
+                .as("Oscar.js should declare the forceWindowPaths list")
+                .isTrue();
+        String forceWindowPathsBody = forceWindowPathsMatcher.group("body");
+        assertThat(forceWindowPathsBody)
+                .as("forceWindowPaths should include the 'addappointment' route")
+                .contains("'addappointment'");
+        assertThat(forceWindowPathsBody)
+                .as("forceWindowPaths should include the 'editappointment' route")
+                .contains("'editappointment'");
         assertThat(oscarJs).doesNotContain("appointmentcontrol.jsp");
 
         assertThat(schedulingStruts).doesNotContain("<action name=\"appointment/appointmentcontrol\"");
