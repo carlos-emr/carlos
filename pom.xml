@@ -1753,6 +1753,7 @@
                             <effort>Max</effort>
                             <threshold>Low</threshold>
                             <xmlOutput>true</xmlOutput>
+                            <maxHeap>4096</maxHeap>
                             <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
                             <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
                             <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
