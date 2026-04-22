@@ -102,6 +102,11 @@
 
     Integer preventionId = (Integer) request.getAttribute("preventionId");
     String demographicNo = (String) request.getAttribute("demographicNo");
+    String editPreventionUrl = request.getContextPath()
+            + "/prevention/ViewAddPreventionData?id="
+            + SafeEncode.forUriComponent(String.valueOf(preventionId))
+            + "&demographic_no="
+            + SafeEncode.forUriComponent(demographicNo);
     String submittingProviderNo = null;
     String sender = null;
     String sourceName = null;
@@ -854,7 +859,7 @@
                            value="Submit" <%=(!validationErrors.isEmpty()) ? " disabled=\"disabled\" " : "" %>/>
                     &nbsp;&nbsp;
                     <input type="button" value="Edit Prevention"
-                           onClick="window.location.href='<%=request.getContextPath()%>/prevention/ViewAddPreventionData?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(preventionId)))%>&amp;demographic_no=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(demographicNo)))%>'"/>
+                           onClick="window.location.href='<%=SafeEncode.forJavaScriptAttribute(editPreventionUrl)%>'"/>
                     &nbsp;&nbsp;
                     <input type="button" value="Cancel" onClick="window.close()"/>
                 </form>
