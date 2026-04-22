@@ -141,6 +141,19 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
+
+        // Defense in depth: ensure the validated upload path is still contained in the
+        // upload temp directory associated with the received multipart file.
+        File uploadBaseDir = uploadedDocFile.getParentFile();
+        if (uploadBaseDir == null) {
+            throw new SecurityException("Invalid upload base directory");
+        }
+        Path canonicalBase = uploadBaseDir.getCanonicalFile().toPath();
+        Path canonicalValidated = validatedSource.getCanonicalFile().toPath();
+        if (!canonicalValidated.startsWith(canonicalBase)) {
+            throw new SecurityException("Invalid upload path");
+        }
+
         String originalFileName = resolveUploadedFileName(validatedSource, this.docFileFileName);
         String fileName = MiscUtils.sanitizeFileName(originalFileName);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -164,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
-        try (InputStream inputStream = Files.newInputStream(validatedSource.toPath())) {
+        try (InputStream inputStream = Files.newInputStream(canonicalValidated)) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
             if (!file.exists() || file.length() < validatedSource.length()) {
