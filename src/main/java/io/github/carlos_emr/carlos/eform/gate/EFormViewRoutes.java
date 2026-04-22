@@ -21,6 +21,9 @@ import java.util.Map;
  */
 public final class EFormViewRoutes {
 
+    private static final Route RICH_TEXT_LETTER_TEMPLATE_ROUTE =
+            new Route("/WEB-INF/jsp/eform/efmformrtl_templates.jsp", Privilege.EFORM_READ);
+
     public enum Privilege {
         EFORM_READ,
         EFORM_WRITE,
@@ -37,8 +40,8 @@ public final class EFormViewRoutes {
                     new Route("/WEB-INF/jsp/eform/displayAttachedFiles.jsp", Privilege.EFORM_READ)),
             Map.entry("eform/efmformapconfig_lookup",
                     new Route("/WEB-INF/jsp/eform/efmformapconfig_lookup.jsp", Privilege.EFORM_READ)),
-            Map.entry("eform/efmformrtl_templates",
-                    new Route("/WEB-INF/jsp/eform/efmformrtl_templates.jsp", Privilege.EFORM_READ)),
+            Map.entry("eform/efmformrtl_templates", RICH_TEXT_LETTER_TEMPLATE_ROUTE),
+            Map.entry("eform/efmformrtl_templates.jsp", RICH_TEXT_LETTER_TEMPLATE_ROUTE),
             Map.entry("eform/efmformmanager",
                     new Route("/WEB-INF/jsp/eform/efmformmanager.jsp", Privilege.EFORM_WRITE)),
             Map.entry("eform/efmformmanagerdeleted",
