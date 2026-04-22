@@ -639,6 +639,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * input takes precedence over {@code filedata}; once a {@code docFile} entry has been
      * bound, any subsequent entries (including additional {@code filedata} entries) are
      * ignored to ensure deterministic selection regardless of list ordering.
+     * Each selected upload is validated immediately so the action only retains temp
+     * files from approved locations; business methods then re-validate at point of use
+     * before any file I/O as defense in depth.
      *
      * @param uploadedFiles List&lt;UploadedFile&gt; the uploads provided by the Struts file
      *                      upload interceptor, or {@code null} if none were posted
@@ -678,7 +681,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * path components, and falls back to the validated temp file name when the
      * original value is null, blank, or path-only. The fallback temp filename may
      * not match the client-provided extension, but it remains a safe basename for
-     * later sanitization and storage.
+     * later sanitization and storage. This fallback also prevents malicious or
+     * path-traversal-oriented client names from controlling the stored filename.
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
