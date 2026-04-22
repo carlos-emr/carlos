@@ -60,7 +60,6 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
-<%@ page import="io.github.carlos_emr.carlos.util.SafeEncode" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -233,6 +232,11 @@
     <div class="page-header-bar d-flex align-items-center justify-content-between
                 py-2 mb-3 border-bottom" id="header">
         <div class="d-flex align-items-center gap-2">
+            <!--
+                Optional Fontawesome Icon — replace "bi-file-earmark-text"
+                with any icon from https://icons.getbootstrap.com/
+                or remove the <i> tag entirely if no icon is needed.
+            -->
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="fw-semibold"><fmt:message key="appointment.searchnext.2ndtitle"/></span>
         </div>
@@ -281,7 +285,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%=SafeEncode.forHtmlAttribute(provider.getProviderNo())%>" <%=selected%>><%=SafeEncode.forHtml(provider.getFormattedName())%>
+                            <option value="<%= Encode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= Encode.forHtml(provider.getFormattedName()) %>
                             </option>
                             <%
                                 }
@@ -329,7 +333,7 @@
                             %>
                         </select>
                         &nbsp;<fmt:message key="appointment.searchnext.to"/>&nbsp;
-                        <select name="endTime" id="endTime" class="form-select w-25">
+                        <select name="endTime" id="endTime"  class="form-select w-25">
                             <%
                                 for (LabelValueBean lvb : endTimeOfDayOptions) {
                                     String selected = new String();
@@ -353,13 +357,13 @@
                             <option value=""><fmt:message key="SearchDrug.searchParam.any"/></option>
                             <%
                                 for (ScheduleTemplateCode c : codes) {
-                                    String selected = new String();
+                                    String selected = "";
                                     if (String.valueOf(c.getCode()).equals(code)) {
                                         selected = " selected=\"selected\" ";
                                     }
-                            %>                     
-                            <option value="<%=SafeEncode.forHtmlAttribute(String.valueOf(c.getCode()))%>" <%=selected%>><%=SafeEncode.forHtml(String.valueOf(c.getCode()))%> - <%=SafeEncode.forHtml(c.getDescription())%>
-+                            </option>
+                            %>
+                            <option value="<%=c.getCode()%>" <%=selected%>><%=c.getCode()%> - <%=c.getDescription() %>
+                            </option>
                             <%
                                 }
                             %>
@@ -410,7 +414,7 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%=SafeEncode.forJavaScript(result.getProviderNo())%>','<%=result.getYear()%>','<%=result.getMonth()%>','<%=result.getDay()%>','<%=SafeEncode.forJavaScript(String.valueOf(result.getStartTime()))%>','<%=SafeEncode.forJavaScript(String.valueOf(result.getEndTime()))%>','<%=result.getDuration()%>');">
+                         onclick="selectSlot('<%= Encode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= Encode.forJavaScript(result.getStartTime()) %>','<%= Encode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
                             <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
                             <td><%= timeFormatter.format(result.getDate()) %>
