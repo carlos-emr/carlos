@@ -269,8 +269,11 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
     @Override
     public List<Provider> getActiveProvidersByRole(String role) {
         if (role == null) return Collections.emptyList();
-        String sSQL = "select p FROM Provider p, SecUserRole s where p.ProviderNo = s.ProviderNo and p.Status='1' " +
-        "and s.RoleName = ?1 order by p.LastName, p.FirstName";
+        // Uses Secuserrole (model.security) — the identity-PK mapping that matches the actual
+        // secUserRole table schema. The PMmodule SecUserRole composite-key mapping is
+        // intentionally absent from the test EMF and does not reflect the production DB.
+        String sSQL = "select p FROM Provider p, Secuserrole s where p.ProviderNo = s.providerNo and p.Status='1' " +
+        "and s.roleName = ?1 order by p.LastName, p.FirstName";
         List<Provider> rs = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, role);
 
         if (log.isDebugEnabled()) {

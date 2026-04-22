@@ -467,7 +467,7 @@
             <%=msg%>
         </div>
 
-        <form method="post" id="baseurl" name="baseurl" action="/billing/CA/ON/AddEditServiceCode">
+        <form method="post" id="baseurl" name="baseurl" action="<%= request.getContextPath() %>/billing/CA/ON/AddEditServiceCode">
 
             <div class="col-md-10">
                 Service Code <small>5 Characters, e.g. A001A</small><br>

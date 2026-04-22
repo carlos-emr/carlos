@@ -303,7 +303,7 @@
                     %>
 
                     <li>
-                        <a href="<%=request.getContextPath()%>/prevention/AddPrevention?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><%=i.getPicklistName()%>
+                        <a href="<%=request.getContextPath()%>/prevention/ViewAddPreventionData?snomedId=<carlos:encode value='<%= String.valueOf(mapping.getCvcSnomedId()) %>' context="uriComponent"/>&prevention=<carlos:encode value='<%= prevention %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&prevResultDesc=<carlos:encode value='<%= prevResultDesc %>' context="uriComponent"/>"><carlos:encode value='<%= i.getPicklistName() %>'/>
                         </a></li>
                     <% }
                     } %>
@@ -323,4 +323,3 @@
 
     </body>
 </html>
-

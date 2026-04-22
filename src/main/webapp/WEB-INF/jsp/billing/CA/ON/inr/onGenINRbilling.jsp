@@ -214,6 +214,6 @@
 <script LANGUAGE="JavaScript">
     //self.close();
     // self.opener.refresh();
-    location.href = '/billing/CA/ON/ViewInrReportINR?provider_no=all';
+    location.href = '<%= request.getContextPath() %>/billing/CA/ON/ViewInrReportINR?provider_no=all';
 
 </script>

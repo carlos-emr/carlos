@@ -112,7 +112,7 @@
             }
 
             function manageType(stype, stype_name) {
-                url = "/billing/CA/ON/ManageBillingformBilltype";
+                url = "<%= request.getContextPath() %>/billing/CA/ON/ManageBillingformBilltype";
                 pars = "type_id=" + stype + "&type_name=" + stype_name;
 
                 fetch(url + "?" + pars, {method: "get"})
@@ -169,7 +169,7 @@
     <body onload="showManageType(false);">
     <h4><b>oscar<fmt:message key="billing.manageBillingform.msgBilling"/></h4>
 
-    <form name="serviceform" method="post" action="/billing/CA/ON/ManageBillingform">
+    <form name="serviceform" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ManageBillingform">
 
         <div class="card card-body bg-body-tertiary">
             <table width="100%">

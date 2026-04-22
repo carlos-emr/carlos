@@ -159,7 +159,7 @@
                 var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
                 var su = document.forms[0].useProviderMOH.checked;
                 var params = new URLSearchParams({diskId: si, billcenter: ss, useProviderMOH: su});
-                window.location.href = "/billing/CA/ON/ViewOnregenreport?" + params.toString();
+                window.location.href = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnregenreport?" + params.toString();
             }
         }
 
@@ -227,14 +227,14 @@
             <a href="#" class="dropdown-archive dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Show Archive</a>
             <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
                 <%for (int i = 0; i < 5; i++) { %>
-                <li><a class="dropdown-item" href="/billing/CA/ON/ViewBillingONMRI?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
+                <li><a class="dropdown-item" href="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONMRI?year=<%=yearArray[i]%>">YEAR <%=yearArray[i]%>
                 </a></li>
                 <%}%>
             </ul>
         </div>
 
 
-        <form name="form1" method="post" action="/billing/CA/ON/ViewOngenreport" onsubmit="return checkSubmit();">
+        <form name="form1" method="post" action="<%= request.getContextPath() %>/billing/CA/ON/ViewOngenreport" onsubmit="return checkSubmit();">
 
             <div class="col-md-4">
                 Select Provider<br>

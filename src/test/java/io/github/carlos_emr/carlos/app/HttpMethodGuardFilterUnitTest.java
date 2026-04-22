@@ -700,6 +700,46 @@ class HttpMethodGuardFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("Prevention form view gate")
+    class PreventionFormViewGate {
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData")
+        void shouldPassThrough_forGetToViewAddPreventionData() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+
+        @Test
+        @DisplayName("should pass through GET to prevention/ViewAddPreventionData with the exact failing URL parameters")
+        void shouldPassThrough_forGetToViewAddPreventionDataWithParams() throws Exception {
+            // Reproduces the original failing popup URL, now routed through the
+            // dedicated view gate instead of the POST-only AddPrevention action:
+            // /carlos/prevention/ViewAddPreventionData?4=4&prevention=Tuberculosis&demographic_no=1&prevResultDesc=
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/prevention/ViewAddPreventionData");
+            when(request.getParameter("method")).thenReturn(null);
+            when(request.getParameter("4")).thenReturn("4");
+            when(request.getParameter("prevention")).thenReturn("Tuberculosis");
+            when(request.getParameter("demographic_no")).thenReturn("1");
+            when(request.getParameter("prevResultDesc")).thenReturn("");
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+            verify(response, never()).sendError(anyInt());
+        }
+    }
+
+    @Nested
     @DisplayName("Action name extraction")
     class ActionNameExtraction {
 

@@ -195,6 +195,9 @@
         <action name="prevention/ViewAddPreventionDataDisambiguate" class="io.github.carlos_emr.carlos.prevention.gate.ViewAddPreventionDataDisambiguate2Action">
             <result name="success">/WEB-INF/jsp/prevention/AddPreventionDataDisambiguate.jsp</result>
         </action>
+        <action name="prevention/ViewAddPreventionData" class="io.github.carlos_emr.carlos.prevention.gate.ViewAddPreventionData2Action">
+            <result name="success">/WEB-INF/jsp/prevention/AddPreventionData.jsp</result>
+        </action>
         <action name="prevention/ViewPreventionManager" class="io.github.carlos_emr.carlos.prevention.gate.ViewPreventionManager2Action">
             <result name="success">/WEB-INF/jsp/prevention/PreventionManager.jsp</result>
         </action>

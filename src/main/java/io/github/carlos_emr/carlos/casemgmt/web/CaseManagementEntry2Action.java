@@ -563,6 +563,39 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return sanitized.toArray(new String[0]);
     }
 
+    /**
+     * Resolves the reporter program team identifier for a case-management note.
+     *
+     * @param admissionManager AdmissionManager used to load the admission for the current program and demographic
+     * @param programNo String program identifier associated with the note; may be null
+     * @param demographicNo String demographic identifier associated with the note; may be null
+     * @return String team identifier when an admission with a non-null team ID exists; otherwise "0"
+     */
+    static String resolveReporterProgramTeamId(AdmissionManager admissionManager, String programNo, String demographicNo) {
+        if (!NumberUtils.isParsable(programNo) || !NumberUtils.isParsable(demographicNo)) {
+            return "0";
+        }
+
+        int parsedProgramNo = Integer.parseInt(programNo);
+        int parsedDemographicNo = Integer.parseInt(demographicNo);
+        if (parsedProgramNo <= 0 || parsedDemographicNo <= 0) {
+            return "0";
+        }
+
+        try {
+            Admission admission = admissionManager.getAdmission(String.valueOf(parsedProgramNo), parsedDemographicNo);
+            if (admission == null || admission.getTeamId() == null) {
+                return "0";
+            }
+            return String.valueOf(admission.getTeamId());
+        } catch (Exception e) {
+            logger.error("Error resolving reporter program team admission lookup (programNoPresent={}, demographicNoPresent={}, exceptionType={})",
+                    StringUtils.isNotBlank(programNo), StringUtils.isNotBlank(demographicNo),
+                    e.getClass().getSimpleName(), e);
+            return "0";
+        }
+    }
+
     private void setOrRemove(HttpSession session, String key, String value) {
         if (value != null) {
             session.setAttribute(key, value); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -996,8 +1029,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         AdmissionManager admissionManager = (AdmissionManager) ctx.getBean(AdmissionManager.class);
 
         String role = null;
-        String team = null;
-
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
@@ -1007,12 +1038,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        try {
-            team = String.valueOf((admissionManager.getAdmission(note.getProgram_no(), Integer.valueOf(note.getDemographic_no()))).getTeamId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            team = "0";
-        }
+        String team = resolveReporterProgramTeamId(admissionManager, note.getProgram_no(), note.getDemographic_no());
         note.setReporter_program_team(team);
         if (appointmentNo != null && appointmentNo.length() > 0) {
             try {
@@ -1751,13 +1777,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setReporter_caisi_role(role);
 
-        String team = null;
-        try {
-            team = String.valueOf((admissionManager.getAdmission(note.getProgram_no(), Integer.valueOf(note.getDemographic_no()))).getTeamId());
-        } catch (Exception e) {
-            logger.error("Error", e);
-            team = "0";
-        }
+        String team = resolveReporterProgramTeamId(admissionManager, note.getProgram_no(), note.getDemographic_no());
 
         note.setReporter_program_team(team);
 

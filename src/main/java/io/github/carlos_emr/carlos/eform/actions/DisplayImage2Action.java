@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
@@ -70,6 +71,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
+    static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -85,11 +87,19 @@ public class DisplayImage2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
+        String fileName = request.getParameter("imagefile");
+        boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
+        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+            if (!hasEformRead
+                    && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
+                throw new SecurityException("missing required sec object (_eform or _prevention)");
+            }
+        } else if (!hasEformRead) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        StreamData data = process();
+        File validatedFile = getValidatedImageFile(fileName);
+        StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
         InputStream stream = data.stream();
 
@@ -108,12 +118,12 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
-    public StreamData process() throws Exception {
-
-        String fileName = request.getParameter("imagefile");
+    private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
         }
+
+        validateRequestedFileName(fileName);
 
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -121,7 +131,16 @@ public class DisplayImage2Action extends ActionSupport {
             throw new Exception("Directory: " + home_dir + " does not exist");
         }
 
-        File file = PathValidationUtils.validatePath(fileName, directory);
+        return PathValidationUtils.validatePath(fileName, directory);
+    }
+
+    private void validateRequestedFileName(String fileName) {
+        if (!fileName.equals(FilenameUtils.getName(fileName))) {
+            throw new SecurityException("Path traversal detected in imagefile parameter");
+        }
+    }
+
+    private StreamData process(File file, String fileName) throws Exception {
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         

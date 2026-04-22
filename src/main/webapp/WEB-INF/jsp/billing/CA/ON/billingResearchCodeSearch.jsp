@@ -95,7 +95,7 @@
     (ICHPPC) Code Search <font face="Arial, Helvetica, sans-serif"
                                color="#FF0000">(Maximum 3 selections)</font></font></h3>
 <form name="servicecode" id="servicecode" method="post"
-      action="/billing/CA/ON/BillingResearchCodeUpdate">
+      action="<%= request.getContextPath() %>/billing/CA/ON/BillingResearchCodeUpdate">
     <table width="600" border="1">
 
         <tr bgcolor="#FFBC9B">

@@ -226,18 +226,18 @@
             <tr>
                 <td class="text-center">
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
+                       onclick="popupPage(600,800, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONDisplay?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
                        title="${msgBillingDisplay}"><carlos:encode value='<%= obj.getId() %>' context="html"/>
                     </a>
 
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="w">
                         <a href="javascript:void(0)"
-                           onclick="popupPage(600,800, '/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
+                           onclick="popupPage(600,800, '<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')"
                            title="${msgBillingCorrection}">${msgEdit}</a>
                     </security:oscarSec>
 
                     <a href="javascript:void(0)"
-                       onclick="popupPage(600,800, '/billing/CA/ON/ViewBillingON3rdInv?billingNo=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')">${msgPrint}</a>
+                       onclick="popupPage(600,800, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv?billingNo=<carlos:encode value='<%= obj.getId() %>' context="uriComponent"/>')">${msgPrint}</a>
                 </td>
                 <td class="text-center"><carlos:encode value='<%= obj.getLast_name() + ", " + obj.getFirst_name() %>' context="html"/></td>
                 <td class="text-center"><carlos:encode value='<%= obj.getBilling_date() %>' context="html"/></td>
