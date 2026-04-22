@@ -971,6 +971,19 @@
                                 </oscar:oscarPropertiesCheck>
                             </caisi:isModuleLoad>
 
+                            <%
+                                String loggedInProviderNo = loggedInInfo1.getLoggedInProviderNo();
+                                String loggedInProviderName = StringUtils.trim(
+                                        StringUtils.defaultString(loggedInInfo1.getLoggedInProvider().getFirstName())
+                                                + " "
+                                                + StringUtils.defaultString(loggedInInfo1.getLoggedInProvider().getLastName()));
+                                String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
+                                String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
+                                String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
+                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
+                                String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
+                                String scheduleAdministrationUrl = request.getContextPath() + "/administration";
+                            %>
                             <fmt:message var="ticklerTitle" key="global.tickler"/>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                                 <li>
@@ -985,9 +998,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+\" \"+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>', function(){ popupOscarRx(600,1024,'<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+\" \"+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleMessengerUrl%>', function(){ popupOscarRx(600,1024,'<%=scheduleMessengerUrl%>'); });"
                                            title="<fmt:message key="global.messenger"/>">
-                                            <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                             <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -995,9 +1008,9 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                     <li id="con">
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+\" \"+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>', function(){ popupOscarRx(625,1024,'<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(loggedInInfo1.getLoggedInProvider().getFirstName()+\" \"+loggedInInfo1.getLoggedInProvider().getLastName(), StandardCharsets.UTF_8)%>'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleConsultationUrl%>', function(){ popupOscarRx(625,1024,'<%=scheduleConsultationUrl%>'); });"
                                            title="<fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
-                                            <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
+                                             <span id="oscar_aged_consults"><fmt:message key="global.con"/></span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1016,7 +1029,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="return openScheduleSection('<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', function(){ popup('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView'); });"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrl%>', function(){ popup('700', '1024', '<%=scheduleDocumentReportUrl%>', 'edocView'); });"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1026,7 +1039,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           ONCLICK="return openScheduleSection('<%= request.getContextPath() %>/report/ViewReportindex', function(){ popupPage2('<%= request.getContextPath() %>/report/ViewReportindex','reportPage'); });"
+                                           ONCLICK="return openScheduleSection('<%=scheduleReportIndexUrl%>', function(){ popupPage2('<%=scheduleReportIndexUrl%>','reportPage'); });"
                                            TITLE='<fmt:message key="global.genReport"/>'><fmt:message key="global.report"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1057,7 +1070,7 @@
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
                                            title="<fmt:message key="admin.admin.page.title"/>"
-                                       onclick="return openScheduleSection('<%=request.getContextPath()%>/administration', function(){ newWindow('<%=request.getContextPath()%>/administration','admin'); });"><fmt:message key="provider.mainMenu.administration"/></a>
+                                       onclick="return openScheduleSection('<%=scheduleAdministrationUrl%>', function(){ newWindow('<%=scheduleAdministrationUrl%>','admin'); });"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
                                 </security:oscarSec>
