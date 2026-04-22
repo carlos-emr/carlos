@@ -230,6 +230,7 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
 
             String result = action.html5MultiUpload();
 
+            addEditDocumentActionMock.verify(() -> AddEditDocument2Action.writeLocalFile(any(InputStream.class), eq("echart-upload.pdf")));
             assertThat(result).isNull();
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getHeader("oscar_error")).isEqualTo(ResourceBundle.getBundle("oscarResources")
