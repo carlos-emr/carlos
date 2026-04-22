@@ -61,6 +61,15 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
         HashMap<String, Object> loadedForm = EFormUtil.loadEForm(persistedForm.getId().toString());
 
         assertThat(loadedForm).containsEntry("fid", persistedForm.getId().toString());
-        assertThat(loadedForm.get("fid")).isInstanceOf(String.class);
+    }
+
+    @Test
+    @DisplayName("should return no such form message when loading unknown eForm")
+    void shouldReturnNoSuchFormMessage_whenLoadingUnknownEForm() {
+        HashMap<String, Object> loadedForm = EFormUtil.loadEForm(String.valueOf(Integer.MAX_VALUE));
+
+        assertThat(loadedForm).doesNotContainKey("fid");
+        assertThat(loadedForm).containsEntry("formName", "");
+        assertThat(loadedForm).containsEntry("formHtml", "No Such Form in Database");
     }
 }
