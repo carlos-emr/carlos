@@ -159,6 +159,25 @@ class AddEditDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should fall back to temp filename when Struts 7 original name is only a path")
+    void shouldFallBackToTempFilename_whenStruts7OriginalNameIsOnlyAPath() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document", ".pdf");
+
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getInputName()).thenReturn("docFile");
+        when(uploadedFile.getAbsolutePath()).thenReturn(tempUploadFile.getAbsolutePath());
+        when(uploadedFile.getOriginalName()).thenReturn("/");
+        when(uploadedFile.getContentType()).thenReturn("application/pdf");
+
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getDocFile()).isNotNull();
+        assertThat(action.getDocFile().getAbsolutePath()).isEqualTo(tempUploadFile.getAbsolutePath());
+        assertThat(action.getDocFileFileName()).isEqualTo(tempUploadFile.getName());
+        assertThat(action.getDocFileContentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
     @DisplayName("should prefer docFile over filedata regardless of list ordering")
     void shouldPreferDocFileOverFiledata_regardlessOfListOrdering() throws Exception {
         tempUploadFile = File.createTempFile("add-edit-document", ".pdf");

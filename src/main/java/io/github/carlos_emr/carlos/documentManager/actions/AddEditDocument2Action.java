@@ -669,11 +669,8 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
     private String resolveUploadedFileName(File uploadedFile, String originalName) {
-        String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : uploadedFile.getName();
-        if (!filled(candidate)) {
-            candidate = uploadedFile.getName();
-        }
-        return candidate;
+        String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
+        return filled(candidate) ? candidate : uploadedFile.getName();
     }
 
     private boolean filled(String s) {
