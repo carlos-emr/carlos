@@ -141,18 +141,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         int numberOfPages = 0;
         File validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
-
-        // Defense in depth: ensure the validated upload path is still contained in the
-        // upload temp directory associated with the received multipart file.
-        File uploadBaseDir = uploadedDocFile.getParentFile();
-        if (uploadBaseDir == null) {
-            throw new SecurityException("Invalid upload base directory");
-        }
-        Path canonicalBase = uploadBaseDir.getCanonicalFile().toPath();
-        Path canonicalValidated = validatedSource.getCanonicalFile().toPath();
-        if (!canonicalValidated.startsWith(canonicalBase)) {
-            throw new SecurityException("Invalid upload path");
-        }
+        Path validatedSourcePath = resolveValidatedUploadPath(validatedSource);
 
         String originalFileName = resolveUploadedFileName(validatedSource, this.docFileFileName);
         String fileName = MiscUtils.sanitizeFileName(originalFileName);
@@ -177,7 +166,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         }
         // The upload source was validated above; keep all subsequent file I/O scoped to the
         // validated temp file reference and use try-with-resources for explicit stream cleanup.
-        try (InputStream inputStream = Files.newInputStream(canonicalValidated)) {
+        try (InputStream inputStream = Files.newInputStream(validatedSourcePath)) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
             if (!file.exists() || file.length() < validatedSource.length()) {
@@ -341,6 +330,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 throw new FileNotFoundException();
             }
             File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
             if (validatedDocFile.length() == 0) {
                 errors.put("uploaderror", "dms.error.uploadError");
                 throw new FileNotFoundException();
@@ -358,7 +348,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName2 = newDoc.getFileName();
 
             // save local file
-            try (InputStream inputStream = Files.newInputStream(validatedDocFile.toPath())) {
+            try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
                 writeLocalFile(inputStream, fileName2);
             }
             newDoc.setContentType(this.docFileContentType);
@@ -486,12 +476,14 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             String fileName = "";
             boolean updateFileContent = false;
+            File validatedDocFile = null;
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
                 File docFile = this.getDocFile();
                 if (docFile != null && docFile.exists()) {
-                    fileName = MiscUtils.sanitizeFileName(resolveUploadedFileName(docFile, this.docFileFileName));
+                    validatedDocFile = PathValidationUtils.validateUpload(docFile);
+                    fileName = MiscUtils.sanitizeFileName(resolveUploadedFileName(validatedDocFile, this.docFileFileName));
                     updateFileContent = true; // set update to true
                 }
             }
@@ -527,10 +519,10 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             // if the update behavior is true, get the file name
             if (updateFileContent) {
-                File validatedDocFile = PathValidationUtils.validateUpload(this.getDocFile());
+                Path validatedDocPath = resolveValidatedUploadPath(validatedDocFile);
                 fileName = MiscUtils.sanitizeFileName(newDoc.getFileName());
                 // save local file
-                try (InputStream inputStream = Files.newInputStream(validatedDocFile.toPath())) {
+                try (InputStream inputStream = Files.newInputStream(validatedDocPath)) {
                     writeLocalFile(inputStream, fileName);
                 }
                 if (fileName.toLowerCase().endsWith(".pdf")) {
@@ -704,6 +696,28 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String resolveUploadedFileName(File uploadedFile, String originalName) {
         String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
         return filled(candidate) ? candidate : uploadedFile.getName();
+    }
+
+    /**
+     * Resolves a validated upload file to a canonical path for file reads.
+     *
+     * @param validatedUpload File the upload file previously returned by {@link PathValidationUtils#validateUpload(File)}
+     * @return Path the canonical upload path
+     * @throws IOException if canonical resolution fails
+     */
+    private Path resolveValidatedUploadPath(File validatedUpload) throws IOException {
+        File uploadBaseDir = validatedUpload.getParentFile();
+        if (uploadBaseDir == null) {
+            throw new SecurityException("Invalid upload base directory");
+        }
+
+        Path canonicalBase = uploadBaseDir.getCanonicalFile().toPath();
+        Path canonicalValidated = validatedUpload.getCanonicalFile().toPath();
+        if (!canonicalValidated.startsWith(canonicalBase)) {
+            throw new SecurityException("Invalid upload path");
+        }
+
+        return canonicalValidated;
     }
 
     private boolean filled(String s) {
