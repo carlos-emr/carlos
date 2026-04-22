@@ -1,0 +1,4 @@
+## 2024-05-24 - [CRITICAL] SQL Injection in ConsultationRequestDaoImpl via HQL string concatenation
+**Vulnerability:** A critical SQL/HQL injection vulnerability was found in `ConsultationRequestDaoImpl.java` where user-provided inputs (`team`, `startDate`, `endDate`) were being directly concatenated into a dynamic JPQL query string in the `getConsults` method.
+**Learning:** Even when using ORMs like Hibernate and creating JPQL/HQL queries via `entityManager.createQuery()`, dynamically appending variables (especially user-controlled ones like `team`) directly into the query string leads to injection vulnerabilities.
+**Prevention:** Always use parameterized queries (named parameters like `:team` or positional placeholders like `?1`) and bind the values using `query.setParameter()` instead of concatenating them directly into the HQL string. This ensures the underlying ORM handles escaping correctly and prevents execution of malicious SQL commands.
