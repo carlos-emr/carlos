@@ -1,0 +1,4 @@
+## 2026-04-22 - Fix SQL Injection in Appointment Status Update
+**Vulnerability:** A SQL injection vulnerability existed in `OscarAppointmentDaoImpl.java` where a dynamic `IN` clause was built using string concatenation for an HQL query (`update Appointment set status=?1 where id in (" + idClean.toString() + ")`). Although the code verified `StringUtils.isNumeric(id)`, constructing queries using string concatenation with an `IN` clause is insecure.
+**Learning:** JPA/Hibernate natively supports passing a `Collection` (like a `List`) directly to a named or positional parameter (e.g., `where id in (?2)`) for `IN` clauses.
+**Prevention:** Always use parameterized queries for `IN` clauses instead of manually concatenating string values, even if the inputs appear to be pre-sanitized or validated as numbers.
