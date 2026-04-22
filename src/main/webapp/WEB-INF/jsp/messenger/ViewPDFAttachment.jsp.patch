@@ -1,0 +1,20 @@
+--- src/main/webapp/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp
++++ src/main/webapp/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp
+@@ -174,7 +174,7 @@
+                     if (attVector != null) {
+                         for (int i = 0; i < attVector.size(); i++) {
+                     %>
+-                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
++                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
+                         </td>
+                     <%
+                         }
+@@ -189,7 +189,7 @@
+         <div class="col-12 p-3 text-center">
+             <form method="post" action="ViewPDFAttachment.jsp" name="attachForm" id="attachForm">
+                 <input type="hidden" name="msgId" id="msgId" value="<%= SafeEncode.forHtmlAttribute(msgId) %>"/>
+-                <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
++                <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
+                 <input type="hidden" name="index" id="index" value="<%= SafeEncode.forHtmlAttribute(Integer.toString(index + 1)) %>"/>
+                 <button type="submit" class="btn btn-primary shadow-sm" name="button" value="next">
+                     <i class="fa-solid fa-arrow-right me-2"></i>

@@ -168,13 +168,13 @@
         <form action="${pageContext.request.contextPath}/messenger/ViewPDFFile" method="post">
             <table class="table table-sm table-bordered">
 
-                            <% 
+                            <%
                                 // Extract PDF file titles from attachment data
-                                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttch, "TITLE" ); 
+                                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttch, "TITLE" );
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
+                        <td><%= Encode.forHtml((String) attVector.get(i)) %>
                         </td>
                         <td>
                           <button type="submit"
@@ -189,7 +189,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
+                        <input type="hidden" name="attachment" id="attachment" value="<%= Encode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
     </div>

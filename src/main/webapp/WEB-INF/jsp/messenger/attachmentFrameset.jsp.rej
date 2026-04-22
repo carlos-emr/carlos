@@ -1,0 +1,20 @@
+--- src/main/webapp/WEB-INF/jsp/messenger/attachmentFrameset.jsp
++++ src/main/webapp/WEB-INF/jsp/messenger/attachmentFrameset.jsp
+@@ -57,7 +57,7 @@
+         var url = '<%= SafeEncode.forJavaScript(url) %>';
+     </script>
+ </head>
+-<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
++<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
+ <frameset id="attachFrameset" cols="350px,*" border="0">
+     <frame id="frmInbox" name="frmInbox" src=""
+            noresize="noresize" scrolling="no" style="overflow: hidden;"/>
+@@ -72,7 +72,7 @@
+         <frame id="frmPreview" name="frmPreview" src="<%= SafeEncode.forHtmlAttribute(pdfPath) %>" noresize="noresize"/>
+     <% } else { %>
+         <frame id="frmPreview" name="frmPreview"
+-               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= Encode.forUriComponent(demographic_no) %>"
++               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"
+                noresize="noresize"/>
+     <% } %>
+ </frameset>

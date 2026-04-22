@@ -1,0 +1,63 @@
+--- src/main/webapp/WEB-INF/jsp/messenger/ViewAttachment.jsp
++++ src/main/webapp/WEB-INF/jsp/messenger/ViewAttachment.jsp
+@@ -281,7 +281,7 @@
+         Element root = doc.getDocumentElement();
+         if (root != null) {
+             String safeRootLabel = root.getAttribute("label") == null ? "" : root.getAttribute("label");
+-            out.print(spanStartRoot + Encode.forHtml(safeRootLabel) + spanEnd);
++            out.print(spanStartRoot + SafeEncode.forHtml(safeRootLabel) + spanEnd);
+             NodeList records = root.getChildNodes();
+             for (int i = 0; i < records.getLength(); i++) {
+                 Node n = records.item(i);
+@@ -296,7 +296,7 @@
+             Element tbl = (Element) n;
+             String spanStart = "<span style=\"color:#aa0000;font-size:12px;font-weight:bold;margin-left:20px;\">";
+             String spanEnd = "</span><br>\n";
+-            out.print(spanStart + Encode.forHtml(tbl.getAttribute("name")) + spanEnd);
++            out.print(spanStart + SafeEncode.forHtml(tbl.getAttribute("name")) + spanEnd);
+             NodeList records = tbl.getChildNodes();
+             for (int i = 0; i < records.getLength(); i++) {
+                 Node node = records.item(i);
+@@ -315,8 +315,8 @@
+             Element item = (Element) n;
+             String spanStart = "<span style=\"color:#0000aa;font-size:12px;margin-left:30px;\">";
+             String spanEnd = "</span><br>\n";
+-            out.print(Encode.forHtml(item.getAttribute("name")) + ": "
+-                    + Encode.forHtml(item.getAttribute("value")) + spanEnd);
++            out.print(SafeEncode.forHtml(item.getAttribute("name")) + ": "
++                    + SafeEncode.forHtml(item.getAttribute("value")) + spanEnd);
+         }
+
+         public void doPrintForm(Node n) {
+@@ -338,9 +338,9 @@
+                         String spanStart = "<span style=\"color:#0000aa;font-size:12px;margin-left:30px;\">";
+                         String spanEnd = "</span><br>\n";
+                         out.print(spanStart);
+-                        out.print(Encode.forHtml(fld.getAttribute("name")) + ": ");
++                        out.print(SafeEncode.forHtml(fld.getAttribute("name")) + ": ");
+                         if (!fld.getAttribute("value").trim().equals("")) {
+-                            out.print(Encode.forHtml(fld.getAttribute("value")));
++                            out.print(SafeEncode.forHtml(fld.getAttribute("value")));
+                         } else {
+                             out.print("_________________");
+                         }
+@@ -394,15 +394,15 @@
+         <div class="NoPrint">
+             <form name="print">
+                 <input type="button" value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.getLocalizedString("messenger.ViewAttachment.btnClose")) %>"
+-                    onclick="if (confirm('<%= Encode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
++                    onclick="if (confirm('<%= SafeEncode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
+                 <input type="button" value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.getLocalizedString("messenger.ViewAttachment.btnImport")) %>"
+                     onclick="document.importform.submit()"> <input type="button" value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.getLocalizedString("messenger.ViewAttachment.btnPrint")) %>"
+                     onclick="window.print()">
+             </form>
+             <form name="importform"
+                 action="<%=request.getContextPath()%>/messenger/ImportAttachment.do" method="post">
+-                <input type="hidden" name="xmldata"
+-                    value="<%= Encode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
+-                    type="hidden" name="id" value="<%= Encode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
++                <input type="hidden" name="xmldata"
++                    value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
++                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
+             </form>
+         </div>
