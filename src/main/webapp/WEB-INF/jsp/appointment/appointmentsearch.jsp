@@ -362,7 +362,7 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%=c.getCode()%>" <%=selected%>><%=c.getCode()%> - <%=c.getDescription() %>
+                            <option value="<%= Encode.forHtmlAttribute(String.valueOf(c.getCode())) %>" <%=selected%>><%= Encode.forHtml(String.valueOf(c.getCode())) %> - <%= Encode.forHtml(c.getDescription()) %>
                             </option>
                             <%
                                 }
