@@ -169,6 +169,7 @@ jobs:
             echo 'Compiling and running SpotBugs analysis'
             echo '========================================='
             mvn -B compile spotbugs:spotbugs \
+              -Dspotbugs.maxHeap=4096 \
               -Pspotbugs,skip-dependency-lock \
               -DskipTests \
               -T 1C
