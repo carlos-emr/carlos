@@ -162,7 +162,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
             return null;
         }
-        // Validate uploaded source at point of use for static analysis visibility
+        // The upload source was validated above; keep all subsequent file I/O scoped to the
+        // validated temp file reference and use try-with-resources for explicit stream cleanup.
         try (InputStream inputStream = Files.newInputStream(validatedSource.toPath())) {
             File file = writeLocalFile(inputStream, fileName); // write file to local dir
 
@@ -675,7 +676,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
      * Resolves the safest filename to associate with an uploaded temp file.
      * Extracts only the basename from the supplied original name to discard any
      * path components, and falls back to the validated temp file name when the
-     * original value is null, blank, or path-only.
+     * original value is null, blank, or path-only. The fallback temp filename may
+     * not match the client-provided extension, but it remains a safe basename for
+     * later sanitization and storage.
      *
      * @param uploadedFile File the validated temporary upload file
      * @param originalName String the original client-supplied filename, if any
