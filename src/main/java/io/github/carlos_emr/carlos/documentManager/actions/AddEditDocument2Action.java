@@ -661,6 +661,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
 
         if (selected != null) {
+            // Validate once when binding the Struts 7 upload so the action only stores
+            // temp files from approved locations. Business methods re-validate again
+            // immediately before file I/O for defense in depth and static-analysis visibility.
             File validatedUpload = PathValidationUtils.validateUpload(new File(selected.getAbsolutePath()));
             this.docFile = validatedUpload;
             this.docFileFileName = resolveUploadedFileName(validatedUpload, selected.getOriginalName());
@@ -668,6 +671,16 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         }
     }
 
+    /**
+     * Resolves the safest filename to associate with an uploaded temp file.
+     * Extracts only the basename from the supplied original name to discard any
+     * path components, and falls back to the validated temp file name when the
+     * original value is null, blank, or path-only.
+     *
+     * @param uploadedFile File the validated temporary upload file
+     * @param originalName String the original client-supplied filename, if any
+     * @return String the normalized filename to use for later sanitization/storage
+     */
     private String resolveUploadedFileName(File uploadedFile, String originalName) {
         String candidate = filled(originalName) ? FilenameUtils.getName(originalName) : null;
         return filled(candidate) ? candidate : uploadedFile.getName();
