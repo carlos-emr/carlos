@@ -304,7 +304,9 @@ public class NotesService extends AbstractServiceImpl {
     @Produces("application/json")
     public NoteTo1 tmpSaveNote(@PathParam("demographicNo") Integer demographicNo, NoteTo1 note) {
         // PHI: note may contain clinical content; log only identifier
-        logger.debug("autosave noteId={}", note != null ? note.getNoteId() : null);
+        if (logger.isDebugEnabled()) {
+            logger.debug("autosave noteId={}", note != null ? note.getNoteId() : null);
+        }
 
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //  LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProvider().getProviderNo();
@@ -382,7 +384,9 @@ public class NotesService extends AbstractServiceImpl {
         }
 
         // PHI: note may contain clinical content; log only identifier
-        logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
+        if (logger.isDebugEnabled()) {
+            logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1318,9 +1322,11 @@ public class NotesService extends AbstractServiceImpl {
          * do the restore if (restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo, demono, programId); if (tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
         // PHI: do not log full note object; log id only
-        logger.debug("note id={}", note != null ? note.getId() : null);
-        logger.debug("Set Encounter Type: {}", note.getEncounter_type());
-        logger.debug("Fetched Note {}", note.getId());
+        if (logger.isDebugEnabled()) {
+            logger.debug("note id={}", note != null ? note.getId() : null);
+            logger.debug("Set Encounter Type: {}", note != null ? note.getEncounter_type() : null);
+            logger.debug("Fetched Note {}", note != null ? note.getId() : null);
+        }
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -1466,7 +1472,7 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(Long.valueOf(noteId));
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:{}{}", l.getKeyVal(), l.getValue());
+            logger.debug("NOTE EXT key={} value={}", l.getKeyVal(), l.getValue());
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getDateValueStr());
@@ -1530,7 +1536,7 @@ public class NotesService extends AbstractServiceImpl {
         noteExt.setNoteId(noteId);
 
         for (CaseManagementNoteExt l : lcme) {
-            logger.debug("NOTE EXT KEY:{}{}", l.getKeyVal(), l.getValue());
+            logger.debug("NOTE EXT key={} value={}", l.getKeyVal(), l.getValue());
 
             if (l.getKeyVal().equals(CaseManagementNoteExt.STARTDATE)) {
                 noteExt.setStartDate(l.getValue());

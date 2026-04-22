@@ -29,10 +29,10 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.text.ParseException;
-import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -74,7 +74,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 public final class DateUtils {
     /** JavaScript-compatible ISO date format pattern */
-    public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
+    public static final String JS_ISO_DATE_FORMAT = "yy-MM-dd";
 
     /** Cached, thread-safe formatters for fixed patterns used internally. */
     private static final DateTimeFormatter ISO_DATE_FORMATTER =
@@ -90,20 +90,32 @@ public final class DateUtils {
 
     /**
      * Thread-safe parse helper using a pre-built {@link DateTimeFormatter}.
+     *
+     * <p>The helper preserves legacy {@code SimpleDateFormat} compatibility for patterns that may
+     * include a zone or offset by trying, in order: {@link ZonedDateTime}, {@link OffsetDateTime},
+     * {@link LocalDateTime}, then {@link LocalDate}. Parsed values that do not carry explicit
+     * zone/offset information are interpreted in the system default zone.</p>
      */
     private static Date parseWithFormatter(String s, DateTimeFormatter formatter) throws ParseException {
         try {
-            TemporalAccessor parsed = formatter.parse(s);
+            TemporalAccessor parsed = formatter.parseBest(s,
+                    ZonedDateTime::from,
+                    OffsetDateTime::from,
+                    LocalDateTime::from,
+                    LocalDate::from,
+                    Instant::from);
             ZoneId zone = ZoneId.systemDefault();
             Instant instant;
-            try {
-                instant = LocalDateTime.from(parsed).atZone(zone).toInstant();
-            } catch (DateTimeException e) {
-                try {
-                    instant = LocalDate.from(parsed).atStartOfDay(zone).toInstant();
-                } catch (DateTimeException e2) {
-                    instant = Instant.from(parsed);
-                }
+            if (parsed instanceof ZonedDateTime) {
+                instant = ((ZonedDateTime) parsed).toInstant();
+            } else if (parsed instanceof OffsetDateTime) {
+                instant = ((OffsetDateTime) parsed).toInstant();
+            } else if (parsed instanceof LocalDateTime) {
+                instant = ((LocalDateTime) parsed).atZone(zone).toInstant();
+            } else if (parsed instanceof LocalDate) {
+                instant = ((LocalDate) parsed).atStartOfDay(zone).toInstant();
+            } else {
+                instant = Instant.from(parsed);
             }
             return Date.from(instant);
         } catch (DateTimeParseException e) {

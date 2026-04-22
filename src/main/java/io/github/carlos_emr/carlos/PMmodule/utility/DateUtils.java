@@ -95,8 +95,8 @@ public class DateUtils {
 
     public static String getDate(Date date) {
 
-        // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
-        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(date);
+        // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
+        return DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT).format(date);
 
     }
 
@@ -202,8 +202,8 @@ public class DateUtils {
 
         try {
 
-            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
-            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
+            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT);
 
             Date data = sdf.parse(date);
 

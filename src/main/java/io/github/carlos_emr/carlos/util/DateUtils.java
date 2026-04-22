@@ -62,6 +62,9 @@ public final class DateUtils {
 
     private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
     private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
+    private static final DateTimeFormatter DEFAULT_DATE_FORMATTER = DateTimeFormatter.ofPattern(dateFormatString);
+    private static final DateTimeFormatter DEFAULT_DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern(dateFormatString + " " + timeFormatString);
 
     private static ZonedDateTime toZoned(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault());
@@ -74,7 +77,7 @@ public final class DateUtils {
      */
     private static Date parseWithFormatter(String s, String pattern, Locale locale) {
         DateTimeFormatter formatter = (locale == null)
-                ? DateTimeFormatter.ofPattern(pattern)
+                ? getDefaultFormatter(pattern)
                 : DateTimeFormatter.ofPattern(pattern, locale);
         TemporalAccessor parsed = formatter.parse(s);
         ZoneId zone = ZoneId.systemDefault();
@@ -89,6 +92,16 @@ public final class DateUtils {
             }
         }
         return Date.from(instant);
+    }
+
+    private static DateTimeFormatter getDefaultFormatter(String pattern) {
+        if (dateFormatString.equals(pattern)) {
+            return DEFAULT_DATE_FORMATTER;
+        }
+        if ((dateFormatString + " " + timeFormatString).equals(pattern)) {
+            return DEFAULT_DATE_TIME_FORMATTER;
+        }
+        return DateTimeFormatter.ofPattern(pattern);
     }
 
     /**
@@ -235,7 +248,7 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        return DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(date);
+        return DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT).format(date);
 
     }
 
@@ -298,8 +311,8 @@ public final class DateUtils {
 
         try {
 
-            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (short date/time in the default locale).
-            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+            // Preserves legacy behaviour of {@code new SimpleDateFormat()} (default date/time style in the default locale).
+            DateFormat sdf = DateFormat.getDateTimeInstance(DateFormat.DEFAULT, DateFormat.DEFAULT);
 
             Date data = sdf.parse(date);
 

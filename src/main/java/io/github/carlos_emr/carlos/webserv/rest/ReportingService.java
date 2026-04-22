@@ -271,9 +271,12 @@ public class ReportingService extends AbstractServiceImpl {
         PreventionReport pr = preventionReportDao.find(id);
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
+            if (logger.isDebugEnabled()) {
+                String reportJson = pr != null ? pr.getJson() : null;
+                logger.debug("Loaded prevention report id={} jsonLength={}", id,
+                        reportJson != null ? reportJson.length() : 0);
+            }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
-            logger.info("preventionSearchTo1: " + preventionSearchTo1);
             ReportBuilder reportBuilder = new ReportBuilder();
             report = reportBuilder.runReport(getLoggedInInfo(), providerNo, preventionSearchTo1);
             if (!pr.isActive()) {
@@ -302,7 +305,11 @@ public class ReportingService extends AbstractServiceImpl {
         PreventionReport pr = preventionReportDao.find(id);
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
-            logger.info("pr: " + pr.getJson());
+            if (logger.isDebugEnabled()) {
+                String reportJson = pr != null ? pr.getJson() : null;
+                logger.debug("Loaded prevention report id={} jsonLength={}", id,
+                        reportJson != null ? reportJson.length() : 0);
+            }
             PreventionSearchTo1 preventionSearchTo1 = mapper.readValue(pr.getJson(), PreventionSearchTo1.class);
             return jakarta.ws.rs.core.Response.ok(preventionSearchTo1).build();
         } catch (Exception e) {

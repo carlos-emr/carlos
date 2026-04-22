@@ -60,8 +60,10 @@ public class FrmRecordHelp {
 
     /**
      * Cached, thread-safe formatters derived from {@link #_dateFormat} / {@link #_newDateFormat}.
-     * They are rebuilt inside {@link #setDateFormat(String)} so that per-call formatter construction
-     * is avoided in the hot path of {@link #getDateFieldOrNull} / {@link #parseDateFieldOrNull}.
+     * {@link #_dateFormatter} is rebuilt inside {@link #setDateFormat(String)} when
+     * {@link #_dateFormat} changes, while {@link #_newDateFormatter} remains a cached formatter
+     * for the fixed {@link #_newDateFormat} pattern. Both avoid per-call formatter construction
+     * in the hot path of {@link #getDateFieldOrNull} / {@link #parseDateFieldOrNull}.
      */
     private DateTimeFormatter _dateFormatter = DateTimeFormatter.ofPattern(_dateFormat);
     private DateTimeFormatter _newDateFormatter = DateTimeFormatter.ofPattern(_newDateFormat);
