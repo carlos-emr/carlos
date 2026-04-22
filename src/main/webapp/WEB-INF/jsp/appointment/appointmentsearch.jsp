@@ -60,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ page import="io.github.carlos_emr.carlos.util.SafeEncode" %
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -167,7 +168,7 @@
             // Provide default values for windowname, vheight, and vwidth incase popupPage2
             // is called with only 1 or 2 arguments (must always specify varpage)
             windowname = typeof (windowname) != 'undefined' ? windowname : 'apptProviderSearch';
-            vheight = typeof (vheight) != 'undefined' ? vheight : '1024px';
+            vheight = typeof (vheight) != 'undefined' ? vheight : '700px';
             vwidth = typeof (vwidth) != 'undefined' ? vwidth : '1024px';
             var page = "" + varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
@@ -232,11 +233,6 @@
     <div class="page-header-bar d-flex align-items-center justify-content-between
                 py-2 mb-3 border-bottom" id="header">
         <div class="d-flex align-items-center gap-2">
-            <!--
-                Optional Fontawesome Icon — replace "bi-file-earmark-text"
-                with any icon from https://icons.getbootstrap.com/
-                or remove the <i> tag entirely if no icon is needed.
-            -->
             <i class="fa-solid fa-magnifying-glass"></i>
             <span class="fw-semibold"><fmt:message key="appointment.searchnext.2ndtitle"/></span>
         </div>
@@ -285,8 +281,8 @@
                                         selected = " selected=\"selected\" ";
                                     }
                             %>
-                            <option value="<%= Encode.forHtmlAttribute(provider.getProviderNo()) %>" <%= selected %>><%= Encode.forHtml(provider.getFormattedName()) %>
-                            </option>
+                            <option value="<%=SafeEncode.forHtmlAttribute(provider.getProviderNo())%>" <%=selected%>><%=SafeEncode.forHtml(provider.getFormattedName())%>
++                            </option>
                             <%
                                 }
                             %>
@@ -297,7 +293,7 @@
                          <label for="dayOfWeek" class="col-sm-4 col-form-label">
                             <fmt:message key="appointment.searchnext.day_of_week"/>:
                         </label>
-                        <select name="dayOfWeek" id="dayOfWeek" class="form-control form-select w-50">
+                        <select name="dayOfWeek" id="dayOfWeek" class="form-select w-50">
                             <%
                                 for (LabelValueBean lvb : dayOfWeekOptions) {
                                     String selected = new String();
@@ -318,7 +314,7 @@
                             <fmt:message key="appointment.searchnext.time_of_day"/>:
                         </label>
 
-                        <select name="startTime" id="startTime" class="form-control form-select w-25">
+                        <select name="startTime" id="startTime" class="form-select w-25">
                             <%
                                 for (LabelValueBean lvb : startTimeOfDayOptions) {
                                     String selected = new String();
@@ -333,7 +329,7 @@
                             %>
                         </select>
                         &nbsp;<fmt:message key="appointment.searchnext.to"/>&nbsp;
-                        <select name="endTime"  class="form-control form-select w-25">
+                        <select name="endTime" id="endTime" class="form-select w-25">
                             <%
                                 for (LabelValueBean lvb : endTimeOfDayOptions) {
                                     String selected = new String();
@@ -361,9 +357,9 @@
                                     if (String.valueOf(c.getCode()).equals(code)) {
                                         selected = " selected=\"selected\" ";
                                     }
-                            %>
-                            <option value="<%=c.getCode()%>" <%=selected%>><%=c.getCode()%> - <%=c.getDescription() %>
-                            </option>
+                            %>                     
+                            <option value="<%=SafeEncode.forHtmlAttribute(String.valueOf(c.getCode()))%>" <%=selected%>><%=SafeEncode.forHtml(String.valueOf(c.getCode()))%> - <%=SafeEncode.forHtml(c.getDescription())%>
++                            </option>
                             <%
                                 }
                             %>
@@ -414,7 +410,7 @@
                                 NextAppointmentSearchResult result = results.get(x);
                         %>
                         <tr
-                         onclick="selectSlot('<%= Encode.forJavaScript(result.getProviderNo()) %>','<%= result.getYear() %>','<%= result.getMonth() %>','<%= result.getDay() %>','<%= Encode.forJavaScript(result.getStartTime()) %>','<%= Encode.forJavaScript(result.getEndTime()) %>','<%= result.getDuration() %>');">
+                         onclick="selectSlot('<%=SafeEncode.forJavaScript(result.getProviderNo())%>','<%=result.getYear()%>','<%=result.getMonth()%>','<%=result.getDay()%>','<%=SafeEncode.forJavaScript(String.valueOf(result.getStartTime()))%>','<%=SafeEncode.forJavaScript(String.valueOf(result.getEndTime()))%>','<%=result.getDuration()%>');">
                             <td><%= dayFormatter.format(result.getDate()) %>
                             </td>
                             <td><%= timeFormatter.format(result.getDate()) %>
