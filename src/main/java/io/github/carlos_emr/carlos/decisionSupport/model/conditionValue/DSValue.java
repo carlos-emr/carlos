@@ -74,6 +74,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public abstract class DSValue {
     private static final Logger _log = MiscUtils.getLogger();
 
+    // Pre-compiled regex patterns for performance optimization
+    private static final Pattern PATTERN_STRING_QUOTE = Pattern.compile("'.+?'");
+    private static final Pattern PATTERN_STRING_SEPARATOR = Pattern.compile("'[\\s]*,");
+    private static final Pattern PATTERN_OPERATOR = Pattern.compile("[<>=-]+");
+    private static final Pattern PATTERN_UNIT = Pattern.compile("([^\\s]+$)");
+    private static final Pattern PATTERN_ALL_CHARS = Pattern.compile(".");
+
     private String valueType;
     private String valueUnit;
     private String value;
@@ -158,10 +165,8 @@ public abstract class DSValue {
     public static List<DSValue> createDSValues(String values) {
         String[] dsValuesStr = new String[0];
         boolean doHyphenSearch = true;
-        Pattern stringQuotePattern = Pattern.compile("'.+?'");
-        if (stringQuotePattern.matcher(values).find()) {  //if has a pair of quotes with something in it - treat as a list of strings
-            Pattern stringSeparatorPattern = Pattern.compile("'[\\s]*,");
-            String[] separatedValues = stringSeparatorPattern.split(values); // [ ',' ] is absolutely illegal in a quoted string
+        if (PATTERN_STRING_QUOTE.matcher(values).find()) {  //if has a pair of quotes with something in it - treat as a list of strings
+            String[] separatedValues = PATTERN_STRING_SEPARATOR.split(values); // [ ',' ] is absolutely illegal in a quoted string
             ArrayList<String> dsValueStrArray = new ArrayList<String>();
             for (String separatedValue : separatedValues) {
                 if (!separatedValue.trim().endsWith("'")) {
@@ -223,8 +228,7 @@ public abstract class DSValue {
      */
     public static DSValue createDSValue(String typeOperatorValueUnit) {
         boolean processStatement = true;
-        Pattern stringQuotePattern = Pattern.compile("'.+?'");
-        if (stringQuotePattern.matcher(typeOperatorValueUnit).find()) {
+        if (PATTERN_STRING_QUOTE.matcher(typeOperatorValueUnit).find()) {
             typeOperatorValueUnit = typeOperatorValueUnit.replaceAll("'", "");
             processStatement = false;
         }
@@ -244,14 +248,14 @@ public abstract class DSValue {
             valueStr = typeOperatorValueUnit.substring(typeSeparatorIndex + 1).trim();
         }
 
-        Matcher operatorMatcher = Pattern.compile("[<>=-]+").matcher(valueStr);
+        Matcher operatorMatcher = PATTERN_OPERATOR.matcher(valueStr);
 
         //find operator
         if (processStatement && operatorMatcher.find()) {
             operator = operatorMatcher.group().trim();
             valueStr = operatorMatcher.replaceFirst("").trim();
 
-            Matcher unitMatcher = Pattern.compile("([^\\s]+$)").matcher(valueStr);
+            Matcher unitMatcher = PATTERN_UNIT.matcher(valueStr);
             //must be trimmed
             if (valueStr.indexOf(" ") != -1) {
                 unitMatcher.find();
@@ -280,11 +284,9 @@ public abstract class DSValue {
     //i.e. cannot search:  '  ''  ''' '''' etc   (don't know why you'd want to anyways)
     private static int indexOfNotQuoted(String str, String query) {
         if (str.contains("'")) {
-            Pattern stringQuotePattern = Pattern.compile("'.+?'");
-            Pattern allCharacters = Pattern.compile(".");
-            String[] quotedStrings = stringQuotePattern.split(str);
+            String[] quotedStrings = PATTERN_STRING_QUOTE.split(str);
             for (String quotedString : quotedStrings) {
-                String blankedString = allCharacters.matcher(quotedString).replaceAll("'");
+                String blankedString = PATTERN_ALL_CHARS.matcher(quotedString).replaceAll("'");
                 str = str.replace(quotedString, blankedString);
             }
         }
