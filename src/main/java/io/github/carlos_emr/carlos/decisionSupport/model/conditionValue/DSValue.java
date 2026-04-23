@@ -75,10 +75,10 @@ public abstract class DSValue {
     private static final Logger _log = MiscUtils.getLogger();
 
     // Pre-compiled regex patterns for performance optimization
-    private static final Pattern PATTERN_STRING_QUOTE = Pattern.compile("'.+?'");
+    private static final Pattern PATTERN_STRING_QUOTE = Pattern.compile("'[^']+'");
     private static final Pattern PATTERN_STRING_SEPARATOR = Pattern.compile("'[\\s]*,");
     private static final Pattern PATTERN_OPERATOR = Pattern.compile("[<>=-]+");
-    private static final Pattern PATTERN_UNIT = Pattern.compile("([^\\s]+$)");
+    private static final Pattern PATTERN_UNIT = Pattern.compile("([^\\s]+)");
     private static final Pattern PATTERN_ALL_CHARS = Pattern.compile(".");
 
     private String valueType;
