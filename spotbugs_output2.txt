@@ -1,0 +1,17 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] --------------------< io.github.carlos_emr:carlos >---------------------
+[INFO] Building CARLOS 0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ war ]---------------------------------
+[INFO]
+[INFO] --- spotbugs:4.9.3.0:spotbugs (default-cli) @ carlos ---
+[INFO] Fork Value is true
+[INFO] Done SpotBugs Analysis....
+[INFO] Rendering content with org.apache.maven.skins:maven-fluido-skin:jar:2.0.0-M9 skin
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  07:30 min
+[INFO] Finished at: 2026-04-23T14:11:05Z
+[INFO] ------------------------------------------------------------------------

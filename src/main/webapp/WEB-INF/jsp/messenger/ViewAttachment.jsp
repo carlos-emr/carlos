@@ -394,15 +394,15 @@
         <div class="mb-2">
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
-                    onclick="if (confirm('<%= Encode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
+                    onclick="if (confirm('<%= SafeEncode.forJavaScript((String) pageContext.getAttribute("closeConfirmMsg")) %>')) { top.window.close(); }">
                 <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
                 <fmt:message key="messenger.generatePreviewPDF.btnClose"/>
             </button>
         </div>
             <form method="POST" action="<%= request.getContextPath() %>/messenger/AdjustAttachments"><input
                     type="hidden" name="xmlDoc"
-                    value="<%= Encode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
-                    type="hidden" name="id" value="<%= Encode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
+                    value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
+                    type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute(String.valueOf(request.getAttribute("attId"))) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 

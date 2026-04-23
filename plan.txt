@@ -1,1 +1,1 @@
-1. Fix Spotbugs OOM
+1. Fix encoder lint
