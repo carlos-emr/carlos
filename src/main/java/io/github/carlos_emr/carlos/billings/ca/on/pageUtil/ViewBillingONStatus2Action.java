@@ -46,8 +46,11 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)) {
-            throw new SecurityException("missing required sec object (_team_billing_only)");
+        // _team_billing_only is a filter flag in the JSP (does the user see only
+        // their team's bills?), NOT a page-access gate. The page access privilege
+        // matches the companion BillingONStatusERUpdateStatus2Action: _billing.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         this.statusModel = buildStatusModel(request, loggedInInfo);
