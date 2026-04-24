@@ -379,8 +379,8 @@
         }
 
         function onNext() {
-            var codeToAddStr = "<carlos:encode value='<%= codeToAddPatientDx %>' context="javaScriptBlock"/>";
-            var codeToMatchStr = "<carlos:encode value='<%= codeToMatchPatientDx %>' context="javaScriptBlock"/>";
+            var codeToAddStr = "<carlos:encode value='${model.patientDxAddCode}' context="javaScriptBlock"/>";
+            var codeToMatchStr = "<carlos:encode value='${model.patientDxMatchCode}' context="javaScriptBlock"/>";
 
             var codeToAdd = codeToAddStr.split(",");
             var codeToMatch = {};
@@ -682,8 +682,8 @@
                 document.forms[0].referralCode.value = "";
                 document.forms[0].referralDocName.value = "";
             } else {
-                document.forms[0].referralCode.value = "<carlos:encode value='<%= r_doctor_ohip %>' context="javaScriptBlock"/>";
-                document.forms[0].referralDocName.value = "<carlos:encode value='<%= r_doctor %>' context="javaScriptBlock"/>";
+                document.forms[0].referralCode.value = "<carlos:encode value='${model.referralDoctorOhip}' context="javaScriptBlock"/>";
+                document.forms[0].referralDocName.value = "<carlos:encode value='${model.referralDoctor}' context="javaScriptBlock"/>";
             }
         }
 
@@ -735,7 +735,7 @@
                 <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-  popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='<%= demo_no %>' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+  popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${model.demographicNo}' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -743,10 +743,10 @@
             if (document.forms[0].services_checked.value == "") document.forms[0].services_checked.value = 0;
             document.forms[0].url_back.value = location.href;
 
-            showBillFormDiv("group1_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("group2_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("group3_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
-            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='<%= ctlBillForm %>' context="javaScriptBlock"/>");
+            showBillFormDiv("group1_", "<carlos:encode value='${model.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group2_", "<carlos:encode value='${model.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("group3_", "<carlos:encode value='${model.ctlBillForm}' context="javaScriptBlock"/>");
+            showBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${model.ctlBillForm}' context="javaScriptBlock"/>");
 
         }
 
@@ -991,7 +991,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
     </script>
 </head>
 
-<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='<%= ctlBillForm %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= defaultBillFormName %>' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
+<body onload="if (typeof prepareBack === 'function') prepareBack(); if (typeof changeCodeDesc === 'function') changeCodeDesc(); if (typeof getDays === 'function') getDays(); if (typeof toggleDiv === 'function' && document.forms[0] && document.forms[0].xml_billtype && document.forms[0].xml_billtype.value) toggleDiv('<carlos:encode value='${model.ctlBillForm}' context="javaScriptAttribute"/>', '<carlos:encode value='${model.defaultBillFormName}' context="javaScriptAttribute"/>', document.forms[0].xml_billtype.value.substring(0, 3));">
 <div id="Instrdiv" class="demo1">
 
     <table style="width: 99%;">
@@ -1111,7 +1111,7 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=demo_no%>"/> <carlos:encode value='<%= roster_status %>' context="html"/>
+                                demographicNo="<%=demo_no%>"/> <carlos:encode value='${model.rosterStatus}' context="html"/>
                         </b>
                             <%if (appt_no.compareTo("0") == 0) {%>
                             <span class="input-group">
@@ -1541,7 +1541,7 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
 											id="billFormName" readonly
                                                                  value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
                                         <input type="hidden" name="billForm" id="billForm"
-                                               value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/></td>
+                                               value="<carlos:encode value='${model.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
                                 <%
                                     if (!IsPropertiesOn.isMultisitesEnable()) {
@@ -1832,14 +1832,14 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
         </tr>
 
         <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demo_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appt_no %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='${model.demographicNo}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${model.appointmentNo}' context="htmlAttribute"/>"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
         <input type="hidden" name="ver" value="<%=demoVer%>"/>
         <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>"/>
-        <input type="hidden" name="sex" value="<carlos:encode value='<%= demoSex %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="sex" value="<carlos:encode value='${model.demoSex}' context="htmlAttribute"/>"/>
 
         <input type="hidden" name="start_time"
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="htmlAttribute"/>"/>
@@ -1851,14 +1851,14 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
         <input type="hidden" name="asstProvider_no"
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' context="htmlAttribute"/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='<%= demoname %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='<%= providerview %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_name" value="<carlos:encode value='${model.demoName}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="providerview" value="<carlos:encode value='${model.providerView}' context="htmlAttribute"/>"/>
         <input type="hidden" name="appointment_date"
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='<%= assgProvider_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="billForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="curBillForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${model.assgProviderNo}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="billForm" value="<carlos:encode value='${model.ctlBillForm}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="curBillForm" value="<carlos:encode value='${model.ctlBillForm}' context="htmlAttribute"/>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
@@ -1871,7 +1871,7 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
     <table style="width: 100%; border-spacing:2px;"
     >
         <tr style="background-color: silver;">
-            <td><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
+            <td><carlos:encode value='${model.demoName}' context="html"/> - <b><fmt:message key="oscar.billing.ca.on.billingON.billingHistory"/></b> (last 5 records)</td>
             <td style="width: 20%; text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.last"/> <input type="text"
                                                                   name="day" value="365" class="form-control form-control-sm d-inline-block w-auto"/> <fmt:message key="oscar.billing.ca.on.billingON.days"/>
                 <input type="button"
