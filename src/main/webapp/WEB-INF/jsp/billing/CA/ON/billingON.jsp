@@ -188,133 +188,29 @@
         vecHistD.add(propHist);
     }
 
-    // display the fixed billing part
-    // Retrieving Provider
+    // All provider-list + default-code + billing-form selection + location / visit-date
+    // resolution lives in BillingONFormDataAssembler now. Re-export the scriptlet
+    // variable names used by downstream scriptlets until those sections migrate too.
     Vector vecProvider = new Vector();
     Properties propT = null;
-    ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-    for (Provider p : dao.getProvidersWithNonEmptyCredentials()) {
+    for (BillingONFormViewModel.ProviderOption po : model.getProviders()) {
         propT = new Properties();
-        propT.setProperty("last_name", p.getLastName());
-        propT.setProperty("first_name", p.getFirstName());
-        propT.setProperty("proOHIP", p.getProviderNo() + "|" + p.getOhipNo());
+        propT.setProperty("last_name", po.lastName());
+        propT.setProperty("first_name", po.firstName());
+        propT.setProperty("proOHIP", po.proOhip());
         vecProvider.add(propT);
     }
 
-    // r_doctor already resolved to "LastName,FirstName" by the assembler when a ProfessionalSpecialist match exists.
-    String paraName = request.getParameter("dxCode");
-    if (paraName == null || paraName.equals("")) {
-        // get the default diagnostic code
-        if (preference != null) {
-            paraName = preference.getDefaultDxCode();
-        }
-    }
-    String dxCode = getDefaultValue(paraName, vecHistD, "diagnostic_code");
-
-
-    //visitType
-    paraName = request.getParameter("xml_visittype");
-
-    String xml_visittype = getDefaultValue(paraName, vecHist, "visitType");
-    //xml_visittype = paraName != null && !"".equals(paraName)? paraName : "00" ;
-
-    if (!"".equals(xml_visittype)) {
-        visitType = xml_visittype;
-    } else {
-        visitType = visitType == null ? "" : visitType;
-    }
-
-            String defaultServiceType = "";
-
-			if (curBillForm!=null) {
-			    // user picks a bill form from browser
-			    ctlBillForm = curBillForm;
-			} else {
-                            //check if patient's roster status determines which billing form to display (this superceeds providers preference)
-                            String rosterStatus = demo.getRosterStatus();
-
-                            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-                            List<CtlBillingService> ctlBillSrvList = ctlBillingServiceDao.findByServiceTypeId(rosterStatus);
-
-                            if (!ctlBillSrvList.isEmpty() && !rosterStatus.isEmpty()) {
-                                ctlBillForm = ctlBillSrvList.get(0).getServiceType();
-                            }
-                            else {
-                                // check user preference to show a bill form
-                                ProviderPreferenceDao providerPreferenceDao=SpringUtils.getBean(ProviderPreferenceDao.class);
-                                ProviderPreference providerPreference=null;
-
-                                //use the appointment providers's preferences first if we can
-                                //otherwise, use the preferences of the logged in user
-                                if( apptProvider_no.equalsIgnoreCase("none") ) {
-                                    providerPreference = providerPreferenceDao.find(user_no);
-                                } else {
-                                    providerPreference = providerPreferenceDao.find(apptProvider_no);
-                                }
-
-
-                                if (providerPreference!=null) {
-                                    defaultServiceType = providerPreference.getDefaultServiceType();
-                                }
-
-                                if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) { defaultServiceType = "PRI"; }
-                                if (defaultServiceType != null && !defaultServiceType.isEmpty() && !defaultServiceType.equals("no")) {
-									ctlBillForm = providerPreference.getDefaultServiceType();
-                                } else {
-                                        //check if there is a group preference for default billing
-                                        MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
-                                        List<MyGroup> myGroups = myGroupDao.getProviderGroups(provider_no);
-                                        String groupBillForm = "";
-                                        for (MyGroup group : myGroups) {
-                                            groupBillForm = group.getDefaultBillingForm();
-                                            if (groupBillForm != null && !groupBillForm.isEmpty()) {
-                                                ctlBillForm = groupBillForm;
-                                                break;
-                                            }
-                                        }
-
-                                        if (ctlBillForm == null || ctlBillForm.isEmpty()) {
-                                            // check carlos.properties to show a default bill form
-                                            String dv = CarlosProperties.getInstance().getProperty("default_view");
-                                            if (dv!=null) ctlBillForm = dv;
-                                        }
-                                }
-                            }
-			}
-
-			if( ctlBillForm == null ) {
-				ctlBillForm = "";
-			}
-
-			if((visitType.startsWith("02") || visitType.startsWith("04")) && !defaultServiceType.equals("RN")){
-				ctlBillForm = "MIP"; // This is a reference to the "MIP" ctl_billingservice.servicetype, blank service type if not exist
-            }
-            if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
-                ctlBillForm = "PRI";
-            } // "PRI" ctl_billingservice.servicetype, blank if not exist
-
-    paraName = request.getParameter("xml_location");
-    String xml_location = getDefaultValue(paraName, vecHist, "clinic_ref_code");
-    xml_location = paraName != null && !"".equals(paraName) ? paraName : "0000";
-    if (!"".equals(xml_location)) {
-        clinicview = xml_location;
-    } else {
-        clinicview = clinicview == null ? "" : clinicview;
-    }
-
-    //Read default clinic_view from carlos.properties file
-    String cv = CarlosProperties.getInstance().getProperty("clinic_view");
-    if (cv != null) clinicview = cv;
-
-    String visitdate = null;
-    paraName = request.getParameter("xml_vdate");
-    String xml_vdate = getDefaultValue(paraName, vecHist, "visitdate");
-    xml_vdate = request.getParameter("xml_vdate") != null ? paraName : "";
-    if (!"".equals(xml_vdate)) {
-        visitdate = xml_vdate;
-    } else {
-        visitdate = visitdate == null ? "" : visitdate;
-    }
+    String paraName;
+    String dxCode = model.getDxCode();
+    String xml_visittype = model.getXmlVisitType();
+    visitType = model.getVisitType();
+    ctlBillForm = model.getCtlBillForm();
+    String defaultServiceType = model.getDefaultServiceType();
+    String xml_location = model.getXmlLocation();
+    clinicview = model.getClinicView();
+    String xml_vdate = model.getVisitDate();
+    String visitdate = xml_vdate.isEmpty() ? "" : xml_vdate;
 
     // get billing dx/form info
     HashMap<String, ArrayList<Properties>> billingServiceCodesMap = new HashMap<String, ArrayList<Properties>>();

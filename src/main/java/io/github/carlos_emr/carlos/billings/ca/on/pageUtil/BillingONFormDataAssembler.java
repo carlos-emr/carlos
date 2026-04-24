@@ -19,17 +19,25 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
+import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -37,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 
 /**
  * Assembles the {@link BillingONFormViewModel} from request parameters and DAO
@@ -284,6 +293,138 @@ public final class BillingONFormDataAssembler {
             }
         }
         b.billingHistory(history);
+
+        // Provider list for the form's provider picker
+        List<BillingONFormViewModel.ProviderOption> providers = new ArrayList<>();
+        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+        for (Provider p : providerDao.getProvidersWithNonEmptyCredentials()) {
+            providers.add(new BillingONFormViewModel.ProviderOption(
+                    nullSafe(p.getLastName()),
+                    nullSafe(p.getFirstName()),
+                    nullSafe(p.getProviderNo()) + "|" + nullSafe(p.getOhipNo())));
+        }
+        b.providers(providers);
+
+        // Provider preference (used for dx-code and service-type defaults)
+        ProviderPreference preference = ProviderPreferencesUIBean
+                .getProviderPreferenceByProviderNo(providerNo);
+
+        // Default dx code: request param -> provider preference -> last-billed dx
+        String dxCodeParam = request.getParameter("dxCode");
+        String dxCode = dxCodeParam != null && !dxCodeParam.isEmpty()
+                ? dxCodeParam
+                : (preference != null ? nullSafe(preference.getDefaultDxCode()) : "");
+        if ((dxCode == null || dxCode.isEmpty()) && !history.isEmpty()) {
+            dxCode = nullSafe(history.get(0).diagnosticCode());
+        }
+        b.dxCode(nullSafe(dxCode));
+
+        // Default visit type: request param -> last-billed visit type -> existing visitType
+        String xmlVisitTypeParam = request.getParameter("xml_visittype");
+        String xmlVisitType = xmlVisitTypeParam != null && !xmlVisitTypeParam.isEmpty()
+                ? xmlVisitTypeParam
+                : (!history.isEmpty() ? nullSafe(history.get(0).visitType()) : "");
+        if (!xmlVisitType.isEmpty()) {
+            visitType = xmlVisitType;
+        }
+        b.visitType(nullSafe(visitType))
+                .xmlVisitType(nullSafe(xmlVisitType));
+
+        // Billing form (ctlBillForm) resolution — priority order:
+        // 1. curBillForm request param (user's explicit pick)
+        // 2. roster-status-specific billing service
+        // 3. provider preference
+        // 4. group default billing form
+        // 5. carlos.properties default_view
+        String curBillForm = request.getParameter("curBillForm");
+        String ctlBillForm = request.getParameter("billForm");
+        String defaultServiceType = "";
+
+        if (curBillForm != null) {
+            ctlBillForm = curBillForm;
+        } else {
+            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
+            List<CtlBillingService> rosterBillSrvList = !rosterStatus.isEmpty()
+                    ? ctlBillingServiceDao.findByServiceTypeId(rosterStatus)
+                    : java.util.Collections.emptyList();
+
+            if (!rosterBillSrvList.isEmpty() && !rosterStatus.isEmpty()) {
+                ctlBillForm = rosterBillSrvList.get(0).getServiceType();
+            } else {
+                ProviderPreferenceDao providerPreferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
+                ProviderPreference providerPreference = (apptProviderNo != null && apptProviderNo.equalsIgnoreCase("none"))
+                        ? providerPreferenceDao.find(userNo)
+                        : providerPreferenceDao.find(apptProviderNo);
+
+                if (providerPreference != null) {
+                    defaultServiceType = nullSafe(providerPreference.getDefaultServiceType());
+                }
+
+                if (("QU - Quebec".equals(rosterStatus) || "FS".equals(rosterStatus))
+                        && !"RN".equals(defaultServiceType)) {
+                    defaultServiceType = "PRI";
+                }
+                if (defaultServiceType != null
+                        && !defaultServiceType.isEmpty()
+                        && !"no".equals(defaultServiceType)
+                        && providerPreference != null) {
+                    ctlBillForm = providerPreference.getDefaultServiceType();
+                } else {
+                    MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
+                    List<MyGroup> myGroups = myGroupDao.getProviderGroups(providerNo);
+                    for (MyGroup group : myGroups) {
+                        String groupBillForm = group.getDefaultBillingForm();
+                        if (groupBillForm != null && !groupBillForm.isEmpty()) {
+                            ctlBillForm = groupBillForm;
+                            break;
+                        }
+                    }
+                    if (ctlBillForm == null || ctlBillForm.isEmpty()) {
+                        String dv = CarlosProperties.getInstance().getProperty("default_view");
+                        if (dv != null) {
+                            ctlBillForm = dv;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (ctlBillForm == null) {
+            ctlBillForm = "";
+        }
+
+        // Post-selection overrides: MIP / PRI based on visit type + roster
+        if ((visitType.startsWith("02") || visitType.startsWith("04"))
+                && !"RN".equals(defaultServiceType)) {
+            ctlBillForm = "MIP";
+        }
+        if (("QU - Quebec".equals(rosterStatus) || "FS".equals(rosterStatus))
+                && !"RN".equals(defaultServiceType)) {
+            ctlBillForm = "PRI";
+        }
+
+        b.ctlBillForm(ctlBillForm)
+                .defaultServiceType(nullSafe(defaultServiceType));
+
+        // xml_location -> clinicView; default "0000" if not set
+        String xmlLocationParam = request.getParameter("xml_location");
+        String xmlLocation = xmlLocationParam != null && !xmlLocationParam.isEmpty()
+                ? xmlLocationParam
+                : "0000";
+        if (!xmlLocation.isEmpty()) {
+            clinicView = xmlLocation;
+        }
+        String propertiesClinicView = CarlosProperties.getInstance().getProperty("clinic_view");
+        if (propertiesClinicView != null) {
+            clinicView = propertiesClinicView;
+        }
+        b.clinicView(nullSafe(clinicView))
+                .xmlLocation(nullSafe(xmlLocation));
+
+        // xml_vdate -> visitDate; empty if not explicitly supplied
+        String xmlVdateParam = request.getParameter("xml_vdate");
+        String visitDate = xmlVdateParam != null ? xmlVdateParam : "";
+        b.visitDate(visitDate);
 
         return b.build();
     }

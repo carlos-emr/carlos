@@ -38,6 +38,12 @@ public final class BillingONFormViewModel {
             String clinicRefCode,
             String diagnosticCode) { }
 
+    /** Provider option rendered in the billing form's provider picker. */
+    public record ProviderOption(
+            String lastName,
+            String firstName,
+            String proOhip) { }
+
     // Identity / context
     private final String userNo;
     private final String demographicNo;
@@ -98,6 +104,18 @@ public final class BillingONFormViewModel {
     private final boolean singleClickEnabled;
     private final boolean hospitalBilling;
 
+    // Provider list for the form's provider picker
+    private final List<ProviderOption> providers;
+
+    // Billing-form selection (resolved after roster / preference / group / properties fallback)
+    private final String defaultServiceType;
+
+    // Default dx / visit type / location / visit date used to pre-populate the form
+    private final String dxCode;
+    private final String xmlVisitType;
+    private final String xmlLocation;
+    private final String visitDate;
+
     // Future expansion (not yet populated)
     private final Map<String, String> requestEchoes;
 
@@ -144,6 +162,12 @@ public final class BillingONFormViewModel {
         this.visitType = b.visitType;
         this.singleClickEnabled = b.singleClickEnabled;
         this.hospitalBilling = b.hospitalBilling;
+        this.providers = b.providers == null ? Collections.emptyList() : List.copyOf(b.providers);
+        this.defaultServiceType = b.defaultServiceType;
+        this.dxCode = b.dxCode;
+        this.xmlVisitType = b.xmlVisitType;
+        this.xmlLocation = b.xmlLocation;
+        this.visitDate = b.visitDate;
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
     }
 
@@ -193,6 +217,12 @@ public final class BillingONFormViewModel {
     public String getVisitType() { return visitType; }
     public boolean isSingleClickEnabled() { return singleClickEnabled; }
     public boolean isHospitalBilling() { return hospitalBilling; }
+    public List<ProviderOption> getProviders() { return providers; }
+    public String getDefaultServiceType() { return defaultServiceType; }
+    public String getDxCode() { return dxCode; }
+    public String getXmlVisitType() { return xmlVisitType; }
+    public String getXmlLocation() { return xmlLocation; }
+    public String getVisitDate() { return visitDate; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
     public static final class Builder {
@@ -238,6 +268,12 @@ public final class BillingONFormViewModel {
         private String visitType;
         private boolean singleClickEnabled;
         private boolean hospitalBilling;
+        private List<ProviderOption> providers;
+        private String defaultServiceType;
+        private String dxCode;
+        private String xmlVisitType;
+        private String xmlLocation;
+        private String visitDate;
         private Map<String, String> requestEchoes;
 
         public Builder userNo(String v) { this.userNo = v; return this; }
@@ -282,6 +318,12 @@ public final class BillingONFormViewModel {
         public Builder visitType(String v) { this.visitType = v; return this; }
         public Builder singleClickEnabled(boolean v) { this.singleClickEnabled = v; return this; }
         public Builder hospitalBilling(boolean v) { this.hospitalBilling = v; return this; }
+        public Builder providers(List<ProviderOption> v) { this.providers = v; return this; }
+        public Builder defaultServiceType(String v) { this.defaultServiceType = v; return this; }
+        public Builder dxCode(String v) { this.dxCode = v; return this; }
+        public Builder xmlVisitType(String v) { this.xmlVisitType = v; return this; }
+        public Builder xmlLocation(String v) { this.xmlLocation = v; return this; }
+        public Builder visitDate(String v) { this.visitDate = v; return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v; return this; }
 
         public BillingONFormViewModel build() {
