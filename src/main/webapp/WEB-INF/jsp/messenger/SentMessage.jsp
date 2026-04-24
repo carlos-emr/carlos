@@ -115,16 +115,16 @@
  <body class="BodyStyle" >
 <table class="MainTable" id="scrollNumber1" style="width:100%; margin-top: 10px;">
 	<tr class="MainTableTopRow">
-		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="fa-solid fa-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;<fmt:message
+		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="fa-solid fa-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>' aria-hidden="true"></i>&nbsp;<fmt:message
 			key="messenger.SentMessage.msgMessenger" />: <fmt:message
 					key="messenger.SentMessage.msgMessageSent" /></h4></td>
 		<td class="MainTableTopRowRightColumn" >
 		<table class="TopStatusBar" style="width:100%;">
 			<tr>
 				<td style="text-align: right;">
-            <i class="fa-solid fa-circle-question"></i>
+            <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
             <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger sent')"><fmt:message key="app.top1"/></a>
-            <i class="fa-solid fa-circle-info" style="margin-left:10px;"></i>
+            <i class="fa-solid fa-circle-info" style="margin-left:10px;" aria-hidden="true"></i>
             <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
         </td>
 			</tr>
@@ -138,11 +138,11 @@
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">
-    <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
+    <i class="fa-solid fa-pencil" aria-hidden="true"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
 <a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages">
-    <i class="fa-solid fa-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
+    <i class="fa-solid fa-inbox" aria-hidden="true"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
 <a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
-    <i class="fa-solid fa-right-from-bracket"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>
+    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>
 </div>
 </body>
 </html>
