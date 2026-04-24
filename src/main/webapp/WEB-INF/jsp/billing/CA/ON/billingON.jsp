@@ -121,20 +121,16 @@
     String curBillForm = model.getCurBillForm();
     String provider_no = model.getProviderNo();
 
-    CodeFilterManager codeFilterManager = SpringUtils.getBean(CodeFilterManager.class);
+    // Demographic object still used downstream (demo.getRosterStatus etc.);
+    // filter date is only used by now-migrated code-filter logic in the assembler.
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demo = demographicManager.getDemographic(loggedInInfo, demo_no);
-    java.util.Date filterDate = ConversionUtils.fromDateString(billReferenceDate);
-    if (request.getParameter("start_time") != null) {
-        filterDate = ConversionUtils.fromTimestampString(billReferenceDate + " " + request.getParameter("start_time"));
-    }
 
     List<String> patientDx = model.getPatientDx();
     String codeToAddPatientDx = model.getPatientDxAddCode();
     String codeToMatchPatientDx = model.getPatientDxMatchCode();
     StringBuilder billingRecomendations = new StringBuilder(model.getBillingRecommendations());
 
-    ProviderPreferenceDao preferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
     ProviderPreference preference = ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(provider_no);
 
     GregorianCalendar now = new GregorianCalendar();
