@@ -44,6 +44,8 @@ public final class BillingONView2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    private final BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+
     private BillingONFormViewModel model;
 
     @Override
@@ -78,17 +80,13 @@ public final class BillingONView2Action extends ActionSupport {
     }
 
     /**
-     * Builds the view model from the current request. Expand as scriptlet
-     * blocks in {@code billingON.jsp} are migrated into this action.
+     * Builds the view model via {@link BillingONFormDataAssembler}. The
+     * assembler encapsulates the DAO lookups + scriptlet logic previously
+     * inlined at the top of {@code billingON.jsp}.
      */
     private BillingONFormViewModel buildModel(HttpServletRequest request) {
-        return BillingONFormViewModel.builder()
-                .demographicNo(request.getParameter("demographic_no"))
-                .appointmentNo(request.getParameter("appointment_no"))
-                .apptProviderNo(request.getParameter("apptProvider_no"))
-                .providerView(request.getParameter("providerview"))
-                .billReferenceDate(request.getParameter("appointment_date"))
-                .build();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        return assembler.assemble(loggedInInfo, request);
     }
 
     public BillingONFormViewModel getModel() {
