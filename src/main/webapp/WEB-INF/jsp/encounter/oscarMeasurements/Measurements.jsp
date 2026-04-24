@@ -367,29 +367,32 @@
     <script>
 
         function wtEnglish2Metric(obj) {
-      			weight = obj.value;
-      			weightM = Math.round(weight * 10 * 0.4536) / 10 ;
-      			if(confirm("Are you sure you want to change " + weight + " pounds to " + weightM +"kg?") ) {
-      				obj.value = weightM;
-      			}
-    		  }
+            const weight = parseFloat(obj.value);
+            if (isNaN(weight)) return;
+            const weightM = Math.round(weight * 0.4536 * 10) / 10;
+            if (confirm("Are you sure you want to change " + weight + " pounds to " + weightM + "kg?")) {
+                obj.value = weightM;
+            }
+        }
 
         function htEnglish2Metric(obj) {
-      		height = obj.value;
-      		if(height.length > 1 && height.indexOf("'") > 0 ) {
-      			feet = height.substring(0, height.indexOf("'"));
-      			inch = height.substring(height.indexOf("'"));
-      			if(inch.length == 1) {
-      				inch = 0;
-      			} else {
-      				inch = inch.charAt(inch.length-1)=='"' ? inch.substring(0, inch.length-1) : inch;
-      				inch = inch.substring(1);
-      			}
-      			height = Math.round((feet * 30.48 + inch * 2.54) * 10) / 10 ;
-      			if(confirm("Are you sure you want to change " + feet + " feet " + inch + " inch(es) to " + height +"cm?") ) {
-      				obj.value = height;
-      			}
-      		}
+            const val = obj.value.trim();
+            const tickIdx = val.indexOf("'");
+            if (tickIdx <= 0) return;
+
+            const feet = parseFloat(val.substring(0, tickIdx));
+            let inchStr = val.substring(tickIdx + 1);
+            if (inchStr.endsWith('"')) {
+                inchStr = inchStr.substring(0, inchStr.length - 1);
+            }
+            const inch = parseFloat(inchStr) || 0;
+
+            if (isNaN(feet)) return;
+
+            const heightM = Math.round((feet * 30.48 + inch * 2.54) * 10) / 10;
+            if (confirm("Are you sure you want to change " + feet + " feet " + inch + " inch(es) to " + heightM + "cm?")) {
+                obj.value = heightM;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -451,8 +454,6 @@
                     
                     if (bmiInput) {
                         bmiInput.value = b;
-                    }
-                    if (rowBMI) {
                         bmiInput.style.backgroundColor = "#d9e6f2";
                     }
                 }
