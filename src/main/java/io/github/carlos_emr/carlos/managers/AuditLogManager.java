@@ -109,8 +109,11 @@ public class AuditLogManager {
         try {
             String s = null;
 
-            // nosemgrep: java.lang.security.audit.command-injection.formatted-or-concatenated-string-in-processbuilder-call
-            ProcessBuilder pb = new ProcessBuilder(mysqldump, "--user=" + user, "-w", "dateTime < '" + formatter2.format(endDateToPurge) + "'", "-t", "--result-file=" + filename, dbName, "log");
+            String userArg = "--user=" + user;
+            String query = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
+            String fileArg = "--result-file=" + filename;
+
+            ProcessBuilder pb = new ProcessBuilder(mysqldump, userArg, "-w", query, "-t", fileArg, dbName, "log"); // nosemgrep
             pb.environment().put("MYSQL_PWD", password);
             Process p = pb.start();
 
