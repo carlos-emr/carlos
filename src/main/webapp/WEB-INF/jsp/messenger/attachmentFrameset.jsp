@@ -53,6 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 
