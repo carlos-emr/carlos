@@ -22,7 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%-- billingON.jsp is 2200+ lines; the default 8KB JSP buffer causes Tomcat 11
+<%-- billingON.jsp is 2000+ lines; the default 8KB JSP buffer causes Tomcat 11
      to truncate the response during RequestDispatcher.forward(). 1MB buffer
      accommodates the full page output. --%>
 <%@page buffer="1024kb" %>
@@ -1539,7 +1539,7 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                                        onclick="showHideLayers('Layer1','','show');return false;">
                                         <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
-                                                                 value="<%=currentFormName.length() < 40 ? currentFormName : currentFormName.substring(0, 40)%>"/>
+                                                                 value="${fn:escapeXml(fn:length(model.defaultBillFormName) lt 40 ? model.defaultBillFormName : fn:substring(model.defaultBillFormName, 0, 40))}"/>
                                         <input type="hidden" name="billForm" id="billForm"
                                                value="<carlos:encode value='${model.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
@@ -1586,17 +1586,13 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                 <table style="width: 100%; height:137px">
                     <tr>
                         <td style="vertical-align:top; width: 33%">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-                                    ArrayList<Properties> vecCodeCol1 = new ArrayList<Properties>();
-                                    vecCodeCol1 = billingServiceCodesMap.get("group1_".concat(listServiceType.get(j)));
-                                    headerTitle1 = titleMap.get("group1_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group1_<%=listServiceType.get(j)%>" style="display: none;">
+                            <c:forEach var="st" items="${model.listServiceType}">
+                            <c:set var="g1Key" value="group1_${st}"/>
+                            <div id="${g1Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle1%>
+                                            <div class="smallFont"><carlos:encode value='${model.titleMap[g1Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1606,78 +1602,49 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol1.size(); i++) {
-                                            propT = vecCodeCol1.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${model.billingServiceCodesMap[g1Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="<%=displayStyle%> text-align: left; white-space:nowrap; <%=bgcolor%>">
+                                        <td style="${entry.displayStyle} text-align: left; white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${entry.serviceCode}"
+                                                    name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  ondblclick="onDblClickServiceCode(this)"><%=serviceCode%></span>
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${model.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
+                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                                  ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%>"
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
+                                        <td style="${entry.displayStyle} ${bgcolor}"
+                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
-                                        <td style="text-align: right; <%=displayStyle%> <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right; ${entry.displayStyle} ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
+                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-
-                                    ArrayList<Properties> vecCodeCol2 = new ArrayList<Properties>();
-                                    vecCodeCol2 = billingServiceCodesMap.get("group2_".concat(listServiceType.get(j)));
-                                    headerTitle2 = titleMap.get("group2_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group2_<%=listServiceType.get(j)%>"
-                                 style="display: none;">
-
-
+                            <c:forEach var="st" items="${model.listServiceType}">
+                            <c:set var="g2Key" value="group2_${st}"/>
+                            <div id="${g2Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle2%>
+                                            <div class="smallFont"><carlos:encode value='${model.titleMap[g2Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1687,80 +1654,50 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol2.size(); i++) {
-                                            propT = vecCodeCol2.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${model.billingServiceCodesMap[g2Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="text-align: left; <%=displayStyle%> white-space:nowrap; <%=bgcolor%>">
+                                        <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${entry.serviceCode}"
+                                                    name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span>
-
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${model.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
+                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                                  onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%>"
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();">
-                                                <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
+                                        <td style="${entry.displayStyle} ${bgcolor}"
+                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();">
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
-                                        <td style="text-align: right;<%=displayStyle%>  <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right;${entry.displayStyle}  ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
+                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
-
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                         <td style="width: 33%; vertical-align: top;">
-                            <%
-                                for (int j = 0; j < listServiceType.size(); j++) {
-
-                                    ArrayList<Properties> vecCodeCol3 = new ArrayList<Properties>();
-                                    vecCodeCol3 = billingServiceCodesMap.get("group3_".concat(listServiceType.get(j)));
-                                    headerTitle3 = titleMap.get("group3_".concat(listServiceType.get(j)));
-                            %>
-                            <div id="group3_<%=listServiceType.get(j)%>"
-                                 style="display: none;">
-
-
+                            <c:forEach var="st" items="${model.listServiceType}">
+                            <c:set var="g3Key" value="group3_${st}"/>
+                            <div id="${g3Key}" style="display: none;">
                                 <table style="width: 100%;" class="border1 table-striped table-hover">
                                     <tr>
                                         <th style="width: 10%; white-space:nowrap; background-color:silver">
-                                            <div class="smallFont"><%=headerTitle3%>
+                                            <div class="smallFont"><carlos:encode value='${model.titleMap[g3Key]}' context='html'/>
                                             </div>
                                         </th>
                                         <th style="width: 70%; background-color:silver">
@@ -1770,60 +1707,40 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                             <div class="smallFont"><fmt:message key="oscar.billing.ca.on.billingON.fee"/></div>
                                         </th>
                                     </tr>
-
-                                    <%
-                                        for (int i = 0; i < vecCodeCol3.size(); i++) {
-                                            propT = vecCodeCol3.get(i);
-                                            serviceCode = propT.getProperty("serviceCode");
-                                            serviceDesc = propT.getProperty("serviceDesc");
-                                            serviceDisp = propT.getProperty("serviceDisp");
-                                            servicePercentage = propT.getProperty("servicePercentage");
-                                            serviceType = propT.getProperty("serviceType");
-                                            displayStyle = propT.getProperty("displaystyle");
-                                            sliFlag = Boolean.parseBoolean(propT.getProperty("serviceSLI"));
-
-                                            if (propPremium.getProperty(serviceCode) != null) premiumFlag = "A";
-                                            else premiumFlag = "";
-
-                                            String bgcolor = "";
-                                            if (request.getParameter("xml_" + serviceCode) != null)
-                                                bgcolor = "background-color: #66FF66;";
-                                    %>
+                                    <c:forEach var="entry" items="${model.billingServiceCodesMap[g3Key]}" varStatus="rowLoop">
+                                    <c:set var="xmlParamKey" value="xml_${entry.serviceCode}"/>
+                                    <c:set var="bgcolor" value="${not empty param[xmlParamKey] ? 'background-color: #66FF66;' : ''}"/>
                                     <tr>
-                                        <td style="text-align: left; <%=displayStyle%> white-space:nowrap; <%=bgcolor%>">
+                                        <td style="text-align: left; ${entry.displayStyle} white-space:nowrap; ${bgcolor}">
                                             <input
-                                                    type="checkbox" id="xml_<%=serviceCode%>"
-                                                    name="xml_<%=serviceCode%>" value="checked"
+                                                    type="checkbox" id="xml_${entry.serviceCode}"
+                                                    name="xml_${entry.serviceCode}" value="checked"
                                                     onclick="refreshServicesChecked(this);"
-                                                    <%= "checked".equals(request.getParameter("xml_" + serviceCode)) ? "checked" : "" %>
-                                                    <%=bSingleClick ? "onClick='onClickServiceCode(this)'" : ""%> />
-                                            <span id="sc<%=(""+i).substring(0,1)+serviceCode%>"
-                                                  onclick="getElementById('xml_<%=serviceCode%>').click();"
-                                                  onDblClick="onDblClickServiceCode(this)"><%=serviceCode%></span>
+                                                    <c:if test="${param[xmlParamKey] eq 'checked'}">checked</c:if>
+                                                    <c:if test="${model.singleClickEnabled}">onClick='onClickServiceCode(this)'</c:if> />
+                                            <span id="sc${rowLoop.index}${entry.serviceCode}"
+                                                  onclick="getElementById('xml_${entry.serviceCode}').click();"
+                                                  onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
-                                        <td style="<%=displayStyle%> <%=bgcolor%> "
-                                                <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
-                                                <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
-                                            <div onclick="getElementById('xml_<%=serviceCode%>').click();">
-                                                <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
+                                        <td style="${entry.displayStyle} ${bgcolor} "
+                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
+                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();">
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
-                                        <td style="text-align: right; <%=displayStyle%>  <%=bgcolor%>">
-                                            <div class="smallFont"><%=serviceDisp%>
+                                        <td style="text-align: right; ${entry.displayStyle}  ${bgcolor}">
+                                            <div class="smallFont"><carlos:encode value='${entry.serviceDisp}' context='html'/>
                                             </div>
                                             <input
-                                                    type="hidden" name="sli_xml_<%=serviceCode%>"
-                                                    value="<%=sliFlag%>"/>
+                                                    type="hidden" name="sli_xml_${entry.serviceCode}"
+                                                    value="${entry.sliFlag}"/>
                                         </td>
                                     </tr>
-                                    <%
-                                        }
-                                    %>
+                                    </c:forEach>
                                 </table>
                             </div>
-                            <%
-                                }
-                            %>
+                            </c:forEach>
 
                         </td>
                     </tr>

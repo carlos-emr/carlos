@@ -318,8 +318,9 @@ public final class BillingONFormDataAssembler {
         b.providers(providers);
 
         // Provider preference (used for dx-code and service-type defaults)
-        ProviderPreference preference = ProviderPreferencesUIBean
-                .getProviderPreferenceByProviderNo(providerNo);
+        ProviderPreference preference = (providerNo != null && !providerNo.isEmpty())
+                ? ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(providerNo)
+                : null;
 
         // Default dx code: request param -> provider preference -> last-billed dx
         String dxCodeParam = request.getParameter("dxCode");
