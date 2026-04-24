@@ -63,6 +63,9 @@
             <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingOB2.jsp</result>
             <result name="private">/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp</result>
         </action>
+        <action name="billing/CA/ON/billingView" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONView2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON.jsp</result>
+        </action>
         <action name="billing/CA/ON/BatchBill" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action">
             <result name="saved">/WEB-INF/jsp/billing/CA/ON/batchsaved.jsp</result>
             <result name="error">/WEB-INF/jsp/billing/CA/ON/batcherror.jsp</result>
