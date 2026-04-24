@@ -54,6 +54,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="/WEB-INF/carlos-tag.tld" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>

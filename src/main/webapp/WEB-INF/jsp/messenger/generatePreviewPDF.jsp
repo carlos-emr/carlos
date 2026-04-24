@@ -84,6 +84,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="/WEB-INF/carlos-tag.tld" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
 <fmt:message key="messenger.generatePreviewPDF.encounter" var="encounterLabel"/>
