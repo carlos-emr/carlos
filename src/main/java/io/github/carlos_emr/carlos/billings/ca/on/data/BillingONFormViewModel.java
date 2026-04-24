@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Immutable view model for the Ontario billing form ({@code billingON.jsp}).
@@ -43,6 +44,17 @@ public final class BillingONFormViewModel {
             String lastName,
             String firstName,
             String proOhip) { }
+
+    /** One entry in the service-code grid (3 columns x N service types). */
+    public record ServiceCodeEntry(
+            String serviceCode,
+            String serviceDesc,
+            String serviceDisp,
+            String servicePercentage,
+            String serviceType,
+            String serviceTypeName,
+            String displayStyle,
+            boolean sliFlag) { }
 
     // Identity / context
     private final String userNo;
@@ -116,6 +128,14 @@ public final class BillingONFormViewModel {
     private final String xmlLocation;
     private final String visitDate;
 
+    // Service-code grid data (3 columns x N service types)
+    private final Map<String, List<ServiceCodeEntry>> billingServiceCodesMap;
+    private final List<String> listServiceType;
+    private final Map<String, String> titleMap;
+    private final Set<String> premiumCodes;
+    private final String defaultBillFormName;
+    private final String defaultBillType;
+
     // Future expansion (not yet populated)
     private final Map<String, String> requestEchoes;
 
@@ -168,6 +188,14 @@ public final class BillingONFormViewModel {
         this.xmlVisitType = b.xmlVisitType;
         this.xmlLocation = b.xmlLocation;
         this.visitDate = b.visitDate;
+        this.billingServiceCodesMap = b.billingServiceCodesMap == null
+                ? Collections.emptyMap() : Map.copyOf(b.billingServiceCodesMap);
+        this.listServiceType = b.listServiceType == null
+                ? Collections.emptyList() : List.copyOf(b.listServiceType);
+        this.titleMap = b.titleMap == null ? Collections.emptyMap() : Map.copyOf(b.titleMap);
+        this.premiumCodes = b.premiumCodes == null ? Collections.emptySet() : Set.copyOf(b.premiumCodes);
+        this.defaultBillFormName = b.defaultBillFormName;
+        this.defaultBillType = b.defaultBillType;
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
     }
 
@@ -223,6 +251,12 @@ public final class BillingONFormViewModel {
     public String getXmlVisitType() { return xmlVisitType; }
     public String getXmlLocation() { return xmlLocation; }
     public String getVisitDate() { return visitDate; }
+    public Map<String, List<ServiceCodeEntry>> getBillingServiceCodesMap() { return billingServiceCodesMap; }
+    public List<String> getListServiceType() { return listServiceType; }
+    public Map<String, String> getTitleMap() { return titleMap; }
+    public Set<String> getPremiumCodes() { return premiumCodes; }
+    public String getDefaultBillFormName() { return defaultBillFormName; }
+    public String getDefaultBillType() { return defaultBillType; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
     public static final class Builder {
@@ -274,6 +308,12 @@ public final class BillingONFormViewModel {
         private String xmlVisitType;
         private String xmlLocation;
         private String visitDate;
+        private Map<String, List<ServiceCodeEntry>> billingServiceCodesMap;
+        private List<String> listServiceType;
+        private Map<String, String> titleMap;
+        private Set<String> premiumCodes;
+        private String defaultBillFormName;
+        private String defaultBillType;
         private Map<String, String> requestEchoes;
 
         public Builder userNo(String v) { this.userNo = v; return this; }
@@ -324,6 +364,12 @@ public final class BillingONFormViewModel {
         public Builder xmlVisitType(String v) { this.xmlVisitType = v; return this; }
         public Builder xmlLocation(String v) { this.xmlLocation = v; return this; }
         public Builder visitDate(String v) { this.visitDate = v; return this; }
+        public Builder billingServiceCodesMap(Map<String, List<ServiceCodeEntry>> v) { this.billingServiceCodesMap = v; return this; }
+        public Builder listServiceType(List<String> v) { this.listServiceType = v; return this; }
+        public Builder titleMap(Map<String, String> v) { this.titleMap = v; return this; }
+        public Builder premiumCodes(Set<String> v) { this.premiumCodes = v; return this; }
+        public Builder defaultBillFormName(String v) { this.defaultBillFormName = v; return this; }
+        public Builder defaultBillType(String v) { this.defaultBillType = v; return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v; return this; }
 
         public BillingONFormViewModel build() {

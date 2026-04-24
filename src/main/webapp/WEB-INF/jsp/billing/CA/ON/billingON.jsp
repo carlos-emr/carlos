@@ -212,182 +212,42 @@
     String xml_vdate = model.getVisitDate();
     String visitdate = xml_vdate.isEmpty() ? "" : xml_vdate;
 
-    // get billing dx/form info
+    // Service-code grid + premium flags + bill type all come from the assembler.
+    // Rebuild the scriptlet-era Properties-based structures from the DTO so downstream
+    // rendering scriptlets keep working until they migrate to EL.
     HashMap<String, ArrayList<Properties>> billingServiceCodesMap = new HashMap<String, ArrayList<Properties>>();
-    ArrayList<String> listServiceType = new ArrayList<String>();
-    HashMap<String, String> titleMap = new HashMap<String, String>();
+    for (java.util.Map.Entry<String, java.util.List<BillingONFormViewModel.ServiceCodeEntry>> e : model.getBillingServiceCodesMap().entrySet()) {
+        ArrayList<Properties> list = new ArrayList<Properties>();
+        for (BillingONFormViewModel.ServiceCodeEntry entry : e.getValue()) {
+            Properties p = new Properties();
+            p.setProperty("serviceCode", entry.serviceCode());
+            p.setProperty("serviceDesc", entry.serviceDesc());
+            p.setProperty("serviceDisp", entry.serviceDisp());
+            p.setProperty("servicePercentage", entry.servicePercentage());
+            p.setProperty("serviceType", entry.serviceType());
+            p.setProperty("serviceTypeName", entry.serviceTypeName());
+            p.setProperty("displaystyle", entry.displayStyle());
+            p.setProperty("serviceSLI", String.valueOf(entry.sliFlag()));
+            list.add(p);
+        }
+        billingServiceCodesMap.put(e.getKey(), list);
+    }
+    ArrayList<String> listServiceType = new ArrayList<String>(model.getListServiceType());
+    HashMap<String, String> titleMap = new HashMap<String, String>(model.getTitleMap());
     Properties propPremium = new Properties();
+    for (String pc : model.getPremiumCodes()) {
+        propPremium.setProperty(pc, "A");
+    }
+    String defaultBillFormName = model.getDefaultBillFormName() == null ? "" : model.getDefaultBillFormName();
+    String defaultBillType = model.getDefaultBillType();
+
+    // Loop-local variables used by the downstream rendering scriptlets - declared here to preserve the scriptlet's global scope.
     String serviceCode, serviceDesc, serviceValue, servicePercentage, serviceType, displayStyle, serviceDisp = "";
     String headerTitle1 = "", headerTitle2 = "", headerTitle3 = "";
-
-            CSSStylesDAO cssStylesDao = SpringUtils.getBean(CSSStylesDAO.class);
-    CssStyle cssStyle;
     String styleId;
-
     boolean sliFlag = false;
 
-    CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-    BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
-    CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-
-    String defaultBillFormName = "";
-    for (Object[] i : cbsDao.findServiceTypesByStatus("A")) {
-        ArrayList<Properties> listGroup1 = new ArrayList<Properties>();
-        ArrayList<Properties> listGroup2 = new ArrayList<Properties>();
-        ArrayList<Properties> listGroup3 = new ArrayList<Properties>();
-
-        String ctlcode = String.valueOf(i[1]);
-        String ctlcodename = String.valueOf(i[0]);
-
-        if (ctlcode.equals(ctlBillForm)) {
-            defaultBillFormName = ctlcodename;
-        }
-
-        listServiceType.add(ctlcode);
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group1", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription() == null ? "N/A" : b.getDescription());
-            propT.setProperty("serviceDisp", noNull(b.getValue()));
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group1_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup1.add(propT);
-        }
-
-        if (listGroup1.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup1.size(); ii++) {
-                serviceCodes.add(listGroup1.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-        billingServiceCodesMap.put("group1_".concat(ctlcode), listGroup1);
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group2", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription());
-            propT.setProperty("serviceDisp", b.getValue());
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group2_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup2.add(propT);
-
-        }
-
-        if (listGroup2.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup2.size(); ii++) {
-                serviceCodes.add(listGroup2.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-
-        billingServiceCodesMap.put("group2_".concat(ctlcode), listGroup2);
-
-
-        for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, "Group3", ConversionUtils.fromDateString(billReferenceDate))) {
-            BillingService b = (BillingService) o[0];
-            CtlBillingService c = (CtlBillingService) o[1];
-
-            if (!codeFilterManager.isCodeValid(b.getServiceCode(), null, false, filterDate, demo)) {
-                continue;
-            }
-
-            propT = new Properties();
-
-            propT.setProperty("serviceCode", b.getServiceCode());
-            propT.setProperty("serviceDesc", b.getDescription());
-            propT.setProperty("serviceDisp", b.getValue());
-            propT.setProperty("servicePercentage", noNull(b.getPercentage()));
-            propT.setProperty("serviceType", c.getServiceType());
-            propT.setProperty("serviceTypeName", c.getServiceGroupName());
-            styleId = null;
-            if (b != null && b.getDisplayStyle() != null) {
-                styleId = "" + b.getDisplayStyle();
-                cssStyle = cssStylesDao.find(b.getDisplayStyle());
-                propT.setProperty("displaystyle", cssStyle.getStyle());
-            } else {
-                propT.setProperty("displaystyle", "");
-            }
-
-            propT.setProperty("serviceSLI", "" + b.getSliFlag());
-            titleMap.put("group3_".concat(ctlcode), c.getServiceGroupName());
-
-            listGroup3.add(propT);
-
-        }
-
-        if (listGroup3.size() > 0) {
-            List<String> serviceCodes = new ArrayList<String>();
-            for (int ii = 0; ii < listGroup3.size(); ii++) {
-                serviceCodes.add(listGroup3.get(ii).getProperty("serviceCode"));
-            }
-
-            for (CtlBillingServicePremium p : pDao.findByServceCodes(serviceCodes)) {
-                propPremium.setProperty(p.getServiceCode(), "A");
-            }
-        }
-
-        billingServiceCodesMap.put("group3_".concat(ctlcode), listGroup3);
-
-    }
-
-    CtlBillingTypeDao tDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-    String defaultBillType = "";
-    for (CtlBillingType t : tDao.findByServiceType(ctlBillForm)) {
-        defaultBillType = t.getBillType();
-    }
-
-
-    // create msg
+    // Append error / warning messages to msg for downstream alert rendering.
     msg += errorMsg + warningMsg;
 %>
 

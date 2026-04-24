@@ -20,18 +20,27 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
 import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
+import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
+import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
@@ -425,6 +434,94 @@ public final class BillingONFormDataAssembler {
         String xmlVdateParam = request.getParameter("xml_vdate");
         String visitDate = xmlVdateParam != null ? xmlVdateParam : "";
         b.visitDate(visitDate);
+
+        // Service-code grid: 3 groups x N service types, plus titles + premium flags
+        java.util.LinkedHashMap<String, List<BillingONFormViewModel.ServiceCodeEntry>> serviceCodesMap
+                = new java.util.LinkedHashMap<>();
+        List<String> serviceTypeCodes = new ArrayList<>();
+        java.util.LinkedHashMap<String, String> serviceTitleMap = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashSet<String> premiumCodes = new java.util.LinkedHashSet<>();
+        String resolvedBillFormName = "";
+
+        CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
+        BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
+        CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
+        CSSStylesDAO cssStylesDao = SpringUtils.getBean(CSSStylesDAO.class);
+        CodeFilterManager codeFilterManager = SpringUtils.getBean(CodeFilterManager.class);
+
+        java.util.Date filterDate = io.github.carlos_emr.carlos.util.ConversionUtils
+                .fromDateString(billReferenceDate);
+        if (request.getParameter("start_time") != null) {
+            filterDate = io.github.carlos_emr.carlos.util.ConversionUtils
+                    .fromTimestampString(billReferenceDate + " " + request.getParameter("start_time"));
+        }
+        java.util.Date billRefDate = io.github.carlos_emr.carlos.util.ConversionUtils
+                .fromDateString(billReferenceDate);
+
+        for (Object[] typeRow : cbsDao.findServiceTypesByStatus("A")) {
+            String ctlcode = String.valueOf(typeRow[1]);
+            String ctlcodename = String.valueOf(typeRow[0]);
+
+            if (ctlcode.equals(ctlBillForm)) {
+                resolvedBillFormName = ctlcodename;
+            }
+            serviceTypeCodes.add(ctlcode);
+
+            for (String groupName : new String[] { "Group1", "Group2", "Group3" }) {
+                List<BillingONFormViewModel.ServiceCodeEntry> groupEntries = new ArrayList<>();
+                for (Object[] o : bDao.findBillingServiceAndCtlBillingServiceByMagic(ctlcode, groupName, billRefDate)) {
+                    BillingService svc = (BillingService) o[0];
+                    CtlBillingService ctl = (CtlBillingService) o[1];
+                    if (!codeFilterManager.isCodeValid(svc.getServiceCode(), null, false, filterDate, demo)) {
+                        continue;
+                    }
+                    String displayStyle = "";
+                    if (svc.getDisplayStyle() != null) {
+                        CssStyle cssStyle = cssStylesDao.find(svc.getDisplayStyle());
+                        if (cssStyle != null && cssStyle.getStyle() != null) {
+                            displayStyle = cssStyle.getStyle();
+                        }
+                    }
+                    groupEntries.add(new BillingONFormViewModel.ServiceCodeEntry(
+                            nullSafe(svc.getServiceCode()),
+                            svc.getDescription() == null ? "N/A" : svc.getDescription(),
+                            nullSafe(svc.getValue()),
+                            nullSafe(svc.getPercentage()),
+                            nullSafe(ctl.getServiceType()),
+                            nullSafe(ctl.getServiceGroupName()),
+                            displayStyle,
+                            svc.getSliFlag()));
+                    serviceTitleMap.put(
+                            groupName.toLowerCase().replace("group", "group") + "_" + ctlcode,
+                            ctl.getServiceGroupName());
+                }
+                if (!groupEntries.isEmpty()) {
+                    List<String> codes = new ArrayList<>();
+                    for (BillingONFormViewModel.ServiceCodeEntry e : groupEntries) {
+                        codes.add(e.serviceCode());
+                    }
+                    for (CtlBillingServicePremium p : pDao.findByServceCodes(codes)) {
+                        premiumCodes.add(p.getServiceCode());
+                    }
+                }
+                String mapKey = groupName.toLowerCase() + "_" + ctlcode;
+                serviceCodesMap.put(mapKey, groupEntries);
+            }
+        }
+
+        b.billingServiceCodesMap(serviceCodesMap)
+                .listServiceType(serviceTypeCodes)
+                .titleMap(serviceTitleMap)
+                .premiumCodes(premiumCodes)
+                .defaultBillFormName(resolvedBillFormName);
+
+        // Default bill type for the selected service type
+        CtlBillingTypeDao tDao = SpringUtils.getBean(CtlBillingTypeDao.class);
+        String resolvedBillType = "";
+        for (CtlBillingType t : tDao.findByServiceType(ctlBillForm)) {
+            resolvedBillType = t.getBillType();
+        }
+        b.defaultBillType(nullSafe(resolvedBillType));
 
         return b.build();
     }
