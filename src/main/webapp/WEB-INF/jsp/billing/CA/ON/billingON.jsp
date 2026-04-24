@@ -668,6 +668,15 @@
 
     <!-- to load for example /oscar/js/custom/ocean/global.js and /oscar/js/custom/ocean/billing.js although those are not present in stock -->
     <oscar:customInterface section="billing"/>
+    <%-- Defined in its own <script> so a parse error in the larger inline
+         script below cannot prevent onBlur handlers from resolving it. --%>
+    <script>
+        function upCaseCtrl(ctrl) {
+            var n = document.forms[0].xml_billtype.selectedIndex;
+            var val = document.forms[0].xml_billtype[n].value;
+            if (val.substring(0, 3) == "ODP" || val.substring(0, 3) == "WCB" || val.substring(0, 3) == "BON") ctrl.value = ctrl.value.toUpperCase();
+        }
+    </script>
     <script>
         var billingContextPath = "<carlos:encode value='${pageContext.request.contextPath}' context='javaScriptBlock'/>";
 
@@ -909,10 +918,7 @@
         function referralScriptAttach(elementName) {
             var d = elementName;
             t0 = escape("document.forms[0].elements[\'" + d + "\'].value");
-            //t1 = escape("");
-            //alert(('<%= request.getContextPath() %>/billing/CA/ON/ViewSearchRefDoc?param='+t0));
             awnd = rs('att', (billingContextPath + '/billing/CA/ON/ViewSearchRefDoc?param=' + t0), 1000, 800, 1);
-            //awnd.focus();
         }
 
         function referralScriptAttach2(elementName, name2) {
@@ -960,19 +966,11 @@
             <% } %>
         }
 
-        function upCaseCtrl(ctrl) {
-            var n = document.forms[0].xml_billtype.selectedIndex;
-            var val = document.forms[0].xml_billtype[n].value;
-            if (val.substring(0, 3) == "ODP" || val.substring(0, 3) == "WCB" || val.substring(0, 3) == "BON") ctrl.value = ctrl.value.toUpperCase();
-        }
-
         function changeCut(dropdown) {
             var str = dropdown.options[dropdown.selectedIndex].value;
             var temp = new Array();
             temp = str.split('\|');
-            //alert(temp);
             var tlen = temp.length;
-            //alert(tlen);
             document.forms[0].dxCode.value = "";
             document.forms[0].dxCode1.value = "";
             document.forms[0].dxCode2.value = "";
@@ -981,7 +979,6 @@
                 ocode = eval("document.forms[0].serviceCode" + i);
                 ounit = eval("document.forms[0].serviceUnit" + i);
                 operc = eval("document.forms[0].serviceAt" + i);
-                //alert(i+":"+n+"|"+temp[n]);
                 ocode.value = "";
                 ounit.value = "";
                 operc.value = "";
@@ -1069,7 +1066,6 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            //alert(dd);
                           <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
@@ -1099,9 +1095,6 @@
                 if (thisDiv.style.display == "none") {
                     thisDiv.style.display = "block";
                 }
-            } else {
-                //alert("Error: Could not locate div with id: " + selectedFormDivGroupId);
-                //do nothing
             }
         }
 
@@ -1112,9 +1105,6 @@
                 if (thisDiv.style.display == "block") {
                     thisDiv.style.display = "none";
                 }
-            } else {
-                //alert("Error: Could not locate div with id: " + selectedFormDivGroupId);
-                //do nothing
             }
         }
 
@@ -2041,7 +2031,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 <%=serviceDesc.length() > 30 ? "title=\"" + serviceDesc + "\"" : ""%>
                                                 <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
                                             <div onclick="getElementById('xml_<%=serviceCode%>').click();"><%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                                <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
                                             </div>
                                         </td>
                                         <td style="text-align: right; <%=displayStyle%> <%=bgcolor%>">
@@ -2050,8 +2039,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <input
                                                     type="hidden" name="sli_xml_<%=serviceCode%>"
                                                     value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-				    <input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
                                         </td>
                                     </tr>
                                     <%
@@ -2127,7 +2114,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <div onclick="getElementById('xml_<%=serviceCode%>').click();">
                                                 <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
                                             </div>
-                                            <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
                                         </td>
                                         <td style="text-align: right;<%=displayStyle%>  <%=bgcolor%>">
                                             <div class="smallFont"><%=serviceDisp%>
@@ -2135,8 +2121,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <input
                                                     type="hidden" name="sli_xml_<%=serviceCode%>"
                                                     value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-					<input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
                                         </td>
                                     </tr>
                                     <%
@@ -2211,7 +2195,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                                 <%=displayStyle.equals("") ? "class=\"smallFont\"" : "style=\"" + displayStyle + "\""%>>
                                             <div onclick="getElementById('xml_<%=serviceCode%>').click();">
                                                 <%=serviceDesc.length() > 30 ? serviceDesc.substring(0, 30) + "..." : serviceDesc%>
-                                                <!--<input type="hidden" name="desc_xml_<%=serviceCode%>" value="<%=serviceDesc%>" />-->
                                             </div>
                                         </td>
                                         <td style="text-align: right; <%=displayStyle%>  <%=bgcolor%>">
@@ -2220,8 +2203,6 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
                                             <input
                                                     type="hidden" name="sli_xml_<%=serviceCode%>"
                                                     value="<%=sliFlag%>"/>
-                                            <!--<input type="hidden" name="price_xml_<%=serviceCode%>" value="<%=serviceDisp%>" />
-					<input type="hidden" name="perc_xml_<%=serviceCode%>" value="<%=servicePercentage%>" />-->
                                         </td>
                                     </tr>
                                     <%
