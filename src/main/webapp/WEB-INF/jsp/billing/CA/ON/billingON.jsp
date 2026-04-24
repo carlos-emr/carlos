@@ -80,57 +80,45 @@
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager" %>
 
-<%
-	ProfessionalSpecialistDao professionalSpecialistDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
-    DxresearchDAO dxresearchDao = SpringUtils.getBean(DxresearchDAO.class);
-    UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-%>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
+    // View-model shim: all data from lines 82-260 of the original scriptlet now
+    // comes from BillingONFormDataAssembler via BillingONView2Action. Local
+    // variables are preserved so the rest of this scriptlet (provider loop,
+    // billing-form selection, service-code map) keeps working unchanged until
+    // those sections migrate in follow-up commits.
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    BillingONFormViewModel model = (BillingONFormViewModel) request.getAttribute("model");
+    if (model == null) {
+        // Defensive fallback for any legacy entry path that forwarded at this JSP without chaining through the view action.
+        model = new BillingONFormDataAssembler().assemble(loggedInInfo, request);
     }
+
     CarlosProperties oscarVariables = CarlosProperties.getInstance();
 
-    String user_no = (String) session.getAttribute("user");
-    String providerview = request.getParameter("providerview") == null ? "" : request.getParameter("providerview");
+    String user_no = model.getUserNo();
+    String providerview = model.getProviderView();
     String asstProvider_no = "", color = "", premiumFlag = "", service_form = "";
-    String sql = null;
-    ResultSet rs = null;
-    String sql0 = null;
-    ResultSet rs0 = null;
-    String strToday = UtilDateUtilities.getToday("yyyy-MM-dd");
-    boolean bSingleClick = oscarVariables.getProperty("onBillingSingleClick", "").equals("yes") ? true : false;
-    boolean bHospitalBilling = false;
-    String clinicview = bHospitalBilling ? oscarVariables.getProperty("clinic_hospital", "") : oscarVariables.getProperty("clinic_view", "");
-    String clinicNo = oscarVariables.getProperty("clinic_no", "").trim();
-    String visitType = bHospitalBilling ? "02" : oscarVariables.getProperty("visit_type", "");
+    String strToday = model.getToday();
+    boolean bSingleClick = model.isSingleClickEnabled();
+    boolean bHospitalBilling = model.isHospitalBilling();
+    String clinicview = model.getClinicView();
+    String clinicNo = model.getClinicNo();
+    String visitType = model.getVisitType();
 
-    if (visitType.startsWith("00") || visitType.equals("")) clinicview = "0000";
-    String appt_no = request.getParameter("appointment_no");
-    String billReferenceDate;
-    if (appt_no != null && appt_no.compareTo("0") == 0) {
-        billReferenceDate = request.getParameter("service_date") != null ? request.getParameter("service_date") : strToday;
-    } else {
-        billReferenceDate = request.getParameter("appointment_date");
-    }
-    String demoname = request.getParameter("demographic_name");
-    String demo_no = request.getParameter("demographic_no");
-    String apptProvider_no = request.getParameter("apptProvider_no");
-    String assgProvider_no = request.getParameter("assgProvider_no");
-    String demoSex = request.getParameter("DemoSex");
-    String m_review = request.getParameter("m_review") != null ? request.getParameter("m_review") : "";
-    String ctlBillForm = request.getParameter("billForm");
-    String curBillForm = request.getParameter("curBillForm");
+    String appt_no = model.getAppointmentNo();
+    String billReferenceDate = model.getBillReferenceDate();
+    String demoname = model.getDemoName();
+    String demo_no = model.getDemographicNo();
+    String apptProvider_no = model.getApptProviderNo();
+    String assgProvider_no = model.getAssgProviderNo();
+    String demoSex = model.getDemoSex();
+    String m_review = model.getMReview();
+    String ctlBillForm = model.getCtlBillForm();
+    String curBillForm = model.getCurBillForm();
+    String provider_no = model.getProviderNo();
 
-    String provider_no;
-    if (apptProvider_no.equalsIgnoreCase("none")) {
-        provider_no = user_no;
-    } else {
-        provider_no = apptProvider_no;
-    }
     CodeFilterManager codeFilterManager = SpringUtils.getBean(CodeFilterManager.class);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demo = demographicManager.getDemographic(loggedInInfo, demo_no);
@@ -139,138 +127,64 @@
         filterDate = ConversionUtils.fromTimestampString(billReferenceDate + " " + request.getParameter("start_time"));
     }
 
-    //load patientDx
-    List<Dxresearch> dxList = dxresearchDao.getByDemographicNo(Integer.parseInt(demo_no));
-    List<String> patientDx = new ArrayList<String>();
-    for (Dxresearch dx : dxList) {
-        if ("icd9".equals(dx.getCodingSystem())) patientDx.add(dx.getDxresearchCode());
-    }
-
-    //load codelist to add to patientDx
-    UserProperty codeList = userPropertyDao.getProp(UserProperty.CODE_TO_ADD_PATIENTDX);
-    String codeToAddPatientDx = codeList != null ? codeList.getValue() : "";
-    codeToAddPatientDx = codeToAddPatientDx != null ? codeToAddPatientDx.trim() : "";
-
-    codeList = userPropertyDao.getProp(UserProperty.CODE_TO_MATCH_PATIENTDX);
-    String codeToMatchPatientDx = codeList != null ? codeList.getValue() : "";
-    codeToMatchPatientDx = codeToMatchPatientDx != null ? codeToMatchPatientDx.trim() : "";
-
-    //check for management fee code eligibility
-    StringBuilder billingRecomendations = new StringBuilder();
-    try {
-        List<DSConsequence> list = BillingGuidelines.getInstance().evaluateAndGetConsequences(loggedInInfo, request.getParameter("demographic_no"), (String) request.getSession().getAttribute("user"));
-
-        for (DSConsequence dscon : list) {
-            if (dscon.getConsequenceStrength().equals(DSConsequence.ConsequenceStrength.warning)) {
-                billingRecomendations.append(SafeEncode.forHtml(dscon.getText())).append("<br/>");
-            }
-        }
-    } catch (Exception e) {
-        MiscUtils.getLogger().error("Error", e);
-    }
+    List<String> patientDx = model.getPatientDx();
+    String codeToAddPatientDx = model.getPatientDxAddCode();
+    String codeToMatchPatientDx = model.getPatientDxMatchCode();
+    StringBuilder billingRecomendations = new StringBuilder(model.getBillingRecommendations());
 
     ProviderPreferenceDao preferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
-    ProviderPreference preference = null;
-    preference = ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(provider_no);
+    ProviderPreference preference = ProviderPreferencesUIBean.getProviderPreferenceByProviderNo(provider_no);
 
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
     int curDay = now.get(Calendar.DAY_OF_MONTH);
-    int dob_year = 0, dob_month = 0, dob_date = 0, age = 0;
+    int dob_year = model.getDemoDobYear().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobYear());
+    int dob_month = model.getDemoDobMonth().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobMonth());
+    int dob_date = model.getDemoDobDay().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobDay());
+    int age = model.getAge();
 
     String msg = "The default unit and @ value is 1.";
     String action = "edit";
     Properties propHist = null;
     Vector vecHist = new Vector();
 
-    if (request.getParameter("xml_provider") != null) {
-        providerview = request.getParameter("xml_provider");
-        if (providerview.indexOf("|") != -1)
-            providerview = providerview.substring(0, providerview.indexOf("|"));
-    }
+    String errorFlag = model.getErrorFlag();
+    String warningMsg = model.getWarningMsg();
+    String errorMsg = model.getErrorMsg();
+    String r_doctor = model.getReferralDoctor();
+    String r_doctor_ohip = model.getReferralDoctorOhip();
+    String demoFirst = model.getDemoFirst();
+    String demoLast = model.getDemoLast();
+    String demoHIN = model.getDemoHin();
+    String demoVer = model.getDemoVer();
+    String demoDOB = model.getDemoDob();
+    String demoDOBYY = model.getDemoDobYear();
+    String demoDOBMM = model.getDemoDobMonth();
+    String demoDOBDD = model.getDemoDobDay();
+    String demoHCTYPE = model.getDemoHcType();
+    String family_doctor = model.getFamilyDoctor();
+    String roster_status = model.getRosterStatus();
+    String referSpet = model.getReferralSpecialty();
 
-    // get patient's detail
-    String errorFlag = "";
-    String warningMsg = "", errorMsg = "";
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoVer = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
-    String family_doctor = "";
-    String roster_status = "";
-    String referSpet = "";
-    // last_name,first_name,dob,hin,ver,hc_type,sex,family_doctor
+
+    // Downstream scriptlets still use JdbcBillingPageUtil / JdbcBillingReviewImpl directly
+    // (favourite list, facility numbers, full history table). Keep them here as locals until
+    // those sections migrate to the view model.
     JdbcBillingPageUtil tdbObj = new JdbcBillingPageUtil();
-    List demoL = tdbObj.getPatientCurBillingDemographic(loggedInInfo, demo_no);
-
-    //String sql = "select * from demographic where demographic_no=" + demo_no;
-    //ResultSet rs = dbObj.searchDBRecord(sql);
-    //while (rs.next()) {
-    demoLast = (String) demoL.get(0); //rs.getString("last_name");
-    demoFirst = (String) demoL.get(1); //rs.getString("first_name");
-    demoDOB = (String) demoL.get(2);
-    demoHIN = (String) demoL.get(3); //rs.getString("hin");
-    demoVer = (String) demoL.get(4); //rs.getString("ver");
-    demoHCTYPE = (String) demoL.get(5); //rs.getString("hc_type") == null ? "" : rs.getString("hc_type");
-    demoSex = (String) demoL.get(6); //rs.getString("sex");
-    family_doctor = (String) demoL.get(7);
-    assgProvider_no = (String) demoL.get(8);
-    roster_status = (String) demoL.get(9);
-
-    if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-        demoHCTYPE = "ON";
-    } else {
-        demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-    }
-
-    if ("".equals(family_doctor)) {
-        r_doctor = "N/A";
-        r_doctor_ohip = "000000";
-    } else {
-        r_doctor = SxmlMisc.getXmlContent(family_doctor, "rd") == null ? "" : SxmlMisc
-                .getXmlContent(family_doctor, "rd");
-        r_doctor_ohip = SxmlMisc.getXmlContent(family_doctor, "rdohip") == null ? ""
-                : SxmlMisc.getXmlContent(family_doctor, "rdohip");
-        referSpet = tdbObj.getReferDocSpet(r_doctor_ohip);
-    }
-
-    if (demoHIN.equals("")) {
-        warningMsg += "<b><div class='alert alert-danger'>Warning: The patient does not have a valid HIN. </div></b>";
-    }
-    if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-        warningMsg += "<div class='alert alert error'>Warning: the referral doctor's no is wrong. </div>";
-    }
-    if (StringUtils.isBlank(demoDOB) || demoDOB.length() != 8) {
-        errorFlag = "1";
-        errorMsg = errorMsg
-                + "<b><div class='alert alert error'>Error: The patient does not have a valid DOB. </div></b>";
-    }
-    //}
-
-
-
-
-
-    // get patient's billing history
-    boolean bFirst = true;
     JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
     List aL = hdbObj.getBillingHist(demo_no, 5, 0, null);
 
+    // Build vecHist / vecHistD for default visit-type / dx-code lookups below.
+    boolean bFirst = true;
     Vector vecHistD = new Vector();
-    if (aL.size() > 0) {
-        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(0);
-        BillingItemData iobj = (BillingItemData) aL.get(1);
-
+    for (BillingONFormViewModel.BillingHistoryEntry entry : model.getBillingHistory()) {
         propHist = new Properties();
-
-        //propHist.setProperty("billing_no", "" + rs.getInt("id"));
-        propHist.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date()); // admission date
-        //propHist.setProperty("billing_date", rs.getString("billing_date")); // service date
-        //propHist.setProperty("update_date", rs.getString("timestamp")); // create date
-        propHist.setProperty("visitType", obj.getVisittype());
-        propHist.setProperty("clinic_ref_code", obj.getFacilty_num());
+        propHist.setProperty("visitdate", entry.visitDate());
+        propHist.setProperty("visitType", entry.visitType());
+        propHist.setProperty("clinic_ref_code", entry.clinicRefCode());
+        propHist.setProperty("diagnostic_code", entry.diagnosticCode());
         vecHist.add(propHist);
-        //propHist.setProperty("service_code", serCode);
-        propHist.setProperty("diagnostic_code", iobj.getDx());
         vecHistD.add(propHist);
     }
 
@@ -287,13 +201,7 @@
         vecProvider.add(propT);
     }
 
-    // set default value
-    // use parameter -> history record
-    ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(r_doctor_ohip);
-    if (specialist != null) {
-        r_doctor = specialist.getLastName() + "," + specialist.getFirstName();
-    }
-
+    // r_doctor already resolved to "LastName,FirstName" by the assembler when a ProfessionalSpecialist match exists.
     String paraName = request.getParameter("dxCode");
     if (paraName == null || paraName.equals("")) {
         // get the default diagnostic code

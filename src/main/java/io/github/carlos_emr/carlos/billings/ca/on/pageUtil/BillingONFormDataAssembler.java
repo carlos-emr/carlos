@@ -78,7 +78,10 @@ public final class BillingONFormDataAssembler {
         String userNo = (String) request.getSession().getAttribute("user");
         b.userNo(userNo);
 
-        String providerView = firstNonEmpty(request.getParameter("providerview"), "");
+        // xml_provider overrides providerview when present (matches original scriptlet behavior)
+        String providerView = firstNonEmpty(
+                request.getParameter("xml_provider"),
+                firstNonEmpty(request.getParameter("providerview"), ""));
         if (providerView.indexOf('|') != -1) {
             providerView = providerView.substring(0, providerView.indexOf('|'));
         }
