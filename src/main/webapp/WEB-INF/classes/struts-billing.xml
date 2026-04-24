@@ -48,7 +48,7 @@
         </action>
         <action name="billing" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.Billing2Action">
             <result name="BC">/WEB-INF/jsp/billing/CA/BC/billingBC.jsp</result>
-            <result name="ON">/WEB-INF/jsp/billing/CA/ON/billingON.jsp</result>
+            <result name="ON" type="chain">billing/CA/ON/billingView</result>
         </action>
         <action name="billing/CA/BC/CreateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingCreateBilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCreated.jsp</result>
@@ -287,7 +287,7 @@
             <result name="printInvoice">/WEB-INF/jsp/billing/CA/ON/billingONSavePrintInvoice.jsp</result>
             <result name="workloadRedirect">/WEB-INF/jsp/billing/CA/ON/billingONSaveWorkloadRedirect.jsp</result>
             <result name="addAnother">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
-            <result name="backToEdit">/WEB-INF/jsp/billing/CA/ON/billingON.jsp</result>
+            <result name="backToEdit" type="chain">billing/CA/ON/billingView</result>
             <result name="failure">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
         </action>
         <action name="billing/CA/ON/BillingShortcutPg2Save"
