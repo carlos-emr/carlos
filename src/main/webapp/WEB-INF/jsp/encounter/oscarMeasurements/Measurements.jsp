@@ -256,11 +256,11 @@
                                                         </th>
                                                         <th style="width:160px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingMeasuringInstrc"/>
                                                         </th>
-                                                        <th style="width:30px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
+                                                        <th style="width:80px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingValue"/>
                                                         </th>
-                                                        <th style="width:40px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
+                                                        <th style="width:120px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingObservationDate"/>
                                                         </th>
-                                                        <th style="width:80px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
+                                                        <th style="width:240px"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/>
                                                         </th>
                                                         <th style="width:10px"></th>
                                                     </tr>
@@ -365,22 +365,69 @@
     </form>
 
     <script>
+
+        function wtEnglish2Metric(obj) {
+      			weight = obj.value;
+      			weightM = Math.round(weight * 10 * 0.4536) / 10 ;
+      			if(confirm("Are you sure you want to change " + weight + " pounds to " + weightM +"kg?") ) {
+      				obj.value = weightM;
+      			}
+    		  }
+
+        function htEnglish2Metric(obj) {
+      		height = obj.value;
+      		if(height.length > 1 && height.indexOf("'") > 0 ) {
+      			feet = height.substring(0, height.indexOf("'"));
+      			inch = height.substring(height.indexOf("'"));
+      			if(inch.length == 1) {
+      				inch = 0;
+      			} else {
+      				inch = inch.charAt(inch.length-1)=='"' ? inch.substring(0, inch.length-1) : inch;
+      				inch = inch.substring(1);
+      			}
+      			height = Math.round((feet * 30.48 + inch * 2.54) * 10) / 10 ;
+      			if(confirm("Are you sure you want to change " + feet + " feet " + inch + " inch(es) to " + height +"cm?") ) {
+      				obj.value = height;
+      			}
+      		}
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             // If WT, HT and BMI exists then allow the link
             const rowWT = document.getElementById('row-WT');
             const rowHT = document.getElementById('row-HT');
             const rowBMI = document.getElementById('row-BMI');
 
+            if (rowWT) {
+                const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
+                if (wtInput) {
+                    wtInput.style.backgroundColor = "#d9e6f2";
+                    wtInput.addEventListener('dblclick', function () {
+                        wtEnglish2Metric(this);
+                    });
+                }
+            }
+
+            if (rowHT) {
+                const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
+                if (htInput) {
+                    htInput.style.backgroundColor = "#d9e6f2";
+                    htInput.addEventListener('dblclick', function () {
+                        htEnglish2Metric(this);
+                    });
+                }
+            }
+
             if (rowWT && rowHT && rowBMI) {
                 const wtInput = rowWT.querySelectorAll('td')[2]?.querySelector('input');
                 const htInput = rowHT.querySelectorAll('td')[2]?.querySelector('input');
 
                 if (wtInput && htInput) {
-                    wtInput.addEventListener('keyup', function () {
+                    wtInput.addEventListener('blur', function () {
                         calcBMI(this.value, htInput.value);
                     });
 
-                    htInput.addEventListener('keyup', function () {
+                    htInput.addEventListener('blur', function () {
                         calcBMI(wtInput.value, this.value);
                     });
                 }
@@ -406,13 +453,13 @@
                         bmiInput.value = b;
                     }
                     if (rowBMI) {
-                        rowBMI.style.backgroundColor = "#d9e6f2";
+                        bmiInput.style.backgroundColor = "#d9e6f2";
                     }
                 }
             }
         }
-    </script>
 
+    </script>
 
     </body>
 </html>
