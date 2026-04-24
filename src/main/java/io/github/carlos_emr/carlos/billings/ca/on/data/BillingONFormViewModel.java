@@ -56,6 +56,18 @@ public final class BillingONFormViewModel {
             String displayStyle,
             boolean sliFlag) { }
 
+    /** One billing form entry for the Layer1 menu and the _billingForms JS array. */
+    public record BillingFormMenuEntry(
+            String code,
+            String name,
+            String billType) { }
+
+    /** One dx-code panel entry per service type. */
+    public record DxCodeEntry(
+            String serviceType,
+            String diagnosticCode,
+            String description) { }
+
     // Identity / context
     private final String userNo;
     private final String demographicNo;
@@ -136,6 +148,13 @@ public final class BillingONFormViewModel {
     private final String defaultBillFormName;
     private final String defaultBillType;
 
+    // Billing-form menu (Layer1 + the _billingForms JS autocomplete array)
+    private final List<BillingFormMenuEntry> billingForms;
+    // Dx codes grouped by service type for the Layer2 search panels
+    private final Map<String, List<DxCodeEntry>> dxCodesByServiceType;
+    // Favourite combo list used by the cutlist dropdown (flat code/name pairs)
+    private final List<String> billingFavourites;
+
     // Future expansion (not yet populated)
     private final Map<String, String> requestEchoes;
 
@@ -196,6 +215,11 @@ public final class BillingONFormViewModel {
         this.premiumCodes = b.premiumCodes == null ? Collections.emptySet() : Set.copyOf(b.premiumCodes);
         this.defaultBillFormName = b.defaultBillFormName;
         this.defaultBillType = b.defaultBillType;
+        this.billingForms = b.billingForms == null ? Collections.emptyList() : List.copyOf(b.billingForms);
+        this.dxCodesByServiceType = b.dxCodesByServiceType == null
+                ? Collections.emptyMap() : Map.copyOf(b.dxCodesByServiceType);
+        this.billingFavourites = b.billingFavourites == null
+                ? Collections.emptyList() : List.copyOf(b.billingFavourites);
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
     }
 
@@ -257,6 +281,9 @@ public final class BillingONFormViewModel {
     public Set<String> getPremiumCodes() { return premiumCodes; }
     public String getDefaultBillFormName() { return defaultBillFormName; }
     public String getDefaultBillType() { return defaultBillType; }
+    public List<BillingFormMenuEntry> getBillingForms() { return billingForms; }
+    public Map<String, List<DxCodeEntry>> getDxCodesByServiceType() { return dxCodesByServiceType; }
+    public List<String> getBillingFavourites() { return billingFavourites; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
     public static final class Builder {
@@ -314,6 +341,9 @@ public final class BillingONFormViewModel {
         private Set<String> premiumCodes;
         private String defaultBillFormName;
         private String defaultBillType;
+        private List<BillingFormMenuEntry> billingForms;
+        private Map<String, List<DxCodeEntry>> dxCodesByServiceType;
+        private List<String> billingFavourites;
         private Map<String, String> requestEchoes;
 
         public Builder userNo(String v) { this.userNo = v; return this; }
@@ -370,6 +400,9 @@ public final class BillingONFormViewModel {
         public Builder premiumCodes(Set<String> v) { this.premiumCodes = v; return this; }
         public Builder defaultBillFormName(String v) { this.defaultBillFormName = v; return this; }
         public Builder defaultBillType(String v) { this.defaultBillType = v; return this; }
+        public Builder billingForms(List<BillingFormMenuEntry> v) { this.billingForms = v; return this; }
+        public Builder dxCodesByServiceType(Map<String, List<DxCodeEntry>> v) { this.dxCodesByServiceType = v; return this; }
+        public Builder billingFavourites(List<String> v) { this.billingFavourites = v; return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v; return this; }
 
         public BillingONFormViewModel build() {

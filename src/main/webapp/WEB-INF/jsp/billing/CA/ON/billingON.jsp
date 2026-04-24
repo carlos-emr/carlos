@@ -29,6 +29,8 @@
 <% response.setBufferSize(1024 * 1024); %>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -1017,53 +1019,20 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                                                                onclick="showHideLayers('Layer1','','hide');return false;">X</a></b>
             </td>
         </tr>
-        <%
-            String ctlcode = "", ctlcodename = "", currentFormName = "";
-            int ctlCount = 0;
-            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-            CtlBillingTypeDao ctlBillingtypeDao = SpringUtils.getBean(CtlBillingTypeDao.class);
-            for (Object[] bs : ctlBillingServiceDao.findServiceTypesByStatus("A")) {
-                ctlcode = String.valueOf(bs[1]);
-                ctlcodename = String.valueOf(bs[0]);
-                ctlCount++;
-                if (ctlcode.equals(ctlBillForm)) {
-                    currentFormName = ctlcodename;
-                }
-                String billType = "";
-
-                for (CtlBillingType bt : ctlBillingtypeDao.findByServiceType(ctlcode)) {
-                    billType = bt.getBillType();
-                }
-        %>
+        <c:forEach var="bf" items="${model.billingForms}">
         <tr>
             <td colspan="2" style="background-color:lightgray;"><b>
                 <a href="javascript:void(0);"
-                   onclick="toggleDiv('<carlos:encode value='<%= ctlcode %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= ctlcodename %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= billType %>' context="javaScriptAttribute"/>');showHideLayers('Layer1','','hide');"><carlos:encode value='<%= ctlcodename %>' context="html"/>
+                   onclick="toggleDiv('<carlos:encode value='${bf.code}' context="javaScriptAttribute"/>', '<carlos:encode value='${bf.name}' context="javaScriptAttribute"/>','<carlos:encode value='${bf.billType}' context="javaScriptAttribute"/>');showHideLayers('Layer1','','hide');"><carlos:encode value='${bf.name}' context="html"/>
                 </a>
             </b></td>
         </tr>
-        <%}%>
+        </c:forEach>
     </table>
 </div>
 <%-- Build billing form data for billFormName autocomplete --%>
 <script>
-var _billingForms = [
-<%
-boolean _bfFirst = true;
-CtlBillingServiceDao _ctlBSDao2 = SpringUtils.getBean(CtlBillingServiceDao.class);
-CtlBillingTypeDao _ctlBTDao2 = SpringUtils.getBean(CtlBillingTypeDao.class);
-for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
-    String _bfCode = String.valueOf(_bs2[1]);
-    String _bfName = String.valueOf(_bs2[0]);
-    String _bfBillType = "";
-    for (CtlBillingType _bt2 : _ctlBTDao2.findByServiceType(_bfCode)) {
-        _bfBillType = _bt2.getBillType();
-    }
-    if (!_bfFirst) { out.print(","); }
-    _bfFirst = false;
-%>{"code":"<carlos:encode value='<%= _bfCode %>' context="javaScriptBlock"/>","name":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>","billType":"<carlos:encode value='<%= _bfBillType %>' context="javaScriptBlock"/>","label":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>","value":"<carlos:encode value='<%= _bfName %>' context="javaScriptBlock"/>"}
-<%}%>
-];
+var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus="st"><c:if test="${not st.first}">,</c:if>{"code":"<carlos:encode value='${bf.code}' context="javaScriptBlock"/>","name":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","billType":"<carlos:encode value='${bf.billType}' context="javaScriptBlock"/>","label":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>","value":"<carlos:encode value='${bf.name}' context="javaScriptBlock"/>"}</c:forEach>];
 </script>
 
 <div id="Layer2"
@@ -1077,46 +1046,28 @@ for (Object[] _bs2 : _ctlBSDao2.findServiceTypesByStatus("A")) {
             </td>
         </tr>
     </table>
-    <%
-        for (int j = 0; j < listServiceType.size(); j++) {
-            String st = listServiceType.get(j);
-
-            String ctldiagcode = "", ctldiagcodename = "";
-            ctlCount = 0;
-    %>
-
-    <div id="dxCodeSearchDiv_<%=st%>" style="display: none;">
-
-        <%
-            DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-
-            for (Object[] o : dcDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
-                DiagnosticCode d = (DiagnosticCode) o[0];
-                CtlDiagCode c = (CtlDiagCode) o[1];
-
-                ctldiagcode = d.getDiagnosticCode();
-                ctldiagcodename = d.getDescription();
-                ctlCount++;
-        %>
+    <c:forEach var="dxEntry" items="${model.dxCodesByServiceType}">
+    <div id="dxCodeSearchDiv_<carlos:encode value='${dxEntry.key}' context='htmlAttribute'/>" style="display: none;">
+        <c:forEach var="dx" items="${dxEntry.value}">
         <table style="width: 98%; margin:auto;" class="table-striped table-hover">
             <tr>
                 <td style="width: 10%">
                     <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <%=ctldiagcode%>
+                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
+                        <carlos:encode value='${dx.diagnosticCode}' context='html'/>
                     </a>
                 </td>
                 <td>
                     <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<%=ctldiagcode%>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <%=ctldiagcodename.length() < 56 ? SafeEncode.forHtml(ctldiagcodename) : SafeEncode.forHtml(ctldiagcodename.substring(0, 55))%>
+                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
+                        <carlos:encode value='${fn:length(dx.description) lt 56 ? dx.description : fn:substring(dx.description, 0, 55)}' context='html'/>
                     </a>
                 </td>
             </tr>
         </table>
-        <%} %>
+        </c:forEach>
     </div>
-    <%} %>
+    </c:forEach>
 
 </div>
 

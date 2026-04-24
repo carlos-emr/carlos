@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -42,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -522,6 +525,44 @@ public final class BillingONFormDataAssembler {
             resolvedBillType = t.getBillType();
         }
         b.defaultBillType(nullSafe(resolvedBillType));
+
+        // Billing-form menu: one entry per service type, with its billType (for Layer1 anchors + _billingForms JS array)
+        List<BillingONFormViewModel.BillingFormMenuEntry> billingForms = new ArrayList<>();
+        for (Object[] typeRow : cbsDao.findServiceTypesByStatus("A")) {
+            String menuCode = String.valueOf(typeRow[1]);
+            String menuName = String.valueOf(typeRow[0]);
+            String menuBillType = "";
+            for (CtlBillingType t : tDao.findByServiceType(menuCode)) {
+                menuBillType = t.getBillType();
+            }
+            billingForms.add(new BillingONFormViewModel.BillingFormMenuEntry(
+                    menuCode, menuName, nullSafe(menuBillType)));
+        }
+        b.billingForms(billingForms);
+
+        // Dx codes grouped by service type (for Layer2 search panels)
+        DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
+        java.util.LinkedHashMap<String, List<BillingONFormViewModel.DxCodeEntry>> dxByType =
+                new java.util.LinkedHashMap<>();
+        for (String st : serviceTypeCodes) {
+            List<BillingONFormViewModel.DxCodeEntry> entries = new ArrayList<>();
+            for (Object[] o : dcDao.findDiagnosictsAndCtlDiagCodesByServiceType(st)) {
+                DiagnosticCode dx = (DiagnosticCode) o[0];
+                entries.add(new BillingONFormViewModel.DxCodeEntry(
+                        st,
+                        nullSafe(dx.getDiagnosticCode()),
+                        nullSafe(dx.getDescription())));
+            }
+            dxByType.put(st, entries);
+        }
+        b.dxCodesByServiceType(dxByType);
+
+        // Billing favourites (flat name/code list for the cutlist dropdown)
+        io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil favPageUtil =
+                new io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil();
+        @SuppressWarnings("unchecked")
+        List<String> favList = favPageUtil.getBillingFavouriteList();
+        b.billingFavourites(favList == null ? Collections.emptyList() : favList);
 
         return b.build();
     }
