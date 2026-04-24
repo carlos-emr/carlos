@@ -22,11 +22,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%-- billingON.jsp is 2000+ lines; the default 8KB JSP buffer causes Tomcat 11
-     to truncate the response during RequestDispatcher.forward(). 1MB buffer
-     accommodates the full page output. --%>
-<%@page buffer="1024kb" %>
-<% response.setBufferSize(1024 * 1024); %>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
