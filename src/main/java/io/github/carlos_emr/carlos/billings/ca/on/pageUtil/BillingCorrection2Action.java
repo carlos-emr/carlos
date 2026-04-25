@@ -39,23 +39,32 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONRepoDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ProviderSite;
+import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -86,6 +95,13 @@ public class BillingCorrection2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        // Build user-context view model up front and stash on the request so
+        // every result that forwards to billingONCorrection.jsp (success,
+        // closeReload, adminReload) sees a populated correctionModel. The
+        // bill-record state machine in updateInvoice / add3rdPartyPayment
+        // remains unchanged.
+        request.setAttribute("correctionModel", buildModel(loggedInInfo));
 
         if ("add3rdPartyPayment".equals(request.getParameter("method"))) {
             return add3rdPartyPayment();
@@ -580,5 +596,62 @@ public class BillingCorrection2Action extends ActionSupport {
         }
 
         return isChanged;
+    }
+
+    /**
+     * Builds the user-context view model (provider record, site/team-access
+     * flags, multisite list) that the JSP top scriptlet currently constructs
+     * inline via 5 DAO lookups. Bill-record-specific data stays in the
+     * existing state-machine path; this only captures the pieces driven by
+     * the logged-in user.
+     */
+    private BillingONCorrectionViewModel buildModel(LoggedInInfo loggedInInfo) {
+        String providerNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
+                ? loggedInInfo.getLoggedInProviderNo()
+                : "";
+
+        ProviderDao providerDaoLocal = SpringUtils.getBean(ProviderDao.class);
+        Provider userProvider = providerNo.isEmpty() ? null : providerDaoLocal.getProvider(providerNo);
+
+        boolean siteAccessPrivacy = loggedInInfo != null
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        boolean teamAccessPrivacy = loggedInInfo != null
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
+        boolean teamBillingOnly = loggedInInfo != null
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null);
+
+        Set<String> providerAccessList = new HashSet<>();
+        if (siteAccessPrivacy) {
+            ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
+            for (ProviderSite ps : providerSiteDao.findByProviderNo(providerNo)) {
+                providerAccessList.add(ps.getId().getProviderNo());
+            }
+        }
+        if (teamAccessPrivacy && userProvider != null) {
+            for (Provider p : providerDaoLocal.getBillableProvidersOnTeam(userProvider)) {
+                providerAccessList.add(p.getProviderNo());
+            }
+        }
+
+        boolean multisites = IsPropertiesOn.isMultisitesEnable();
+        List<String> mgrSites = new ArrayList<>();
+        if (multisites) {
+            SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+            for (Site s : siteDao.getActiveSitesByProviderNo(providerNo)) {
+                mgrSites.add(s.getName());
+            }
+        }
+
+        return BillingONCorrectionViewModel.builder()
+                .userProviderNo(providerNo)
+                .userFirstName(userProvider != null ? userProvider.getFirstName() : "")
+                .userLastName(userProvider != null ? userProvider.getLastName() : "")
+                .siteAccessPrivacy(siteAccessPrivacy)
+                .teamAccessPrivacy(teamAccessPrivacy)
+                .teamBillingOnly(teamBillingOnly)
+                .multisites(multisites)
+                .providerAccessList(providerAccessList)
+                .mgrSites(mgrSites)
+                .build();
     }
 }
