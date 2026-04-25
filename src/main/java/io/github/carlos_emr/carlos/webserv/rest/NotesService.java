@@ -281,7 +281,6 @@ public class NotesService extends AbstractServiceImpl {
             note.setGroupNote(nd.isGroupNote());
             note.setCpp(nd.isCpp());
             note.setEncounterTime(nd.getEncounterTime());
-            note.setEncounterTransportationTime(nd.getEncounterTransportationTime());
 
             noteList.add(note);
         }
@@ -417,18 +416,6 @@ public class NotesService extends AbstractServiceImpl {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
-        logger.debug("this is what the encounter time was " + note.getEncounterTransportationTime());
-		/*
-		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
-			note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-		}
-
-		String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-		if (minuteOfEncTransportationTime != null && !"".equals(minuteOfEncTransportationTime)) {
-			note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-		}
-		*/
         //Need to check some how that if a note is signed that it must stay signed, currently this is done in the interface where the save button is not available.
         if (note.getIsSigned()) {
             caseMangementNote.setSigning_provider_no(providerNo);
@@ -925,7 +912,7 @@ public class NotesService extends AbstractServiceImpl {
          * demographic_no, provider_no, note, signed,
          * include_issue_innote, signing_provider_no, encounter_type, billing_code,
          * program_no, reporter_caisi_role, reporter_program_team, history,
-         *  uuid, password, locked, archived, appointmentNo, hourOfEncounterTime, minuteOfEncounterTime, hourOfEncTransportationTime, minuteOfEncTransportationTime
+         *  uuid, password, locked, archived, appointmentNo, hourOfEncounterTime, minuteOfEncounterTime
          *
          */
 
@@ -1376,7 +1363,6 @@ public class NotesService extends AbstractServiceImpl {
         returnNote.setGroupNote(nd.isGroupNote());
         returnNote.setCpp(nd.isCpp());
         returnNote.setEncounterTime(nd.getEncounterTime());
-        returnNote.setEncounterTransportationTime(nd.getEncounterTransportationTime());
         returnNote.setAppointmentNo(nd.getAppointmentNo());
 
         return returnNote;

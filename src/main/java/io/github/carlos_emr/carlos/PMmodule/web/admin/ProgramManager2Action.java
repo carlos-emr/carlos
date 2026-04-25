@@ -869,8 +869,6 @@ public class ProgramManager2Action extends ActionSupport {
         if (request.getParameter("program.mentalHealth") == null) program.setMentalHealth(false);
         if (request.getParameter("program.housing") == null) program.setHousing(false);
         if (request.getParameter("program.enableEncounterTime") == null) program.setEnableEncounterTime(false);
-        if (request.getParameter("program.enableEncounterTransportationTime") == null)
-            program.setEnableEncounterTransportationTime(false);
 
         request.setAttribute("oldProgram", program);
 
@@ -944,7 +942,6 @@ public class ProgramManager2Action extends ActionSupport {
         oldProgram.setHousing(getParameterAsBoolean(request, "old_housing"));
         oldProgram.setFacilityId(getParameterAsInteger(request, "old_facility_id", 0));
         oldProgram.setEnableEncounterTime(getParameterAsBoolean(request, "old_enableEncounterTime"));
-        oldProgram.setEnableEncounterTransportationTime(getParameterAsBoolean(request, "old_enableEncounterTransportationTime"));
 
         if (isChanged(program, oldProgram)) {
             ProgramSignature programSignature = new ProgramSignature();

@@ -149,7 +149,5 @@ public interface NoteDisplay {
 
     public String getEncounterTime();
 
-    public String getEncounterTransportationTime();
-
     public Integer getAppointmentNo();
 }

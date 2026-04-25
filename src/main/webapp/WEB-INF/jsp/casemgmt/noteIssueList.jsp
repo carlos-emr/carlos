@@ -173,34 +173,6 @@
 </span></div>
 <%}%>
 
-<%
-    if (currentFacility.isEnableEncounterTransportationTime() || (currentProgram != null && currentProgram.isEnableEncounterTransportationTime())) {
-%>
-<div style="clear: right; margin: 0 30px 0 0; float: right;"><span>
-    <c:choose>
-        <c:when test="${not empty ajaxsave}">
-            <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
-            <span id="encTransTimeHr${caseManagementEntryForm.caseNote.id}">
-                ${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}
-            </span>:
-            <span id="encTransTimeMin${caseManagementEntryForm.caseNote.id}">
-                ${caseManagementEntryForm.caseNote.minuteOfEncTransportationTime}
-            </span>
-        </c:when>
-        <c:otherwise>
-            <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;
-            <input type="text" tabindex="13" id="hourOfEncTransportationTime" name="hourOfEncTransportationTime" maxlength="2"
-                   style="border: 1px; width: 20px; height:12px;"
-                   value="${caseManagementEntryForm.caseNote.hourOfEncTransportationTime}">&nbsp;<b>:</b>&nbsp;
-            <input type="text" tabindex="14" id="minuteOfEncTransportationTime" name="minuteOfEncTransportationTime" maxlength="2"
-                   style="border: 1px; width: 20px; height:12px;"
-                   value="${caseManagementEntryForm.caseNote.minuteOfEncTransportationTime}">
-        </c:otherwise>
-    </c:choose>
-
-</span></div>
-<%}%>
-
 <div id="current_note_addon"></div>
 
 <c:set var="encSelect" value="${encSelect}${noteIndex}" />

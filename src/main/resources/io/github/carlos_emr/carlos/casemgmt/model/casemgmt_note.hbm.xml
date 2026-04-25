@@ -69,8 +69,6 @@
 
 		<property name="hourOfEncounterTime" type="integer" column="hourOfEncounterTime"/>
 		<property name="minuteOfEncounterTime" type="integer" column="minuteOfEncounterTime"/>
-		<property name="hourOfEncTransportationTime" type="integer" column="hourOfEncTransportationTime"/>
-		<property name="minuteOfEncTransportationTime" type="integer" column="minuteOfEncTransportationTime"/>
 
 	</class>
 
@@ -89,8 +87,6 @@
 		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
-		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},
-		minuteOfEncTransportationTime as {cmn.minuteOfEncTransportationTime},
 		(select r.role_name from secRole r where r.role_no =
 		reporter_caisi_role) as {cmn.roleName},
 		(select p.name from program p where p.id = program_no) as {cmn.programName},
@@ -119,8 +115,6 @@
 		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
-		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},
-		minuteOfEncTransportationTime as {cmn.minuteOfEncTransportationTime},
 		(select r.role_name from secRole r where r.role_no =
 		reporter_caisi_role) as {cmn.roleName},
 		(select p.name from program p where p.id = program_no) as {cmn.programName},
@@ -150,8 +144,6 @@
 		uuid as {cmn.uuid}, locked as {cmn.locked}, archived as {cmn.archived},
 		position as {cmn.position}, appointmentNo as {cmn.appointmentNo},
 		hourOfEncounterTime as {cmn.hourOfEncounterTime}, minuteOfEncounterTime as {cmn.minuteOfEncounterTime},
-		hourOfEncTransportationTime as {cmn.hourOfEncTransportationTime},
-		minuteOfEncTransportationTime as {cmn.minuteOfEncTransportationTime},
 		(select r.role_name from secRole r where r.role_no =
 		reporter_caisi_role) as {cmn.roleName},
 		(select p.name from program p where p.id = program_no) as {cmn.programName},

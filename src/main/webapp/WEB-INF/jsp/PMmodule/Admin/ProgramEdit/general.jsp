@@ -89,7 +89,6 @@
     <input type="hidden" name="old_housing" value="${carlos:forHtmlAttribute(program.housing)}"/>
     <input type="hidden" name="old_facility_id" value="${carlos:forHtmlAttribute(empty program.facilityId ? 0 : program.facilityId)}"/>
     <input type="hidden" name="old_enableEncounterTime" value="${carlos:forHtmlAttribute(program.enableEncounterTime)}"/>
-    <input type="hidden" name="old_enableEncounterTransportationTime" value="${carlos:forHtmlAttribute(program.enableEncounterTransportationTime)}"/>
 
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
@@ -269,10 +268,6 @@
         <tr class="b">
             <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
             <td><input type="checkbox" name="program.enableEncounterTime" <c:if test="${program.enableEncounterTime}">checked</c:if>/></td>
-        </tr>
-        <tr class="b">
-            <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
-            <td><input type="checkbox" name="program.enableEncounterTransportationTime" <c:if test="${program.enableEncounterTransportationTime}">checked</c:if>/></td>
         </tr>
         <tr>
             <td colspan="2">

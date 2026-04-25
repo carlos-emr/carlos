@@ -67,7 +67,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
     private int ocanServiceOrgNumber = 0;
     private boolean enableGroupNotes = false;
     private boolean enableEncounterTime = false;
-    private boolean enableEncounterTransportationTime = false;
     private int rxInteractionWarningLevel = 0;
     private String vacancyWithdrawnTicklerProvider = null;
     private Integer vacancyWithdrawnTicklerDemographic = null;
@@ -256,14 +255,6 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
 
     public void setEnableEncounterTime(boolean enableEncounterTime) {
         this.enableEncounterTime = enableEncounterTime;
-    }
-
-    public boolean isEnableEncounterTransportationTime() {
-        return enableEncounterTransportationTime;
-    }
-
-    public void setEnableEncounterTransportationTime(boolean enableEncounterTransportationTime) {
-        this.enableEncounterTransportationTime = enableEncounterTransportationTime;
     }
 
     public int getRxInteractionWarningLevel() {

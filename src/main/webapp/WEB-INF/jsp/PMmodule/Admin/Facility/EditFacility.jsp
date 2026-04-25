@@ -236,10 +236,6 @@
             <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
             <td><input type="checkbox" name="facility.enableEncounterTime" <c:if test="${facility.enableEncounterTime}">checked</c:if>/></td>
         </tr>
-        <tr class="b">
-            <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
-            <td><input type="checkbox" name="facility.enableEncounterTransportationTime" <c:if test="${facility.enableEncounterTransportationTime}">checked</c:if>/></td>
-        </tr>
 
         <tr class="b">
             <td width="20%">Rx Interaction Warning Level:</td>

@@ -54,7 +54,6 @@ public final class FacilityTransfer {
     private boolean enableAnonymous;
     private boolean enableGroupNotes;
     private boolean enableEncounterTime;
-    private boolean enableEncounterTransportationTime;
     private int rxInteractionWarningLevel;
     private Date lastUpdated;
 
@@ -176,14 +175,6 @@ public final class FacilityTransfer {
 
     public void setEnableEncounterTime(boolean enableEncounterTime) {
         this.enableEncounterTime = enableEncounterTime;
-    }
-
-    public boolean isEnableEncounterTransportationTime() {
-        return (enableEncounterTransportationTime);
-    }
-
-    public void setEnableEncounterTransportationTime(boolean enableEncounterTransportationTime) {
-        this.enableEncounterTransportationTime = enableEncounterTransportationTime;
     }
 
     public int getRxInteractionWarningLevel() {

@@ -84,7 +84,6 @@ public final class ProgramTransfer {
     private Date lastUpdateDate;
     private String siteSpecificField;
     private Boolean enableEncounterTime = false;
-    private Boolean enableEncounterTransportationTime = false;
     private String emailNotificationAddressesCsv = null;
     private Date lastReferralNotification = null;
 
@@ -449,14 +448,6 @@ public final class ProgramTransfer {
 
     public void setEnableEncounterTime(Boolean enableEncounterTime) {
         this.enableEncounterTime = enableEncounterTime;
-    }
-
-    public Boolean getEnableEncounterTransportationTime() {
-        return (enableEncounterTransportationTime);
-    }
-
-    public void setEnableEncounterTransportationTime(Boolean enableEncounterTransportationTime) {
-        this.enableEncounterTransportationTime = enableEncounterTransportationTime;
     }
 
     public String getEmailNotificationAddressesCsv() {

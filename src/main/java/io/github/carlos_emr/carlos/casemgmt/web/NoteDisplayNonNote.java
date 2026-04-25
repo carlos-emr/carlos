@@ -290,12 +290,6 @@ public class NoteDisplayNonNote implements NoteDisplay {
         return null;
     }
 
-    @Override
-    public String getEncounterTransportationTime() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     public boolean isInvoice() {
         return isInvoice;
     }

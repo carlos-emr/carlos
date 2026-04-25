@@ -751,14 +751,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                             id="encTime<%=globalNoteId%>"><carlos:encode value='<%= note.getEncounterTime() %>' context="html"/></span>
                     </div>
                     <% } %>
-                    <%
-                        if (facility.isEnableEncounterTransportationTime() || (program != null && program.isEnableEncounterTransportationTime())) {
-                    %>
-                    <div style="clear: right; margin-right: 3px; float: right;">
-                        <fmt:message key="encounter.encounterTransportation.title"/>:&nbsp;<span
-                            id="encTransTime<%=globalNoteId%>"><carlos:encode value='<%= note.getEncounterTransportationTime() %>' context="html"/></span>
-                    </div>
-                    <% } %>
 
 									<%if (!note.isEmailNote()) {%>
                     <div style="clear: right; margin-right: 3px; float: right;">

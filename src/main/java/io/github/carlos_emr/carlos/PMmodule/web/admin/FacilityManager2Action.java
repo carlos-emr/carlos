@@ -264,7 +264,6 @@ public class FacilityManager2Action extends ActionSupport {
             facility.setEnablePhoneEncounter(WebUtils.isChecked(request, "facility.enablePhoneEncounter"));
             facility.setEnableGroupNotes(WebUtils.isChecked(request, "facility.enableGroupNotes"));
             facility.setEnableEncounterTime(WebUtils.isChecked(request, "facility.enableEncounterTime"));
-            facility.setEnableEncounterTransportationTime(WebUtils.isChecked(request, "facility.enableEncounterTransportationTime"));
             if (facility.getRegistrationIntake() != null && facility.getRegistrationIntake() < 0)
                 facility.setRegistrationIntake(null);
 

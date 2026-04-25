@@ -84,8 +84,6 @@ public class CaseManagementNote extends BaseObject {
     private int appointmentNo;
     private Integer hourOfEncounterTime;
     private Integer minuteOfEncounterTime;
-    private Integer hourOfEncTransportationTime;
-    private Integer minuteOfEncTransportationTime;
 
     CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
 
@@ -569,22 +567,6 @@ public class CaseManagementNote extends BaseObject {
 
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
-    }
-
-    public Integer getHourOfEncTransportationTime() {
-        return hourOfEncTransportationTime;
-    }
-
-    public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
-        this.hourOfEncTransportationTime = hourOfEncTransportationTime;
-    }
-
-    public Integer getMinuteOfEncTransportationTime() {
-        return minuteOfEncTransportationTime;
-    }
-
-    public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
-        this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
 
 

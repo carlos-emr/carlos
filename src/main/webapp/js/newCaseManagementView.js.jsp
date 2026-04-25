@@ -2218,18 +2218,6 @@ function updateCPPNote() {
                 alert(assignEncTypeError);
                 return false;
             }
-            if (document.getElementById("hourOfEncTransportationTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncTransportationTime").value)) {
-                    alert(encTimeError);
-                    return false;
-                }
-                if (!isNaN(document.getElementById("minuteOfEncTransportationTime").value) &&
-                    parseInt(document.getElementById("minuteOfEncTransportationTime").value) > 59) {
-                    alert(encMinError);
-                    return false;
-                }
-            }
             if (document.getElementById("hourOfEncounterTime") != null) {
                 if (isNaN(document.getElementById("hourOfEncounterTime").value) ||
                     isNaN(document.getElementById("minuteOfEncounterTime").value)) {
@@ -2243,9 +2231,7 @@ function updateCPPNote() {
                 }
 
 
-                if (parseInt(document.getElementById("minuteOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("hourOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
+                if (parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
                     parseInt(document.getElementById("hourOfEncounterTime").value) == 0) {
 
                     if (encTimeMandatory) {
@@ -2325,18 +2311,6 @@ function updateCPPNote() {
                 alert(assignEncTypeError);
                 return false;
             }
-            if (document.getElementById("hourOfEncTransportationTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncTransportationTime").value)) {
-                    alert(encTimeError);
-                    return false;
-                }
-                if (!isNaN(document.getElementById("minuteOfEncTransportationTime").value) &&
-                    parseInt(document.getElementById("minuteOfEncTransportationTime").value) > 59) {
-                    alert(encMinError);
-                    return false;
-                }
-            }
             if (document.getElementById("hourOfEncounterTime") != null) {
                 if (isNaN(document.getElementById("hourOfEncounterTime").value) ||
                     isNaN(document.getElementById("minuteOfEncounterTime").value)) {
@@ -2350,9 +2324,7 @@ function updateCPPNote() {
                 }
 
 
-                if (parseInt(document.getElementById("minuteOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("hourOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
+                if (parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
                     parseInt(document.getElementById("hourOfEncounterTime").value) == 0) {
 
                     if (encTimeMandatory) {
@@ -2431,17 +2403,13 @@ function updateCPPNote() {
                 alert(assignEncTypeError);
                 return false;
             }
-            if (document.getElementById("hourOfEncTransportationTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("hourOfEncounterTime").value) ||
+            if (document.getElementById("hourOfEncounterTime") != null) {
+                if (isNaN(document.getElementById("hourOfEncounterTime").value) ||
                     isNaN(document.getElementById("minuteOfEncounterTime").value)) {
                     alert(encTimeError);
                     return false;
                 }
-                if (parseInt(document.getElementById("minuteOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("hourOfEncTransportationTime").value) == 0 &&
-                    parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
+                if (parseInt(document.getElementById("minuteOfEncounterTime").value) == 0 &&
                     parseInt(document.getElementById("hourOfEncounterTime").value) == 0) {
 
                     if (encTimeMandatory) {
@@ -3568,18 +3536,6 @@ function autoSave() {
             if ($("encTypeSelect0") != null && $("encTypeSelect0").options[$("encTypeSelect0").selectedIndex].value.length == 0) {
                 alert(assignEncTypeError);
                 return false;
-            }
-            if (document.getElementById("hourOfEncTransportationTime") != null) {
-                if (isNaN(document.getElementById("hourOfEncTransportationTime").value) ||
-                    isNaN(document.getElementById("minuteOfEncTransportationTime").value)) {
-                    alert(encTimeError);
-                    return false;
-                }
-                if (!isNaN(document.getElementById("minuteOfEncTransportationTime").value) &&
-                    parseInt(document.getElementById("minuteOfEncTransportationTime").value) > 59) {
-                    alert(encMinError);
-                    return false;
-                }
             }
             if (document.getElementById("hourOfEncounterTime") != null) {
                 if (isNaN(document.getElementById("hourOfEncounterTime").value) ||

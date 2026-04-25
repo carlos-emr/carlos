@@ -115,7 +115,6 @@ public class Program extends AbstractModel<Integer> {
     private LookupCodeValue shelter;
     private String siteSpecificField;
     private Boolean enableEncounterTime = false;
-    private Boolean enableEncounterTransportationTime = false;
     private String emailNotificationAddressesCsv = null;
     private Date lastReferralNotification = null;
     //these are all transient - these need to be removed, we shouldn't be having fields like this in JPA model objects.
@@ -1085,33 +1084,6 @@ public class Program extends AbstractModel<Integer> {
      */
     public void setEnableEncounterTime(Boolean enableEncounterTime) {
         this.enableEncounterTime = enableEncounterTime;
-    }
-    
-    /**
-     * Checks if encounter transportation time tracking is enabled for this program.
-     * 
-     * @return true if encounter transportation time tracking is enabled, false otherwise
-     */
-    public Boolean isEnableEncounterTransportationTime() {
-        return enableEncounterTransportationTime;
-    }
-
-    /**
-     * Gets the flag indicating if encounter transportation time tracking is enabled for this program.
-     * 
-     * @return the enableEncounterTransportationTime flag
-     */
-    public Boolean getEnableEncounterTransportationTime() {
-        return enableEncounterTransportationTime;
-    }
-
-    /**
-     * Sets the flag indicating if encounter transportation time tracking is enabled for this program.
-     * 
-     * @param enableEncounterTransportationTime the enableEncounterTransportationTime flag to set
-     */
-    public void setEnableEncounterTransportationTime(Boolean enableEncounterTransportationTime) {
-        this.enableEncounterTransportationTime = enableEncounterTransportationTime;
     }
 
     /**

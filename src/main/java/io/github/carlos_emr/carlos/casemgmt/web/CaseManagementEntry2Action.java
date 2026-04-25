@@ -1334,16 +1334,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
         }
 
-        String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(hourOfEncTransportationTime)) {
-            note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-        }
-
-        String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (StringUtils.isNotEmpty(minuteOfEncTransportationTime)) {
-            note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-        }
-
         String sign = request.getParameter("sign");
         if (sign == null) {
             note.setSigning_provider_no("");
@@ -1830,14 +1820,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (minuteOfEncounterTime != null) {
             note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
         }
-        String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
-        if (minuteOfEncounterTime != null) {
-            note.setHourOfEncTransportationTime(Integer.valueOf(hourOfEncTransportationTime));
-        }
-        String minuteOfEncTransportationTime = request.getParameter("minuteOfEncTransportationTime");
-        if (minuteOfEncounterTime != null) {
-            note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
-        }
 
         // check if previous note is doc note.
         Long prevNoteId = note.getId();
@@ -2245,10 +2227,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 sessionFrm.getCaseNote().setMinuteOfEncounterTime(this.getMinuteOfEncounterTime());
             if (this.getHourOfEncounterTime() != null)
                 sessionFrm.getCaseNote().setHourOfEncounterTime(this.getHourOfEncounterTime());
-            if (this.getMinuteOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setMinuteOfEncTransportationTime(this.getMinuteOfEncTransportationTime());
-            if (this.getHourOfEncTransportationTime() != null)
-                sessionFrm.getCaseNote().setHourOfEncTransportationTime(this.getHourOfEncTransportationTime());
         }
 
         // add checked new issues to client's issue list
@@ -3482,8 +3460,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private Integer hourOfEncounterTime;
     private Integer minuteOfEncounterTime;
-    private Integer hourOfEncTransportationTime;
-    private Integer minuteOfEncTransportationTime;
 
     private String reloadUrl;
 
@@ -3818,24 +3794,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     @StrutsParameter
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
-    }
-
-    public Integer getHourOfEncTransportationTime() {
-        return hourOfEncTransportationTime;
-    }
-
-    @StrutsParameter
-    public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
-        this.hourOfEncTransportationTime = hourOfEncTransportationTime;
-    }
-
-    public Integer getMinuteOfEncTransportationTime() {
-        return minuteOfEncTransportationTime;
-    }
-
-    @StrutsParameter
-    public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
-        this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
 
     public String getReloadUrl() {

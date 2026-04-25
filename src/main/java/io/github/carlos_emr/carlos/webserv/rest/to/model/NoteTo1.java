@@ -80,7 +80,6 @@ public class NoteTo1 implements Serializable {
     private boolean isGroupNote;
     private boolean isCpp;
     private String encounterTime;
-    private String encounterTransportationTime;
 
     private Integer position;
 
@@ -344,14 +343,6 @@ public class NoteTo1 implements Serializable {
 
     public void setEncounterTime(String encounterTime) {
         this.encounterTime = encounterTime;
-    }
-
-    public String getEncounterTransportationTime() {
-        return encounterTransportationTime;
-    }
-
-    public void setEncounterTransportationTime(String encounterTransportationTime) {
-        this.encounterTransportationTime = encounterTransportationTime;
     }
 
     public Boolean isEditable() {

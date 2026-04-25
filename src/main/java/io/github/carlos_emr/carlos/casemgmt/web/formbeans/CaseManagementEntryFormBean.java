@@ -73,8 +73,6 @@ public class CaseManagementEntryFormBean {
 
     private Integer hourOfEncounterTime;
     private Integer minuteOfEncounterTime;
-    private Integer hourOfEncTransportationTime;
-    private Integer minuteOfEncTransportationTime;
 
     public CaseManagementEntryFormBean() {
         super();
@@ -359,22 +357,6 @@ public class CaseManagementEntryFormBean {
 
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
-    }
-
-    public Integer getHourOfEncTransportationTime() {
-        return hourOfEncTransportationTime;
-    }
-
-    public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
-        this.hourOfEncTransportationTime = hourOfEncTransportationTime;
-    }
-
-    public Integer getMinuteOfEncTransportationTime() {
-        return minuteOfEncTransportationTime;
-    }
-
-    public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
-        this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
 
 }
