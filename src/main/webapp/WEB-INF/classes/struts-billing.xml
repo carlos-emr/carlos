@@ -423,7 +423,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/searchRefDocAjax.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillStatus" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillStatus2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billStatus.jsp</result>
+            <!-- billStatus.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingONStatus</result>
         </action>
         <action name="billing/CA/ON/ViewBillingCalendarPopup" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingCalendarPopup2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCalendarPopup.jsp</result>
@@ -438,7 +439,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingDigSearch.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingOHIPreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingOHIPreport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingOHIPreport.jsp</result>
+            <!-- billingOHIPreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
         </action>
         <action name="billing/CA/ON/ViewBillingOHIPsimulation" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingOHIPsimulation2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingOHIPsimulation.jsp</result>
@@ -465,7 +467,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONNewReport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONReport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONReport.jsp</result>
+            <!-- billingONReport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReview" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONReview2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONReview.jsp</result>
@@ -489,7 +492,11 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingResearchCodeSearch.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenRA" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenRA2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/genRA.jsp</result>
+            <!-- genRA.jsp is just a <jsp:forward> to ViewOnGenRA - a JSP forward
+                 cannot re-dispatch into a Struts action URL, so the admin menu's
+                 'genRA' link silently rendered an empty body. Chain directly
+                 through Struts instead. -->
+            <result name="success" type="chain">billing/CA/ON/ViewOnGenRA</result>
         </action>
         <action name="billing/CA/ON/ViewGenRADesc" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenRADesc2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/genRADesc.jsp</result>
@@ -501,10 +508,12 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/genRASummaryDetail.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenSimulation" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenSimulation2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/genSimulation.jsp</result>
+            <!-- genSimulation.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingOHIPsimulation</result>
         </action>
         <action name="billing/CA/ON/ViewGenReport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenReport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/genreport.jsp</result>
+            <!-- genreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewGenGroupReport</result>
         </action>
         <action name="billing/CA/ON/ViewOnGenRA" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOnGenRA2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRA.jsp</result>
@@ -522,10 +531,12 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRAsettle35.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewOngenreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOngenreport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/ongenreport.jsp</result>
+            <!-- ongenreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
         </action>
         <action name="billing/CA/ON/ViewOnregenreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOnregenreport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/onregenreport.jsp</result>
+            <!-- onregenreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
         </action>
         <action name="billing/CA/ON/ViewPrintBillingClipboard" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewPrintBillingClipboard2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/printBillingClipboard.jsp</result>
@@ -537,7 +548,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON3rdPayments.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingCorrection2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCorrection.jsp</result>
+            <!-- billingCorrection.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/BillingONCorrection</result>
         </action>
         <action name="billing/CA/ON/BillingCorrectionReview" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionReview2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingCorrectionReview.jsp</result>
@@ -585,7 +597,8 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/manageBillingform_billtype.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenGroupReport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenGroupReport2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/ON/genGroupReport.jsp</result>
+            <!-- genGroupReport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
+            <result name="success" type="chain">billing/CA/ON/ViewBillingOHIPreport</result>
         </action>
         <action name="billing/CA/ON/ViewInrGenINRbilling" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewInrGenINRbilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/genINRbilling.jsp</result>
