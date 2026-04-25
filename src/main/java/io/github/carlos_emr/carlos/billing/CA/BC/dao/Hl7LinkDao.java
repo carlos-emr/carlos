@@ -106,8 +106,15 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         String sqlOrderBy = " ORDER BY " + getSafeOrderBy(orderby);
 
         if (command != null && !command.equals("")) {
-            String sql = getBaseSql(provider_no, select_unlinked_labs, select_reports_linked_to_providers, select_reports_by_provider)
-                         + sqlWhere + sqlOrderBy;
+            String sql;
+            if ("-ULL".equals(provider_no)) {
+                sql = select_unlinked_labs;
+            } else if ("-APL".equals(provider_no)) {
+                sql = select_reports_linked_to_providers;
+            } else {
+                sql = select_reports_by_provider;
+            }
+            sql += sqlWhere + sqlOrderBy;
 
             Query query = entityManager.createNativeQuery(sql);
 
@@ -119,7 +126,6 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
             }
 
             if (!"-ULL".equals(provider_no) && !"-APL".equals(provider_no)) {
-                 // only bind if the query has it
                  if (sql.contains(":provider_no")) {
                      query.setParameter("provider_no", provider_no.replaceAll("-UAP", ""));
                  }
@@ -157,16 +163,6 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         }
 
         return safeCol + direction;
-    }
-
-    private String getBaseSql(String provider_no, String select_unlinked_labs, String select_reports_linked_to_providers, String select_reports_by_provider) {
-        if ("-ULL".equals(provider_no)) {
-            return select_unlinked_labs;
-        } else if ("-APL".equals(provider_no)) {
-            return select_reports_linked_to_providers;
-        } else {
-            return select_reports_by_provider;
-        }
     }
 
 }
