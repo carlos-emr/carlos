@@ -293,7 +293,14 @@
         <action name="billing/CA/ON/BillingShortcutPg2Save"
                 class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg2Save2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingShortcutPg2.jsp</result>
-            <result name="backToEdit">/WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp</result>
+            <!-- Chain through the page-1 view gate so security + view-model
+                 prep run before the JSP renders, instead of the JSP doing it
+                 inline via session.getAttribute("user") + scriptlet DAO prep. -->
+            <result name="backToEdit" type="chain">billing/CA/ON/billingShortcutPg1View</result>
+        </action>
+        <action name="billing/CA/ON/billingShortcutPg1View"
+                class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg1View2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp</result>
         </action>
 
 
