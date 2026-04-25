@@ -122,13 +122,15 @@ public final class BillingShortcutPg1DataAssembler {
 
     public BillingShortcutPg1ViewModel assemble(HttpServletRequest request, String userProviderNo) {
         CarlosProperties props = CarlosProperties.getInstance();
-        boolean hospitalBilling = true;
-
-        String clinicView = hospitalBilling
-                ? nullToEmpty(props.getProperty("clinic_hospital", ""))
-                : nullToEmpty(props.getProperty("clinic_view", ""));
+        // Hospital-billing only: the original code carried a `hospitalBilling`
+        // boolean toggle but it was hardcoded to true and never reassigned, so
+        // the non-hospital fallback branches were dead. Inline the hospital
+        // values to remove the misleading seam — when a real toggle lands
+        // (likely derived from ctlBillForm or a form param), introduce it
+        // explicitly rather than re-resurrecting the dead branch.
+        String clinicView = nullToEmpty(props.getProperty("clinic_hospital", ""));
         String clinicNo = nullToEmpty(props.getProperty("clinic_no", ""));
-        String visitType = hospitalBilling ? "02" : nullToEmpty(props.getProperty("visit_type", ""));
+        String visitType = "02";
 
         String apptNo = nullToEmpty(request.getParameter("appointment_no"));
         String demoName = nullToEmpty(request.getParameter("demographic_name"));
@@ -308,7 +310,12 @@ public final class BillingShortcutPg1DataAssembler {
         if (referralDoctorOhip != null && !referralDoctorOhip.trim().isEmpty()) {
             ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(referralDoctorOhip);
             if (specialist != null) {
-                referralDoctorName = specialist.getLastName() + "," + specialist.getFirstName();
+                // nullToEmpty both halves: a null lastName or firstName would
+                // otherwise leak the literal "null" string into EL output via
+                // the model. Matches the Provider null-coalesce pattern at
+                // lines 291-293.
+                referralDoctorName = nullToEmpty(specialist.getLastName())
+                        + "," + nullToEmpty(specialist.getFirstName());
             }
         }
 

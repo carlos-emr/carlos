@@ -211,6 +211,32 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
     }
 
     @Test
+    void add3rdPartyPayment_shouldThrowBillingValidationException_whenAmtPaidIsMissing() {
+        // Missing 'amtPaid' would previously hit `new BigDecimal(null)` →
+        // NullPointerException → uncaught 500 (the catch only covered
+        // NumberFormatException). Verify the explicit null/empty pre-check
+        // routes the failure to the validation page instead.
+        BillingCorrection2Action action = new BillingCorrection2Action();
+        mockRequest.setParameter("billing_no", "12345");
+        // intentionally do not set 'amtPaid'
+        BillingONCHeader1 bCh1 = new BillingONCHeader1();
+        when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(bCh1);
+        LoggedInInfo info = Mockito.mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        try (MockedStatic<LoggedInInfo> liiMock = Mockito.mockStatic(LoggedInInfo.class)) {
+            liiMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(
+                    Mockito.any(HttpServletRequest.class))).thenReturn(info);
+
+            assertThatThrownBy(action::add3rdPartyPayment)
+                    .isInstanceOf(BillingValidationException.class)
+                    .hasMessageContaining("amount is missing");
+
+            verify(bPaymentDao, never()).createPayment(
+                    Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        }
+    }
+
+    @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenPayMethodNotConfigured() {
         BillingCorrection2Action action = new BillingCorrection2Action();
         mockRequest.setParameter("billing_no", "12345");

@@ -85,6 +85,10 @@
             throw new SecurityException("billingShortcutPg1.jsp fallback: missing required sec object (_billing)");
         }
         shortcutPg1Model = BillingShortcutPg1ViewModel.builder().build();
+        // Re-publish to request scope so EL bindings later in the page
+        // (${shortcutPg1Model...}) resolve to the fallback instead of null.
+        // The local scriptlet variable alone is invisible to EL.
+        request.setAttribute("shortcutPg1Model", shortcutPg1Model);
     }
 
     String user_no = shortcutPg1Model.getUserProviderNo();

@@ -63,27 +63,30 @@ public final class BillingONReviewDxPersister {
         if (!"yes".equals(request.getParameter("addToPatientDx"))) {
             return;
         }
-        // The user opted in. From here on, every early-return is a silent
-        // no-op on a clinical write — log at WARN so a stale-form resubmit
-        // or tampered POST leaves a trail rather than acknowledging "saved"
-        // while doing nothing. Use throw for unrecoverable shape violations
-        // (non-numeric demoNo) where the user needs the friendly rejection
-        // page; use WARN for cases where the user simply didn't fill the
-        // form fully (no point throwing — they'd just resubmit).
+        // The user opted in via addToPatientDx=yes — a deliberate clinical
+        // write. Any path that drops the write here would tell the operator
+        // "saved" while doing nothing; that's the exact silent failure this
+        // persister extraction was created to eliminate. Throw on every
+        // missing-input branch so the validation-error JSP surfaces the
+        // reason rather than the form quietly returning OK.
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
         if (demoNo.isEmpty()) {
-            MiscUtils.getLogger().warn(
-                    "addToPatientDx requested without demographic_no — skipping registry write");
-            return;
+            MiscUtils.getLogger().error(
+                    "addToPatientDx requested without demographic_no");
+            throw new BillingValidationException(
+                    "Add-to-patient-dx requested but demographic_no is missing — "
+                    + "no record was saved.");
         }
         String dxCode = nullToEmpty(request.getParameter("dxCode"));
         String dxCodeMatch = nullToEmpty(request.getParameter("codeMatchToPatientDx"));
         String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
         if (dxCodeAdd.isEmpty()) {
-            MiscUtils.getLogger().warn(
-                    "addToPatientDx requested for demo {} without a dx code — skipping registry write",
+            MiscUtils.getLogger().error(
+                    "addToPatientDx requested for demo {} without a dx code",
                     LogSanitizer.sanitize(demoNo));
-            return;
+            throw new BillingValidationException(
+                    "Add-to-patient-dx requested but no diagnostic code was supplied — "
+                    + "no record was saved.");
         }
 
         Integer demoNoInt;

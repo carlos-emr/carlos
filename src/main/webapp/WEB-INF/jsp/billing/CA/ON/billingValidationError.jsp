@@ -41,10 +41,25 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    // Pull the exception message defensively — different containers stash it
-    // either as the page-context exception or as the standard servlet error
-    // attribute. Cast at the very end (never assume non-null).
-    Throwable __bve = exception;
+    // Pull the exception message defensively — three sources in priority order:
+    //   1. Struts2 ExceptionMappingInterceptor (the documented wiring via
+    //      <global-exception-mappings> in struts-billing.xml) places the
+    //      caught exception on the ValueStack and exposes it as the request
+    //      attribute "exception". This is the path most BillingValidationException
+    //      flows take, so check it first.
+    //   2. JSP errorPage forward — page-context "exception" implicit, populated
+    //      when one JSP forwards to another via <%@ page errorPage="..." %>.
+    //   3. Container error dispatcher — "jakarta.servlet.error.exception" is
+    //      set when reached via <error-page> in web.xml.
+    // Cast through instanceof at every step (never assume non-null).
+    Throwable __bve = null;
+    Object __strutsExc = request.getAttribute("exception");
+    if (__strutsExc instanceof Throwable) {
+        __bve = (Throwable) __strutsExc;
+    }
+    if (__bve == null) {
+        __bve = exception;
+    }
     if (__bve == null) {
         Object __attr = request.getAttribute("jakarta.servlet.error.exception");
         if (__attr instanceof Throwable) {

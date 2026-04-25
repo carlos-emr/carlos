@@ -50,37 +50,35 @@ class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
             "io.github.carlos_emr.carlos.utility.ErrorPageLogger";
 
     private CapturingAppender appender;
-    private LoggerConfig loggerConfig;
     private LoggerContext ctx;
-    private Level priorLevel;
 
     @BeforeEach
     void attachAppender() {
-        // Attach a tiny in-memory log4j2 appender so we can assert what
-        // ErrorPageLogger actually emits. Without this the tests could only
-        // confirm the helper doesn't throw — leaving the actual emit silent.
+        // Register a DEDICATED LoggerConfig scoped to LOGGER_NAME so this
+        // suite never mutates a shared/root config — Surefire is configured
+        // with parallel=classes (pom.xml), and concurrent tests touching the
+        // same root LoggerConfig race on add/remove/level state, producing
+        // flaky log-capture assertions.
         //
-        // Note: ErrorPageLogger has no class-specific Logger entry in
-        // src/test/resources/log4j2.xml, so getLoggerConfig resolves to the
-        // shared Root config. Capture the prior level and restore it in
-        // tearDown — without that, every subsequent test in the same surefire
-        // fork runs at Level.ALL, flooding output.
+        // Each test class gets its own dedicated config under its own logger
+        // name; tearDown removes it cleanly, leaving the parent configuration
+        // untouched. The capturing appender lets us assert what
+        // ErrorPageLogger actually emitted rather than just that it didn't
+        // throw.
         ctx = (LoggerContext) LogManager.getContext(false);
         appender = new CapturingAppender();
         appender.start();
-        loggerConfig = ctx.getConfiguration().getLoggerConfig(LOGGER_NAME);
-        priorLevel = loggerConfig.getLevel();
-        loggerConfig.addAppender(appender, Level.ALL, null);
-        loggerConfig.setLevel(Level.ALL);
+        LoggerConfig dedicated = new LoggerConfig(LOGGER_NAME, Level.ALL, false);
+        dedicated.addAppender(appender, Level.ALL, null);
+        ctx.getConfiguration().addLogger(LOGGER_NAME, dedicated);
         ctx.updateLoggers();
     }
 
     @AfterEach
     void detachAppender() {
-        if (loggerConfig != null && appender != null) {
-            loggerConfig.removeAppender(appender.getName());
+        if (appender != null) {
+            ctx.getConfiguration().removeLogger(LOGGER_NAME);
             appender.stop();
-            loggerConfig.setLevel(priorLevel);
             ctx.updateLoggers();
         }
     }

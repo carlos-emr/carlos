@@ -43,6 +43,13 @@ public final class AddEditServiceCode2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Explicit null-session guard matches the sibling 2Actions in this
+        // PR. Without it, hasPrivilege(null, ...) reaches SecurityInfoManagerImpl
+        // and emits an internal ERROR before returning false — fail fast with
+        // a clear signal instead.
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
@@ -56,6 +63,9 @@ public final class AddEditServiceCode2Action extends ActionSupport {
         String mutationAction = request.getParameter("action");
         if (mutationAction != null && !mutationAction.isBlank()
                 && !"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5 — 405 responses MUST include Allow. Matches the
+            // sibling 2Actions' 405 paths in this PR.
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

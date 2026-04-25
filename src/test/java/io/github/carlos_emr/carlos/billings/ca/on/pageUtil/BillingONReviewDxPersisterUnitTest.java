@@ -64,9 +64,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private AutoCloseable mockitoCloseable;
     private CapturingAppender appender;
-    private LoggerConfig loggerConfig;
     private LoggerContext ctx;
-    private Level priorLevel;
 
     @BeforeEach
     void setUp() {
@@ -74,33 +72,26 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         persister = new BillingONReviewDxPersister(dxresearchDAO);
         request = new MockHttpServletRequest();
 
-        // Attach a tiny in-memory log4j2 appender so we can assert the WARN
-        // emissions on the early-return paths — audit-trail integrity:
-        // a stale form resubmit that opted in but didn't fill the form must
-        // leave a trail rather than acknowledge "saved" silently.
-        //
-        // Note: BillingONReviewDxPersister has no class-specific Logger entry
-        // in src/test/resources/log4j2.xml, so getLoggerConfig resolves to
-        // the shared Root config. Capture the prior level and restore it in
-        // tearDown — without that, every subsequent test in the same
-        // surefire fork runs at Level.ALL, flooding output.
+        // Register a DEDICATED LoggerConfig for the persister's logger name so
+        // this suite never mutates a shared/root config. Surefire is configured
+        // with parallel=classes (pom.xml) — without scoping, two log-capture
+        // tests running concurrently would race on the same root LoggerConfig
+        // for add/remove/level state, producing flaky assertions.
         ctx = (LoggerContext) LogManager.getContext(false);
         appender = new CapturingAppender();
         appender.start();
-        loggerConfig = ctx.getConfiguration().getLoggerConfig(LOGGER_NAME);
-        priorLevel = loggerConfig.getLevel();
-        loggerConfig.addAppender(appender, Level.ALL, null);
-        loggerConfig.setLevel(Level.ALL);
+        LoggerConfig dedicated = new LoggerConfig(LOGGER_NAME, Level.ALL, false);
+        dedicated.addAppender(appender, Level.ALL, null);
+        ctx.getConfiguration().addLogger(LOGGER_NAME, dedicated);
         ctx.updateLoggers();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (mockitoCloseable != null) mockitoCloseable.close();
-        if (loggerConfig != null && appender != null) {
-            loggerConfig.removeAppender(appender.getName());
+        if (appender != null) {
+            ctx.getConfiguration().removeLogger(LOGGER_NAME);
             appender.stop();
-            loggerConfig.setLevel(priorLevel);
             ctx.updateLoggers();
         }
     }
@@ -147,36 +138,38 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotPersist_whenDemoNoMissing() {
+    void shouldThrow_whenOptedInButDemoNoMissing() {
         request.setParameter("addToPatientDx", "yes");
         request.setParameter("dxCode", "401");
         // demographic_no missing
 
-        persister.persistIfRequested(request, "999998");
+        // Audit-trail integrity: opt-in clinical write with no demographic_no
+        // must throw so the validation-error JSP surfaces the rejection
+        // rather than the form quietly returning OK while saving nothing.
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("demographic_no is missing");
 
         verify(dxresearchDAO, never()).save(any());
-        // Audit-trail integrity: opt-in clinical write that early-returns
-        // must leave a WARN-level breadcrumb rather than acknowledging
-        // "saved" silently.
         assertThat(appender.events()).anyMatch(evt ->
-                evt.getLevel() == Level.WARN
+                evt.getLevel() == Level.ERROR
                 && evt.getMessage().getFormattedMessage().contains("demographic_no"));
     }
 
     @Test
-    void shouldNotPersist_whenBothDxFieldsEmpty() {
+    void shouldThrow_whenOptedInButBothDxFieldsEmpty() {
         request.setParameter("addToPatientDx", "yes");
         request.setParameter("demographic_no", "1");
         // both dxCode and codeMatchToPatientDx missing
 
-        persister.persistIfRequested(request, "999998");
+        // Same loud-failure contract as the missing-demographic case above.
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("no diagnostic code was supplied");
 
         verify(dxresearchDAO, never()).save(any());
-        // Audit-trail integrity: opt-in clinical write that early-returns
-        // must leave a WARN-level breadcrumb rather than acknowledging
-        // "saved" silently.
         assertThat(appender.events()).anyMatch(evt ->
-                evt.getLevel() == Level.WARN
+                evt.getLevel() == Level.ERROR
                 && evt.getMessage().getFormattedMessage().contains("dx code"));
     }
 

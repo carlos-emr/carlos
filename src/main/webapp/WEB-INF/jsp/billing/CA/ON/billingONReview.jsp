@@ -194,6 +194,11 @@
             throw new SecurityException("billingONReview.jsp fallback: missing required sec object (_billing)");
         }
         reviewModel = BillingONReviewViewModel.builder().build();
+        // Re-publish to request scope: EL on later lines (e.g. ${reviewModel.dxCode}
+        // at line 610) reads the request attribute, not the local scriptlet
+        // variable. Without this setAttribute the fallback model is invisible
+        // to EL — the form renders empty fields instead of using the safe defaults.
+        request.setAttribute("reviewModel", reviewModel);
     }
 
     String dxCode = reviewModel.getDxCode();

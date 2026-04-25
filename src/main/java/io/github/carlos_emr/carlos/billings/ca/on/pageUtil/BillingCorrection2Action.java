@@ -161,18 +161,27 @@ public class BillingCorrection2Action extends ActionSupport {
         }
 
         //Validate pay amount
+        // amtPaid may be null (param missing) or empty; both throw distinct
+        // exceptions from new BigDecimal(...) — NPE for null, NumberFormatException
+        // for empty/non-numeric. Without the explicit null/empty check the NPE
+        // path produced an uncaught 500 instead of the validation page.
+        String amtPaid = request.getParameter("amtPaid");
+        if (amtPaid == null || amtPaid.isEmpty()) {
+            MiscUtils.getLogger().error(
+                    "3rd party payment: amtPaid is missing for bill {}", invoiceId);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: amount is missing");
+        }
         BigDecimal paidAmt;
         try {
-            String amtPaid = request.getParameter("amtPaid");
             paidAmt = new BigDecimal(amtPaid);
         } catch (NumberFormatException e) {
-            String rawAmt = request.getParameter("amtPaid");
             MiscUtils.getLogger().error(
                     "3rd party payment: amtPaid '{}' is not a valid number for bill {}",
-                    LogSanitizer.sanitize(rawAmt), invoiceId, e);
+                    LogSanitizer.sanitize(amtPaid), invoiceId, e);
             throw new BillingValidationException(
                     "3rd party payment rejected: amount ["
-                    + LogSanitizer.sanitizeForDisplay(rawAmt) + "] is not a valid number", e);
+                    + LogSanitizer.sanitizeForDisplay(amtPaid) + "] is not a valid number", e);
         }
 
         //Validate pay Method

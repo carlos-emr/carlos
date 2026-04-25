@@ -160,9 +160,11 @@
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
     int curDay = now.get(Calendar.DAY_OF_MONTH);
-    int dob_year = model.getDemoDobYear().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobYear());
-    int dob_month = model.getDemoDobMonth().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobMonth());
-    int dob_date = model.getDemoDobDay().isEmpty() ? 0 : Integer.parseInt(model.getDemoDobDay());
+    // Age is derived in the assembler (model.getAge()); the dob_year/dob_month/
+    // dob_date locals were never read after declaration. The eager parseInt
+    // calls also threw NumberFormatException on a malformed DOB before the
+    // invalid-DOB warning at lines below could render — defeating the very
+    // feature they surrounded.
     int age = model.getAge();
 
     String msg = "The default unit and @ value is 1.";
