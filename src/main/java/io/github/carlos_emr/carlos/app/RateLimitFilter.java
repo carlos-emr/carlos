@@ -385,11 +385,12 @@ public final class RateLimitFilter implements Filter {
         // Path matching rules:
         //  - A pattern ending with "/" is a prefix match (e.g. "/mfa/" matches
         //    "/mfa/whatever").
-        //  - A pattern NOT ending with "/" matches the exact path or a path that
-        //    has the pattern followed by '/' or '?' (e.g. "/login" matches
-        //    "/login" and "/login/something" but NOT "/loginfailed" or
-        //    "/loginResource/foo"). This avoids accidentally throttling
-        //    sibling paths that share a name prefix.
+        //  - A pattern NOT ending with "/" matches the exact path or a path
+        //    that has the pattern followed by '/', '?', or ';' (e.g. "/login"
+        //    matches "/login", "/login/something", and "/login;jsessionid=..."
+        //    but NOT "/loginfailed" or "/loginResource/foo"). The ';' boundary
+        //    closes the path-parameter bypass where attackers append
+        //    ";jsessionid=…" or other matrix params to dodge the rate limit.
         //  - When multiple patterns match, prefer the longest (most specific).
         String bestMatch = null;
         for (String prefix : pathRates.keySet()) {
@@ -400,7 +401,7 @@ public final class RateLimitFilter implements Filter {
                 matches = true;
             } else if (path.startsWith(prefix)) {
                 char nextChar = path.charAt(prefix.length());
-                matches = nextChar == '/' || nextChar == '?';
+                matches = nextChar == '/' || nextChar == '?' || nextChar == ';';
             } else {
                 matches = false;
             }
@@ -436,14 +437,12 @@ public final class RateLimitFilter implements Filter {
                 continue;
             }
             String pathPrefix = entry.substring(0, eqIdx).trim();
-            // Warn if prefix lacks a path terminator — startsWith matching can hit unintended paths
-            // (e.g. /login also matches /loginRedirect, /login-recovery)
-            if (!pathPrefix.endsWith("/") && !pathPrefix.contains(".")) {
-                logger.warn("Rate limit: path prefix '{}' does not end with '/' or a file extension; " +
-                        "it will match all paths starting with this prefix (e.g., '{}foo', '{}bar'). " +
-                        "Consider adding a trailing '/' or extension to avoid unintended matches.",
-                        pathPrefix, pathPrefix, pathPrefix);
-            }
+            // No warning needed for non-"/"-terminated prefixes: findMatchingPath
+            // applies a boundary-aware match (exact, or followed by '/', '?',
+            // or ';'), so '/login' will NOT match '/loginRedirect' or
+            // '/login-recovery'. The historical warning that fired here
+            // pre-dated the boundary fix and produced noisy startup logs for
+            // valid configs.
             String rateStr = entry.substring(eqIdx + 1).trim();
             int slashIdx = rateStr.indexOf('/');
             if (slashIdx <= 0 || slashIdx == rateStr.length() - 1) {

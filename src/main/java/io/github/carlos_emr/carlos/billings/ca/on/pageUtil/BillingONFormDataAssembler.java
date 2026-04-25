@@ -84,9 +84,15 @@ public final class BillingONFormDataAssembler {
      * value contains only safe characters. Used to gate DB-stored CSS values
      * before they're rendered straight into a {@code style="..."} attribute on
      * the service-code grid. Anything outside this shape is dropped.
+     *
+     * <p>Possessive quantifiers ({@code *+}, {@code ++}, {@code ?+}) prevent
+     * catastrophic backtracking on adversarial inputs that interleave property
+     * tokens (CodeQL findings 12885 / 12886). Each whitespace / value run
+     * commits its match so the engine can never re-partition whitespace
+     * between adjacent rules.</p>
      */
     private static final java.util.regex.Pattern SAFE_INLINE_STYLE = java.util.regex.Pattern.compile(
-            "(?:[A-Za-z][A-Za-z0-9-]*\\s*:\\s*[A-Za-z0-9 #_,.%/()-]+\\s*;?\\s*)+");
+            "(?:[A-Za-z][A-Za-z0-9-]*+\\s*+:\\s*+[A-Za-z0-9 #_,.%/()\\-]++\\s*+;?+\\s*+)++");
 
     private final DemographicManager demographicManager =
             SpringUtils.getBean(DemographicManager.class);
@@ -464,21 +470,24 @@ public final class BillingONFormDataAssembler {
         b.ctlBillForm(ctlBillForm)
                 .defaultServiceType(nullSafe(defaultServiceType));
 
-        // Resolution order (matches legacy scriptlet intent): user-selected
-        // xml_location wins; CarlosProperties.clinic_view is the per-installation
-        // default; "0000" is the final fallback if both are missing. Reading the
-        // property first and *then* allowing the param to override avoids the
-        // earlier bug where the property always clobbered the user selection.
+        // Resolution order (matches legacy scriptlet intent):
+        //   1. user-selected xml_location query param wins (including "0000",
+        //      which is a legitimate "no-location" selection in some installs);
+        //   2. CarlosProperties.clinic_view is the per-installation default;
+        //   3. "0000" is the final fallback if both are missing.
+        // Earlier code dropped a param value of "0000" and silently fell
+        // through to the property — that violated the user's explicit pick.
         String xmlLocationParam = request.getParameter("xml_location");
         String xmlLocation = xmlLocationParam != null && !xmlLocationParam.isEmpty()
                 ? xmlLocationParam
                 : "0000";
         String propertiesClinicView = CarlosProperties.getInstance().getProperty("clinic_view");
-        if (propertiesClinicView != null && !propertiesClinicView.isEmpty()) {
+        if (xmlLocationParam != null && !xmlLocationParam.isEmpty()) {
+            clinicView = xmlLocationParam;
+        } else if (propertiesClinicView != null && !propertiesClinicView.isEmpty()) {
             clinicView = propertiesClinicView;
-        }
-        if (!xmlLocation.isEmpty() && !"0000".equals(xmlLocation)) {
-            clinicView = xmlLocation;
+        } else {
+            clinicView = "0000";
         }
         b.clinicView(nullSafe(clinicView))
                 .xmlLocation(nullSafe(xmlLocation));
@@ -512,7 +521,12 @@ public final class BillingONFormDataAssembler {
                 .fromDateString(billReferenceDate);
 
         for (Object[] typeRow : cbsDao.findServiceTypesByStatus("A")) {
-            String ctlcode = String.valueOf(typeRow[1]);
+            // Sanitize the code at ingest so the same string flows through
+            // every downstream surface (HTML element ids, EL ${st}, scriptlet
+            // <%=st%>, JS args). Without this, a malformed DB row containing
+            // whitespace could emit invalid HTML (id="..."  contains a space)
+            // and the JS lookup-by-id would fail intermittently across browsers.
+            String ctlcode = sanitizeIdToken(String.valueOf(typeRow[1]));
             String ctlcodename = String.valueOf(typeRow[0]);
 
             if (ctlcode.equals(ctlBillForm)) {
@@ -648,6 +662,21 @@ public final class BillingONFormDataAssembler {
 
     private static String nullSafe(String s) {
         return s == null ? "" : s;
+    }
+
+    /**
+     * Reduces a DB-supplied service-type / bill-form code to a safe HTML id
+     * token. Replaces every character outside {@code [A-Za-z0-9_-]} with
+     * {@code _}. Service-type codes are conventionally short alphanumerics in
+     * the {@code ctl_billservice} table, so this is a no-op in practice; it
+     * exists to keep the rendered DOM ids well-formed if a malformed row ever
+     * makes it into the table.
+     */
+    private static String sanitizeIdToken(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replaceAll("[^A-Za-z0-9_-]", "_");
     }
 
     private static String padTwo(String value) {

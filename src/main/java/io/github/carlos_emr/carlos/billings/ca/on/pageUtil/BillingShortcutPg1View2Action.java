@@ -65,6 +65,8 @@ public final class BillingShortcutPg1View2Action extends ActionSupport {
         if (!"GET".equalsIgnoreCase(method)
                 && !"HEAD".equalsIgnoreCase(method)
                 && !"POST".equalsIgnoreCase(method)) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "GET, HEAD, POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

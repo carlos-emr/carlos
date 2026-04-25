@@ -576,7 +576,7 @@
 
             <form name="form1" method="post"
                   action="billingONCorrection.jsp<%if (request.getParameter("admin")!=null) { out.print("?admin"); }%>">
-                <input type="hidden" id="billTotal" value="${carlos:forHtmlContent(correctionModel.billTotal)}"/>
+                <input type="hidden" id="billTotal" value="${carlos:forHtmlAttribute(correctionModel.billTotal)}"/>
 
                 <div class="col-md-2">
                     <c:set var="__enc_1"><carlos:encode value='<%= nullToEmpty(billNo) %>' context="uriComponent"/></c:set>
@@ -641,7 +641,7 @@
             <input type="hidden" name="xml_billing_no" value="<carlos:encode value='<%= billNo %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
             <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>
-            <input type="hidden" name="demoNo" value="${carlos:forHtmlContent(correctionModel.demoNo)}"/>
+            <input type="hidden" name="demoNo" value="${carlos:forHtmlAttribute(correctionModel.demoNo)}"/>
             <input type="hidden" name="oldStatus" value="<%=thirdParty ? "thirdParty" : "" %>"/>
 
             <div class="row card card-body bg-body-tertiary">
@@ -652,10 +652,10 @@
                         </tr>
                         <tr>
                             <td style="width:54%"><fmt:message key="billing.billingCorrection.msgPatientName"/>: <a href=#
-                                                                                         onclick="popupPage(720,860,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=${carlos:forHtmlContent(correctionModel.demoNo)}');return false;">
+                                                                                         onclick="popupPage(720,860,'${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/demographic/DemographicEdit?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(correctionModel.demoNo))}');return false;">
                                 ${carlos:forHtmlContent(correctionModel.demoName)}
                             </a> <input type="hidden" name="demo_name"
-                                        value="${carlos:forHtmlContent(correctionModel.demoName)}"></td>
+                                        value="${carlos:forHtmlAttribute(correctionModel.demoName)}"></td>
                             <td style="width:46%"><fmt:message key="billing.billingCorrection.formHealth"/>: <%=hin%> <input
                                     type="hidden" name="xml_hin" value="<%=hin%>">
                                 RS: ${carlos:forHtmlContent(correctionModel.demoRosterStatus)}
@@ -663,10 +663,10 @@
                         </tr>
                         <tr>
                             <td><fmt:message key="billing.billingCorrection.msgSex"/>:
-                                ${carlos:forHtmlContent(correctionModel.demoSex)} <input type="hidden" name="demo_sex" value="${carlos:forHtmlContent(correctionModel.demoSex)}">
-                                <input type="hidden" name="hc_sex" value="${carlos:forHtmlContent(correctionModel.hcSex)}"></td>
+                                ${carlos:forHtmlContent(correctionModel.demoSex)} <input type="hidden" name="demo_sex" value="${carlos:forHtmlAttribute(correctionModel.demoSex)}">
+                                <input type="hidden" name="hc_sex" value="${carlos:forHtmlAttribute(correctionModel.hcSex)}"></td>
                             <td><fmt:message key="billing.billingCorrection.formDOB"/>:
-                                <input type="hidden" name="xml_dob" value="${carlos:forHtmlContent(correctionModel.demoDob)}"> ${carlos:forHtmlContent(correctionModel.demoDob)}
+                                <input type="hidden" name="xml_dob" value="${carlos:forHtmlAttribute(correctionModel.demoDob)}"> ${carlos:forHtmlContent(correctionModel.demoDob)}
                             </td>
                         </tr>
                         <tr>
@@ -794,7 +794,7 @@
                             <label><fmt:message key="billing.billingCorrection.btnBillingDate"/>:</label>
                             <div class="input-group">
                                 <input type="text" name="xml_appointment_date" id="xml_appointment_date"
-                                       class="form-control" value="${carlos:forHtmlContent(correctionModel.billDate)}" style="width:90px"
+                                       class="form-control" value="${carlos:forHtmlAttribute(correctionModel.billDate)}" style="width:90px"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
                                 <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                             </div>
@@ -820,7 +820,7 @@
                         </select><br>
 
                         Pay Program:<br>
-                        <input type="hidden" name="xml_payProgram" value="${carlos:forHtmlContent(correctionModel.billDate)}"/>
+                        <input type="hidden" name="xml_payProgram" value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(payProgram)%>"/>
                         <select style="font-size: 80%;" id="payProgram" name="payProgram"
                                 onchange="checkPayProgram(this.options[this.selectedIndex].value)">
                             <%
@@ -955,9 +955,9 @@
                                     BillLocationNo = clinicLoc.getClinicLocationNo();
                                     BillLocation = clinicLoc.getClinicLocationName();
                             %>
-                            <option value="${carlos:forHtmlContent(correctionModel.billLocationNo)}"
-                                    <%=location.equals(BillLocationNo) ? "selected" : ""%>>${carlos:forHtmlContent(correctionModel.billLocationNo)}
-                                | <%=BillLocation%>
+                            <option value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(BillLocationNo)%>"
+                                    <%=location.equals(BillLocationNo) ? "selected" : ""%>><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocationNo)%>
+                                | <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocation)%>
                             </option>
 
                             <%}%>

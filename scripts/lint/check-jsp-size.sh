@@ -9,12 +9,13 @@
 # + JSTL iteration. This script prevents silent regression by failing CI when a
 # billing JSP grows back past a threshold.
 #
-# Thresholds (tunable):
-#   - max file size per billing JSP:    80 KB source
-#   - max DAO lookups per billing JSP:  6 SpringUtils.getBean calls
+# Thresholds (tunable via env vars):
+#   - JSP_BYTE_THRESHOLD       max file size per billing JSP (default 81920 = 80 KB)
+#   - JSP_GETBEAN_THRESHOLD    max SpringUtils.getBean calls per JSP (default 6)
+#   - JSP_SCRIPTLET_THRESHOLD  max scriptlet blocks per JSP (default 20)
 #
-# Per-file overrides come from BILLING_JSP_BYTE_LIMIT and
-# BILLING_JSP_GETBEAN_LIMIT allowlist files next to this script.
+# Per-file allowlist exemptions live in `billing-jsp-size-allowlist.txt` next
+# to this script, one path per line.
 #
 # Exit codes:
 #   0 - all billing JSPs are under threshold

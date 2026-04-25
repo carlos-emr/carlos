@@ -100,7 +100,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
             BillingShortcutPg1ViewModel.builder().userProviderNo("999998").providerView("999998").build();
 
     @Test
-    void shouldReturnSuccess_andStashModelOnRequest_whenAuthorizedGet() throws Exception {
+    void shouldStashModelOnRequest_whenAuthorizedGet() throws Exception {
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
                 BillingShortcutPg1DataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
@@ -112,7 +112,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAcceptPost() throws Exception {
+    void shouldAcceptPost_whenMethodIsPost() throws Exception {
         mockRequest.setMethod("POST");
 
         try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
@@ -143,6 +143,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
             BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
         }
     }
 

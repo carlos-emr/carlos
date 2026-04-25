@@ -380,11 +380,16 @@ public final class BillingONFormViewModel {
         public Builder referralDoctor(String v) { this.referralDoctor = v; return this; }
         public Builder referralDoctorOhip(String v) { this.referralDoctorOhip = v; return this; }
         public Builder referralSpecialty(String v) { this.referralSpecialty = v; return this; }
-        public Builder patientDx(List<String> v) { this.patientDx = v; return this; }
+        // Collection setters store an unmodifiable copy at the call site so that
+        // callers retaining the original mutable List/Map/Set can't influence
+        // builder state between setter invocation and build(). The constructor
+        // performs an additional copy, but defense-in-depth here closes the
+        // CodeQL "exposing internal representation" finding.
+        public Builder patientDx(List<String> v) { this.patientDx = v == null ? null : List.copyOf(v); return this; }
         public Builder patientDxAddCode(String v) { this.patientDxAddCode = v; return this; }
         public Builder patientDxMatchCode(String v) { this.patientDxMatchCode = v; return this; }
         public Builder billingRecommendations(String v) { this.billingRecommendations = v; return this; }
-        public Builder billingHistory(List<BillingHistoryEntry> v) { this.billingHistory = v; return this; }
+        public Builder billingHistory(List<BillingHistoryEntry> v) { this.billingHistory = v == null ? null : List.copyOf(v); return this; }
         public Builder warningMsg(String v) { this.warningMsg = v; return this; }
         public Builder errorMsg(String v) { this.errorMsg = v; return this; }
         public Builder errorFlag(String v) { this.errorFlag = v; return this; }
@@ -393,22 +398,22 @@ public final class BillingONFormViewModel {
         public Builder visitType(String v) { this.visitType = v; return this; }
         public Builder singleClickEnabled(boolean v) { this.singleClickEnabled = v; return this; }
         public Builder hospitalBilling(boolean v) { this.hospitalBilling = v; return this; }
-        public Builder providers(List<ProviderOption> v) { this.providers = v; return this; }
+        public Builder providers(List<ProviderOption> v) { this.providers = v == null ? null : List.copyOf(v); return this; }
         public Builder defaultServiceType(String v) { this.defaultServiceType = v; return this; }
         public Builder dxCode(String v) { this.dxCode = v; return this; }
         public Builder xmlVisitType(String v) { this.xmlVisitType = v; return this; }
         public Builder xmlLocation(String v) { this.xmlLocation = v; return this; }
         public Builder visitDate(String v) { this.visitDate = v; return this; }
-        public Builder billingServiceCodesMap(Map<String, List<ServiceCodeEntry>> v) { this.billingServiceCodesMap = v; return this; }
-        public Builder listServiceType(List<String> v) { this.listServiceType = v; return this; }
-        public Builder titleMap(Map<String, String> v) { this.titleMap = v; return this; }
-        public Builder premiumCodes(Set<String> v) { this.premiumCodes = v; return this; }
+        public Builder billingServiceCodesMap(Map<String, List<ServiceCodeEntry>> v) { this.billingServiceCodesMap = v == null ? null : copyOfNestedListMap(v); return this; }
+        public Builder listServiceType(List<String> v) { this.listServiceType = v == null ? null : List.copyOf(v); return this; }
+        public Builder titleMap(Map<String, String> v) { this.titleMap = v == null ? null : Map.copyOf(v); return this; }
+        public Builder premiumCodes(Set<String> v) { this.premiumCodes = v == null ? null : Set.copyOf(v); return this; }
         public Builder defaultBillFormName(String v) { this.defaultBillFormName = v; return this; }
         public Builder defaultBillType(String v) { this.defaultBillType = v; return this; }
-        public Builder billingForms(List<BillingFormMenuEntry> v) { this.billingForms = v; return this; }
-        public Builder dxCodesByServiceType(Map<String, List<DxCodeEntry>> v) { this.dxCodesByServiceType = v; return this; }
-        public Builder billingFavourites(List<String> v) { this.billingFavourites = v; return this; }
-        public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v; return this; }
+        public Builder billingForms(List<BillingFormMenuEntry> v) { this.billingForms = v == null ? null : List.copyOf(v); return this; }
+        public Builder dxCodesByServiceType(Map<String, List<DxCodeEntry>> v) { this.dxCodesByServiceType = v == null ? null : copyOfNestedListMap(v); return this; }
+        public Builder billingFavourites(List<String> v) { this.billingFavourites = v == null ? null : List.copyOf(v); return this; }
+        public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v == null ? null : Map.copyOf(v); return this; }
 
         public BillingONFormViewModel build() {
             return new BillingONFormViewModel(this);
