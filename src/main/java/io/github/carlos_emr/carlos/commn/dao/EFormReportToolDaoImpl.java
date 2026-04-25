@@ -65,6 +65,13 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         return identifier;
     }
 
+    static String validateColumnName(String columnName) {
+        if (columnName == null || columnName.contains("`")) {
+            throw new IllegalArgumentException("Invalid eform var name: " + columnName);
+        }
+        return columnName;
+    }
+
     private static String getValidatedTableName(EFormReportTool eformReportTool) {
         return validateIdentifier(eformReportTool.getTableName(), "report tool table name");
     }
@@ -122,7 +129,8 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         sql.append("eft_latest tinyint(1) NOT NULL, ");
         sql.append("dateCreated timestamp NOT NULL ");
         for (String field : fields) {
-            sql.append(",`" + field + "` text");
+            String safeField = validateColumnName(field);
+            sql.append(",`" + safeField + "` text");
         }
         sql.append(")");
 
@@ -149,10 +157,7 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         StringBuilder columnFragment = new StringBuilder();
         StringBuilder placeholderFragment = new StringBuilder();
         for (int i = 0; i < values.size(); i++) {
-            String varName = values.get(i).getVarName();
-            if (varName == null || !VALID_IDENTIFIER_PATTERN.matcher(varName).matches()) {
-                throw new IllegalArgumentException("Invalid eform var name: " + varName);
-            }
+            String varName = validateColumnName(values.get(i).getVarName());
             columnFragment.append(", `").append(varName).append("`");
             placeholderFragment.append(", ?").append(i + 5);
         }
