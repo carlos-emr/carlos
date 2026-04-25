@@ -195,16 +195,31 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
             <result name="failure">/WEB-INF/jsp/billing/CA/ON/endYearStatement.jsp</result>
         </action>
+        <!-- GET-only view gate. Renders the correction form for popupPage
+             callers in billingONStatus.jsp / billingONHistory.jsp /
+             editappointment.jsp. Mutations live on the sibling actions
+             below (UpdateBillingONCorrection / Add3rdPartyPayment). -->
         <action name="billing/CA/ON/BillingONCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
+        </action>
+        <!-- POST-only update endpoint (Save / Save&Correct Another /
+             admin-submit). Replaces the legacy method=updateInvoice
+             dispatch on /BillingONCorrection. -->
+        <action name="billing/CA/ON/UpdateBillingONCorrection" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.UpdateBillingONCorrection2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="submitClose">/close.html</result>
-            <!-- loadOnly: GET-load (no xml_billing_no posted) renders the JSP
-                 directly. Distinct from closeReload below so the result name
-                 reflects what the path actually does. -->
+            <!-- loadOnly: a POST that arrived without xml_billing_no
+                 (defensive fall-through). Identical render to the view
+                 gate's success result. -->
             <result name="loadOnly">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="closeReload">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp?billing_no=</result>
             <result name="adminReload">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp?billing_no=&amp;admin&amp;success</result>
+        </action>
+        <!-- POST-only 3rd-party payment endpoint. Replaces the legacy
+             method=add3rdPartyPayment dispatch on /BillingONCorrection. -->
+        <action name="billing/CA/ON/Add3rdPartyPayment" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Add3rdPartyPayment2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
         </action>
         <action name="billing/CA/ON/billingON3rdPayments" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" method="execute">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingON3rdPayments.jsp</result>

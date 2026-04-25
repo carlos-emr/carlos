@@ -688,8 +688,12 @@
         %>
 
 
-        <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection" method="post">
-            <input type="hidden" name="method" value="updateInvoice"/>
+        <%-- Form posts to UpdateBillingONCorrection2Action (POST-only).
+             The legacy URL was /BillingONCorrection with a hidden
+             method=updateInvoice param; the new sibling action makes the
+             update workflow its own URL endpoint, removing the
+             string-switch dispatch on the action class. --%>
+        <form action="<%=request.getContextPath() %>/billing/CA/ON/UpdateBillingONCorrection" method="post">
             <input type="hidden" name="xml_billing_no" value="<carlos:encode value='<%= billNo %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
             <input type="hidden" name="payDate" value="<%=UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss")%>"/>

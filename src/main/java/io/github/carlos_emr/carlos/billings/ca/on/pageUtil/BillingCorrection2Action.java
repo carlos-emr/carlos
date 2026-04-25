@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -39,74 +40,56 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Thin Struts2 gate for the Ontario billing correction workflow. Mapped at
- * {@code billing/CA/ON/BillingONCorrection} in {@code struts-billing.xml}.
+ * GET-only view gate for the Ontario billing correction page. Mapped at
+ * {@code billing/CA/ON/BillingONCorrection} — the URL the
+ * {@code popupPage(...)} callers in {@code billingONStatus.jsp},
+ * {@code billingONHistory.jsp}, and {@code editappointment.jsp} hit
+ * with {@code ?billing_no=N} to render the correction form.
  *
- * <p>This action is the URL endpoint that {@code billingONCorrection.jsp}'s
- * form posts to, plus the GET-load entry from {@code billingONHistory.jsp}
- * / {@code billingONStatus.jsp} popups. All business logic lives in
- * {@link BillingCorrectionService} (~700 lines of header / item update,
- * 3rd-party payment posting, change-detection); the action stays a thin
- * gate that:</p>
+ * <p>State-mutating POSTs go to dedicated sibling actions:</p>
+ * <ul>
+ *   <li>{@link UpdateBillingONCorrection2Action} —
+ *       {@code billing/CA/ON/UpdateBillingONCorrection} (Save /
+ *       Save&amp;Correct Another / admin-submit)</li>
+ *   <li>{@link Add3rdPartyPayment2Action} —
+ *       {@code billing/CA/ON/Add3rdPartyPayment} (record a 3rd-party
+ *       payment or refund)</li>
+ * </ul>
  *
- * <ol>
- *   <li>Enforces session presence + {@code _billing w} privilege.</li>
- *   <li>Builds the read-side view model via
- *       {@link BillingONCorrectionDataAssembler}.</li>
- *   <li>Dispatches to the right service method based on the {@code method}
- *       request parameter (legacy URL contract).</li>
- *   <li>Returns the Struts result string the service produced.</li>
- * </ol>
- *
- * <p>The legacy {@code request.getParameter("method")} dispatch remains
- * because the JSP form posts to one URL with a hidden {@code method} field,
- * preserving the URL contract callers depend on. Splitting the URL would
- * require coordinated JSP + caller changes outside this PR's scope.</p>
- *
- * <p>Pre-refactor, this class held all the helpers ({@code updateInvoice},
- * {@code add3rdPartyPayment}, {@code updateBillingONCHeader1},
- * {@code updateBillingItems}, {@code hasInvoiceChanged}) directly — 753
- * lines. The extraction to {@link BillingCorrectionService} brings the
- * action to ~120 lines and makes the business logic independently
- * testable (the service has no Struts / servlet-context coupling beyond
- * the {@link HttpServletRequest} parameter).</p>
+ * <p>Pre-refactor, this class held all five concerns (gate, assemble,
+ * updateInvoice, add3rdPartyPayment, plus three private helpers) and
+ * dispatched on a {@code request.getParameter("method")} string switch
+ * — 753 lines. The current shape is a 90-line view-only gate; mutation
+ * logic lives in {@link BillingCorrectionService}, called from the two
+ * sibling action classes above.</p>
  *
  * @since 2026-04-25
  */
 public class BillingCorrection2Action extends ActionSupport {
 
     // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
-    // Tests use the package-private constructor with mocks.
     private final SecurityInfoManager securityInfoManager;
     private final BillingONCorrectionDataAssembler assembler;
-    private final BillingCorrectionService service;
 
     /** Production constructor used by Struts2's Spring object factory. */
     public BillingCorrection2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
-             new BillingONCorrectionDataAssembler(),
-             new BillingCorrectionService());
+             new BillingONCorrectionDataAssembler());
     }
 
     /** Test-friendly constructor — call with mocks. Package-private. */
     BillingCorrection2Action(SecurityInfoManager securityInfoManager,
-                             BillingONCorrectionDataAssembler assembler,
-                             BillingCorrectionService service) {
+                             BillingONCorrectionDataAssembler assembler) {
         this.securityInfoManager = securityInfoManager;
         this.assembler = assembler;
-        this.service = service;
     }
 
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
-        // dereferences loggedInInfo and emits an internal ERROR log on null, so
-        // null-checking here keeps the log signal clean for real privilege denials.
-        // Matches the pattern in ViewBillingON2Action / ViewBillingONReview2Action /
-        // ViewBillingONStatus2Action / ViewBillingShortcutPg12Action.
         if (loggedInInfo == null) {
             throw new SecurityException("missing session");
         }
@@ -114,19 +97,21 @@ public class BillingCorrection2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        // Build the view model up front and stash on the request so every
-        // result that forwards to billingONCorrection.jsp (success,
-        // closeReload, adminReload, loadOnly) sees a populated correctionModel.
-        request.setAttribute("correctionModel", assembler.assemble(loggedInInfo, request));
-
-        // Method-param dispatch — preserves the legacy URL contract where
-        // billingONCorrection.jsp's form posts to /BillingONCorrection with
-        // a hidden method=updateInvoice field. The add3rdPartyPayment branch
-        // is reachable via direct URL manipulation; keep it functional even
-        // though no current UI surface posts that method.
-        if ("add3rdPartyPayment".equals(request.getParameter("method"))) {
-            return service.addThirdPartyPayment(loggedInInfo, request);
+        // GET / HEAD only — mutations live on the sibling action URLs.
+        // Anything else gets 405 with an Allow header per RFC 7231 §6.5.5.
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (java.io.IOException ignore) {
+                // Container is shutting down or response already committed.
+            }
+            return NONE;
         }
-        return service.updateInvoice(loggedInInfo, request);
+
+        // Build the view model and render the form.
+        request.setAttribute("correctionModel", assembler.assemble(loggedInInfo, request));
+        return SUCCESS;
     }
 }
