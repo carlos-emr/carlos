@@ -493,11 +493,10 @@ if [ "${UPGRADE}" = "true" ] ; then
             ENCOUNTER_TIME_MANDATORY=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'ENCOUNTER_TIME_MANDATORY'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
             if [ "${ENCOUNTER_TIME_MANDATORY}" = "" ]; then
                 echo "adding end block"  >>$LOG_FILE
-                echo "ENCOUNTER_TIME_MANDATORY=false" >> ${C_HOME}${PROGRAM}.properties 
-                echo "TRANSPORTATION_TIME_MANDATORY=false" >> ${C_HOME}${PROGRAM}.properties 
-                echo "" >> ${C_HOME}${PROGRAM}.properties 
-                echo "#this will make patient search have a wildcard at front of it" >> ${C_HOME}${PROGRAM}.properties 
-                echo "search.searchName.addLeadingWildcard=false" >> ${C_HOME}${PROGRAM}.properties 
+                echo "ENCOUNTER_TIME_MANDATORY=false" >> ${C_HOME}${PROGRAM}.properties
+                echo "" >> ${C_HOME}${PROGRAM}.properties
+                echo "#this will make patient search have a wildcard at front of it" >> ${C_HOME}${PROGRAM}.properties
+                echo "search.searchName.addLeadingWildcard=false" >> ${C_HOME}${PROGRAM}.properties
                 echo "" >> ${C_HOME}${PROGRAM}.properties 
                 echo "## A new patient consent module in a nice versatile and compact package. " >> ${C_HOME}${PROGRAM}.properties 
                 echo "## View instruction documentation." >> ${C_HOME}${PROGRAM}.properties 
