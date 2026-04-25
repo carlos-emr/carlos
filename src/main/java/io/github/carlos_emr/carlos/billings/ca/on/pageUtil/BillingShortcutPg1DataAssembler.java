@@ -142,11 +142,11 @@ public final class BillingShortcutPg1DataAssembler {
         // providerview default order: xml_provider param > providerview param >
         // logged-in provider. The legacy View2Action defaulted to userProviderNo
         // when both params were absent; preserve that.
-        String providerView = nullToEmpty(request.getParameter("providerview"));
-        String xmlProvider = request.getParameter("xml_provider");
-        if (xmlProvider != null) {
-            providerView = xmlProvider;
-        }
+        // xml_provider is "providerNo|ohipNo" from the picker — strip the suffix
+        // and don't let an empty value clobber a populated providerview.
+        String providerView = BillingONRequestParams.extractProviderNo(
+                request.getParameter("xml_provider"),
+                request.getParameter("providerview"));
         if (providerView.isEmpty()) {
             providerView = nullToEmpty(userProviderNo);
         }

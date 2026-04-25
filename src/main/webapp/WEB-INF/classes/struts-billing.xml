@@ -199,6 +199,10 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="submitClose">/close.html</result>
+            <!-- loadOnly: GET-load (no xml_billing_no posted) renders the JSP
+                 directly. Distinct from closeReload below so the result name
+                 reflects what the path actually does. -->
+            <result name="loadOnly">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="closeReload">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp?billing_no=</result>
             <result name="adminReload">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp?billing_no=&amp;admin&amp;success</result>
         </action>

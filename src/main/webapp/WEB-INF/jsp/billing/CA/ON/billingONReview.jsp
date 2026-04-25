@@ -230,8 +230,14 @@
     if (!reviewModel.getErrorFlag().isEmpty()) {
         errorFlag = reviewModel.getErrorFlag();
     }
-    errorMsg += reviewModel.getErrorMessage();
-    warningMsg += reviewModel.getWarningMessage();
+    // Guard against null returns — String.concat of null appends the literal
+    // 4-char string "null" into the user-visible banner.
+    if (reviewModel.getErrorMessage() != null) {
+        errorMsg += reviewModel.getErrorMessage();
+    }
+    if (reviewModel.getWarningMessage() != null) {
+        warningMsg += reviewModel.getWarningMessage();
+    }
 
     String wrongMsg = errorMsg + warningMsg;
 

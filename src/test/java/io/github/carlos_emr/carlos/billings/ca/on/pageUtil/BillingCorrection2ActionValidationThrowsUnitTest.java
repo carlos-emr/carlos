@@ -125,29 +125,30 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
     /**
      * The action funnels every non-add3rdPartyPayment request through
      * updateInvoice(), including the GET-load path that opens the correction
-     * page (which posts no xml_billing_no). The legacy load path returned
-     * "closeReload" — preserve that contract while still throwing on
-     * tampered values.
+     * page (which posts no xml_billing_no). That path now returns the
+     * dedicated "loadOnly" result rather than reusing the post-save
+     * "closeReload" semantically — but the rendered JSP is the same one,
+     * so the user-facing behavior is unchanged.
      */
     @Test
-    void updateInvoice_shouldReturnCloseReload_whenXmlBillingNoIsAbsent() {
+    void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsAbsent() {
         BillingCorrection2Action action = new BillingCorrection2Action();
         // No xml_billing_no parameter at all (the GET-load case).
 
         String result = action.updateInvoice();
 
-        org.assertj.core.api.Assertions.assertThat(result).isEqualTo("closeReload");
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo("loadOnly");
         verify(bCh1Dao, never()).find(Mockito.anyInt());
     }
 
     @Test
-    void updateInvoice_shouldReturnCloseReload_whenXmlBillingNoIsEmpty() {
+    void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsEmpty() {
         BillingCorrection2Action action = new BillingCorrection2Action();
         mockRequest.setParameter("xml_billing_no", "");
 
         String result = action.updateInvoice();
 
-        org.assertj.core.api.Assertions.assertThat(result).isEqualTo("closeReload");
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo("loadOnly");
         verify(bCh1Dao, never()).find(Mockito.anyInt());
     }
 

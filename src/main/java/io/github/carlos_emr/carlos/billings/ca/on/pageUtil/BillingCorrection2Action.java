@@ -220,16 +220,17 @@ public class BillingCorrection2Action extends ActionSupport {
         // The action funnels every request that isn't "add3rdPartyPayment"
         // through updateInvoice(), including the GET-load path that opens
         // the correction page in the first place. The GET path posts no
-        // `xml_billing_no` (it uses `billing_no` only); legacy behavior was
-        // to short-circuit through "closeReload" which renders the JSP.
-        // Preserve that load path here by treating a null/missing
-        // `xml_billing_no` as the load case. A *non-null but unparseable*
-        // value indicates form tampering / browser auto-fill regression
-        // and must throw — that's the silent-success failure mode round-3
-        // closed.
+        // `xml_billing_no` (it uses `billing_no` only); we render the JSP
+        // through the dedicated `loadOnly` result so the result name
+        // accurately reflects the path. `closeReload` (used below after
+        // a successful save) is reserved for its actual semantic — a
+        // post-save reload — to keep the result vocabulary honest. A
+        // *non-null but unparseable* value indicates form tampering /
+        // browser auto-fill regression and must throw — that's the
+        // silent-success failure mode round-3 closed.
         String rawBillingNo = request.getParameter("xml_billing_no");
         if (rawBillingNo == null || rawBillingNo.isEmpty()) {
-            return "closeReload";
+            return "loadOnly";
         }
         Integer billingNo;
         try {
@@ -738,9 +739,17 @@ public class BillingCorrection2Action extends ActionSupport {
 
         Set<String> providerAccessList = new HashSet<>();
         if (siteAccessPrivacy) {
+            // Expand to every provider that shares a site with the logged-in
+            // user: first resolve the user's site memberships, then for each
+            // site pull every provider attached to it. The earlier shape only
+            // looped findByProviderNo(providerNo), which re-added the user
+            // themselves and silently hid bills from co-located providers.
             ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
-            for (ProviderSite ps : providerSiteDao.findByProviderNo(providerNo)) {
-                providerAccessList.add(ps.getId().getProviderNo());
+            for (ProviderSite userSite : providerSiteDao.findByProviderNo(providerNo)) {
+                int siteId = userSite.getId().getSiteId();
+                for (ProviderSite siteMember : providerSiteDao.findBySiteId(siteId)) {
+                    providerAccessList.add(siteMember.getId().getProviderNo());
+                }
             }
         }
         if (teamAccessPrivacy && userProvider != null) {

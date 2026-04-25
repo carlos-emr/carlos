@@ -97,6 +97,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
 
         // Default empty
         when(providerSiteDao.findByProviderNo(any())).thenReturn(Collections.emptyList());
+        when(providerSiteDao.findBySiteId(any())).thenReturn(Collections.emptyList());
         when(siteDao.getActiveSitesByProviderNo(any())).thenReturn(Collections.emptyList());
     }
 
@@ -138,11 +139,23 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_access_privacy"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_billing_only"), eq("r"), isNull())).thenReturn(true);
 
-        ProviderSite ps = new ProviderSite();
-        ProviderSitePK pk = new ProviderSitePK();
-        pk.setProviderNo("888888");
-        ps.setId(pk);
-        when(providerSiteDao.findByProviderNo("999998")).thenReturn(List.of(ps));
+        // The user (999998) is attached to site 42. The access list should
+        // include every provider at site 42 — not just the user themselves.
+        // Co-located provider 888888 is what the previous self-only loop
+        // silently dropped.
+        ProviderSite userMembership = new ProviderSite();
+        ProviderSitePK userPk = new ProviderSitePK();
+        userPk.setProviderNo("999998");
+        userPk.setSiteId(42);
+        userMembership.setId(userPk);
+        when(providerSiteDao.findByProviderNo("999998")).thenReturn(List.of(userMembership));
+
+        ProviderSite coWorker = new ProviderSite();
+        ProviderSitePK coWorkerPk = new ProviderSitePK();
+        coWorkerPk.setProviderNo("888888");
+        coWorkerPk.setSiteId(42);
+        coWorker.setId(coWorkerPk);
+        when(providerSiteDao.findBySiteId(42)).thenReturn(List.of(userMembership, coWorker));
 
         Provider teamProvider = new Provider();
         teamProvider.setProviderNo("777777");
@@ -157,7 +170,8 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         assertThat(m.isSiteAccessPrivacy()).isTrue();
         assertThat(m.isTeamAccessPrivacy()).isTrue();
         assertThat(m.isTeamBillingOnly()).isTrue();
-        assertThat(m.getProviderAccessList()).containsExactlyInAnyOrder("888888", "777777");
+        assertThat(m.getProviderAccessList())
+                .containsExactlyInAnyOrder("999998", "888888", "777777");
     }
 
     @Test

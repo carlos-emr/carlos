@@ -72,9 +72,12 @@ while IFS= read -r -d '' jsp; do
   fi
 
   size=$(wc -c < "$jsp")
-  getbean_count=$(grep -c "SpringUtils\.getBean" "$jsp" || true)
+  # Count occurrences (not lines) — a JSP can have multiple SpringUtils.getBean
+  # calls or multiple scriptlet opens on a single line, and grep -c only
+  # reports the line count which silently undercounts.
+  getbean_count=$(grep -o "SpringUtils\.getBean" "$jsp" 2>/dev/null | wc -l || true)
   # Count opening scriptlet blocks (not directives like <%@, <%--, <%=, <%!).
-  scriptlet_count=$(grep -c "<%[^@!=-]" "$jsp" || true)
+  scriptlet_count=$(grep -o "<%[^@!=-]" "$jsp" 2>/dev/null | wc -l || true)
 
   if (( size > BYTE_THRESHOLD )); then
     printf "FAIL: %s is %d bytes (threshold %d)\n" "$rel" "$size" "$BYTE_THRESHOLD"

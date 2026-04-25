@@ -27,7 +27,12 @@
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.math.*,java.util.*,java.sql.*,io.github.carlos_emr.*,java.net.*" %>
-<!-- errorPage="/WEB-INF/jsp/error/errorpage.jsp" -->
+<%-- errorPage routes JSP-render exceptions to errorpage.jsp, which calls
+     ErrorPageLogger.logIfPresent so a render-time NPE doesn't disappear
+     into a generic CARLOS Error 500 with no stack trace in catalina.out.
+     Without this directive, a throw inside the scriptlet body or any
+     <jsp:include> would fall through to the container default. --%>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*" %>
@@ -92,7 +97,10 @@
     boolean isSiteAccessPrivacy = correctionModel.isSiteAccessPrivacy();
     boolean isTeamAccessPrivacy = correctionModel.isTeamAccessPrivacy();
     boolean isTeamBillingOnly = correctionModel.isTeamBillingOnly();
-    boolean isMultiSiteProvider = true;
+    // Fail-closed default: if for any reason the bill-record load below
+    // doesn't run (early return, exception caught upstream), the page must
+    // not render as if multi-site access is unrestricted.
+    boolean isMultiSiteProvider = false;
     boolean bMultisites = correctionModel.isMultisites();
     Set<String> providerAccessList = correctionModel.getProviderAccessList();
     List<String> mgrSites = correctionModel.getMgrSites();

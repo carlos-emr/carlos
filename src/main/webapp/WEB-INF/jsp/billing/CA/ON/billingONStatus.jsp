@@ -123,6 +123,10 @@
                 .sortName("ServiceDate")
                 .sortOrder("asc")
                 .build();
+        // Stash the fallback so EL references like ${statusModel.sortName}
+        // and ${statusModel.sortOrder} downstream resolve, not just the
+        // scriptlet locals above.
+        request.setAttribute("statusModel", statusModel);
     }
 
     boolean bSearch = statusModel.isSearch();

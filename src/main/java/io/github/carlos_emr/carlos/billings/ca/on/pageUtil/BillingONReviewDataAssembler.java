@@ -46,6 +46,12 @@ public final class BillingONReviewDataAssembler {
     private final ProviderDao providerDao;
     private final BillingReviewPrep reviewPrep;
 
+    /**
+     * Production constructor used by Struts; resolves dependencies from the
+     * Spring context via {@link SpringUtils#getBean}. Tests use the
+     * package-private constructor below to inject mocks directly without
+     * standing up a Spring context.
+     */
     public BillingONReviewDataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),

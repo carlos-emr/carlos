@@ -196,7 +196,13 @@ public final class BillingONCorrectionViewModel {
         private List<String> mgrSites;
         private boolean billLoaded;
         private boolean billNoErr;
-        private boolean multiSiteProvider = true; // matches legacy default
+        // Fail-closed default. The assembler opts in to true via
+        // multiSiteProvider(true) once the bill loads and access checks pass.
+        // The JSP only consumes the value when correctionModel.isBillLoaded()
+        // is true, so the empty-model fallback path renders harmlessly with
+        // the false default — and any future code path that constructs an
+        // empty model can't accidentally expose other-site bills.
+        private boolean multiSiteProvider = false;
         private boolean demoLoadError;
         private boolean raLookupError;
         private String billingNo;

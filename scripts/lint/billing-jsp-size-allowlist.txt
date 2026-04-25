@@ -27,6 +27,10 @@ src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp
 # BC billing (out of scope for the ON refactor; follow-up PR)
 src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingBC.jsp
 src/main/webapp/WEB-INF/jsp/billing/CA/BC/adjustBill.jsp
+# Surfaced after the lint counter switched from grep -c (line count) to
+# grep -o | wc -l (occurrence count). Pre-existing baseline; refactor
+# tracked under follow-up BC work.
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/formwcb.jsp
 
 # Other ON JSPs currently over threshold
 src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON3rdInv.jsp
