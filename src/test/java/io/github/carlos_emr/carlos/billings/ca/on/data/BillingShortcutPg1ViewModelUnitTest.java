@@ -182,18 +182,20 @@ class BillingShortcutPg1ViewModelUnitTest {
                 .demoDobDd("15")
                 .build();
 
+        // Assert against the flat getters, not literal strings — that's
+        // the actual mirror property the JavaDoc claims to test.
         BillingDemographicSummary demo = m.getDemographicSummary();
-        assertThat(demo.firstName()).isEqualTo("Jones");
-        assertThat(demo.lastName()).isEqualTo("Jacky");
-        assertThat(demo.hin()).isEqualTo("9876543225");
+        assertThat(demo.firstName()).isEqualTo(m.getDemoFirst());
+        assertThat(demo.lastName()).isEqualTo(m.getDemoLast());
+        assertThat(demo.hin()).isEqualTo(m.getDemoHin());
         // Shortcut doesn't carry a hin-version field — empty by design.
         assertThat(demo.ver()).isEmpty();
-        assertThat(demo.sex()).isEqualTo("1");
-        assertThat(demo.hcType()).isEqualTo("ON");
-        assertThat(demo.dob()).isEqualTo("19850615");
-        assertThat(demo.dobYy()).isEqualTo("1985");
-        assertThat(demo.dobMm()).isEqualTo("06");
-        assertThat(demo.dobDd()).isEqualTo("15");
+        assertThat(demo.sex()).isEqualTo(m.getDemoSex());
+        assertThat(demo.hcType()).isEqualTo(m.getDemoHcType());
+        assertThat(demo.dob()).isEqualTo(m.getDemoDob());
+        assertThat(demo.dobYy()).isEqualTo(m.getDemoDobYy());
+        assertThat(demo.dobMm()).isEqualTo(m.getDemoDobMm());
+        assertThat(demo.dobDd()).isEqualTo(m.getDemoDobDd());
     }
 
     @Test
@@ -204,8 +206,8 @@ class BillingShortcutPg1ViewModelUnitTest {
                 .build();
 
         BillingReferralDoctor r = m.getReferralDoctorRecord();
-        assertThat(r.name()).isEqualTo("Smith");
-        assertThat(r.ohip()).isEqualTo("123456");
+        assertThat(r.name()).isEqualTo(m.getReferralDoctorName());
+        assertThat(r.ohip()).isEqualTo(m.getReferralDoctorOhip());
         // Shortcut doesn't carry a specialty field — empty by design.
         assertThat(r.specialty()).isEmpty();
     }

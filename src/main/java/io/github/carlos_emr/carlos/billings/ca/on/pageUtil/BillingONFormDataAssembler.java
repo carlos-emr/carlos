@@ -735,9 +735,24 @@ public final class BillingONFormDataAssembler {
      *
      * <p>The {@code age == 0 && !invalid} state legitimately means "no DOB
      * supplied / no patient context yet". Only {@code invalid == true}
-     * indicates a parse failure worth warning about.</p>
+     * indicates a parse failure worth warning about. The compact constructor
+     * rejects the contradictory {@code invalid && age != 0} state so a
+     * future caller can't fabricate a "partially-computed but flagged"
+     * result that would render both the warning banner and a real-looking
+     * age — the JSP suppresses the age field on the banner path, so a
+     * non-zero age silently emitted here would mislead the operator.</p>
      */
-    record AgeResult(int age, boolean invalid) { }
+    record AgeResult(int age, boolean invalid) {
+        AgeResult {
+            if (age < 0) {
+                throw new IllegalArgumentException("age must be >= 0; got " + age);
+            }
+            if (invalid && age != 0) {
+                throw new IllegalArgumentException(
+                        "invalid=true must imply age==0; got age=" + age);
+            }
+        }
+    }
 
     static AgeResult calculateAge(String dobYyyymmdd) {
         if (dobYyyymmdd == null || dobYyyymmdd.isEmpty()) {

@@ -294,7 +294,7 @@ class BillingONFormViewModelUnitTest {
     }
 
     /**
-     * Round-trip the demoDobInvalid flag (S3 — surfaces a banner on the form
+     * Round-trip the demoDobInvalid flag (surfaces a banner on the form
      * when the patient's stored DOB is unparseable). Default must be false
      * so an unset model doesn't render a misleading banner.
      */
@@ -344,17 +344,21 @@ class BillingONFormViewModelUnitTest {
                 .demoDobDay("15")
                 .build();
 
+        // Assert against the flat getters, not literal strings — that's
+        // the actual mirror property the JavaDoc claims to test. A future
+        // refactor that drops a flat getter (or returns something different
+        // from the record component) breaks loud here.
         BillingDemographicSummary demo = m.getDemographicSummary();
-        assertThat(demo.firstName()).isEqualTo("Jane");
-        assertThat(demo.lastName()).isEqualTo("Doe");
-        assertThat(demo.hin()).isEqualTo("9876543225");
-        assertThat(demo.ver()).isEqualTo("AB");
-        assertThat(demo.sex()).isEqualTo("F");
-        assertThat(demo.hcType()).isEqualTo("ON");
-        assertThat(demo.dob()).isEqualTo("19850615");
-        assertThat(demo.dobYy()).isEqualTo("1985");
-        assertThat(demo.dobMm()).isEqualTo("06");
-        assertThat(demo.dobDd()).isEqualTo("15");
+        assertThat(demo.firstName()).isEqualTo(m.getDemoFirst());
+        assertThat(demo.lastName()).isEqualTo(m.getDemoLast());
+        assertThat(demo.hin()).isEqualTo(m.getDemoHin());
+        assertThat(demo.ver()).isEqualTo(m.getDemoVer());
+        assertThat(demo.sex()).isEqualTo(m.getDemoSex());
+        assertThat(demo.hcType()).isEqualTo(m.getDemoHcType());
+        assertThat(demo.dob()).isEqualTo(m.getDemoDob());
+        assertThat(demo.dobYy()).isEqualTo(m.getDemoDobYear());
+        assertThat(demo.dobMm()).isEqualTo(m.getDemoDobMonth());
+        assertThat(demo.dobDd()).isEqualTo(m.getDemoDobDay());
     }
 
     @Test
@@ -366,8 +370,8 @@ class BillingONFormViewModelUnitTest {
                 .build();
 
         BillingReferralDoctor r = m.getReferralDoctorRecord();
-        assertThat(r.name()).isEqualTo("Smith");
-        assertThat(r.ohip()).isEqualTo("123456");
-        assertThat(r.specialty()).isEqualTo("00");
+        assertThat(r.name()).isEqualTo(m.getReferralDoctor());
+        assertThat(r.ohip()).isEqualTo(m.getReferralDoctorOhip());
+        assertThat(r.specialty()).isEqualTo(m.getReferralSpecialty());
     }
 }

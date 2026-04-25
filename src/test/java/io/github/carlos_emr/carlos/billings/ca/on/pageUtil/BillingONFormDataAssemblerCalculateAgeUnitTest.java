@@ -79,7 +79,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
      * LocalDate.of with DateTimeException. The original silent-age=0 bug.
      */
     @Test
-    void shouldFlagInvalid_whenDobIsAllNines_andDateTimeRejects() {
+    void shouldFlagInvalid_whenDobIsAllNinesAndDateTimeRejects() {
         BillingONFormDataAssembler.AgeResult result =
                 BillingONFormDataAssembler.calculateAge("99999999");
 
@@ -97,7 +97,7 @@ class BillingONFormDataAssemblerCalculateAgeUnitTest {
     }
 
     @Test
-    void shouldComputeAge_andNotInvalid_forValidDob() {
+    void shouldComputeAgeAndNotInvalid_forValidDob() {
         // Use a fixed historical year so the test is stable across runs.
         // 1900-01-01 is far enough back that age > 100 always.
         BillingONFormDataAssembler.AgeResult result =

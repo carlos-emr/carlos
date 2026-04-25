@@ -66,6 +66,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
     private CapturingAppender appender;
     private LoggerConfig loggerConfig;
     private LoggerContext ctx;
+    private Level priorLevel;
 
     @BeforeEach
     void setUp() {
@@ -74,13 +75,20 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         request = new MockHttpServletRequest();
 
         // Attach a tiny in-memory log4j2 appender so we can assert the WARN
-        // emissions on the early-return paths (the M4 audit-trail claim:
+        // emissions on the early-return paths — audit-trail integrity:
         // a stale form resubmit that opted in but didn't fill the form must
-        // leave a trail rather than acknowledge "saved" silently).
+        // leave a trail rather than acknowledge "saved" silently.
+        //
+        // Note: BillingONReviewDxPersister has no class-specific Logger entry
+        // in src/test/resources/log4j2.xml, so getLoggerConfig resolves to
+        // the shared Root config. Capture the prior level and restore it in
+        // tearDown — without that, every subsequent test in the same
+        // surefire fork runs at Level.ALL, flooding output.
         ctx = (LoggerContext) LogManager.getContext(false);
         appender = new CapturingAppender();
         appender.start();
         loggerConfig = ctx.getConfiguration().getLoggerConfig(LOGGER_NAME);
+        priorLevel = loggerConfig.getLevel();
         loggerConfig.addAppender(appender, Level.ALL, null);
         loggerConfig.setLevel(Level.ALL);
         ctx.updateLoggers();
@@ -92,6 +100,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         if (loggerConfig != null && appender != null) {
             loggerConfig.removeAppender(appender.getName());
             appender.stop();
+            loggerConfig.setLevel(priorLevel);
             ctx.updateLoggers();
         }
     }
@@ -146,7 +155,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         persister.persistIfRequested(request, "999998");
 
         verify(dxresearchDAO, never()).save(any());
-        // M4 audit-trail integrity: opt-in clinical write that early-returns
+        // Audit-trail integrity: opt-in clinical write that early-returns
         // must leave a WARN-level breadcrumb rather than acknowledging
         // "saved" silently.
         assertThat(appender.events()).anyMatch(evt ->
@@ -163,7 +172,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         persister.persistIfRequested(request, "999998");
 
         verify(dxresearchDAO, never()).save(any());
-        // M4 audit-trail integrity: opt-in clinical write that early-returns
+        // Audit-trail integrity: opt-in clinical write that early-returns
         // must leave a WARN-level breadcrumb rather than acknowledging
         // "saved" silently.
         assertThat(appender.events()).anyMatch(evt ->
@@ -254,7 +263,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
 
     /**
      * Minimal in-memory log4j2 appender — captures events without filtering
-     * so the M4 WARN-on-early-return assertions can run. Mirrors the shape
+     * so the WARN-on-early-return assertions can run. Mirrors the shape
      * used in {@code ErrorPageLoggerUnitTest}.
      */
     private static final class CapturingAppender extends AbstractAppender {
