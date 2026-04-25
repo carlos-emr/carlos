@@ -457,7 +457,11 @@ public final class MessageUploader {
 				if (hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
 				if (hin != null) {
 					hinMod = new String(hin);
-					if (hinMod.length() == 12) {
+                    // Ontario may be bare or have the version code concacted 1234567890XX
+					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
+					// BC hin MSP is a 9 digit code
+					if (hinMod.length() == 12 && Character.isDigit(hinMod.charAt(1)) ) {
+                        // strip the version code for Ontario
 						hinMod = hinMod.substring(0, 10);
 					}
 				}
@@ -468,24 +472,38 @@ public final class MessageUploader {
 					dobMonth = dobArray[1];
 					dobDay = dobArray[2];
 				}
-
-				// only the first letter of names
+                
+				List<String> sqlParams = new ArrayList<>();
+                
+                // if no hin but there is a dob try for a complete match against the full name DOB and gender
+				if( ( hinMod == null || hinMod.equals("") ) && (dob != null && !dob.equals("") && !dob.equalsIgnoreCase("UNKNOWN"))  ) {
+					logger.debug("Finding demo for given name : "+firstName+"% surname : "+lastName+"% with dob y/m/d : "+dobYear+"/"+dobMonth+"/"+dobDay+" sex of : "+sex);
+					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name like ? and first_name like ?";
+					sqlParams.add(dobYear);
+					sqlParams.add(dobMonth);
+					sqlParams.add(dobDay);
+					sqlParams.add(sex + "%");
+                    sqlParams.add(lastName + "%");
+					sqlParams.add(firstName + "%");
+				}
+                
+				// only the first letter of names used for LAB_NOMATCH_NAMES=no
 				if (!firstName.equals("")) firstName = firstName.substring(0, 1);
 				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
 
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
-				List<String> sqlParams = new ArrayList<>();
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
+                    // relax need to match gender for non binary labeled demographics " ( sex like '"+sex+"%' OR sex NOT IN ('F','M') ";
 					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and sex like ?";
+						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
 						sqlParams.add(hinMod);
 						sqlParams.add(dobYear);
 						sqlParams.add(dobMonth);
 						sqlParams.add(dobDay);
 						sqlParams.add(sex + "%");
 					} else {
-						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and sex like ?";
+						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
 						sqlParams.add(hinMod);
 						sqlParams.add(lastName + "%");
 						sqlParams.add(firstName + "%");
@@ -494,7 +512,7 @@ public final class MessageUploader {
 						sqlParams.add(dobDay);
 						sqlParams.add(sex + "%");
 					}
-				}
+                }
 
 				if ( sql != null ) {
 					logger.debug("Matching patient demographics for lab routing");
