@@ -97,9 +97,10 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
 
     @NativeSql({"hl7_pid", "hl7_link", "hl7_obr", "hl7_message"})
     public List<Object[]> findReports(Date start, Date end, String provider_no, String orderby, String command) {
-        String select_reports_by_provider = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND demographic.provider_no=:provider_no AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
-        String select_reports_linked_to_providers = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time  FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
+        String baseSelectLinked = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, provider.last_name, provider.first_name, hl7_message.date_time FROM hl7_link, demographic, hl7_pid, hl7_obr, hl7_message, provider WHERE demographic.provider_no = provider.provider_no AND hl7_link.pid_id=hl7_obr.pid_id AND hl7_link.pid_id=hl7_pid.pid_id AND hl7_message.message_id=hl7_pid.message_id AND demographic.demographic_no=hl7_link.demographic_no AND hl7_link.status!='P'";
+        String select_reports_by_provider = baseSelectLinked + " AND demographic.provider_no=:provider_no";
         String select_unlinked_labs = "SELECT DISTINCT hl7_pid.pid_id, hl7_pid.patient_name, hl7_obr.ordering_provider, hl7_obr.result_copies_to, hl7_link.status, hl7_link.signed_on, hl7_message.date_time, '' as `last_name`, '' as `first_name` FROM hl7_pid left join hl7_link on hl7_link.pid_id=hl7_pid.pid_id left join hl7_obr on hl7_pid.pid_id=hl7_obr.pid_id left join hl7_message on hl7_message.message_id=hl7_pid.message_id WHERE hl7_link.status='P' OR hl7_link.status is null";
+
         String sqlWhere = (start != null ? " AND hl7_message.date_time >= :startDate" : "") +
                 (end != null ? " AND hl7_message.date_time <= :endDate" : "");
 
@@ -110,7 +111,7 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
             if ("-ULL".equals(provider_no)) {
                 sql = select_unlinked_labs;
             } else if ("-APL".equals(provider_no)) {
-                sql = select_reports_linked_to_providers;
+                sql = baseSelectLinked;
             } else {
                 sql = select_reports_by_provider;
             }
