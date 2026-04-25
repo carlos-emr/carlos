@@ -103,39 +103,11 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         String sqlWhere = (start != null ? " AND hl7_message.date_time >= :startDate" : "") +
                 (end != null ? " AND hl7_message.date_time <= :endDate" : "");
 
-        String safeOrderBy;
-        if ("patient_name".equals(orderby)) {
-            safeOrderBy = "hl7_pid.patient_name";
-        } else if ("ordering_provider".equals(orderby)) {
-            safeOrderBy = "hl7_obr.ordering_provider";
-        } else if ("result_copies_to".equals(orderby)) {
-            safeOrderBy = "hl7_obr.result_copies_to";
-        } else if ("status".equals(orderby)) {
-            safeOrderBy = "hl7_link.status";
-        } else if ("signed_on".equals(orderby)) {
-            safeOrderBy = "hl7_link.signed_on";
-        } else if ("last_name".equals(orderby)) {
-            safeOrderBy = "provider.last_name";
-        } else if ("date_time".equals(orderby)) {
-            safeOrderBy = "hl7_message.date_time";
-        } else {
-            safeOrderBy = "hl7_message.date_time";
-        }
+        String sqlOrderBy = " ORDER BY " + getSafeOrderBy(orderby);
 
-        String sqlOrderBy = " ORDER BY " + safeOrderBy;
-
-        String sql = null;
         if (command != null && !command.equals("")) {
-            if ("-ULL".equals(provider_no)) {
-                sql = select_unlinked_labs;
-            } else if ("-APL".equals(provider_no)) {
-                sql = select_reports_linked_to_providers;
-            } else if ("-UAP".equals(provider_no)) {
-                sql = select_reports_by_provider;
-            } else {
-                sql = select_reports_by_provider;
-            }
-            sql += sqlWhere + sqlOrderBy;
+            String sql = getBaseSql(provider_no, select_unlinked_labs, select_reports_linked_to_providers, select_reports_by_provider)
+                         + sqlWhere + sqlOrderBy;
 
             Query query = entityManager.createNativeQuery(sql);
 
@@ -157,6 +129,34 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
         }
 
         return new ArrayList<Object[]>();
+    }
+
+    private String getSafeOrderBy(String orderby) {
+        if ("patient_name".equals(orderby)) {
+            return "hl7_pid.patient_name";
+        } else if ("ordering_provider".equals(orderby)) {
+            return "hl7_obr.ordering_provider";
+        } else if ("result_copies_to".equals(orderby)) {
+            return "hl7_obr.result_copies_to";
+        } else if ("status".equals(orderby)) {
+            return "hl7_link.status";
+        } else if ("signed_on".equals(orderby)) {
+            return "hl7_link.signed_on";
+        } else if ("last_name".equals(orderby)) {
+            return "provider.last_name";
+        } else {
+            return "hl7_message.date_time";
+        }
+    }
+
+    private String getBaseSql(String provider_no, String select_unlinked_labs, String select_reports_linked_to_providers, String select_reports_by_provider) {
+        if ("-ULL".equals(provider_no)) {
+            return select_unlinked_labs;
+        } else if ("-APL".equals(provider_no)) {
+            return select_reports_linked_to_providers;
+        } else {
+            return select_reports_by_provider;
+        }
     }
 
 }
