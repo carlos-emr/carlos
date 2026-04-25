@@ -122,7 +122,7 @@
     // Use the validated integer value as the canonical demographic number string
     String demographic_no = String.valueOf(demographicNoInt);
     // Pre-encode for reuse in URI construction
-    String encDemoNo = SafeSafeEncode.forUriComponent(demographic_no);
+    String encDemoNo = SafeEncode.forUriComponent(demographic_no);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -166,7 +166,7 @@
     String ecUri = "";
     if (ec != null) {
         ecUri = request.getContextPath() + "/encounter/ViewEcharthistoryprint?echartid="
-                + SafeSafeEncode.forUriComponent(String.valueOf(ec.getId()))
+                + SafeEncode.forUriComponent(String.valueOf(ec.getId()))
                 + "&demographic_no=" + encDemoNo;
         pageContext.setAttribute("ecUri", ecUri);
     }

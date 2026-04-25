@@ -31,5 +31,9 @@ RUN chmod 755 /scripts
 RUN dos2unix /docker-entrypoint-initdb.d/populate_db.sh
 RUN dos2unix /database/mysql/*.sh
 
+# Create eForm images directory and ensure mysql user can write to it
+RUN mkdir -p /var/lib/OscarDocument/oscar/eform/images/ \
+    && chown -R mysql:mysql /var/lib/OscarDocument
+
 # Ports
 EXPOSE 3306
