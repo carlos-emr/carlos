@@ -40,6 +40,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -47,16 +48,22 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONRepoDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
+import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
+import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -642,7 +649,7 @@ public class BillingCorrection2Action extends ActionSupport {
             }
         }
 
-        return BillingONCorrectionViewModel.builder()
+        BillingONCorrectionViewModel.Builder builder = BillingONCorrectionViewModel.builder()
                 .userProviderNo(providerNo)
                 .userFirstName(userProvider != null ? userProvider.getFirstName() : "")
                 .userLastName(userProvider != null ? userProvider.getLastName() : "")
@@ -651,7 +658,173 @@ public class BillingCorrection2Action extends ActionSupport {
                 .teamBillingOnly(teamBillingOnly)
                 .multisites(multisites)
                 .providerAccessList(providerAccessList)
-                .mgrSites(mgrSites)
-                .build();
+                .mgrSites(mgrSites);
+
+        loadBillRecord(loggedInInfo, builder, providerAccessList, mgrSites,
+                siteAccessPrivacy, teamAccessPrivacy, multisites);
+
+        return builder.build();
+    }
+
+    /**
+     * Loads the bill record (BillingONCHeader1) referenced by the {@code billing_no}
+     * (or fallback {@code claim_no}) request param and populates the bill-record
+     * fields on the view model. Mirrors what {@code billingONCorrection.jsp}
+     * lines 399-526 used to do inside the JSP body.
+     *
+     * <p>If neither {@code billing_no} nor {@code claim_no} is present, the model
+     * stays empty (corresponds to the legacy "form not loaded" path). If the
+     * billing_no is present but doesn't resolve to a bill, the model surfaces
+     * {@code billNoErr=true} which the JSP renders as "Invoice number does
+     * not exist!".</p>
+     *
+     * <p>Multisite/team access is enforced here: a provider who lacks access
+     * to the bill's clinic site or to the bill provider's team gets
+     * {@code multiSiteProvider=false} and the patient fields stay empty (the
+     * JSP shows an "access denied" alert).</p>
+     */
+    private void loadBillRecord(LoggedInInfo loggedInInfo,
+                                BillingONCorrectionViewModel.Builder b,
+                                Set<String> providerAccessList,
+                                List<String> mgrSites,
+                                boolean siteAccessPrivacy,
+                                boolean teamAccessPrivacy,
+                                boolean multisites) {
+        String billNoParam = request.getParameter("billing_no");
+        String claimNoParam = request.getParameter("claim_no");
+        if (claimNoParam != null && claimNoParam.equals("null")) {
+            claimNoParam = null;
+        }
+
+        String billNo = billNoParam == null ? "" : billNoParam.trim();
+        String claimNo = claimNoParam == null ? "" : claimNoParam.trim();
+
+        // claim_no fallback: resolve billing_no via RaDetailDao if billing_no missing
+        if (billNo.isEmpty() && !claimNo.isEmpty()) {
+            RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
+            List<RaDetail> raDetails = raDetailDao.getRaDetailByClaimNo(claimNo);
+            if (!raDetails.isEmpty()) {
+                billNo = String.valueOf(raDetails.get(0).getBillingNo());
+            }
+        }
+
+        b.billingNo(billNo).claimNo(claimNo);
+
+        if (billNo.isEmpty()) {
+            return;
+        }
+
+        Integer billingNo;
+        try {
+            billingNo = Integer.parseInt(billNo);
+        } catch (NumberFormatException nfe) {
+            b.billNoErr(true);
+            return;
+        }
+
+        BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
+        if (bCh1 == null) {
+            b.billNoErr(true);
+            return;
+        }
+
+        b.billLoaded(true);
+
+        String clinicSite = bCh1.getClinic() == null ? "" : bCh1.getClinic();
+        b.clinicSite(clinicSite);
+
+        // Multisite / team-billing access guard
+        boolean multiSiteProvider = true;
+        if ((siteAccessPrivacy || teamAccessPrivacy) && !providerAccessList.contains(bCh1.getProviderNo())) {
+            multiSiteProvider = false;
+        }
+        if (multisites && !mgrSites.contains(clinicSite)) {
+            multiSiteProvider = false;
+        }
+        b.multiSiteProvider(multiSiteProvider);
+        b.manReview(bCh1.getManReview() == null ? "" : bCh1.getManReview());
+
+        if (!multiSiteProvider) {
+            // Access denied — leave patient fields empty; JSP shows alert.
+            return;
+        }
+
+        Locale locale = request.getLocale();
+        b.createTimestamp(DateUtils.formatDateTime(bCh1.getTimestamp(), locale));
+        b.demoNo(bCh1.getDemographicNo() == null ? "" : bCh1.getDemographicNo().toString())
+                .demoName(bCh1.getDemographicName() == null ? "" : bCh1.getDemographicName())
+                .demoDob(bCh1.getDob() == null ? "" : bCh1.getDob());
+
+        String demoSex = "";
+        if (bCh1.getSex() != null) {
+            demoSex = bCh1.getSex().equals("1") ? "M" : "F";
+        }
+        b.demoSex(demoSex);
+
+        String hin = "";
+        String demoRosterStatus = "";
+        if (bCh1.getDemographicNo() != null) {
+            try {
+                Demographic sdemo = new DemographicData().getDemographic(loggedInInfo, bCh1.getDemographicNo().toString());
+                if (sdemo != null) {
+                    hin = (sdemo.getHin() == null ? "" : sdemo.getHin())
+                            + (sdemo.getVer() == null ? "" : sdemo.getVer());
+                    String dobYy = sdemo.getYearOfBirth() == null ? "" : sdemo.getYearOfBirth();
+                    String dobMm = sdemo.getMonthOfBirth() == null ? "" : sdemo.getMonthOfBirth();
+                    String dobDd = sdemo.getDateOfBirth() == null ? "" : sdemo.getDateOfBirth();
+                    b.demoDob(dobYy + dobMm + dobDd);
+                    if (sdemo.getSex() != null) {
+                        b.demoSex(sdemo.getSex());
+                    }
+                    demoRosterStatus = sdemo.getRosterStatus() == null ? "" : sdemo.getRosterStatus();
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("Demographic load failed for bill {}", billNo, e);
+            }
+        }
+        b.hin(hin).demoRosterStatus(demoRosterStatus);
+
+        b.billLocationNo(bCh1.getFaciltyNum() == null ? "" : bCh1.getFaciltyNum());
+        b.billDate(DateUtils.formatDate(bCh1.getBillingDate(), locale));
+        b.billProvider(bCh1.getProviderNo() == null ? "" : bCh1.getProviderNo());
+        b.billStatus(bCh1.getStatus() == null ? "" : bCh1.getStatus());
+        b.payProgram(bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
+        b.billTotal(bCh1.getTotal() == null ? "" : bCh1.getTotal().toPlainString());
+
+        try {
+            b.visitDate(DateUtils.formatDate(bCh1.getAdmissionDate(), locale));
+        } catch (java.text.ParseException e) {
+            b.visitDate("");
+        }
+        b.visitType(bCh1.getVisitType() == null ? "" : bCh1.getVisitType());
+        b.sliCode(bCh1.getLocation() == null ? "" : bCh1.getLocation());
+        b.hcType(bCh1.getProvince() == null ? "" : bCh1.getProvince());
+        b.hcSex(bCh1.getSex() == null ? "" : bCh1.getSex());
+
+        // Referral doctor from ohip number
+        String rDoctorOhip = bCh1.getRefNum() == null ? "" : bCh1.getRefNum();
+        b.referralDoctorOhip(rDoctorOhip);
+        if (!rDoctorOhip.isEmpty()) {
+            ProfessionalSpecialistDao psDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
+            List<ProfessionalSpecialist> specialists = psDao.findByReferralNo(rDoctorOhip);
+            if (specialists != null && !specialists.isEmpty()) {
+                ProfessionalSpecialist sp = specialists.get(0);
+                b.referralDoctor((sp.getLastName() == null ? "" : sp.getLastName())
+                        + ", " + (sp.getFirstName() == null ? "" : sp.getFirstName()));
+            }
+        }
+
+        b.comment(bCh1.getComment() == null ? "" : bCh1.getComment());
+
+        // OHIP RA claim number
+        try {
+            JdbcBillingRAImpl raObj = new JdbcBillingRAImpl();
+            String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
+            if (raClaim != null) {
+                b.claimNo(raClaim);
+            }
+        } catch (Exception e) {
+            MiscUtils.getLogger().warn("RA claim lookup failed for bill {}", billNo, e);
+        }
     }
 }

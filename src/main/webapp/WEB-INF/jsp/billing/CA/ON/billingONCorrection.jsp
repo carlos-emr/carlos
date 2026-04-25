@@ -397,131 +397,59 @@
 
     <body onload="setfocus();">
     <%
-        //
-        RaDetailDao raDetailDao = (RaDetailDao) SpringUtils.getBean(RaDetailDao.class);
-        BillingONCHeader1Dao bCh1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-        BillingServiceDao bServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
+        // The bill record (BillingONCHeader1) load + multisite/team access check +
+        // Demographic + ProfessionalSpecialist + RA-claim lookup were lifted into
+        // BillingCorrection2Action.buildModel; this scriptlet now reads from
+        // correctionModel and exposes the legacy variable names so the existing
+        // render-expression sites keep compiling.
+        BillingServiceDao bServiceDao = SpringUtils.getBean(BillingServiceDao.class);
+        BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
+        // raDetailDao still used by downstream BillingExplanatoryList rendering scriptlet.
+        RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
 
-        // bFlag - fill in data?
-        boolean bFlag = false;
-        boolean billNoErr = false;
-
-        String billNo = request.getParameter("billing_no").trim();
-        String claimNo = request.getParameter("claim_no");
-        if (claimNo != null && claimNo.equals("null")) {
-            claimNo = null;
+        String billNo = correctionModel.getBillingNo();
+        String claimNo = correctionModel.getClaimNo();
+        if (claimNo == null || claimNo.equals("null")) {
+            claimNo = "";
         }
-
-        if (billNo == null || billNo.length() == 0) {
-            if (claimNo != null && claimNo.length() > 0) {
-                claimNo = claimNo.trim();
-                List<RaDetail> raDetails = raDetailDao.getRaDetailByClaimNo(claimNo);
-                if (!raDetails.isEmpty()) {
-                    billNo = String.valueOf(raDetails.get(0).getBillingNo());
-                }
-            }
-        }
-        if (billNo != null && billNo.length() > 0) {
-            bFlag = true;
-        }
+        boolean bFlag = correctionModel.isBillLoaded() || correctionModel.isBillNoErr() || !billNo.isEmpty();
+        boolean billNoErr = correctionModel.isBillNoErr();
 
         Locale locale = request.getLocale();
-        BillingONCHeader1 bCh1 = null;
-        Integer billingNo = null;
-        String createTimestamp = null;
-        String clinicSite = "";
+        BillingONCHeader1 bCh1 = correctionModel.isBillLoaded() ? bCh1Dao.find(Integer.parseInt(billNo)) : null;
+        Integer billingNo = correctionModel.isBillLoaded() ? Integer.parseInt(billNo) : null;
+        String createTimestamp = correctionModel.getCreateTimestamp().isEmpty() ? null : correctionModel.getCreateTimestamp();
+        String clinicSite = correctionModel.getClinicSite();
 
-        if (bFlag) {
+        isMultiSiteProvider = correctionModel.isMultiSiteProvider();
 
-            billingNo = Integer.parseInt(billNo);
-            bCh1 = bCh1Dao.find(billingNo);
-            billNoErr = (bCh1 == null);
-
-            if (bCh1 != null) {
-                clinicSite = bCh1.getClinic();
-
-                //multisite. check providers no
-                if (((isSiteAccessPrivacy || isTeamAccessPrivacy) && !providerAccessList.contains(bCh1.getProviderNo()))
-                        || (bMultisites && !mgrSites.contains(clinicSite))) {
-
-                    isMultiSiteProvider = false;
-                }
-                if (!isMultiSiteProvider) {
-                    DemoNo = "";
-                    DemoName = "";
-                    DemoAddress = "";
-                    DemoCity = "";
-                    DemoProvince = "";
-                    DemoPostal = "";
-                    DemoDOB = "";
-                    DemoSex = "";
-                    r_doctor = "";
-                    r_doctor_ohip_s = "";
-                    r_doctor_s = "";
-                    m_review = bCh1.getManReview();
-                    specialty = "";
-                    r_status = "";
-                    roster_status = "";
-
-                    out.write("<script>window.alert('sorry, billing access denied.')</script>");
-
-                } else {
-                    createTimestamp = DateUtils.formatDateTime(bCh1.getTimestamp(), locale);
-                    DemoNo = bCh1.getDemographicNo().toString();
-                    DemoName = bCh1.getDemographicName();
-                    DemoAddress = "";
-                    DemoCity = "";
-                    DemoProvince = "";
-                    DemoPostal = "";
-                    DemoDOB = bCh1.getDob();
-                    DemoSex = bCh1.getSex().equals("1") ? "M" : "F";
-
-                    BigDecimal billTotal = bCh1.getTotal();
-
-                    Demographic sdemo = (new DemographicData()).getDemographic(loggedInInfo, DemoNo);
-                    hin = sdemo.getHin() + sdemo.getVer();
-                    DemoDOB = sdemo.getYearOfBirth() + sdemo.getMonthOfBirth() + sdemo.getDateOfBirth();
-                    DemoSex = sdemo.getSex();
-                    DemoRS = sdemo.getRosterStatus();
-                    //hin = ch1Obj.getHin() + ch1Obj.getVer();
-                    location = bCh1.getFaciltyNum();
-                    BillLocation = "";
-                    BillLocationNo = location;
-                    BillDate = DateUtils.formatDate(bCh1.getBillingDate(), locale);
-                    Provider = bCh1.getProviderNo();
-                    BillType = bCh1.getStatus();
-                    payProgram = bCh1.getPayProgram();
-                    BillTotal = billTotal.toPlainString();
-                    try {
-                        visitdate = DateUtils.formatDate(bCh1.getAdmissionDate(), locale);
-                    } catch (java.text.ParseException e) {
-                        visitdate = "";
-                    }
-                    visittype = bCh1.getVisitType();
-                    sliCode = bCh1.getLocation();
-                    BillDTNo = "";
-                    HCTYPE = bCh1.getProvince();
-                    HCSex = bCh1.getSex();
-                    r_doctor_ohip = bCh1.getRefNum();
-                    ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-                    List<ProfessionalSpecialist> professionalSpecialists = professionalSpecialistDao.findByReferralNo(r_doctor_ohip);
-                    if (professionalSpecialists != null)
-                        r_doctor = professionalSpecialists.get(0).getLastName() + ", " + professionalSpecialists.get(0).getFirstName();
-                    else
-                        r_doctor = "";
-                    r_doctor_ohip_s = "";
-                    r_doctor_s = "";
-                    m_review = bCh1.getManReview();
-                    specialty = "";
-                    r_status = "";
-                    roster_status = "";
-                    comment = bCh1.getComment();
-
-                    // get ohip claim number
-                    JdbcBillingRAImpl raObj = new JdbcBillingRAImpl();
-                    claimNo = raObj.getRAClaimNo4BillingNo(billNo);
-
-                }
+        if (correctionModel.isBillLoaded()) {
+            if (!isMultiSiteProvider) {
+                m_review = correctionModel.getManReview();
+                out.write("<script>window.alert('sorry, billing access denied.')</script>");
+            } else {
+                DemoNo = correctionModel.getDemoNo();
+                DemoName = correctionModel.getDemoName();
+                DemoDOB = correctionModel.getDemoDob();
+                DemoSex = correctionModel.getDemoSex();
+                DemoRS = correctionModel.getDemoRosterStatus();
+                hin = correctionModel.getHin();
+                location = correctionModel.getBillLocationNo();
+                BillLocationNo = correctionModel.getBillLocationNo();
+                BillDate = correctionModel.getBillDate();
+                Provider = correctionModel.getBillProvider();
+                BillType = correctionModel.getBillStatus();
+                payProgram = correctionModel.getPayProgram();
+                BillTotal = correctionModel.getBillTotal();
+                visitdate = correctionModel.getVisitDate();
+                visittype = correctionModel.getVisitType();
+                sliCode = correctionModel.getSliCode();
+                HCTYPE = correctionModel.getHcType();
+                HCSex = correctionModel.getHcSex();
+                r_doctor_ohip = correctionModel.getReferralDoctorOhip();
+                r_doctor = correctionModel.getReferralDoctor();
+                m_review = correctionModel.getManReview();
+                comment = correctionModel.getComment();
             }
         }
 

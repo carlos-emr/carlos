@@ -47,10 +47,44 @@ public final class BillingONCorrectionViewModel {
     private final Set<String> providerAccessList;
     private final List<String> mgrSites;
 
+    // Bill-record state, populated when billing_no or claim_no resolves
+    // through bCh1Dao.find. {@link #isBillLoaded()} reflects whether the
+    // load succeeded; {@link #isBillNoErr()} reflects the user-visible
+    // "Invoice number does not exist!" alert. Bill-record fields read from
+    // the loaded {@code BillingONCHeader1} + Demographic + ProfessionalSpecialist.
+    private final boolean billLoaded;
+    private final boolean billNoErr;
+    private final boolean multiSiteProvider;
+    private final String billingNo;
+    private final String claimNo;
+    private final String createTimestamp;
+    private final String demoNo;
+    private final String demoName;
+    private final String demoDob;
+    private final String demoSex;
+    private final String demoRosterStatus;
+    private final String hin;
+    private final String hcType;
+    private final String hcSex;
+    private final String billLocationNo;
+    private final String billDate;
+    private final String billProvider;
+    private final String billStatus;
+    private final String payProgram;
+    private final String billTotal;
+    private final String visitDate;
+    private final String visitType;
+    private final String sliCode;
+    private final String referralDoctorOhip;
+    private final String referralDoctor;
+    private final String manReview;
+    private final String comment;
+    private final String clinicSite;
+
     private BillingONCorrectionViewModel(Builder b) {
-        this.userProviderNo = b.userProviderNo == null ? "" : b.userProviderNo;
-        this.userFirstName = b.userFirstName == null ? "" : b.userFirstName;
-        this.userLastName = b.userLastName == null ? "" : b.userLastName;
+        this.userProviderNo = nullToEmpty(b.userProviderNo);
+        this.userFirstName = nullToEmpty(b.userFirstName);
+        this.userLastName = nullToEmpty(b.userLastName);
         this.siteAccessPrivacy = b.siteAccessPrivacy;
         this.teamAccessPrivacy = b.teamAccessPrivacy;
         this.teamBillingOnly = b.teamBillingOnly;
@@ -61,6 +95,38 @@ public final class BillingONCorrectionViewModel {
         this.mgrSites = b.mgrSites == null
                 ? Collections.emptyList()
                 : List.copyOf(b.mgrSites);
+        this.billLoaded = b.billLoaded;
+        this.billNoErr = b.billNoErr;
+        this.multiSiteProvider = b.multiSiteProvider;
+        this.billingNo = nullToEmpty(b.billingNo);
+        this.claimNo = nullToEmpty(b.claimNo);
+        this.createTimestamp = nullToEmpty(b.createTimestamp);
+        this.demoNo = nullToEmpty(b.demoNo);
+        this.demoName = nullToEmpty(b.demoName);
+        this.demoDob = nullToEmpty(b.demoDob);
+        this.demoSex = nullToEmpty(b.demoSex);
+        this.demoRosterStatus = nullToEmpty(b.demoRosterStatus);
+        this.hin = nullToEmpty(b.hin);
+        this.hcType = nullToEmpty(b.hcType);
+        this.hcSex = nullToEmpty(b.hcSex);
+        this.billLocationNo = nullToEmpty(b.billLocationNo);
+        this.billDate = nullToEmpty(b.billDate);
+        this.billProvider = nullToEmpty(b.billProvider);
+        this.billStatus = nullToEmpty(b.billStatus);
+        this.payProgram = nullToEmpty(b.payProgram);
+        this.billTotal = nullToEmpty(b.billTotal);
+        this.visitDate = nullToEmpty(b.visitDate);
+        this.visitType = nullToEmpty(b.visitType);
+        this.sliCode = nullToEmpty(b.sliCode);
+        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
+        this.referralDoctor = nullToEmpty(b.referralDoctor);
+        this.manReview = nullToEmpty(b.manReview);
+        this.comment = nullToEmpty(b.comment);
+        this.clinicSite = nullToEmpty(b.clinicSite);
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     public static Builder builder() {
@@ -77,6 +143,35 @@ public final class BillingONCorrectionViewModel {
     public Set<String> getProviderAccessList() { return providerAccessList; }
     public List<String> getMgrSites() { return mgrSites; }
 
+    public boolean isBillLoaded() { return billLoaded; }
+    public boolean isBillNoErr() { return billNoErr; }
+    public boolean isMultiSiteProvider() { return multiSiteProvider; }
+    public String getBillingNo() { return billingNo; }
+    public String getClaimNo() { return claimNo; }
+    public String getCreateTimestamp() { return createTimestamp; }
+    public String getDemoNo() { return demoNo; }
+    public String getDemoName() { return demoName; }
+    public String getDemoDob() { return demoDob; }
+    public String getDemoSex() { return demoSex; }
+    public String getDemoRosterStatus() { return demoRosterStatus; }
+    public String getHin() { return hin; }
+    public String getHcType() { return hcType; }
+    public String getHcSex() { return hcSex; }
+    public String getBillLocationNo() { return billLocationNo; }
+    public String getBillDate() { return billDate; }
+    public String getBillProvider() { return billProvider; }
+    public String getBillStatus() { return billStatus; }
+    public String getPayProgram() { return payProgram; }
+    public String getBillTotal() { return billTotal; }
+    public String getVisitDate() { return visitDate; }
+    public String getVisitType() { return visitType; }
+    public String getSliCode() { return sliCode; }
+    public String getReferralDoctorOhip() { return referralDoctorOhip; }
+    public String getReferralDoctor() { return referralDoctor; }
+    public String getManReview() { return manReview; }
+    public String getComment() { return comment; }
+    public String getClinicSite() { return clinicSite; }
+
     public static final class Builder {
         private String userProviderNo;
         private String userFirstName;
@@ -87,6 +182,34 @@ public final class BillingONCorrectionViewModel {
         private boolean multisites;
         private Set<String> providerAccessList;
         private List<String> mgrSites;
+        private boolean billLoaded;
+        private boolean billNoErr;
+        private boolean multiSiteProvider = true; // matches legacy default
+        private String billingNo;
+        private String claimNo;
+        private String createTimestamp;
+        private String demoNo;
+        private String demoName;
+        private String demoDob;
+        private String demoSex;
+        private String demoRosterStatus;
+        private String hin;
+        private String hcType;
+        private String hcSex;
+        private String billLocationNo;
+        private String billDate;
+        private String billProvider;
+        private String billStatus;
+        private String payProgram;
+        private String billTotal;
+        private String visitDate;
+        private String visitType;
+        private String sliCode;
+        private String referralDoctorOhip;
+        private String referralDoctor;
+        private String manReview;
+        private String comment;
+        private String clinicSite;
 
         public Builder userProviderNo(String v) { this.userProviderNo = v; return this; }
         public Builder userFirstName(String v) { this.userFirstName = v; return this; }
@@ -97,6 +220,34 @@ public final class BillingONCorrectionViewModel {
         public Builder multisites(boolean v) { this.multisites = v; return this; }
         public Builder providerAccessList(Set<String> v) { this.providerAccessList = v; return this; }
         public Builder mgrSites(List<String> v) { this.mgrSites = v; return this; }
+        public Builder billLoaded(boolean v) { this.billLoaded = v; return this; }
+        public Builder billNoErr(boolean v) { this.billNoErr = v; return this; }
+        public Builder multiSiteProvider(boolean v) { this.multiSiteProvider = v; return this; }
+        public Builder billingNo(String v) { this.billingNo = v; return this; }
+        public Builder claimNo(String v) { this.claimNo = v; return this; }
+        public Builder createTimestamp(String v) { this.createTimestamp = v; return this; }
+        public Builder demoNo(String v) { this.demoNo = v; return this; }
+        public Builder demoName(String v) { this.demoName = v; return this; }
+        public Builder demoDob(String v) { this.demoDob = v; return this; }
+        public Builder demoSex(String v) { this.demoSex = v; return this; }
+        public Builder demoRosterStatus(String v) { this.demoRosterStatus = v; return this; }
+        public Builder hin(String v) { this.hin = v; return this; }
+        public Builder hcType(String v) { this.hcType = v; return this; }
+        public Builder hcSex(String v) { this.hcSex = v; return this; }
+        public Builder billLocationNo(String v) { this.billLocationNo = v; return this; }
+        public Builder billDate(String v) { this.billDate = v; return this; }
+        public Builder billProvider(String v) { this.billProvider = v; return this; }
+        public Builder billStatus(String v) { this.billStatus = v; return this; }
+        public Builder payProgram(String v) { this.payProgram = v; return this; }
+        public Builder billTotal(String v) { this.billTotal = v; return this; }
+        public Builder visitDate(String v) { this.visitDate = v; return this; }
+        public Builder visitType(String v) { this.visitType = v; return this; }
+        public Builder sliCode(String v) { this.sliCode = v; return this; }
+        public Builder referralDoctorOhip(String v) { this.referralDoctorOhip = v; return this; }
+        public Builder referralDoctor(String v) { this.referralDoctor = v; return this; }
+        public Builder manReview(String v) { this.manReview = v; return this; }
+        public Builder comment(String v) { this.comment = v; return this; }
+        public Builder clinicSite(String v) { this.clinicSite = v; return this; }
 
         public BillingONCorrectionViewModel build() {
             return new BillingONCorrectionViewModel(this);
