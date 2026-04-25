@@ -46,6 +46,8 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -173,11 +175,21 @@ public final class BillingShortcutPg1DataAssembler {
                 boolean firstReferral = true;
                 Integer demoIdInt = ConversionUtils.fromIntString(demoNo);
                 for (Billing b : billingDao.findActiveBillingsByDemoNo(demoIdInt, 5)) {
-                    // Capture bill id outside the try so the catch handler
-                    // never re-dereferences `b` (which would NPE if the row
-                    // itself was null and abort recovery for the rest of the
-                    // loop).
-                    Object capturedBillId = b == null ? "<null>" : b.getId();
+                    // Skip null rows up front rather than relying on the
+                    // catch below: the DAO contract doesn't permit null
+                    // entries, but a defensive explicit check makes the
+                    // invariant obvious to static analyzers (which keep
+                    // re-flagging the inner b.getId() deref) and avoids
+                    // taking the NPE detour through the catch.
+                    if (b == null) {
+                        MiscUtils.getLogger().warn(
+                                "BillingShortcutPg1: null Billing row in history for demo {}; skipping",
+                                LogSanitizer.sanitize(demoNo));
+                        continue;
+                    }
+                    // Capture bill id outside the try so any catch handler
+                    // doesn't re-dereference `b` if a downstream call throws.
+                    Object capturedBillId = b.getId();
                     try {
                         Properties p = new Properties();
                         p.setProperty("billing_no", "" + b.getId());

@@ -68,6 +68,14 @@ public final class LogSanitizer {
     static final int DEFAULT_MAX_LENGTH = 200;
 
     /**
+     * Precompiled control-character pattern reused by every
+     * {@link #sanitizeForDisplay(String)} call so the regex isn't recompiled
+     * per BVE message.
+     */
+    private static final java.util.regex.Pattern CONTROL_CHARS =
+            java.util.regex.Pattern.compile("\\p{Cntrl}");
+
+    /**
      * Post-encoding expansion factor. {@code Encode.forJava()} expands control characters
      * (e.g. {@code \n} → {@code \\n}), with a worst-case expansion of 6x for non-ASCII
      * characters encoded as Unicode escape sequences (one character → six output characters).
@@ -142,7 +150,7 @@ public final class LogSanitizer {
      * themselves rather than as {@code "} / {@code \\} / {@code é}.
      *
      * <p>Use this when the sanitized value will be displayed back to the
-     * operator (e.g. "Bill rejected: invalid billing_no [{@code abc"})"
+     * operator (e.g. {@code Bill rejected: invalid billing_no [abc"]})
      * rather than logged. The downstream JSP must still HTML-escape the
      * value via {@code <carlos:encode>} to prevent XSS — this helper only
      * removes characters that would corrupt log lines or terminal output
@@ -156,7 +164,7 @@ public final class LogSanitizer {
         if (input == null) {
             return "null";
         }
-        String stripped = input.replaceAll("\\p{Cntrl}", "");
+        String stripped = CONTROL_CHARS.matcher(input).replaceAll("");
         boolean truncated = stripped.length() > DEFAULT_MAX_LENGTH;
         if (truncated) {
             stripped = stripped.substring(0, DEFAULT_MAX_LENGTH);

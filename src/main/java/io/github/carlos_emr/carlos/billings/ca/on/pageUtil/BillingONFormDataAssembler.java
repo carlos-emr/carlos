@@ -652,7 +652,7 @@ public final class BillingONFormDataAssembler {
                             displayStyle,
                             svc.getSliFlag()));
                     serviceTitleMap.put(
-                            groupName.toLowerCase().replace("group", "group") + "_" + ctlcode,
+                            groupName.toLowerCase() + "_" + ctlcode,
                             ctl.getServiceGroupName());
                 }
                 if (!groupEntries.isEmpty()) {
