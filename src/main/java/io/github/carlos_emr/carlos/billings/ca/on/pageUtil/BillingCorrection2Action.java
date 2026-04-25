@@ -381,24 +381,43 @@ public class BillingCorrection2Action extends ActionSupport {
 
         if (hasInvoiceChanged(bCh1, request)) {
 
-            //Add Existing state of Invoice to Billing Repository
-            BillingONRepoDao billRepoDao = (BillingONRepoDao) SpringUtils.getBean(BillingONRepoDao.class);
-            billRepoDao.createBillingONCHeader1Entry(bCh1, locale);
-
-            Date billingDate = null;
+            // Parse input dates BEFORE writing the audit-trail row. The
+            // legacy order wrote the BillingONRepo "before" snapshot first,
+            // so a ParseException then orphaned an audit row that pointed
+            // at a state-change that never happened. Parsing first means a
+            // BVE on bad input leaves no trace beyond the validation log.
+            Date billingDate;
             try {
                 billingDate = DateUtils.parseDate(request.getParameter("xml_appointment_date"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().error("Invalid billing date:{}", LogSanitizer.sanitize(request.getParameter("xml_appointment_date")), e);
-                return false;
+                String rawAppt = request.getParameter("xml_appointment_date");
+                MiscUtils.getLogger().error("Invalid billing date: {}", LogSanitizer.sanitize(rawAppt), e);
+                throw new BillingValidationException(
+                        "Bill correction rejected: appointment date ["
+                        + LogSanitizer.sanitizeForDisplay(rawAppt)
+                        + "] is not in a recognised format", e);
             }
 
-            Date visitDate = null;
+            Date visitDate;
             try {
                 visitDate = DateUtils.parseDate(request.getParameter("xml_vdate"), locale);
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().warn("Could not parse visit date: {}", LogSanitizer.sanitize(request.getParameter("xml_vdate")), e);
+                // Throw rather than silently leave visitDate null: the
+                // downstream `if (visitDate != null) bCh1.setAdmissionDate(visitDate)`
+                // guard would otherwise save the bill with the OLD admission
+                // date — exactly the "looked-saved-but-not" pattern this
+                // refactor exists to eliminate.
+                String rawVisit = request.getParameter("xml_vdate");
+                MiscUtils.getLogger().error("Invalid visit date: {}", LogSanitizer.sanitize(rawVisit), e);
+                throw new BillingValidationException(
+                        "Bill correction rejected: visit date ["
+                        + LogSanitizer.sanitizeForDisplay(rawVisit)
+                        + "] is not in a recognised format", e);
             }
+
+            //Add Existing state of Invoice to Billing Repository
+            BillingONRepoDao billRepoDao = (BillingONRepoDao) SpringUtils.getBean(BillingONRepoDao.class);
+            billRepoDao.createBillingONCHeader1Entry(bCh1, locale);
 
             String manualReview = "";
 
@@ -434,8 +453,11 @@ public class BillingCorrection2Action extends ActionSupport {
             bCh1.setFaciltyNum(request.getParameter("clinic_ref_code"));
             bCh1.setManReview(manualReview);
             bCh1.setBillingDate(billingDate);
-            if (visitDate != null)
-                bCh1.setAdmissionDate(visitDate);
+            // visitDate is guaranteed non-null here — the parse-or-throw
+            // BVE above ensures we never reach this assignment with a stale
+            // admission_date. Removing the null-guard closes the silent
+            // "saved-but-admission_date-untouched" path.
+            bCh1.setAdmissionDate(visitDate);
             bCh1.setProviderNo(request.getParameter("provider_no"));
             bCh1.setComment(request.getParameter("comment"));
             bCh1.setProviderOhipNo(provider.getOhipNo());
@@ -470,12 +492,16 @@ public class BillingCorrection2Action extends ActionSupport {
 
             if (doReverse < 0) {
                 // Race-on-concurrent-write: another payment landed between
-                // the read at the top of this method and now. Surface the
-                // bill id so ops can correlate with the parallel write.
+                // the read at the top of this method and now. Surface as
+                // BVE so the operator gets the actionable validation page
+                // (refresh + retry) instead of the generic failure.jsp stub.
                 MiscUtils.getLogger().warn(
                         "updateBillingONCHeader1: amount owing on bill {} is negative ({}); cannot return payment to third party. Likely concurrent payment write.",
                         bCh1.getId(), reversedFunds);
-                return false;
+                throw new BillingValidationException(
+                        "Bill " + bCh1.getId()
+                        + " could not be updated — a concurrent payment landed while you were editing. "
+                        + "Refresh the bill and retry.");
             }
 
             if (doReverse > 0) {
@@ -496,11 +522,15 @@ public class BillingCorrection2Action extends ActionSupport {
             int doSettlePayment = amtOutstanding.compareTo(new BigDecimal("0.00"));
 
             if (doSettlePayment < 0) {
-                // Same race-on-concurrent-write surface as above.
+                // Same race-on-concurrent-write surface as the refund branch
+                // above — throw BVE for actionable user guidance.
                 MiscUtils.getLogger().warn(
                         "updateBillingONCHeader1: amount-to-settle on bill {} already negative ({}); no additional third party payment required. Likely concurrent payment write.",
                         bCh1.getId(), amtOutstanding);
-                return false;
+                throw new BillingValidationException(
+                        "Bill " + bCh1.getId()
+                        + " could not be settled — a concurrent payment landed while you were editing. "
+                        + "Refresh the bill and retry.");
             }
 
             if (doSettlePayment > 0) {
@@ -687,10 +717,11 @@ public class BillingCorrection2Action extends ActionSupport {
             // the operator sees the validation-error path instead of a silent
             // phantom audit-row. Without this, the legacy "Invalid Date"
             // sentinel would mismatch every user input below and trigger an
-            // unintended bCh1Dao.merge().
+            // unintended bCh1Dao.merge(). Chain `e` so the original parse
+            // failure surfaces in stack traces / Sentry breadcrumbs.
             throw new BillingValidationException(
                     "Bill " + bCh1.getId()
-                            + " has unparseable admission/billing date; refusing to compare or persist");
+                            + " has unparseable admission/billing date; refusing to compare or persist", e);
         }
 
         String manualReview = request.getParameter("m_review");

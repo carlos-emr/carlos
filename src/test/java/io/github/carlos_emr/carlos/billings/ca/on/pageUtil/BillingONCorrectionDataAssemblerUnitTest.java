@@ -22,9 +22,11 @@ import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.commn.model.ProviderSitePK;
+import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -186,5 +188,120 @@ class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
 
         assertThat(m.getMgrSites()).isNotNull();
+    }
+
+    /**
+     * loadBillRecord branch coverage — the original {@link
+     * BillingONCorrectionDataAssembler#loadBillRecord} flow had several
+     * read-side branches (claim_no fallback, billNoErr on parse failure,
+     * billNoErr on bill-not-found, multi-site denial gate) without dedicated
+     * tests. Each test below isolates one branch via the request params + DAO
+     * stubbing.
+     */
+    @Test
+    void shouldNotLoadBill_whenBothBillNoAndClaimNoAreEmpty() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(providerDao.getProvider(any())).thenReturn(new Provider());
+
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+
+        assertThat(m.isBillLoaded()).isFalse();
+        assertThat(m.isBillNoErr()).isFalse();
+        assertThat(m.getBillingNo()).isEmpty();
+        Mockito.verify(bCh1Dao, Mockito.never()).find(any(Integer.class));
+    }
+
+    @Test
+    void shouldFallBackToClaimNoLookup_whenBillingNoIsEmpty() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(providerDao.getProvider(any())).thenReturn(new Provider());
+
+        request.setParameter("claim_no", "ABC-XYZ");
+        RaDetail raDetail = new RaDetail();
+        raDetail.setBillingNo(12345);
+        when(raDetailDao.getRaDetailByClaimNo("ABC-XYZ")).thenReturn(List.of(raDetail));
+
+        BillingONCHeader1 bCh1 = new BillingONCHeader1();
+        bCh1.setStatus("X");
+        bCh1.setManReview("");
+        bCh1.setProviderNo("999998");
+        // Stub the find(Object) overload — the assembler passes an Integer
+        // (not a primitive int), and AbstractDao has both find(int) and
+        // find(Object). Java overload resolution picks find(Object) for
+        // Integer args, so stubbing find(int) here would never match.
+        when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
+
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+
+        assertThat(m.getBillingNo()).isEqualTo("12345");
+        assertThat(m.isBillLoaded()).isTrue();
+    }
+
+    @Test
+    void shouldFlagBillNoErr_whenBillingNoIsNonNumeric() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(providerDao.getProvider(any())).thenReturn(new Provider());
+
+        request.setParameter("billing_no", "not-a-number");
+
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+
+        assertThat(m.isBillNoErr()).isTrue();
+        assertThat(m.isBillLoaded()).isFalse();
+    }
+
+    @Test
+    void shouldFlagBillNoErr_whenBillNotFound() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(providerDao.getProvider(any())).thenReturn(new Provider());
+
+        request.setParameter("billing_no", "99999");
+        when(bCh1Dao.find((Object) Integer.valueOf(99999))).thenReturn(null);
+
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+
+        assertThat(m.isBillNoErr()).isTrue();
+        assertThat(m.isBillLoaded()).isFalse();
+    }
+
+    @Test
+    void shouldDenyMultiSiteAccess_whenBillProviderNotInAccessList() {
+        // Site-access-privacy gate: bill belongs to provider 555555 (NOT in
+        // the 999998 user's access list). Expect multiSiteProvider=false and
+        // patient fields left empty.
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        Provider userProvider = new Provider();
+        userProvider.setProviderNo("999998");
+        when(providerDao.getProvider("999998")).thenReturn(userProvider);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_site_access_privacy"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        ProviderSite userMembership = new ProviderSite();
+        ProviderSitePK userPk = new ProviderSitePK();
+        userPk.setProviderNo("999998");
+        userPk.setSiteId(42);
+        userMembership.setId(userPk);
+        when(providerSiteDao.findByProviderNo("999998")).thenReturn(List.of(userMembership));
+        when(providerSiteDao.findBySiteId(42)).thenReturn(List.of(userMembership));
+
+        BillingONCHeader1 bCh1 = new BillingONCHeader1();
+        bCh1.setProviderNo("555555"); // not in access list
+        bCh1.setStatus("X");
+        bCh1.setManReview("");
+        bCh1.setClinic("OtherClinic");
+        request.setParameter("billing_no", "12345");
+        // Stub the find(Object) overload — the assembler passes an Integer
+        // (not a primitive int), and AbstractDao has both find(int) and
+        // find(Object). Java overload resolution picks find(Object) for
+        // Integer args, so stubbing find(int) here would never match.
+        when(bCh1Dao.find((Object) Integer.valueOf(12345))).thenReturn(bCh1);
+
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
+
+        assertThat(m.isBillLoaded()).isTrue();
+        assertThat(m.isMultiSiteProvider()).isFalse();
+        // Patient fields stay empty when access denied
+        assertThat(m.getDemoNo()).isEmpty();
+        assertThat(m.getHin()).isEmpty();
     }
 }

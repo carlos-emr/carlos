@@ -101,10 +101,34 @@ public class BatchBill2Action extends ActionSupport {
         String[] billingInfo = request.getParameterValues("bill");
 
         if (billingInfo != null) {
-
-            String[] temp;
+            // Pre-validate the entire batch BEFORE the first DAO write. The
+            // legacy code parsed and persisted in the same loop, so a malformed
+            // row N (wrong split count or non-numeric demo no) crashed AFTER
+            // bills 0..N-1 were already committed — leaving the operator with
+            // a generic 500 and no signal which bills posted. Validate-then-
+            // execute keeps the batch atomic from the operator's perspective.
             for (int idx = 0; idx < billingInfo.length; ++idx) {
-                temp = billingInfo[idx].split(";");
+                String[] temp = billingInfo[idx].split(";");
+                if (temp.length < 3) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill execute: row {} malformed (expected 3 fields, got {})",
+                            idx, temp.length);
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return null;
+                }
+                try {
+                    Integer.parseInt(temp[1]);
+                } catch (NumberFormatException nfe) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill execute: row {} demographic_no is non-numeric",
+                            idx, nfe);
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    return null;
+                }
+            }
+
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                String[] temp = billingInfo[idx].split(";");
                 this.billingONCHeader1Dao.createBill(temp[2], Integer.parseInt(temp[1]), temp[0], clinic_view, billingDate, curUser);
             }
 
@@ -147,6 +171,29 @@ public class BatchBill2Action extends ActionSupport {
 
         //create the invoice and update batch_billing table
         if (billingInfo != null) {
+            // Pre-validate every row's shape and demo-no parse BEFORE any
+            // createBill / merge fires. A mid-loop crash on row N otherwise
+            // committed bills 0..N-1 and left the operator without a signal
+            // which posted.
+            for (int idx = 0; idx < billingInfo.length; ++idx) {
+                String[] temp = billingInfo[idx].split(";");
+                if (temp.length < 4) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill doBatchBill: row {} malformed (expected 4 fields, got {})",
+                            idx, temp.length);
+                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
+                    return "error";
+                }
+                try {
+                    Integer.parseInt(temp[2]);
+                } catch (NumberFormatException nfe) {
+                    MiscUtils.getLogger().error(
+                            "BatchBill doBatchBill: row {} demographic_no is non-numeric",
+                            idx, nfe);
+                    request.setAttribute("error", oscarResource.getString("billing.batchbilling.badDate"));
+                    return "error";
+                }
+            }
 
             String[] temp;
             for (int idx = 0; idx < billingInfo.length; ++idx) {

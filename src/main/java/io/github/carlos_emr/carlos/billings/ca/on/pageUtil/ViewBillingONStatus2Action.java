@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -51,6 +52,7 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
@@ -65,6 +67,19 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
         // matches the companion BillingONStatusERUpdateStatus2Action: _billing.
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        // The status page accepts GET / HEAD / POST (the search form on the
+        // page self-posts). Anything else gets the 405 + Allow contract that
+        // sibling ON view actions enforce — pattern parity, not a security
+        // gate (the privilege check above is the actual access boundary).
+        String method = request.getMethod();
+        if (!"GET".equalsIgnoreCase(method)
+                && !"HEAD".equalsIgnoreCase(method)
+                && !"POST".equalsIgnoreCase(method)) {
+            response.setHeader("Allow", "GET, HEAD, POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         this.statusModel = new BillingONStatusDataAssembler().assemble(request, loggedInInfo);

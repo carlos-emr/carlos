@@ -410,7 +410,7 @@ public final class BillingONFormDataAssembler {
         } catch (Exception e) {
             MiscUtils.getLogger().error(
                     "Drools billing-guidelines evaluation failed for demo={} provider={}",
-                    demoNo, userNo, e);
+                    LogSanitizer.sanitize(demoNo), userNo, e);
         }
         b.billingRecommendations(recommendations.toString());
 
@@ -856,7 +856,7 @@ public final class BillingONFormDataAssembler {
         } catch (ClassCastException ccEx) {
             MiscUtils.getLogger().error(
                     "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
-                    demoNo, ccEx);
+                    LogSanitizer.sanitize(demoNo), ccEx);
         } catch (RuntimeException rtEx) {
             // Promoted from WARN to ERROR: a billing-only DB outage that
             // strips the visit-context hint from the form is high-impact
@@ -865,7 +865,7 @@ public final class BillingONFormDataAssembler {
             // the data-shape regression above.
             MiscUtils.getLogger().error(
                     "Billing history lookup failed for demo={}; rendering with empty history",
-                    demoNo, rtEx);
+                    LogSanitizer.sanitize(demoNo), rtEx);
         }
         return history;
     }
