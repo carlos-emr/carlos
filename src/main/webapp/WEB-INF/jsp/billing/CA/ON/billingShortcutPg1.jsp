@@ -50,7 +50,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel" %>
 <%
-    // View-model bridge: BillingShortcutPg1View2Action runs the 14 DAO
+    // View-model bridge: ViewBillingShortcutPg12Action runs the 14 DAO
     // lookups and demographic-driven validation in Java and exposes the
     // result as request attribute `shortcutPg1Model`. The JSP keeps the
     // legacy scriptlet-variable names below so the existing render-expression
@@ -60,7 +60,7 @@
             (BillingShortcutPg1ViewModel) request.getAttribute("shortcutPg1Model");
     if (shortcutPg1Model == null) {
         // Defensive fallback for any caller that forwards directly to this JSP
-        // without going through BillingShortcutPg1View2Action.
+        // without going through ViewBillingShortcutPg12Action.
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingShortcutPg1.jsp reached without shortcutPg1Model — using empty fallback. "
                 + "Caller should route through billing/CA/ON/billingShortcutPg1View.");

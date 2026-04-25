@@ -41,7 +41,7 @@ import org.apache.struts2.ServletActionContext;
  *
  * @since 2026-04-24
  */
-public final class BillingShortcutPg1View2Action extends ActionSupport {
+public final class ViewBillingShortcutPg12Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);

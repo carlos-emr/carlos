@@ -66,7 +66,7 @@ import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
  * scriptlet block of {@code billingON.jsp} (the data-preparation scriptlet
  * preceding the rendered form, removed in this refactor).
  *
- * <p>Collaborates with {@link BillingONView2Action}, which constructs this
+ * <p>Collaborates with {@link ViewBillingON2Action}, which constructs this
  * assembler, calls {@link #assemble(LoggedInInfo, HttpServletRequest)}, and
  * exposes the returned DTO to the JSP as request attribute {@code model}.</p>
  *
@@ -96,14 +96,75 @@ public final class BillingONFormDataAssembler {
     private static final java.util.regex.Pattern SAFE_INLINE_STYLE = java.util.regex.Pattern.compile(
             "(?:[A-Za-z][A-Za-z0-9-]*+\\s*+:\\s*+[A-Za-z0-9 #_,.%/()\\-]++\\s*+;?+\\s*+)++");
 
-    private final DemographicManager demographicManager =
-            SpringUtils.getBean(DemographicManager.class);
-    private final ProfessionalSpecialistDao professionalSpecialistDao =
-            SpringUtils.getBean(ProfessionalSpecialistDao.class);
-    private final DxresearchDAO dxresearchDao =
-            SpringUtils.getBean(DxresearchDAO.class);
-    private final UserPropertyDAO userPropertyDao =
-            SpringUtils.getBean(UserPropertyDAO.class);
+    private final DemographicManager demographicManager;
+    private final ProfessionalSpecialistDao professionalSpecialistDao;
+    private final DxresearchDAO dxresearchDao;
+    private final UserPropertyDAO userPropertyDao;
+    private final ProviderDao providerDao;
+    private final CtlBillingServiceDao ctlBillingServiceDao;
+    private final ProviderPreferenceDao providerPreferenceDao;
+    private final MyGroupDao myGroupDao;
+    private final BillingServiceDao billingServiceDao;
+    private final CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
+    private final CSSStylesDAO cssStylesDao;
+    private final CodeFilterManager codeFilterManager;
+    private final CtlBillingTypeDao ctlBillingTypeDao;
+    private final DiagnosticCodeDao diagnosticCodeDao;
+
+    /**
+     * Production constructor used by Struts; resolves every dependency from
+     * the Spring context via {@link SpringUtils#getBean}. Tests use the
+     * package-private constructor below to inject mocks directly without
+     * standing up a Spring context. Brings the assembler shape to parity
+     * with {@code BillingShortcutPg1DataAssembler} and
+     * {@code BillingONReviewDataAssembler}.
+     */
+    public BillingONFormDataAssembler() {
+        this(SpringUtils.getBean(DemographicManager.class),
+             SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             SpringUtils.getBean(DxresearchDAO.class),
+             SpringUtils.getBean(UserPropertyDAO.class),
+             SpringUtils.getBean(ProviderDao.class),
+             SpringUtils.getBean(CtlBillingServiceDao.class),
+             SpringUtils.getBean(ProviderPreferenceDao.class),
+             SpringUtils.getBean(MyGroupDao.class),
+             SpringUtils.getBean(BillingServiceDao.class),
+             SpringUtils.getBean(CtlBillingServicePremiumDao.class),
+             SpringUtils.getBean(CSSStylesDAO.class),
+             SpringUtils.getBean(CodeFilterManager.class),
+             SpringUtils.getBean(CtlBillingTypeDao.class),
+             SpringUtils.getBean(DiagnosticCodeDao.class));
+    }
+
+    BillingONFormDataAssembler(DemographicManager demographicManager,
+                               ProfessionalSpecialistDao professionalSpecialistDao,
+                               DxresearchDAO dxresearchDao,
+                               UserPropertyDAO userPropertyDao,
+                               ProviderDao providerDao,
+                               CtlBillingServiceDao ctlBillingServiceDao,
+                               ProviderPreferenceDao providerPreferenceDao,
+                               MyGroupDao myGroupDao,
+                               BillingServiceDao billingServiceDao,
+                               CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
+                               CSSStylesDAO cssStylesDao,
+                               CodeFilterManager codeFilterManager,
+                               CtlBillingTypeDao ctlBillingTypeDao,
+                               DiagnosticCodeDao diagnosticCodeDao) {
+        this.demographicManager = demographicManager;
+        this.professionalSpecialistDao = professionalSpecialistDao;
+        this.dxresearchDao = dxresearchDao;
+        this.userPropertyDao = userPropertyDao;
+        this.providerDao = providerDao;
+        this.ctlBillingServiceDao = ctlBillingServiceDao;
+        this.providerPreferenceDao = providerPreferenceDao;
+        this.myGroupDao = myGroupDao;
+        this.billingServiceDao = billingServiceDao;
+        this.ctlBillingServicePremiumDao = ctlBillingServicePremiumDao;
+        this.cssStylesDao = cssStylesDao;
+        this.codeFilterManager = codeFilterManager;
+        this.ctlBillingTypeDao = ctlBillingTypeDao;
+        this.diagnosticCodeDao = diagnosticCodeDao;
+    }
 
     /**
      * Builds the view model for the main Ontario billing form. Matches the
@@ -200,17 +261,17 @@ public final class BillingONFormDataAssembler {
         // Coalesce request-param strings to empty rather than null. The JSP and
         // downstream JS string-builders call URLEncoder.encode(...) and concat
         // into href URLs, both of which NPE on null inputs.
-        String demoName = nullSafe(request.getParameter("demographic_name"));
-        String demoNo = nullSafe(request.getParameter("demographic_no"));
-        String apptProviderNo = nullSafe(request.getParameter("apptProvider_no"));
+        String demoName = nullToEmpty(request.getParameter("demographic_name"));
+        String demoNo = nullToEmpty(request.getParameter("demographic_no"));
+        String apptProviderNo = nullToEmpty(request.getParameter("apptProvider_no"));
         b.demoName(demoName);
         b.demographicNo(demoNo);
         b.apptProviderNo(apptProviderNo);
 
         String mReview = firstNonNull(request.getParameter("m_review"), "");
         b.mReview(mReview);
-        b.ctlBillForm(nullSafe(request.getParameter("billForm")));
-        b.curBillForm(nullSafe(request.getParameter("curBillForm")));
+        b.ctlBillForm(nullToEmpty(request.getParameter("billForm")));
+        b.curBillForm(nullToEmpty(request.getParameter("curBillForm")));
 
         String providerNo = (apptProviderNo != null && apptProviderNo.equalsIgnoreCase("none"))
                 ? userNo
@@ -230,22 +291,22 @@ public final class BillingONFormDataAssembler {
         String assgProviderNo = "";
         String rosterStatus = "";
         if (demo != null) {
-            demoLast = nullSafe(demo.getLastName());
-            demoFirst = nullSafe(demo.getFirstName());
+            demoLast = nullToEmpty(demo.getLastName());
+            demoFirst = nullToEmpty(demo.getFirstName());
             // Zero-pad month/day so the YYYYMMDD substring slices below land at
             // fixed positions. Without padding, a single-digit month (e.g. "4")
             // makes `demoDob` 6-7 chars, `substring(4, 6)` becomes "47", and
             // calculateAge() returns 0.
-            demoDob = nullSafe(demo.getYearOfBirth())
-                    + padTwo(nullSafe(demo.getMonthOfBirth()))
-                    + padTwo(nullSafe(demo.getDateOfBirth()));
-            demoHin = nullSafe(demo.getHin());
-            demoVer = nullSafe(demo.getVer());
-            demoHcType = nullSafe(demo.getHcType());
+            demoDob = nullToEmpty(demo.getYearOfBirth())
+                    + padTwo(nullToEmpty(demo.getMonthOfBirth()))
+                    + padTwo(nullToEmpty(demo.getDateOfBirth()));
+            demoHin = nullToEmpty(demo.getHin());
+            demoVer = nullToEmpty(demo.getVer());
+            demoHcType = nullToEmpty(demo.getHcType());
             demoSex = demo.getSex() != null && demo.getSex().startsWith("F") ? "2" : "1";
-            familyDoctor = nullSafe(demo.getFamilyDoctor());
-            assgProviderNo = nullSafe(demo.getProviderNo());
-            rosterStatus = nullSafe(demo.getRosterStatus());
+            familyDoctor = nullToEmpty(demo.getFamilyDoctor());
+            assgProviderNo = nullToEmpty(demo.getProviderNo());
+            rosterStatus = nullToEmpty(demo.getRosterStatus());
         }
 
         // HC type normalization: scriptlet coerced missing/short values to "ON"
@@ -255,6 +316,7 @@ public final class BillingONFormDataAssembler {
             demoHcType = demoHcType.substring(0, 2).toUpperCase();
         }
 
+        AgeResult ageResult = calculateAge(demoDob);
         b.demoLast(demoLast)
                 .demoFirst(demoFirst)
                 .demoHin(demoHin)
@@ -268,7 +330,8 @@ public final class BillingONFormDataAssembler {
                 .familyDoctor(familyDoctor)
                 .assgProviderNo(assgProviderNo)
                 .rosterStatus(rosterStatus)
-                .age(calculateAge(demoDob));
+                .age(ageResult.age)
+                .demoDobInvalid(ageResult.invalid);
 
         // Referral doctor is extracted from the family_doctor XML blob
         String rDoctor;
@@ -311,9 +374,9 @@ public final class BillingONFormDataAssembler {
         b.patientDx(loadPatientDx(demoNo));
 
         UserProperty addCodeProp = userPropertyDao.getProp(UserProperty.CODE_TO_ADD_PATIENTDX);
-        String patientDxAddCode = addCodeProp != null ? nullSafe(addCodeProp.getValue()).trim() : "";
+        String patientDxAddCode = addCodeProp != null ? nullToEmpty(addCodeProp.getValue()).trim() : "";
         UserProperty matchCodeProp = userPropertyDao.getProp(UserProperty.CODE_TO_MATCH_PATIENTDX);
-        String patientDxMatchCode = matchCodeProp != null ? nullSafe(matchCodeProp.getValue()).trim() : "";
+        String patientDxMatchCode = matchCodeProp != null ? nullToEmpty(matchCodeProp.getValue()).trim() : "";
         b.patientDxAddCode(patientDxAddCode)
                 .patientDxMatchCode(patientDxMatchCode);
 
@@ -345,12 +408,11 @@ public final class BillingONFormDataAssembler {
 
         // Provider list for the form's provider picker
         List<BillingONFormViewModel.ProviderOption> providers = new ArrayList<>();
-        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         for (Provider p : providerDao.getProvidersWithNonEmptyCredentials()) {
             providers.add(new BillingONFormViewModel.ProviderOption(
-                    nullSafe(p.getLastName()),
-                    nullSafe(p.getFirstName()),
-                    nullSafe(p.getProviderNo()) + "|" + nullSafe(p.getOhipNo())));
+                    nullToEmpty(p.getLastName()),
+                    nullToEmpty(p.getFirstName()),
+                    nullToEmpty(p.getProviderNo()) + "|" + nullToEmpty(p.getOhipNo())));
         }
         b.providers(providers);
 
@@ -363,22 +425,22 @@ public final class BillingONFormDataAssembler {
         String dxCodeParam = request.getParameter("dxCode");
         String dxCode = dxCodeParam != null && !dxCodeParam.isEmpty()
                 ? dxCodeParam
-                : (preference != null ? nullSafe(preference.getDefaultDxCode()) : "");
+                : (preference != null ? nullToEmpty(preference.getDefaultDxCode()) : "");
         if ((dxCode == null || dxCode.isEmpty()) && !history.isEmpty()) {
-            dxCode = nullSafe(history.get(0).diagnosticCode());
+            dxCode = nullToEmpty(history.get(0).diagnosticCode());
         }
-        b.dxCode(nullSafe(dxCode));
+        b.dxCode(nullToEmpty(dxCode));
 
         // Default visit type: request param -> last-billed visit type -> existing visitType
         String xmlVisitTypeParam = request.getParameter("xml_visittype");
         String xmlVisitType = xmlVisitTypeParam != null && !xmlVisitTypeParam.isEmpty()
                 ? xmlVisitTypeParam
-                : (!history.isEmpty() ? nullSafe(history.get(0).visitType()) : "");
+                : (!history.isEmpty() ? nullToEmpty(history.get(0).visitType()) : "");
         if (!xmlVisitType.isEmpty()) {
             visitType = xmlVisitType;
         }
-        b.visitType(nullSafe(visitType))
-                .xmlVisitType(nullSafe(xmlVisitType));
+        b.visitType(nullToEmpty(visitType))
+                .xmlVisitType(nullToEmpty(xmlVisitType));
 
         // Billing form (ctlBillForm) resolution — priority order:
         // 1. curBillForm request param (user's explicit pick)
@@ -393,7 +455,6 @@ public final class BillingONFormDataAssembler {
         if (curBillForm != null) {
             ctlBillForm = curBillForm;
         } else {
-            CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
             List<CtlBillingService> rosterBillSrvList = !rosterStatus.isEmpty()
                     ? ctlBillingServiceDao.findByServiceTypeId(rosterStatus)
                     : java.util.Collections.emptyList();
@@ -401,13 +462,12 @@ public final class BillingONFormDataAssembler {
             if (!rosterBillSrvList.isEmpty() && !rosterStatus.isEmpty()) {
                 ctlBillForm = rosterBillSrvList.get(0).getServiceType();
             } else {
-                ProviderPreferenceDao providerPreferenceDao = SpringUtils.getBean(ProviderPreferenceDao.class);
                 ProviderPreference providerPreference = (apptProviderNo != null && apptProviderNo.equalsIgnoreCase("none"))
                         ? providerPreferenceDao.find(userNo)
                         : providerPreferenceDao.find(apptProviderNo);
 
                 if (providerPreference != null) {
-                    defaultServiceType = nullSafe(providerPreference.getDefaultServiceType());
+                    defaultServiceType = nullToEmpty(providerPreference.getDefaultServiceType());
                 }
 
                 if (("QU - Quebec".equals(rosterStatus) || "FS".equals(rosterStatus))
@@ -420,7 +480,6 @@ public final class BillingONFormDataAssembler {
                         && providerPreference != null) {
                     ctlBillForm = providerPreference.getDefaultServiceType();
                 } else {
-                    MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
                     List<MyGroup> myGroups = myGroupDao.getProviderGroups(providerNo);
                     for (MyGroup group : myGroups) {
                         String groupBillForm = group.getDefaultBillingForm();
@@ -454,7 +513,7 @@ public final class BillingONFormDataAssembler {
         }
 
         b.ctlBillForm(ctlBillForm)
-                .defaultServiceType(nullSafe(defaultServiceType));
+                .defaultServiceType(nullToEmpty(defaultServiceType));
 
         // Resolution order (matches legacy scriptlet intent):
         //   1. user-selected xml_location query param wins (including "0000",
@@ -475,8 +534,8 @@ public final class BillingONFormDataAssembler {
         } else {
             clinicView = "0000";
         }
-        b.clinicView(nullSafe(clinicView))
-                .xmlLocation(nullSafe(xmlLocation));
+        b.clinicView(nullToEmpty(clinicView))
+                .xmlLocation(nullToEmpty(xmlLocation));
 
         // xml_vdate -> visitDate; empty if not explicitly supplied
         String xmlVdateParam = request.getParameter("xml_vdate");
@@ -491,11 +550,12 @@ public final class BillingONFormDataAssembler {
         java.util.LinkedHashSet<String> premiumCodes = new java.util.LinkedHashSet<>();
         String resolvedBillFormName = "";
 
-        CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-        BillingServiceDao bDao = SpringUtils.getBean(BillingServiceDao.class);
-        CtlBillingServicePremiumDao pDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        CSSStylesDAO cssStylesDao = SpringUtils.getBean(CSSStylesDAO.class);
-        CodeFilterManager codeFilterManager = SpringUtils.getBean(CodeFilterManager.class);
+        // Field aliases (cbsDao / bDao / pDao) preserved so the surrounding
+        // service-code grid logic — long enough to be its own helper — keeps
+        // its existing variable names without shadow renames in every spot.
+        CtlBillingServiceDao cbsDao = ctlBillingServiceDao;
+        BillingServiceDao bDao = billingServiceDao;
+        CtlBillingServicePremiumDao pDao = ctlBillingServicePremiumDao;
 
         java.util.Date filterDate = io.github.carlos_emr.carlos.util.ConversionUtils
                 .fromDateString(billReferenceDate);
@@ -570,12 +630,12 @@ public final class BillingONFormDataAssembler {
                         }
                     }
                     groupEntries.add(new BillingONFormViewModel.ServiceCodeEntry(
-                            nullSafe(svc.getServiceCode()),
+                            nullToEmpty(svc.getServiceCode()),
                             svc.getDescription() == null ? "N/A" : svc.getDescription(),
-                            nullSafe(svc.getValue()),
-                            nullSafe(svc.getPercentage()),
-                            nullSafe(ctl.getServiceType()),
-                            nullSafe(ctl.getServiceGroupName()),
+                            nullToEmpty(svc.getValue()),
+                            nullToEmpty(svc.getPercentage()),
+                            nullToEmpty(ctl.getServiceType()),
+                            nullToEmpty(ctl.getServiceGroupName()),
                             displayStyle,
                             svc.getSliFlag()));
                     serviceTitleMap.put(
@@ -603,12 +663,12 @@ public final class BillingONFormDataAssembler {
                 .defaultBillFormName(resolvedBillFormName);
 
         // Default bill type for the selected service type
-        CtlBillingTypeDao tDao = SpringUtils.getBean(CtlBillingTypeDao.class);
+        CtlBillingTypeDao tDao = ctlBillingTypeDao;
         String resolvedBillType = "";
         for (CtlBillingType t : tDao.findByServiceType(ctlBillForm)) {
             resolvedBillType = t.getBillType();
         }
-        b.defaultBillType(nullSafe(resolvedBillType));
+        b.defaultBillType(nullToEmpty(resolvedBillType));
 
         // Billing-form menu: one entry per service type, with its billType
         // (for Layer1 anchors + _billingForms JS array). Reuses the
@@ -636,12 +696,12 @@ public final class BillingONFormDataAssembler {
                 menuBillType = t.getBillType();
             }
             billingForms.add(new BillingONFormViewModel.BillingFormMenuEntry(
-                    menuCode, menuName, nullSafe(menuBillType)));
+                    menuCode, menuName, nullToEmpty(menuBillType)));
         }
         b.billingForms(billingForms);
 
         // Dx codes grouped by service type (for Layer2 search panels)
-        DiagnosticCodeDao dcDao = SpringUtils.getBean(DiagnosticCodeDao.class);
+        DiagnosticCodeDao dcDao = diagnosticCodeDao;
         java.util.LinkedHashMap<String, List<BillingONFormViewModel.DxCodeEntry>> dxByType =
                 new java.util.LinkedHashMap<>();
         for (String st : serviceTypeCodes) {
@@ -650,8 +710,8 @@ public final class BillingONFormDataAssembler {
                 DiagnosticCode dx = (DiagnosticCode) o[0];
                 entries.add(new BillingONFormViewModel.DxCodeEntry(
                         st,
-                        nullSafe(dx.getDiagnosticCode()),
-                        nullSafe(dx.getDescription())));
+                        nullToEmpty(dx.getDiagnosticCode()),
+                        nullToEmpty(dx.getDescription())));
             }
             dxByType.put(st, entries);
         }
@@ -667,26 +727,47 @@ public final class BillingONFormDataAssembler {
         return b.build();
     }
 
-    private static int calculateAge(String dobYyyymmdd) {
-        if (dobYyyymmdd == null || dobYyyymmdd.length() != 8) {
-            return 0;
+    /**
+     * Result of attempting to parse a YYYYMMDD DOB string into an age in
+     * years. {@code invalid} is true when the input was non-empty but failed
+     * to parse — the assembler propagates the flag onto the view model so
+     * the JSP can surface a banner instead of silently emitting a 0-year-old.
+     */
+    static final class AgeResult {
+        final int age;
+        final boolean invalid;
+        AgeResult(int age, boolean invalid) { this.age = age; this.invalid = invalid; }
+    }
+
+    static AgeResult calculateAge(String dobYyyymmdd) {
+        if (dobYyyymmdd == null || dobYyyymmdd.isEmpty()) {
+            // Empty DOB is the "no patient yet" case, not a parse failure.
+            return new AgeResult(0, false);
+        }
+        if (dobYyyymmdd.length() != 8) {
+            MiscUtils.getLogger().warn(
+                    "calculateAge: DOB '{}' is not 8 chars; flagging invalid",
+                    LogSanitizer.sanitize(dobYyyymmdd));
+            return new AgeResult(0, true);
         }
         try {
             int year = Integer.parseInt(dobYyyymmdd.substring(0, 4));
             int month = Integer.parseInt(dobYyyymmdd.substring(4, 6));
             int day = Integer.parseInt(dobYyyymmdd.substring(6, 8));
             java.time.LocalDate dob = java.time.LocalDate.of(year, month, day);
-            return java.time.Period.between(dob, java.time.LocalDate.now()).getYears();
+            return new AgeResult(
+                    java.time.Period.between(dob, java.time.LocalDate.now()).getYears(),
+                    false);
         } catch (NumberFormatException | java.time.DateTimeException e) {
             // A malformed DOB that survived the length()==8 guard (e.g.,
             // "99999999" parses but throws DateTimeException at LocalDate.of)
             // would silently emit a 0-year-old patient on the form, which
             // drives downstream visit-type defaults and premium codes off
-            // bad input. Log so the data-shape regression is visible.
+            // bad input. Flag invalid so the JSP renders a warning banner.
             MiscUtils.getLogger().warn(
-                    "calculateAge: malformed DOB '{}'; defaulting age to 0",
+                    "calculateAge: malformed DOB '{}'; flagging invalid",
                     LogSanitizer.sanitize(dobYyyymmdd), e);
-            return 0;
+            return new AgeResult(0, true);
         }
     }
 
@@ -735,10 +816,10 @@ public final class BillingONFormDataAssembler {
                 BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);
                 BillingItemData item = (BillingItemData) raw.get(1);
                 history.add(new BillingONFormViewModel.BillingHistoryEntry(
-                        nullSafe(header.getAdmission_date()),
-                        nullSafe(header.getVisittype()),
-                        nullSafe(header.getFacilty_num()),
-                        nullSafe(item.getDx())));
+                        nullToEmpty(header.getAdmission_date()),
+                        nullToEmpty(header.getVisittype()),
+                        nullToEmpty(header.getFacilty_num()),
+                        nullToEmpty(item.getDx())));
             }
         } catch (ClassCastException ccEx) {
             MiscUtils.getLogger().error(
@@ -757,7 +838,7 @@ public final class BillingONFormDataAssembler {
         return history;
     }
 
-    private static String nullSafe(String s) {
+    private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }
 
@@ -779,7 +860,7 @@ public final class BillingONFormDataAssembler {
     }
 
     private static String padTwo(String value) {
-        return value != null && value.length() == 1 ? "0" + value : nullSafe(value);
+        return value != null && value.length() == 1 ? "0" + value : nullToEmpty(value);
     }
 
     private static String firstNonNull(String primary, String fallback) {

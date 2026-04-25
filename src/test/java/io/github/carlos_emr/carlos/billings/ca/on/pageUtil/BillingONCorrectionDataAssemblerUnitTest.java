@@ -18,11 +18,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
-import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
+import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
@@ -32,16 +30,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,72 +44,60 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link BillingCorrection2Action#buildModel}. The helper is
- * private; reflection is the most direct way to exercise it without dragging
- * in the full state-machine path that requires a real Ch1 invoice.
+ * Unit tests for {@link BillingONCorrectionDataAssembler}, the read-side
+ * extracted from {@link BillingCorrection2Action} so the action stays a
+ * mutation-only Struts gate. Same site-access/team/multisite logic as the
+ * pre-extraction {@code buildModel} method, now with package-private mock
+ * injection on the assembler instead of static SpringUtils registration.
  *
- * @since 2026-04-24
+ * @since 2026-04-25
  */
-@DisplayName("BillingCorrection2Action.buildModel")
+@DisplayName("BillingONCorrectionDataAssembler")
 @Tag("unit")
 @Tag("billing")
-class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
+class BillingONCorrectionDataAssemblerUnitTest extends CarlosUnitTestBase {
 
     private SecurityInfoManager securityInfoManager;
     private ProviderDao providerDao;
     private ProviderSiteDao providerSiteDao;
     private SiteDao siteDao;
+    private BillingONCHeader1Dao bCh1Dao;
+    private RaDetailDao raDetailDao;
+    private ProfessionalSpecialistDao professionalSpecialistDao;
     private LoggedInInfo loggedInInfo;
-    private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockHttpServletRequest mockRequest;
-    private MockHttpServletResponse mockResponse;
+    private MockHttpServletRequest request;
+    private BillingONCorrectionDataAssembler assembler;
 
     @BeforeEach
     void setUp() {
-        mockRequest = new MockHttpServletRequest();
-        mockResponse = new MockHttpServletResponse();
-        servletActionContextMock = Mockito.mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
-
         securityInfoManager = Mockito.mock(SecurityInfoManager.class);
         providerDao = Mockito.mock(ProviderDao.class);
         providerSiteDao = Mockito.mock(ProviderSiteDao.class);
         siteDao = Mockito.mock(SiteDao.class);
+        bCh1Dao = Mockito.mock(BillingONCHeader1Dao.class);
+        raDetailDao = Mockito.mock(RaDetailDao.class);
+        professionalSpecialistDao = Mockito.mock(ProfessionalSpecialistDao.class);
         loggedInInfo = Mockito.mock(LoggedInInfo.class);
-
-        registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(ProviderDao.class, providerDao);
-        registerMock(ProviderSiteDao.class, providerSiteDao);
-        registerMock(SiteDao.class, siteDao);
-        // BillingCorrection2Action's field initializers need a few more DAOs.
-        registerMock(BillingONPaymentDao.class, Mockito.mock(BillingONPaymentDao.class));
-        registerMock(BillingONCHeader1Dao.class, Mockito.mock(BillingONCHeader1Dao.class));
-        registerMock(BillingONExtDao.class, Mockito.mock(BillingONExtDao.class));
-        registerMock(BillingServiceDao.class, Mockito.mock(BillingServiceDao.class));
-        registerMock(BillingPaymentTypeDao.class, Mockito.mock(BillingPaymentTypeDao.class));
+        request = new MockHttpServletRequest();
 
         // Default empty
         when(providerSiteDao.findByProviderNo(any())).thenReturn(Collections.emptyList());
         when(providerSiteDao.findBySiteId(any())).thenReturn(Collections.emptyList());
         when(siteDao.getActiveSitesByProviderNo(any())).thenReturn(Collections.emptyList());
-    }
 
-    @AfterEach
-    void tearDownServletMock() {
-        if (servletActionContextMock != null) servletActionContextMock.close();
-    }
-
-    private BillingONCorrectionViewModel invokeBuildModel(BillingCorrection2Action action, LoggedInInfo info) {
-        // buildModel is package-private; this test lives in the same package
-        // and calls it directly. Reflection is no longer needed.
-        return action.buildModel(info);
+        assembler = new BillingONCorrectionDataAssembler(
+                securityInfoManager,
+                providerDao,
+                providerSiteDao,
+                siteDao,
+                bCh1Dao,
+                raDetailDao,
+                professionalSpecialistDao);
     }
 
     @Test
     void shouldReturnEmptyModel_whenLoggedInInfoIsNull() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
-        BillingONCorrectionViewModel m = invokeBuildModel(action, null);
+        BillingONCorrectionViewModel m = assembler.assemble(null, request);
 
         assertThat(m).isNotNull();
         assertThat(m.getUserProviderNo()).isEmpty();
@@ -161,8 +143,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         teamProvider.setProviderNo("777777");
         when(providerDao.getBillableProvidersOnTeam(userProvider)).thenReturn(List.of(teamProvider));
 
-        BillingCorrection2Action action = new BillingCorrection2Action();
-        BillingONCorrectionViewModel m = invokeBuildModel(action, loggedInInfo);
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
 
         assertThat(m.getUserProviderNo()).isEqualTo("999998");
         assertThat(m.getUserFirstName()).isEqualTo("doctor");
@@ -183,8 +164,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_access_privacy"), eq("r"), isNull())).thenReturn(false);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_team_billing_only"), eq("r"), isNull())).thenReturn(false);
 
-        BillingCorrection2Action action = new BillingCorrection2Action();
-        BillingONCorrectionViewModel m = invokeBuildModel(action, loggedInInfo);
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
 
         assertThat(m.getProviderAccessList()).isEmpty();
         Mockito.verify(providerSiteDao, Mockito.never()).findByProviderNo(any());
@@ -192,9 +172,10 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPopulateMgrSites_fromSiteDao() {
-        // Note: bMultisites comes from IsPropertiesOn.isMultisitesEnable(), which reads
-        // CarlosProperties singleton. In the test environment that returns false, so
-        // mgrSites stays empty. We verify the structure is at least an empty list.
+        // mgrSites only populates when IsPropertiesOn.isMultisitesEnable() is true
+        // (reads CarlosProperties singleton; returns false in unit-test env).
+        // We verify the structure is at least an empty list and the assembler
+        // doesn't NPE on a populated SiteDao.
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(providerDao.getProvider(any())).thenReturn(new Provider());
 
@@ -202,10 +183,8 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         site.setName("Main Site");
         when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
 
-        BillingCorrection2Action action = new BillingCorrection2Action();
-        BillingONCorrectionViewModel m = invokeBuildModel(action, loggedInInfo);
+        BillingONCorrectionViewModel m = assembler.assemble(loggedInInfo, request);
 
-        // mgrSites is empty when isMultisitesEnable() returns false (test default).
         assertThat(m.getMgrSites()).isNotNull();
     }
 }

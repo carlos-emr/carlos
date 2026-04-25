@@ -29,6 +29,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -143,5 +144,68 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("non-numeric demographic_no");
 
         verify(dxresearchDAO, never()).save(any());
+    }
+
+    /**
+     * A duplicate (demoNo, dxCode, status='A') row violates the unique
+     * constraint via {@link org.springframework.dao.DataIntegrityViolationException}.
+     * The persister must surface that as a {@link BillingValidationException}
+     * so the user gets the friendly "already in registry" page rather than
+     * the generic CARLOS Error 500.
+     */
+    @Test
+    void shouldTranslateDataIntegrityViolation_intoBillingValidationException() {
+        request.setParameter("addToPatientDx", "yes");
+        request.setParameter("dxCode", "401");
+        request.setParameter("demographic_no", "1");
+        doThrow(new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key (1, 401, A)"))
+                .when(dxresearchDAO).save(any());
+
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("Could not save dx")
+                .hasMessageContaining("401")
+                .hasMessageContaining("already");
+    }
+
+    /**
+     * A Hibernate session conflict ({@link org.hibernate.NonUniqueObjectException})
+     * during save must produce a friendly "reload the chart" message — the
+     * user can't recover without reloading session-bound state.
+     */
+    @Test
+    void shouldTranslateNonUniqueObjectException_intoBillingValidationException() {
+        request.setParameter("addToPatientDx", "yes");
+        request.setParameter("dxCode", "401");
+        request.setParameter("demographic_no", "1");
+        doThrow(new org.hibernate.NonUniqueObjectException(
+                "different object with same id", 1, "Dxresearch"))
+                .when(dxresearchDAO).save(any());
+
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("session conflict")
+                .hasMessageContaining("reload the chart");
+    }
+
+    /**
+     * Catch-all for transient JDBC outages, lock-wait timeouts, etc. Without
+     * this catch the user would see the generic CARLOS Error 500 page and
+     * have no signal that the dx was *not* added. The translation to
+     * BillingValidationException routes to the actionable retry page.
+     */
+    @Test
+    void shouldTranslateGenericRuntimeException_intoBillingValidationException() {
+        request.setParameter("addToPatientDx", "yes");
+        request.setParameter("dxCode", "401");
+        request.setParameter("demographic_no", "1");
+        doThrow(new IllegalStateException("simulated lock-wait timeout"))
+                .when(dxresearchDAO).save(any());
+
+        assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("Could not save dx")
+                .hasMessageContaining("please retry");
     }
 }

@@ -69,7 +69,6 @@
     String user_no = (String) session.getAttribute("user");
     String providerview = request.getParameter("providerview") == null ? "" : request
             .getParameter("providerview");
-    String asstProvider_no = "";
     String color = "";
     String premiumFlag = "";
     String service_form = "";
@@ -200,8 +199,6 @@
     Properties propHist = null;
     Vector vecHist = new Vector();
 
-    String proOHIPNO = reviewModel.getProviderOhip();
-    String proRMA = reviewModel.getProviderRma();
     if (request.getParameter("xml_provider") != null) {
         providerview = reviewModel.getProviderView();
     }
@@ -211,19 +208,15 @@
     // DAO handle stays in the JSP for now.
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
-    String r_doctor = reviewModel.getReferralDoctorName();
-    String r_doctor_ohip = reviewModel.getReferralDoctorOhip();
-    String demoFirst = reviewModel.getDemoFirst();
-    String demoLast = reviewModel.getDemoLast();
+    // Bridge locals retained because downstream scriptlets still reference them.
+    // Other demographic fields (firstName, lastName, address, referral doctor,
+    // etc.) are read directly via EL on reviewModel.
     String demoHIN = reviewModel.getDemoHin();
     String demoVer = reviewModel.getDemoVer();
-    String demoDOB = reviewModel.getDemoDob();
     String demoDOBYY = reviewModel.getDemoDobYy();
     String demoDOBMM = reviewModel.getDemoDobMm();
     String demoDOBDD = reviewModel.getDemoDobDd();
-    String demoHCTYPE = reviewModel.getDemoHcType();
     String demoSex = reviewModel.getDemoSex();
-    String strPatientAddr = reviewModel.getPatientAddress();
     if (!reviewModel.getAssignedProviderNo().isEmpty()) {
         assgProvider_no = reviewModel.getAssignedProviderNo();
     }

@@ -261,7 +261,11 @@ public final class BillingShortcutPg1DataAssembler {
             }
         } catch (RuntimeException rtEx) {
             // Outer DAO call failed (DB outage). Render with empty history.
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+            // Logged at ERROR (matching BillingONFormDataAssembler) because a
+            // missing history surface in the shortcut workflow has the same
+            // duplicate-bill risk as the main form: provider can't see what
+            // was already billed for this demographic.
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                     "Shortcut billing history lookup failed for demo={}; rendering with empty history",
                     demoNo, rtEx);
             billingHistory.clear();

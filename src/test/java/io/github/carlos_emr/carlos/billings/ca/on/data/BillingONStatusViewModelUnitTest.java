@@ -113,4 +113,55 @@ class BillingONStatusViewModelUnitTest {
         assertThat(m.isHideName()).isFalse();
         assertThat(m.isSearch()).isFalse();
     }
+
+    /**
+     * Null-tolerance contract: every String setter must coalesce a passed
+     * {@code null} to the empty string. EL output renders bare null as
+     * the literal 4-character word "null" — guarding here means a future
+     * caller forgetting to coalesce can't pollute the rendered page.
+     */
+    @Test
+    void shouldCoalesceNullStrings_toEmpty_acrossEverySetter() {
+        BillingONStatusViewModel m = BillingONStatusViewModel.builder()
+                .statusType(null)
+                .providerNo(null)
+                .providerOhipNo(null)
+                .startDate(null)
+                .endDate(null)
+                .demoNo(null)
+                .serviceCode(null)
+                .raCode(null)
+                .claimNo(null)
+                .dx(null)
+                .visitType(null)
+                .filename(null)
+                .selectedSite(null)
+                .billingForm(null)
+                .visitLocation(null)
+                .sortName(null)
+                .sortOrder(null)
+                .paymentStartDate(null)
+                .paymentEndDate(null)
+                .build();
+
+        assertThat(m.getStatusType()).isEmpty();
+        assertThat(m.getProviderNo()).isEmpty();
+        assertThat(m.getProviderOhipNo()).isEmpty();
+        assertThat(m.getStartDate()).isEmpty();
+        assertThat(m.getEndDate()).isEmpty();
+        assertThat(m.getDemoNo()).isEmpty();
+        assertThat(m.getServiceCode()).isEmpty();
+        assertThat(m.getRaCode()).isEmpty();
+        assertThat(m.getClaimNo()).isEmpty();
+        assertThat(m.getDx()).isEmpty();
+        assertThat(m.getVisitType()).isEmpty();
+        assertThat(m.getFilename()).isEmpty();
+        assertThat(m.getSelectedSite()).isEmpty();
+        assertThat(m.getBillingForm()).isEmpty();
+        assertThat(m.getVisitLocation()).isEmpty();
+        assertThat(m.getSortName()).isEmpty();
+        assertThat(m.getSortOrder()).isEmpty();
+        assertThat(m.getPaymentStartDate()).isEmpty();
+        assertThat(m.getPaymentEndDate()).isEmpty();
+    }
 }

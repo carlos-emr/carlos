@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * <p>Assembled by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONFormDataAssembler}
- * via {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONView2Action}
+ * via {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingON2Action}
  * and exposed to the JSP as request attribute {@code model}. Fields are added
  * incrementally as their corresponding scriptlet blocks are migrated out of the
  * JSP. The form previously built this data inline via ~24 DAO lookups, which
@@ -93,6 +93,10 @@ public final class BillingONFormViewModel {
     private final String demoDobYear;
     private final String demoDobMonth;
     private final String demoDobDay;
+    /** True when the stored DOB was non-empty but unparseable as YYYYMMDD.
+     *  The assembler sets this so the JSP can warn the operator that
+     *  visit-type defaults / premium codes are computed off bad input. */
+    private final boolean demoDobInvalid;
     private final String demoHcType;
     private final String demoSex;
     private final String familyDoctor;
@@ -159,54 +163,55 @@ public final class BillingONFormViewModel {
     private final Map<String, String> requestEchoes;
 
     private BillingONFormViewModel(Builder b) {
-        this.userNo = b.userNo;
-        this.demographicNo = b.demographicNo;
-        this.appointmentNo = b.appointmentNo;
-        this.providerNo = b.providerNo;
-        this.apptProviderNo = b.apptProviderNo;
-        this.providerView = b.providerView;
-        this.demoName = b.demoName;
-        this.today = b.today;
-        this.billReferenceDate = b.billReferenceDate;
-        this.mReview = b.mReview;
-        this.ctlBillForm = b.ctlBillForm;
-        this.curBillForm = b.curBillForm;
-        this.demoLast = b.demoLast;
-        this.demoFirst = b.demoFirst;
-        this.demoHin = b.demoHin;
-        this.demoVer = b.demoVer;
-        this.demoDob = b.demoDob;
-        this.demoDobYear = b.demoDobYear;
-        this.demoDobMonth = b.demoDobMonth;
-        this.demoDobDay = b.demoDobDay;
-        this.demoHcType = b.demoHcType;
-        this.demoSex = b.demoSex;
-        this.familyDoctor = b.familyDoctor;
-        this.rosterStatus = b.rosterStatus;
-        this.assgProviderNo = b.assgProviderNo;
+        this.userNo = nullToEmpty(b.userNo);
+        this.demographicNo = nullToEmpty(b.demographicNo);
+        this.appointmentNo = nullToEmpty(b.appointmentNo);
+        this.providerNo = nullToEmpty(b.providerNo);
+        this.apptProviderNo = nullToEmpty(b.apptProviderNo);
+        this.providerView = nullToEmpty(b.providerView);
+        this.demoName = nullToEmpty(b.demoName);
+        this.today = nullToEmpty(b.today);
+        this.billReferenceDate = nullToEmpty(b.billReferenceDate);
+        this.mReview = nullToEmpty(b.mReview);
+        this.ctlBillForm = nullToEmpty(b.ctlBillForm);
+        this.curBillForm = nullToEmpty(b.curBillForm);
+        this.demoLast = nullToEmpty(b.demoLast);
+        this.demoFirst = nullToEmpty(b.demoFirst);
+        this.demoHin = nullToEmpty(b.demoHin);
+        this.demoVer = nullToEmpty(b.demoVer);
+        this.demoDob = nullToEmpty(b.demoDob);
+        this.demoDobYear = nullToEmpty(b.demoDobYear);
+        this.demoDobMonth = nullToEmpty(b.demoDobMonth);
+        this.demoDobDay = nullToEmpty(b.demoDobDay);
+        this.demoDobInvalid = b.demoDobInvalid;
+        this.demoHcType = nullToEmpty(b.demoHcType);
+        this.demoSex = nullToEmpty(b.demoSex);
+        this.familyDoctor = nullToEmpty(b.familyDoctor);
+        this.rosterStatus = nullToEmpty(b.rosterStatus);
+        this.assgProviderNo = nullToEmpty(b.assgProviderNo);
         this.age = b.age;
-        this.referralDoctor = b.referralDoctor;
-        this.referralDoctorOhip = b.referralDoctorOhip;
-        this.referralSpecialty = b.referralSpecialty;
+        this.referralDoctor = nullToEmpty(b.referralDoctor);
+        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
+        this.referralSpecialty = nullToEmpty(b.referralSpecialty);
         this.patientDx = b.patientDx == null ? Collections.emptyList() : List.copyOf(b.patientDx);
-        this.patientDxAddCode = b.patientDxAddCode;
-        this.patientDxMatchCode = b.patientDxMatchCode;
-        this.billingRecommendations = b.billingRecommendations;
+        this.patientDxAddCode = nullToEmpty(b.patientDxAddCode);
+        this.patientDxMatchCode = nullToEmpty(b.patientDxMatchCode);
+        this.billingRecommendations = nullToEmpty(b.billingRecommendations);
         this.billingHistory = b.billingHistory == null ? Collections.emptyList() : List.copyOf(b.billingHistory);
-        this.warningMsg = b.warningMsg;
-        this.errorMsg = b.errorMsg;
-        this.errorFlag = b.errorFlag;
-        this.clinicView = b.clinicView;
-        this.clinicNo = b.clinicNo;
-        this.visitType = b.visitType;
+        this.warningMsg = nullToEmpty(b.warningMsg);
+        this.errorMsg = nullToEmpty(b.errorMsg);
+        this.errorFlag = nullToEmpty(b.errorFlag);
+        this.clinicView = nullToEmpty(b.clinicView);
+        this.clinicNo = nullToEmpty(b.clinicNo);
+        this.visitType = nullToEmpty(b.visitType);
         this.singleClickEnabled = b.singleClickEnabled;
         this.hospitalBilling = b.hospitalBilling;
         this.providers = b.providers == null ? Collections.emptyList() : List.copyOf(b.providers);
-        this.defaultServiceType = b.defaultServiceType;
-        this.dxCode = b.dxCode;
-        this.xmlVisitType = b.xmlVisitType;
-        this.xmlLocation = b.xmlLocation;
-        this.visitDate = b.visitDate;
+        this.defaultServiceType = nullToEmpty(b.defaultServiceType);
+        this.dxCode = nullToEmpty(b.dxCode);
+        this.xmlVisitType = nullToEmpty(b.xmlVisitType);
+        this.xmlLocation = nullToEmpty(b.xmlLocation);
+        this.visitDate = nullToEmpty(b.visitDate);
         // Deep-copy: Map.copyOf is shallow, so without per-entry copying the
         // nested lists could still be mutated after build. Force the inner lists
         // immutable too so the view-model's immutability contract holds.
@@ -217,8 +222,8 @@ public final class BillingONFormViewModel {
                 ? Collections.emptyList() : List.copyOf(b.listServiceType);
         this.titleMap = b.titleMap == null ? Collections.emptyMap() : Map.copyOf(b.titleMap);
         this.premiumCodes = b.premiumCodes == null ? Collections.emptySet() : Set.copyOf(b.premiumCodes);
-        this.defaultBillFormName = b.defaultBillFormName;
-        this.defaultBillType = b.defaultBillType;
+        this.defaultBillFormName = nullToEmpty(b.defaultBillFormName);
+        this.defaultBillType = nullToEmpty(b.defaultBillType);
         this.billingForms = b.billingForms == null ? Collections.emptyList() : List.copyOf(b.billingForms);
         this.dxCodesByServiceType = b.dxCodesByServiceType == null
                 ? Collections.emptyMap()
@@ -230,6 +235,16 @@ public final class BillingONFormViewModel {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Coalesces null Strings to empty so the JSP doesn't render the literal
+     * 4-character word {@code "null"} when a builder field is unset. Mirrors
+     * the {@code nullToEmpty} pattern already used by
+     * {@link BillingONCorrectionViewModel} and {@link BillingShortcutPg1ViewModel}.
+     */
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     public String getUserNo() { return userNo; }
@@ -252,6 +267,12 @@ public final class BillingONFormViewModel {
     public String getDemoDobYear() { return demoDobYear; }
     public String getDemoDobMonth() { return demoDobMonth; }
     public String getDemoDobDay() { return demoDobDay; }
+    /** Aggregated view of the demographic snapshot as a structured record. */
+    public BillingDemographicSummary getDemographicSummary() {
+        return new BillingDemographicSummary(demoFirst, demoLast, demoHin, demoVer,
+                demoSex, demoHcType, demoDob, demoDobYear, demoDobMonth, demoDobDay);
+    }
+    public boolean isDemoDobInvalid() { return demoDobInvalid; }
     public String getDemoHcType() { return demoHcType; }
     public String getDemoSex() { return demoSex; }
     public String getFamilyDoctor() { return familyDoctor; }
@@ -261,6 +282,10 @@ public final class BillingONFormViewModel {
     public String getReferralDoctor() { return referralDoctor; }
     public String getReferralDoctorOhip() { return referralDoctorOhip; }
     public String getReferralSpecialty() { return referralSpecialty; }
+    /** Aggregated referral-doctor view as a structured record. */
+    public BillingReferralDoctor getReferralDoctorRecord() {
+        return new BillingReferralDoctor(referralDoctor, referralDoctorOhip, referralSpecialty);
+    }
     public List<String> getPatientDx() { return patientDx; }
     public String getPatientDxAddCode() { return patientDxAddCode; }
     public String getPatientDxMatchCode() { return patientDxMatchCode; }
@@ -269,6 +294,10 @@ public final class BillingONFormViewModel {
     public String getWarningMsg() { return warningMsg; }
     public String getErrorMsg() { return errorMsg; }
     public String getErrorFlag() { return errorFlag; }
+    /** Aggregated view of the (errorFlag, errorMsg, warningMsg) triple. */
+    public BillingValidationMessages getValidationMessages() {
+        return new BillingValidationMessages(errorFlag, errorMsg, warningMsg);
+    }
     public String getClinicView() { return clinicView; }
     public String getClinicNo() { return clinicNo; }
     public String getVisitType() { return visitType; }
@@ -312,6 +341,7 @@ public final class BillingONFormViewModel {
         private String demoDobYear;
         private String demoDobMonth;
         private String demoDobDay;
+        private boolean demoDobInvalid;
         private String demoHcType;
         private String demoSex;
         private String familyDoctor;
@@ -371,6 +401,7 @@ public final class BillingONFormViewModel {
         public Builder demoDobYear(String v) { this.demoDobYear = v; return this; }
         public Builder demoDobMonth(String v) { this.demoDobMonth = v; return this; }
         public Builder demoDobDay(String v) { this.demoDobDay = v; return this; }
+        public Builder demoDobInvalid(boolean v) { this.demoDobInvalid = v; return this; }
         public Builder demoHcType(String v) { this.demoHcType = v; return this; }
         public Builder demoSex(String v) { this.demoSex = v; return this; }
         public Builder familyDoctor(String v) { this.familyDoctor = v; return this; }

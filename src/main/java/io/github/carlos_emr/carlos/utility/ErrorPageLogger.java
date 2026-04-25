@@ -64,9 +64,19 @@ public final class ErrorPageLogger {
             if (t == null) {
                 return;
             }
-            Object uri = request != null
+            // Strip the query string off the captured request_uri before
+            // logging — billing flows pass `demographic_no`, `claim_no`, and
+            // `billing_no` in the query, all of which correlate to PHI per
+            // CLAUDE.md. Path-only is enough to diagnose the failure site.
+            Object rawUri = request != null
                     ? request.getAttribute("jakarta.servlet.error.request_uri")
                     : null;
+            Object uri = rawUri;
+            if (rawUri instanceof String) {
+                String s = (String) rawUri;
+                int q = s.indexOf('?');
+                uri = q >= 0 ? s.substring(0, q) : s;
+            }
             Object status = request != null
                     ? request.getAttribute("jakarta.servlet.error.status_code")
                     : null;

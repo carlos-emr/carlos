@@ -44,14 +44,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the {@link BillingValidationException} throw paths added in
- * round-3 / round-4 to {@link BillingCorrection2Action#updateInvoice()} and
+ * Unit tests for the {@link BillingValidationException} throw paths in
+ * {@link BillingCorrection2Action#updateInvoice()} and
  * {@link BillingCorrection2Action#add3rdPartyPayment()}.
  *
  * <p>Regression armor for the audit-trail integrity guarantees: the action
- * MUST throw on validated-input failures rather than returning the silent
- * "closeReload" / "failure" results that historically masked write rejection
- * as page-reload-as-if-success. A future refactor that re-introduces silent
+ * MUST throw on validated-input failures rather than returning a silent
+ * "closeReload" / "failure" result that masks write rejection as
+ * page-reload-as-if-success. A future refactor that re-introduces silent
  * returns must fail these tests loudly.</p>
  *
  * @since 2026-04-25

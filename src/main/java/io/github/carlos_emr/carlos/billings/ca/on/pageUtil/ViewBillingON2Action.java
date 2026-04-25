@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-24
  */
-public final class BillingONView2Action extends ActionSupport {
+public final class ViewBillingON2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
@@ -75,7 +75,11 @@ public final class BillingONView2Action extends ActionSupport {
         }
 
         this.model = buildModel(request);
-        request.setAttribute("model", this.model);
+        // Domain-prefixed key so EL references on the JSP can't collide with
+        // Spring MVC's well-known "model" attribute. Symmetric with the other
+        // ON billing pages: correctionModel, reviewModel, statusModel,
+        // shortcutPg1Model.
+        request.setAttribute("formModel", this.model);
         return SUCCESS;
     }
 

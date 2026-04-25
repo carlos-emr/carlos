@@ -54,32 +54,37 @@ public final class BillingONReviewViewModel {
     private final String warningMessage;
 
     private BillingONReviewViewModel(Builder b) {
-        this.demoFirst = b.demoFirst;
-        this.demoLast = b.demoLast;
-        this.demoHin = b.demoHin;
-        this.demoVer = b.demoVer;
-        this.demoSex = b.demoSex;
-        this.demoHcType = b.demoHcType;
-        this.demoDob = b.demoDob;
-        this.demoDobYy = b.demoDobYy;
-        this.demoDobMm = b.demoDobMm;
-        this.demoDobDd = b.demoDobDd;
-        this.patientAddress = b.patientAddress;
-        this.referralDoctorName = b.referralDoctorName;
-        this.referralDoctorOhip = b.referralDoctorOhip;
-        this.assignedProviderNo = b.assignedProviderNo;
-        this.providerOhip = b.providerOhip;
-        this.providerRma = b.providerRma;
-        this.providerView = b.providerView;
-        this.dxCode = b.dxCode;
-        this.dxDesc = b.dxDesc;
-        this.errorFlag = b.errorFlag;
-        this.errorMessage = b.errorMessage;
-        this.warningMessage = b.warningMessage;
+        this.demoFirst = nullToEmpty(b.demoFirst);
+        this.demoLast = nullToEmpty(b.demoLast);
+        this.demoHin = nullToEmpty(b.demoHin);
+        this.demoVer = nullToEmpty(b.demoVer);
+        this.demoSex = nullToEmpty(b.demoSex);
+        this.demoHcType = nullToEmpty(b.demoHcType);
+        this.demoDob = nullToEmpty(b.demoDob);
+        this.demoDobYy = nullToEmpty(b.demoDobYy);
+        this.demoDobMm = nullToEmpty(b.demoDobMm);
+        this.demoDobDd = nullToEmpty(b.demoDobDd);
+        this.patientAddress = nullToEmpty(b.patientAddress);
+        this.referralDoctorName = nullToEmpty(b.referralDoctorName);
+        this.referralDoctorOhip = nullToEmpty(b.referralDoctorOhip);
+        this.assignedProviderNo = nullToEmpty(b.assignedProviderNo);
+        this.providerOhip = nullToEmpty(b.providerOhip);
+        this.providerRma = nullToEmpty(b.providerRma);
+        this.providerView = nullToEmpty(b.providerView);
+        this.dxCode = nullToEmpty(b.dxCode);
+        this.dxDesc = nullToEmpty(b.dxDesc);
+        this.errorFlag = nullToEmpty(b.errorFlag);
+        this.errorMessage = nullToEmpty(b.errorMessage);
+        this.warningMessage = nullToEmpty(b.warningMessage);
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /** Coalesce null Strings to empty so EL doesn't render literal "null". */
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     public String getDemoFirst() { return demoFirst; }
@@ -92,9 +97,18 @@ public final class BillingONReviewViewModel {
     public String getDemoDobYy() { return demoDobYy; }
     public String getDemoDobMm() { return demoDobMm; }
     public String getDemoDobDd() { return demoDobDd; }
+    /** Aggregated view of the demographic snapshot as a structured record. */
+    public BillingDemographicSummary getDemographicSummary() {
+        return new BillingDemographicSummary(demoFirst, demoLast, demoHin, demoVer,
+                demoSex, demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd);
+    }
     public String getPatientAddress() { return patientAddress; }
     public String getReferralDoctorName() { return referralDoctorName; }
     public String getReferralDoctorOhip() { return referralDoctorOhip; }
+    /** Aggregated referral-doctor view as a structured record (specialty empty for review). */
+    public BillingReferralDoctor getReferralDoctorRecord() {
+        return new BillingReferralDoctor(referralDoctorName, referralDoctorOhip, "");
+    }
     public String getAssignedProviderNo() { return assignedProviderNo; }
     public String getProviderOhip() { return providerOhip; }
     public String getProviderRma() { return providerRma; }
@@ -104,6 +118,10 @@ public final class BillingONReviewViewModel {
     public String getErrorFlag() { return errorFlag; }
     public String getErrorMessage() { return errorMessage; }
     public String getWarningMessage() { return warningMessage; }
+    /** Aggregated view of the (errorFlag, errorMessage, warningMessage) triple. */
+    public BillingValidationMessages getValidationMessages() {
+        return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
+    }
 
     public static final class Builder {
         private String demoFirst = "";

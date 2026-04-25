@@ -39,39 +39,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
-import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONRepoDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
-import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
-import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.commn.model.ProviderSite;
-import io.github.carlos_emr.carlos.commn.model.RaDetail;
-import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import java.util.HashSet;
-import java.util.Set;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -118,8 +103,8 @@ public class BillingCorrection2Action extends ActionSupport {
         // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
         // dereferences loggedInInfo and emits an internal ERROR log on null, so
         // null-checking here keeps the log signal clean for real privilege denials.
-        // Matches the pattern in BillingONView2Action / ViewBillingONReview2Action /
-        // ViewBillingONStatus2Action / BillingShortcutPg1View2Action.
+        // Matches the pattern in ViewBillingON2Action / ViewBillingONReview2Action /
+        // ViewBillingONStatus2Action / ViewBillingShortcutPg12Action.
         if (loggedInInfo == null) {
             throw new SecurityException("missing session");
         }
@@ -127,12 +112,15 @@ public class BillingCorrection2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        // Build user-context view model up front and stash on the request so
-        // every result that forwards to billingONCorrection.jsp (success,
-        // closeReload, adminReload) sees a populated correctionModel. The
-        // bill-record state machine in updateInvoice / add3rdPartyPayment
-        // remains unchanged.
-        request.setAttribute("correctionModel", buildModel(loggedInInfo));
+        // Build user-context + bill-record view model up front and stash on
+        // the request so every result that forwards to billingONCorrection.jsp
+        // (success, closeReload, adminReload) sees a populated correctionModel.
+        // The mutation state machine in updateInvoice / add3rdPartyPayment
+        // remains unchanged. The action delegates DAO orchestration to
+        // BillingONCorrectionDataAssembler to keep the layering symmetric
+        // with the four other refactored ON billing pages.
+        request.setAttribute("correctionModel",
+                new BillingONCorrectionDataAssembler().assemble(loggedInInfo, request));
 
         if ("add3rdPartyPayment".equals(request.getParameter("method"))) {
             return add3rdPartyPayment();
@@ -713,250 +701,4 @@ public class BillingCorrection2Action extends ActionSupport {
         return isChanged;
     }
 
-    /**
-     * Builds the user-context view model (provider record, site/team-access
-     * flags, multisite list) that the JSP top scriptlet currently constructs
-     * inline via 5 DAO lookups. Bill-record-specific data stays in the
-     * existing state-machine path; this only captures the pieces driven by
-     * the logged-in user.
-     */
-    // Package-private for direct unit-testing without reflection.
-    // BillingCorrection2ActionBuildModelUnitTest depends on this visibility.
-    BillingONCorrectionViewModel buildModel(LoggedInInfo loggedInInfo) {
-        String providerNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
-                ? loggedInInfo.getLoggedInProviderNo()
-                : "";
-
-        ProviderDao providerDaoLocal = SpringUtils.getBean(ProviderDao.class);
-        Provider userProvider = providerNo.isEmpty() ? null : providerDaoLocal.getProvider(providerNo);
-
-        boolean siteAccessPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
-        boolean teamAccessPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
-        boolean teamBillingOnly = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null);
-
-        Set<String> providerAccessList = new HashSet<>();
-        if (siteAccessPrivacy) {
-            // Expand to every provider that shares a site with the logged-in
-            // user: first resolve the user's site memberships, then for each
-            // site pull every provider attached to it. The earlier shape only
-            // looped findByProviderNo(providerNo), which re-added the user
-            // themselves and silently hid bills from co-located providers.
-            ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
-            for (ProviderSite userSite : providerSiteDao.findByProviderNo(providerNo)) {
-                int siteId = userSite.getId().getSiteId();
-                for (ProviderSite siteMember : providerSiteDao.findBySiteId(siteId)) {
-                    providerAccessList.add(siteMember.getId().getProviderNo());
-                }
-            }
-        }
-        if (teamAccessPrivacy && userProvider != null) {
-            for (Provider p : providerDaoLocal.getBillableProvidersOnTeam(userProvider)) {
-                providerAccessList.add(p.getProviderNo());
-            }
-        }
-
-        boolean multisites = IsPropertiesOn.isMultisitesEnable();
-        List<String> mgrSites = new ArrayList<>();
-        if (multisites) {
-            SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
-            for (Site s : siteDao.getActiveSitesByProviderNo(providerNo)) {
-                mgrSites.add(s.getName());
-            }
-        }
-
-        BillingONCorrectionViewModel.Builder builder = BillingONCorrectionViewModel.builder()
-                .userProviderNo(providerNo)
-                .userFirstName(userProvider != null ? userProvider.getFirstName() : "")
-                .userLastName(userProvider != null ? userProvider.getLastName() : "")
-                .siteAccessPrivacy(siteAccessPrivacy)
-                .teamAccessPrivacy(teamAccessPrivacy)
-                .teamBillingOnly(teamBillingOnly)
-                .multisites(multisites)
-                .providerAccessList(providerAccessList)
-                .mgrSites(mgrSites);
-
-        loadBillRecord(loggedInInfo, builder, providerAccessList, mgrSites,
-                siteAccessPrivacy, teamAccessPrivacy, multisites);
-
-        return builder.build();
-    }
-
-    /**
-     * Loads the bill record (BillingONCHeader1) referenced by the {@code billing_no}
-     * (or fallback {@code claim_no}) request param and populates the bill-record
-     * fields on the view model. Mirrors what {@code billingONCorrection.jsp}
-     * lines 399-526 used to do inside the JSP body.
-     *
-     * <p>If neither {@code billing_no} nor {@code claim_no} is present, the model
-     * stays empty (corresponds to the legacy "form not loaded" path). If the
-     * billing_no is present but doesn't resolve to a bill, the model surfaces
-     * {@code billNoErr=true} which the JSP renders as "Invoice number does
-     * not exist!".</p>
-     *
-     * <p>Multisite/team access is enforced here: a provider who lacks access
-     * to the bill's clinic site or to the bill provider's team gets
-     * {@code multiSiteProvider=false} and the patient fields stay empty (the
-     * JSP shows an "access denied" alert).</p>
-     */
-    private void loadBillRecord(LoggedInInfo loggedInInfo,
-                                BillingONCorrectionViewModel.Builder b,
-                                Set<String> providerAccessList,
-                                List<String> mgrSites,
-                                boolean siteAccessPrivacy,
-                                boolean teamAccessPrivacy,
-                                boolean multisites) {
-        String billNoParam = request.getParameter("billing_no");
-        String claimNoParam = request.getParameter("claim_no");
-        if (claimNoParam != null && claimNoParam.equals("null")) {
-            claimNoParam = null;
-        }
-
-        String billNo = billNoParam == null ? "" : billNoParam.trim();
-        String claimNo = claimNoParam == null ? "" : claimNoParam.trim();
-
-        // claim_no fallback: resolve billing_no via RaDetailDao if billing_no missing
-        if (billNo.isEmpty() && !claimNo.isEmpty()) {
-            RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-            List<RaDetail> raDetails = raDetailDao.getRaDetailByClaimNo(claimNo);
-            if (!raDetails.isEmpty()) {
-                billNo = String.valueOf(raDetails.get(0).getBillingNo());
-            }
-        }
-
-        b.billingNo(billNo).claimNo(claimNo);
-
-        if (billNo.isEmpty()) {
-            return;
-        }
-
-        Integer billingNo;
-        try {
-            billingNo = Integer.parseInt(billNo);
-        } catch (NumberFormatException nfe) {
-            b.billNoErr(true);
-            return;
-        }
-
-        BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
-        if (bCh1 == null) {
-            b.billNoErr(true);
-            return;
-        }
-
-        b.billLoaded(true);
-
-        String clinicSite = bCh1.getClinic() == null ? "" : bCh1.getClinic();
-        b.clinicSite(clinicSite);
-
-        // Multisite / team-billing access guard
-        boolean multiSiteProvider = true;
-        if ((siteAccessPrivacy || teamAccessPrivacy) && !providerAccessList.contains(bCh1.getProviderNo())) {
-            multiSiteProvider = false;
-        }
-        if (multisites && !mgrSites.contains(clinicSite)) {
-            multiSiteProvider = false;
-        }
-        b.multiSiteProvider(multiSiteProvider);
-        b.manReview(bCh1.getManReview() == null ? "" : bCh1.getManReview());
-
-        if (!multiSiteProvider) {
-            // Access denied — leave patient fields empty; JSP shows alert.
-            return;
-        }
-
-        Locale locale = request.getLocale();
-        b.createTimestamp(DateUtils.formatDateTime(bCh1.getTimestamp(), locale));
-        b.demoNo(bCh1.getDemographicNo() == null ? "" : bCh1.getDemographicNo().toString())
-                .demoName(bCh1.getDemographicName() == null ? "" : bCh1.getDemographicName())
-                .demoDob(bCh1.getDob() == null ? "" : bCh1.getDob());
-
-        String demoSex = "";
-        if (bCh1.getSex() != null) {
-            demoSex = bCh1.getSex().equals("1") ? "M" : "F";
-        }
-        b.demoSex(demoSex);
-
-        String hin = "";
-        String demoRosterStatus = "";
-        if (bCh1.getDemographicNo() != null) {
-            try {
-                Demographic sdemo = new DemographicData().getDemographic(loggedInInfo, bCh1.getDemographicNo().toString());
-                if (sdemo != null) {
-                    hin = (sdemo.getHin() == null ? "" : sdemo.getHin())
-                            + (sdemo.getVer() == null ? "" : sdemo.getVer());
-                    String dobYy = sdemo.getYearOfBirth() == null ? "" : sdemo.getYearOfBirth();
-                    String dobMm = sdemo.getMonthOfBirth() == null ? "" : sdemo.getMonthOfBirth();
-                    String dobDd = sdemo.getDateOfBirth() == null ? "" : sdemo.getDateOfBirth();
-                    b.demoDob(dobYy + dobMm + dobDd);
-                    if (sdemo.getSex() != null) {
-                        b.demoSex(sdemo.getSex());
-                    }
-                    demoRosterStatus = sdemo.getRosterStatus() == null ? "" : sdemo.getRosterStatus();
-                }
-            } catch (RuntimeException e) {
-                // Empty patient context renders without a banner today; surface
-                // a flag so the JSP shows ops "demographic load failed" rather
-                // than letting the operator act on the (empty) context as if
-                // it were authoritative. Logged at ERROR because a failed
-                // demographic load is data-integrity, not a transient fetch.
-                b.demoLoadError(true);
-                MiscUtils.getLogger().error(
-                        "Demographic load failed for bill {} demoNo={}; rendering correction page with empty patient context",
-                        billNo, bCh1.getDemographicNo(), e);
-            }
-        }
-        b.hin(hin).demoRosterStatus(demoRosterStatus);
-
-        b.billLocationNo(bCh1.getFaciltyNum() == null ? "" : bCh1.getFaciltyNum());
-        b.billDate(DateUtils.formatDate(bCh1.getBillingDate(), locale));
-        b.billProvider(bCh1.getProviderNo() == null ? "" : bCh1.getProviderNo());
-        b.billStatus(bCh1.getStatus() == null ? "" : bCh1.getStatus());
-        b.payProgram(bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
-        b.billTotal(bCh1.getTotal() == null ? "" : bCh1.getTotal().toPlainString());
-
-        try {
-            b.visitDate(DateUtils.formatDate(bCh1.getAdmissionDate(), locale));
-        } catch (java.text.ParseException e) {
-            b.visitDate("");
-        }
-        b.visitType(bCh1.getVisitType() == null ? "" : bCh1.getVisitType());
-        b.sliCode(bCh1.getLocation() == null ? "" : bCh1.getLocation());
-        b.hcType(bCh1.getProvince() == null ? "" : bCh1.getProvince());
-        b.hcSex(bCh1.getSex() == null ? "" : bCh1.getSex());
-
-        // Referral doctor from ohip number
-        String rDoctorOhip = bCh1.getRefNum() == null ? "" : bCh1.getRefNum();
-        b.referralDoctorOhip(rDoctorOhip);
-        if (!rDoctorOhip.isEmpty()) {
-            ProfessionalSpecialistDao psDao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
-            List<ProfessionalSpecialist> specialists = psDao.findByReferralNo(rDoctorOhip);
-            if (specialists != null && !specialists.isEmpty()) {
-                ProfessionalSpecialist sp = specialists.get(0);
-                b.referralDoctor((sp.getLastName() == null ? "" : sp.getLastName())
-                        + ", " + (sp.getFirstName() == null ? "" : sp.getFirstName()));
-            }
-        }
-
-        b.comment(bCh1.getComment() == null ? "" : bCh1.getComment());
-
-        // OHIP RA claim number — primary correlation key for ministry
-        // remittance. Surface a flag so the JSP shows "RA lookup unavailable"
-        // rather than silently rendering an empty claimNo. Log at ERROR so
-        // a JdbcBillingRAImpl regression is visible to ops.
-        try {
-            JdbcBillingRAImpl raObj = new JdbcBillingRAImpl();
-            String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
-            if (raClaim != null) {
-                b.claimNo(raClaim);
-            }
-        } catch (RuntimeException e) {
-            b.raLookupError(true);
-            MiscUtils.getLogger().error(
-                    "RA claim lookup failed for bill {}; correction page will show empty claimNo",
-                    billNo, e);
-        }
-    }
 }

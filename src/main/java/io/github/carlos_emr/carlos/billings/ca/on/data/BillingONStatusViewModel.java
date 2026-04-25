@@ -66,29 +66,34 @@ public final class BillingONStatusViewModel {
         this.hideName = b.hideName;
         this.search = b.search;
         this.billTypes = b.billTypes == null ? Collections.emptyList() : List.copyOf(b.billTypes);
-        this.statusType = b.statusType;
-        this.providerNo = b.providerNo;
-        this.providerOhipNo = b.providerOhipNo;
-        this.startDate = b.startDate;
-        this.endDate = b.endDate;
-        this.demoNo = b.demoNo;
-        this.serviceCode = b.serviceCode;
-        this.raCode = b.raCode;
-        this.claimNo = b.claimNo;
-        this.dx = b.dx;
-        this.visitType = b.visitType;
-        this.filename = b.filename;
-        this.selectedSite = b.selectedSite;
-        this.billingForm = b.billingForm;
-        this.visitLocation = b.visitLocation;
-        this.sortName = b.sortName;
-        this.sortOrder = b.sortOrder;
-        this.paymentStartDate = b.paymentStartDate;
-        this.paymentEndDate = b.paymentEndDate;
+        this.statusType = nullToEmpty(b.statusType);
+        this.providerNo = nullToEmpty(b.providerNo);
+        this.providerOhipNo = nullToEmpty(b.providerOhipNo);
+        this.startDate = nullToEmpty(b.startDate);
+        this.endDate = nullToEmpty(b.endDate);
+        this.demoNo = nullToEmpty(b.demoNo);
+        this.serviceCode = nullToEmpty(b.serviceCode);
+        this.raCode = nullToEmpty(b.raCode);
+        this.claimNo = nullToEmpty(b.claimNo);
+        this.dx = nullToEmpty(b.dx);
+        this.visitType = nullToEmpty(b.visitType);
+        this.filename = nullToEmpty(b.filename);
+        this.selectedSite = nullToEmpty(b.selectedSite);
+        this.billingForm = nullToEmpty(b.billingForm);
+        this.visitLocation = nullToEmpty(b.visitLocation);
+        this.sortName = nullToEmpty(b.sortName);
+        this.sortOrder = nullToEmpty(b.sortOrder);
+        this.paymentStartDate = nullToEmpty(b.paymentStartDate);
+        this.paymentEndDate = nullToEmpty(b.paymentEndDate);
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /** Coalesce null Strings to empty so EL doesn't render literal "null". */
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     public boolean isTeamBillingOnly() { return teamBillingOnly; }

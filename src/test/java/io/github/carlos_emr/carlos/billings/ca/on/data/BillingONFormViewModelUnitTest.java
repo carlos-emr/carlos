@@ -238,4 +238,58 @@ class BillingONFormViewModelUnitTest {
         assertThat(model.getDxCodesByServiceType().get("OFC")).hasSize(1);
         assertThat(model.getBillingFavourites()).containsExactly("combo1", "Fav Combo");
     }
+
+    /**
+     * Null-tolerance contract: every String setter must coalesce a passed
+     * {@code null} to the empty string. EL output renders bare null as the
+     * literal 4-character word "null". A representative subset of the ~30
+     * String fields is exercised — the {@code nullToEmpty} call is uniform
+     * across every field, so per-field coverage isn't required.
+     */
+    @Test
+    void shouldCoalesceNullStrings_toEmpty_acrossRepresentativeSetters() {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .userNo(null)
+                .demographicNo(null)
+                .providerView(null)
+                .demoName(null)
+                .demoFirst(null)
+                .demoLast(null)
+                .demoHin(null)
+                .demoVer(null)
+                .demoDob(null)
+                .demoHcType(null)
+                .demoSex(null)
+                .referralDoctor(null)
+                .referralDoctorOhip(null)
+                .errorMsg(null)
+                .warningMsg(null)
+                .errorFlag(null)
+                .clinicView(null)
+                .clinicNo(null)
+                .visitType(null)
+                .dxCode(null)
+                .build();
+
+        assertThat(m.getUserNo()).isEmpty();
+        assertThat(m.getDemographicNo()).isEmpty();
+        assertThat(m.getProviderView()).isEmpty();
+        assertThat(m.getDemoName()).isEmpty();
+        assertThat(m.getDemoFirst()).isEmpty();
+        assertThat(m.getDemoLast()).isEmpty();
+        assertThat(m.getDemoHin()).isEmpty();
+        assertThat(m.getDemoVer()).isEmpty();
+        assertThat(m.getDemoDob()).isEmpty();
+        assertThat(m.getDemoHcType()).isEmpty();
+        assertThat(m.getDemoSex()).isEmpty();
+        assertThat(m.getReferralDoctor()).isEmpty();
+        assertThat(m.getReferralDoctorOhip()).isEmpty();
+        assertThat(m.getErrorMsg()).isEmpty();
+        assertThat(m.getWarningMsg()).isEmpty();
+        assertThat(m.getErrorFlag()).isEmpty();
+        assertThat(m.getClinicView()).isEmpty();
+        assertThat(m.getClinicNo()).isEmpty();
+        assertThat(m.getVisitType()).isEmpty();
+        assertThat(m.getDxCode()).isEmpty();
+    }
 }

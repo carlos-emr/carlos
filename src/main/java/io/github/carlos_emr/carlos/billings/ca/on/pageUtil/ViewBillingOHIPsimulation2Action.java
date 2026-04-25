@@ -39,6 +39,12 @@ public final class ViewBillingOHIPsimulation2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
+        // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
+        // dereferences loggedInInfo and emits an internal ERROR log on null, which
+        // pollutes the log signal for real privilege denials.
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }

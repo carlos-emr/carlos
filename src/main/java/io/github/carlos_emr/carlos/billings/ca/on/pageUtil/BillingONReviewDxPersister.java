@@ -63,14 +63,26 @@ public final class BillingONReviewDxPersister {
         if (!"yes".equals(request.getParameter("addToPatientDx"))) {
             return;
         }
+        // The user opted in. From here on, every early-return is a silent
+        // no-op on a clinical write — log at WARN so a stale-form resubmit
+        // or tampered POST leaves a trail rather than acknowledging "saved"
+        // while doing nothing. Use throw for unrecoverable shape violations
+        // (non-numeric demoNo) where the user needs the friendly rejection
+        // page; use WARN for cases where the user simply didn't fill the
+        // form fully (no point throwing — they'd just resubmit).
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
         if (demoNo.isEmpty()) {
+            MiscUtils.getLogger().warn(
+                    "addToPatientDx requested without demographic_no — skipping registry write");
             return;
         }
         String dxCode = nullToEmpty(request.getParameter("dxCode"));
         String dxCodeMatch = nullToEmpty(request.getParameter("codeMatchToPatientDx"));
         String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
         if (dxCodeAdd.isEmpty()) {
+            MiscUtils.getLogger().warn(
+                    "addToPatientDx requested for demo {} without a dx code — skipping registry write",
+                    LogSanitizer.sanitize(demoNo));
             return;
         }
 
@@ -117,6 +129,19 @@ public final class BillingONReviewDxPersister {
             throw new BillingValidationException(
                     String.join("", "Could not save dx (", sanitizedDx,
                             ") for the patient: a session conflict occurred. Please reload the chart and retry."), nuoe);
+        } catch (RuntimeException rtEx) {
+            // Catch-all for transient JDBC outages, lock-wait timeouts, etc.
+            // Without this, the user sees the generic CARLOS Error 500 page
+            // and has no signal that the dx was *not* added — same audit-trail
+            // gap the targeted catches above close. Translate to BVE so the
+            // operator gets the friendly "retry" message.
+            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
+            MiscUtils.getLogger().error(
+                    "addToPatientDx: unexpected save failure for dx {} demo {}",
+                    sanitizedDx, demoNoInt, rtEx);
+            throw new BillingValidationException(
+                    String.join("", "Could not save dx (", sanitizedDx,
+                            ") for the patient — please retry, then contact support if the problem persists."), rtEx);
         }
     }
 

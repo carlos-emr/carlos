@@ -25,7 +25,7 @@ import java.util.Vector;
  * <p>Built by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg1DataAssembler}
  * via
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg1View2Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingShortcutPg12Action}
  * and exposed to the JSP as request attribute {@code shortcutPg1Model}. Captures
  * the demographic + provider lookups, the billing-history vectors, the
  * service-code grid, and the validation messages that previously lived in the
@@ -163,9 +163,22 @@ public final class BillingShortcutPg1ViewModel {
     public String getDemoDobMm() { return demoDobMm; }
     public String getDemoDobDd() { return demoDobDd; }
     public String getDemoHcType() { return demoHcType; }
+    /**
+     * Aggregated view of the demographic snapshot as a structured record.
+     * Shortcut doesn't carry a hin-version field, so {@code ver} comes through
+     * as empty.
+     */
+    public BillingDemographicSummary getDemographicSummary() {
+        return new BillingDemographicSummary(demoFirst, demoLast, demoHin, "",
+                demoSex, demoHcType, demoDob, demoDobYy, demoDobMm, demoDobDd);
+    }
     public String getAssignedProviderNo() { return assignedProviderNo; }
     public String getReferralDoctorName() { return referralDoctorName; }
     public String getReferralDoctorOhip() { return referralDoctorOhip; }
+    /** Aggregated referral-doctor view as a structured record (specialty empty for shortcut). */
+    public BillingReferralDoctor getReferralDoctorRecord() {
+        return new BillingReferralDoctor(referralDoctorName, referralDoctorOhip, "");
+    }
     public String getVisitType() { return visitType; }
     public String getClinicView() { return clinicView; }
     public String getVisitDate() { return visitDate; }
@@ -173,6 +186,10 @@ public final class BillingShortcutPg1ViewModel {
     public String getErrorFlag() { return errorFlag; }
     public String getErrorMessage() { return errorMessage; }
     public String getWarningMessage() { return warningMessage; }
+    /** Aggregated view of the (errorFlag, errorMessage, warningMessage) triple. */
+    public BillingValidationMessages getValidationMessages() {
+        return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
+    }
     public String getMsg() { return msg; }
     public List<Properties> getBillingHistory() { return billingHistory; }
     public List<Properties> getBillingHistoryDetails() { return billingHistoryDetails; }
