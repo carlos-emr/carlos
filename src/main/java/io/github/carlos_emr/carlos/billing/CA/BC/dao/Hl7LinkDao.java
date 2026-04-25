@@ -132,21 +132,31 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     private String getSafeOrderBy(String orderby) {
-        if ("patient_name".equals(orderby)) {
-            return "hl7_pid.patient_name";
-        } else if ("ordering_provider".equals(orderby)) {
-            return "hl7_obr.ordering_provider";
-        } else if ("result_copies_to".equals(orderby)) {
-            return "hl7_obr.result_copies_to";
-        } else if ("status".equals(orderby)) {
-            return "hl7_link.status";
-        } else if ("signed_on".equals(orderby)) {
-            return "hl7_link.signed_on";
-        } else if ("last_name".equals(orderby)) {
-            return "provider.last_name";
-        } else {
+        if (orderby == null || orderby.trim().isEmpty()) {
             return "hl7_message.date_time";
         }
+
+        String safeCol = "hl7_message.date_time";
+        String direction = "";
+
+        String[] parts = orderby.trim().split("\\s+");
+        if (parts.length > 0) {
+            String col = parts[0].toLowerCase();
+            if (col.equals("patient_name")) safeCol = "hl7_pid.patient_name";
+            else if (col.equals("ordering_provider")) safeCol = "hl7_obr.ordering_provider";
+            else if (col.equals("result_copies_to")) safeCol = "hl7_obr.result_copies_to";
+            else if (col.equals("status")) safeCol = "hl7_link.status";
+            else if (col.equals("signed_on")) safeCol = "hl7_link.signed_on";
+            else if (col.equals("last_name")) safeCol = "last_name";
+            else if (col.equals("date_time")) safeCol = "hl7_message.date_time";
+        }
+
+        if (parts.length > 1) {
+            if (parts[1].equalsIgnoreCase("desc")) direction = " DESC";
+            else if (parts[1].equalsIgnoreCase("asc")) direction = " ASC";
+        }
+
+        return safeCol + direction;
     }
 
     private String getBaseSql(String provider_no, String select_unlinked_labs, String select_reports_linked_to_providers, String select_reports_by_provider) {
