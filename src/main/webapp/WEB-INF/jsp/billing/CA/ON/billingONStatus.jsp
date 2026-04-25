@@ -382,8 +382,8 @@
             <a href="javascript: function myFunction() {return false; }" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/ViewManageProvider?action=billingreport')">Manage Provider List</a>-->
         <form name="serviceform" class="d-flex flex-wrap align-items-center gap-2" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingONStatus"
               onsubmit="ShowSpin(true);">
-            <input type="hidden" id="sortName" name="sortName" value="<carlos:encode value='<%= sortName %>' context="htmlAttribute"/>">
-            <input type="hidden" id="sortOrder" name="sortOrder" value="<carlos:encode value='<%= sortOrder %>' context="htmlAttribute"/>">
+            <input type="hidden" id="sortName" name="sortName" value="${carlos:forHtmlAttribute(statusModel.sortName)}">
+            <input type="hidden" id="sortOrder" name="sortOrder" value="${carlos:forHtmlAttribute(statusModel.sortOrder)}">
             <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
@@ -511,7 +511,7 @@
                     <div class="col-md-6">
                         <label for="xml_vdate">Start:</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>"
+                            <input type="text" class="form-control" name="xml_vdate" id="xml_vdate" style="width:90px" value="${carlos:forHtmlAttribute(statusModel.startDate)}"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -527,7 +527,7 @@
                             </small></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
-                                   value="<carlos:encode value='<%= endDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.endDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -537,18 +537,18 @@
                 <div class="row">
                     <div class="col-md-12">
                         <label>Dx:
-                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="<carlos:encode value='<%= dx %>' context="htmlAttribute"/>"></label>
+                            <input type="text" name="dx" class="form-control form-control-sm d-inline-block w-auto" placeholder="123" value="${carlos:forHtmlAttribute(statusModel.dx)}"></label>
                         <label>Serv. Code:
                             <input type="text" name="serviceCode" class="form-control form-control-sm d-inline-block w-auto" placeholder="A123A"
-                                   value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.serviceCode)}"></label>
                         <label>Demographic:
                             <input type="text" name="demographicNo" class="form-control form-control-sm d-inline-block w-auto" placeholder="1234"
-                                   value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.demoNo)}"></label>
                         <label>RA Code:
                             <input type="text" name="raCode" class="form-control form-control-sm d-inline-block w-auto" placeholder=""
-                                   value="<carlos:encode value='<%= raCode %>' context="htmlAttribute"/>"></label>
+                                   value="${carlos:forHtmlAttribute(statusModel.raCode)}"></label>
                         <label>Claim No (% for any):
-                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="<carlos:encode value='<%= claimNo %>' context="htmlAttribute"/>"></label>
+                            <input type="text" name="claimNo" class="form-control form-control-sm d-inline-block w-auto" value="${carlos:forHtmlAttribute(statusModel.claimNo)}"></label>
                         <label>
                             Visit Type:
                             <select name="visitType" style="background-color:white;">
@@ -608,14 +608,14 @@
                         <label for="paymentStartDate">Payment Start:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentStartDate" id="paymentStartDate" style="width:90px"
-                                   value="<carlos:encode value='<%= paymentStartDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.paymentStartDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="paymentEndDate" id="paymentEndDate" style="width:90px"
-                                   value="<carlos:encode value='<%= paymentEndDate %>' context="htmlAttribute"/>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
+                                   value="${carlos:forHtmlAttribute(statusModel.paymentEndDate)}" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
