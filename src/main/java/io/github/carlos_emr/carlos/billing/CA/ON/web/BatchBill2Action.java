@@ -109,7 +109,9 @@ public class BatchBill2Action extends ActionSupport {
             }
 
         }
-        return null;
+        // Returning null leaves Struts with no result to render -> empty body.
+        // Render the batch-billing form view. Saves return through the same path.
+        return SUCCESS;
 
     }
 

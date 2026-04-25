@@ -23,11 +23,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/addEditServiceCode.jsp}. Enforces {@code _admin.billing}
- * w privilege AND POST-only before forwarding to the JSP. GET requests return
- * 405 Method Not Allowed.
+ * Conditional-POST gate for {@code billing/CA/ON/addEditServiceCode.jsp}. The
+ * JSP is a self-posting form (initial GET renders the picker; the form
+ * submits to the same URL with an {@code action} parameter to add / edit /
+ * delete). Enforces {@code _admin.billing} w. Requires POST only when the
+ * mutation-intent {@code action} parameter is present; allows GET / POST
+ * for plain form display.
  *
  * @since 2026-04-13
+ *        2026-04-24 (relax strict POST-only - GET form display was 405'd
+ *                    via the admin menu's popupPage call)
  */
 public final class AddEditServiceCode2Action extends ActionSupport {
 
@@ -43,7 +48,11 @@ public final class AddEditServiceCode2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // Self-posting form: require POST only when the mutation-intent
+        // 'action' param is present (form submit). Plain GETs render the form.
+        String mutationAction = request.getParameter("action");
+        if (mutationAction != null && !mutationAction.isEmpty()
+                && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
