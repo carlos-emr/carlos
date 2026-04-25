@@ -53,6 +53,7 @@ public class RxUtil {
     private static String defaultQuantity = "30";
     private static final Logger logger = MiscUtils.getLogger();
     private static String[] zeroToTen = {"(?i)zero", "(?i)one", "(?i)two", "(?i)three", "(?i)four", "(?i)five", "(?i)six", "(?i)seven", "(?i)eight", "(?i)nine", "(?i)ten"};
+    private static final Pattern DIGITS_PATTERN = Pattern.compile("\\d+");
 
     public static void setDefaultQuantity(String quantity) {
         defaultQuantity = quantity;
@@ -265,8 +266,7 @@ public class RxUtil {
 
     public static String getUnitNameFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
+            Matcher m1 = DIGITS_PATTERN.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
                 //get the quantity unit
@@ -281,8 +281,7 @@ public class RxUtil {
 
     public static String getQuantityFromQuantityText(String qStr) {
         if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
+            Matcher m1 = DIGITS_PATTERN.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
                 return qNum;
@@ -366,8 +365,7 @@ public class RxUtil {
         if (rx.getUnitName() == null) {
             qStr = qStr.trim();
             double qtyD;
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
+            Matcher m1 = DIGITS_PATTERN.matcher(qStr);
             if (m1.find()) {
                 String qNum = qStr.substring(m1.start(), m1.end());
                 qtyD = Double.parseDouble(qNum);
@@ -1162,8 +1160,7 @@ public class RxUtil {
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
         String qStr = d.getQuantity();
-        Pattern p1 = Pattern.compile("\\d+");
-        Matcher m1 = p1.matcher(qStr);
+        Matcher m1 = DIGITS_PATTERN.matcher(qStr);
         if (m1.find()) {
             String qNum = qStr.substring(m1.start(), m1.end());
             rx.setQuantity(qNum);
