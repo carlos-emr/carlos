@@ -22,38 +22,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
-<%@page import="java.util.Date" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingServiceDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
-<%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%
-    if (session.getAttribute("user") == null) {
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    }
-
-    String user_no = (String) session.getAttribute("user");
-    String providerview = request.getParameter("providerview") == null
-            ? ""
-            : request.getParameter("providerview");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "";
-%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -64,348 +32,106 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*,java.net.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-
-<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
-<jsp:useBean id="providerBean" class="java.util.Properties"
-             scope="session"/>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+<%-- Imports the downstream JSP body still uses (Layer1 ctlBillForm picker,
+     Layer2 dx-code picker, provider/clinic dropdowns, payee provider
+     lookup). The top-scriptlet DAO usage moved to
+     BillingShortcutPg1DataAssembler; these stay because their data
+     still flows through scriptlet loops further down the page. --%>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.ClinicNbr" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel" %>
 <%
-    ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-%>
-<%
-    boolean bHospitalBilling = true;
-    String clinicview = bHospitalBilling ? oscarVariables.getProperty("clinic_hospital", "") : oscarVariables.getProperty("clinic_view", "");
-    String clinicNo = oscarVariables.getProperty("clinic_no", "");
-    String visitType = bHospitalBilling ? "02" : oscarVariables.getProperty("visit_type", "");
-    String appt_no = request.getParameter("appointment_no");
-    String demoname = request.getParameter("demographic_name");
-    String demo_no = request.getParameter("demographic_no");
-    String apptProvider_no = request.getParameter("apptProvider_no");
-    String ctlBillForm = request.getParameter("billForm");
-    String assgProvider_no = request.getParameter("assgProvider_no");
-    if (assgProvider_no == null) assgProvider_no = new String();
+    // View-model bridge: BillingShortcutPg1View2Action runs the 14 DAO
+    // lookups and demographic-driven validation in Java and exposes the
+    // result as request attribute `shortcutPg1Model`. The JSP keeps the
+    // legacy scriptlet-variable names below so the existing render-expression
+    // sites keep compiling; a follow-up commit will replace those with EL on
+    // the same model.
+    BillingShortcutPg1ViewModel shortcutPg1Model =
+            (BillingShortcutPg1ViewModel) request.getAttribute("shortcutPg1Model");
+    if (shortcutPg1Model == null) {
+        throw new IllegalStateException(
+                "billingShortcutPg1.jsp expects BillingShortcutPg1View2Action to populate 'shortcutPg1Model'");
+    }
 
-    String demoSex = request.getParameter("DemoSex");
-    GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
+    String user_no = shortcutPg1Model.getUserProviderNo();
+    String providerview = shortcutPg1Model.getProviderView();
+    String asstProvider_no = "";
+    String color = "";
+    String premiumFlag = "";
+    String service_form = "";
+
+    String clinicview = shortcutPg1Model.getClinicView();
+    String clinicNo = shortcutPg1Model.getClinicNo();
+    String visitType = shortcutPg1Model.getVisitType();
+    String appt_no = shortcutPg1Model.getApptNo();
+    String demoname = shortcutPg1Model.getDemoName();
+    String demo_no = shortcutPg1Model.getDemoNo();
+    String apptProvider_no = shortcutPg1Model.getApptProviderNo();
+    String ctlBillForm = shortcutPg1Model.getCtlBillForm();
+    String assgProvider_no = shortcutPg1Model.getAssignedProviderNo();
+
+    String demoSex = shortcutPg1Model.getDemoSex();
+    GregorianCalendar nowCal = new GregorianCalendar();
+    int curYear = nowCal.get(Calendar.YEAR);
+    int curMonth = (nowCal.get(Calendar.MONTH) + 1);
+    int curDay = nowCal.get(Calendar.DAY_OF_MONTH);
     int dob_year = 0, dob_month = 0, dob_date = 0, age = 0;
 
     ResourceBundle res = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-    String msg = res.getString("billing.hospitalBilling.msgDates");
+    // The localized prefix lives in resources; the assembler accumulates the
+    // demographic-driven error/warning portion.
+    String msg = res.getString("billing.hospitalBilling.msgDates") + shortcutPg1Model.getMsg();
     String action = "edit";
     Properties propHist = null;
-    Vector vecHist = new Vector();
+    Vector vecHist = shortcutPg1Model.getBillingHistoryVec();
 
-    // get providers's detail
     String proOHIPNO = "", proRMA = "";
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    Provider prov = null;
-    if (request.getParameter("xml_provider") != null) {
-        prov = providerDao.getProvider(request.getParameter("xml_provider"));
-    }
-    if (prov != null) {
-        proOHIPNO = prov.getOhipNo();
-        proRMA = prov.getRmaNo();
-    }
-    if (request.getParameter("xml_provider") != null) providerview = request.getParameter("xml_provider");
-    // get patient's detail
-    String errorFlag = "";
-    String warningMsg = "", errorMsg = "";
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
+    String errorFlag = shortcutPg1Model.getErrorFlag();
+    String warningMsg = shortcutPg1Model.getWarningMessage();
+    String errorMsg = shortcutPg1Model.getErrorMessage();
+    String r_doctor = shortcutPg1Model.getReferralDoctorName();
+    String r_doctor_ohip = shortcutPg1Model.getReferralDoctorOhip();
+    String demoFirst = shortcutPg1Model.getDemoFirst();
+    String demoLast = shortcutPg1Model.getDemoLast();
+    String demoHIN = shortcutPg1Model.getDemoHin();
+    String demoDOB = shortcutPg1Model.getDemoDob();
+    String demoDOBYY = shortcutPg1Model.getDemoDobYy();
+    String demoDOBMM = shortcutPg1Model.getDemoDobMm();
+    String demoDOBDD = shortcutPg1Model.getDemoDobDd();
+    String demoHCTYPE = shortcutPg1Model.getDemoHcType();
 
-    DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demoDao.getDemographic(demo_no);
-    if (demo != null) {
-        assgProvider_no = demo.getProviderNo();
-        if (assgProvider_no == null) assgProvider_no = new String();
+    Vector vecHistD = shortcutPg1Model.getBillingHistoryDetailsVec();
+    Vector vecProvider = shortcutPg1Model.getProvidersVec();
+    Vector vecLocation = shortcutPg1Model.getClinicLocationsVec();
 
-        demoFirst = demo.getFirstName();
-        demoLast = demo.getLastName();
-        demoSex = demo.getSex();
-        if (demo.getHin() != null && demo.getVer() != null) demoHIN = demo.getHin() + demo.getVer();
-        if (demoSex.compareTo("M") == 0) demoSex = "1";
-        if (demoSex.compareTo("F") == 0) demoSex = "2";
+    String dxCode = shortcutPg1Model.getDxCode();
+    String visitdate = shortcutPg1Model.getVisitDate();
 
-        demoHCTYPE = demo.getHcType() == null ? "" : demo.getHcType();
-        if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-            demoHCTYPE = "ON";
-        } else {
-            demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-        }
-        demoDOBYY = demo.getYearOfBirth();
-        demoDOBMM = demo.getMonthOfBirth();
-        demoDOBDD = demo.getDateOfBirth();
-
-        if (demo.getFamilyDoctor() == null) {
-            r_doctor = "N/A";
-            r_doctor_ohip = "000000";
-        } else {
-            r_doctor = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip") == null ? "" : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
-        }
-
-        demoDOBMM = demoDOBMM.length() == 1 ? ("0" + demoDOBMM) : demoDOBMM;
-        demoDOBDD = demoDOBDD.length() == 1 ? ("0" + demoDOBDD) : demoDOBDD;
-        demoDOB = demoDOBYY + demoDOBMM + demoDOBDD;
-
-        if (demo.getHin() == null || demo.getHin().equals("")) {
-            warningMsg += "<br><b><font color='orange'>Warning: The patient does not have a valid HIN. </font></b><br>";
-        }
-        if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><font color='orange'>Warning: the referral doctor's no is wrong. </font><br>";
-        }
-        if (demoDOB.length() != 8) {
-            errorFlag = "1";
-            errorMsg = errorMsg + "<br><b><font color='red'>Error: The patient does not have a valid DOB. </font></b><br>";
-        }
-    }
-
-    // get patient's billing history
-    boolean bFirst = true;
-    Vector vecHistD = new Vector();
-    List aL = null;
-
-    CarlosProperties props = CarlosProperties.getInstance();
-    if (!props.getProperty("isNewONbilling", "").equals("true")) {
-
-        BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-        for (Billing b : billingDao.findActiveBillingsByDemoNo(ConversionUtils.fromIntString(demo_no), 5)) {
-            propHist = new Properties();
-
-            propHist.setProperty("billing_no", "" + b.getId());
-            propHist.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate())); // admission date
-            propHist.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate())); // service date
-            propHist.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate())); // create date
-            propHist.setProperty("visitType", b.getVisitType());
-            propHist.setProperty("clinic_ref_code", b.getClinicRefCode());
-            vecHist.add(propHist);
-
-            // get the latest ref. doctor number
-            if (bFirst && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
-                bFirst = false;
-                r_doctor_ohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
-            }
-        }
-
-        BillingDetailDao billingDetailDao = SpringUtils.getBean(BillingDetailDao.class);
-        for (int i = 0; i < vecHist.size(); i++) {
-            String billingNo = ((Properties) vecHist.get(i)).getProperty("billing_no", "");
-
-            String dx = "";
-            String serCode = "";
-
-            for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
-                if (dx.equals("") || !dx.equals(bd.getDiagnosticCode())) {
-                    dx += (dx.equals("")
-                            ? ""
-                            : ", ") + bd.getDiagnosticCode();
-                }
-
-                if (serCode.equals("") || !serCode.equals(bd.getServiceCode())) {
-                    serCode += (serCode.equals("")
-                            ? ""
-                            : ", ") + bd.getServiceCode() + " x " + bd.getBillingUnit();
-                }
-            }
-
-            propHist = new Properties();
-
-            propHist.setProperty("service_code", serCode);
-            propHist.setProperty("diagnostic_code", dx);
-            vecHistD.add(propHist);
-        }
-    } else {
-        JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
-        aL = hdbObj.getBillingHist(demo_no, 5, 0, null);
-        if (aL.size() > 0) {
-            BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(0);
-            BillingItemData iobj = (BillingItemData) aL.get(1);
-
-            propHist = new Properties();
-
-            propHist.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date()); // admission date
-            propHist.setProperty("visitType", obj.getVisittype());
-            propHist.setProperty("clinic_ref_code", obj.getFacilty_num());
-            vecHist.add(propHist);
-            propHist.setProperty("diagnostic_code", iobj.getDx());
-            vecHistD.add(propHist);
-        }
-
-    }
-
-    // display the fixed billing part
-    // Retrieving Provider
-    Vector vecProvider = new Vector();
-    Properties propT = null;
-
-    ProviderDao prDao = SpringUtils.getBean(ProviderDao.class);
-    for (Provider pr : prDao.getDoctorsWithOhip()) {
-        propT = new Properties();
-        propT.setProperty("last_name", pr.getLastName());
-        propT.setProperty("first_name", pr.getFirstName());
-        propT.setProperty("proOHIP", pr.getProviderNo());
-        vecProvider.add(propT);
-    }
-    // clinic location
-    Vector vecLocation = new Vector();
-
-    ClinicLocationDao clDao = SpringUtils.getBean(ClinicLocationDao.class);
-    for (ClinicLocation cl : clDao.findAll()) {
-        propT = new Properties();
-        propT.setProperty("clinic_location_name", cl.getClinicLocationName());
-        propT.setProperty("clinic_location_no", cl.getClinicLocationNo());
-        vecLocation.add(propT);
-    }
-
-    // set default value
-    // use parameter -> history record
-    if (StringUtils.trimToNull(r_doctor_ohip) != null) {
-        ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(r_doctor_ohip);
-        if (specialist != null) {
-            r_doctor = specialist.getLastName() + "," + specialist.getFirstName();
-        }
-    }
-
-    String paraName = request.getParameter("dxCode");
-    String dxCode = getDefaultValue(paraName, vecHistD, "diagnostic_code");
-
-    //visitType
-    paraName = request.getParameter("xml_visittype");
-    String xml_visittype = getDefaultValue(paraName, vecHist, "visitType");
-    if (!"".equals(xml_visittype)) {
-        visitType = xml_visittype;
-    } else {
-        visitType = visitType == null ? "" : visitType;
-    }
-
-    paraName = request.getParameter("xml_location");
-    String xml_location = getDefaultValue(paraName, vecHist, "clinic_ref_code");
-    if (!"".equals(xml_location)) {
-        clinicview = xml_location;
-    } else {
-        clinicview = clinicview == null ? "" : clinicview;
-    }
-
-    String visitdate = null;
-    paraName = request.getParameter("xml_vdate");
-    String xml_vdate = getDefaultValue(paraName, vecHist, "visitdate");
-    if (!"".equals(xml_vdate)) {
-        visitdate = xml_vdate;
-    } else {
-        visitdate = visitdate == null ? "" : visitdate;
-    }
-
-
-    // get billing dx/form info
-    Vector vecCodeCol1 = new Vector();
-    Vector vecCodeCol2 = new Vector();
-    Vector vecCodeCol3 = new Vector();
-    Properties propPremium = new Properties();
+    Vector vecCodeCol1 = shortcutPg1Model.getServiceCodeCol1Vec();
+    Vector vecCodeCol2 = shortcutPg1Model.getServiceCodeCol2Vec();
+    Vector vecCodeCol3 = shortcutPg1Model.getServiceCodeCol3Vec();
+    Properties propPremium = shortcutPg1Model.getPropPremiumProps();
     String serviceCode = "", serviceDesc = "", serviceValue = "", servicePercentage = "", serviceType = "", serviceDisp = "", serviceSLI = "";
-    String headerTitle1 = "", headerTitle2 = "", headerTitle3 = "";
+    String headerTitle1 = shortcutPg1Model.getHeaderTitle1();
+    String headerTitle2 = shortcutPg1Model.getHeaderTitle2();
+    String headerTitle3 = shortcutPg1Model.getHeaderTitle3();
 
-    //int CountService = 0;
-    //int Count2 = 0;
-    BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
-    // "select c.service_group_name, c.service_order,b.service_code, b.description, b.value, b.percentage, b.sliFlag"
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group1", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol1.add(propT);
-    }
-
-    if (!vecCodeCol1.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol1.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol1.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group2", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol2.add(propT);
-    }
-
-    if (!vecCodeCol2.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol2.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol2.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-
-    for (Object[] o : bsDao.findBillingServiceAndCtlBillingServiceByMagic(ctlBillForm, "Group3", new Date())) {
-        BillingService b = (BillingService) o[0];
-        CtlBillingService c = (CtlBillingService) o[1];
-
-        propT = new Properties();
-        headerTitle1 = c.getServiceGroupName();
-        propT.setProperty("serviceCode", b.getServiceCode());
-        propT.setProperty("serviceDesc", b.getDescription());
-        propT.setProperty("serviceDisp", b.getValue());
-        propT.setProperty("servicePercentage", Misc.getStr(b.getPercentage(), ""));
-        propT.setProperty("serviceSLI", Misc.getStr("" + b.getSliFlag(), "false"));
-        vecCodeCol3.add(propT);
-    }
-
-    if (!vecCodeCol3.isEmpty()) {
-        List<String> svcCodes = new ArrayList<String>();
-        for (int i = 0; i < vecCodeCol3.size(); i++) {
-            svcCodes.add(((Properties) vecCodeCol3.get(i)).getProperty("serviceCode"));
-        }
-
-        CtlBillingServicePremiumDao cprDao = SpringUtils.getBean(CtlBillingServicePremiumDao.class);
-        for (CtlBillingServicePremium pr : cprDao.findByServceCodes(svcCodes)) {
-            propPremium.setProperty(pr.getServiceCode(), "A");
-        }
-    }
-    // create msg
-    msg += errorMsg + warningMsg;
-
+    // Reused as a scratch variable by downstream scriptlet loops.
+    Properties propT = null;
+    // Used by downstream provider lookups (clinic-number / SLI-code dropdowns)
+    // for the configured xml_provider — distinct from the user/appt providers
+    // captured in the model.
+    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -1301,7 +1027,9 @@
 
 
 <br/>
-<% if (!props.getProperty("isNewONbilling", "").equals("true")) {
+<%-- Both branches now iterate the unified vecHist + vecHistD that the
+     assembler builds for legacy and new-ON-billing modes alike. --%>
+<% if (!CarlosProperties.getInstance().getProperty("isNewONbilling", "").equals("true")) {
 %>
 <table border="0" cellpadding="0" cellspacing="2" width="100%"
        bgcolor="#CCCCFF">
@@ -1369,29 +1097,26 @@
                     <th><fmt:message key="billing.hospitalBilling.frmCreateDate"/></th>
                 </tr>
                 <%
-                    // new billing records
-                    for (int i = 0; i < aL.size(); i = i + 2) {
-                        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                        BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-
+                    for (int i = 0; i < vecHist.size(); i++) {
+                        Properties prop = (Properties) vecHist.get(i);
+                        Properties propD = (Properties) vecHistD.get(i);
                 %>
-                <tr <%=i % 4 == 0 ? "class=\"myGreen\"" : ""%> align="center">
-                    <td><%=obj.getId()%>
+                <tr <%=i % 2 == 0 ? "class=\"myGreen\"" : ""%> align="center">
+                    <td><%= prop.getProperty("billing_no", "&nbsp;") %>
                     </td>
-                    <td><%=obj.getBilling_date()%>
+                    <td><%= prop.getProperty("billing_date", "&nbsp;") %>
                     </td>
-                    <td><%=iobj.getService_date()%>
+                    <td><%= prop.getProperty("visitdate", "&nbsp;") %>
                     </td>
-                    <td><%=iobj.getService_code()%>
+                    <td><%= propD.getProperty("service_code", "&nbsp;") %>
                     </td>
-                    <td><%=iobj.getDx()%>
+                    <td><%= propD.getProperty("diagnostic_code", "&nbsp;") %>
                     </td>
-                    <td><%=obj.getUpdate_datetime().substring(0, 10)%>
+                    <td><%= prop.getProperty("update_date", "&nbsp;") %>
                     </td>
                 </tr>
                 <%
                     }
-
                 %>
             </table>
         </td>

@@ -69,15 +69,8 @@ public final class BillingShortcutPg1View2Action extends ActionSupport {
         String userProviderNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
                 ? loggedInInfo.getLoggedInProviderNo()
                 : "";
-        String providerView = request.getParameter("providerview");
-        if (providerView == null) {
-            providerView = userProviderNo;
-        }
 
-        this.shortcutPg1Model = BillingShortcutPg1ViewModel.builder()
-                .userProviderNo(userProviderNo)
-                .providerView(providerView)
-                .build();
+        this.shortcutPg1Model = new BillingShortcutPg1DataAssembler().assemble(request, userProviderNo);
         request.setAttribute("shortcutPg1Model", this.shortcutPg1Model);
         return SUCCESS;
     }
