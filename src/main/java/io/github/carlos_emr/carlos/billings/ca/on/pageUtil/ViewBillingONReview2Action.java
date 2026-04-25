@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,21 +24,26 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/billingONReview.jsp}. The JSP's scriptlet
- * performs dxresearchDao.save(). Enforces {@code _billing} w privilege AND POST-only
- * before forwarding to the JSP. GET requests return 405.
- * <p>
- * Class name retains the {@code View...} prefix for consistency with sibling
- * gate actions in this migration; behavior is mutation-gate.
- * Pattern matches the POST-only intent already documented by
- * {@code HttpMethodGuardFilter} for similar reconciliation JSPs
- * (ongenreport, gensimulation).
+ * Mutation gate for {@code billing/CA/ON/billingONReview.jsp}. The JSP
+ * historically performed a {@code dxresearchDao.save(dx)} side-effect inside
+ * its top scriptlet when {@code addToPatientDx=yes} was posted; that write is
+ * now done by {@link BillingONReviewDataAssembler} (driven from this action),
+ * so the JSP remains a presentation layer over the resulting view model.
+ *
+ * <p>Enforces {@code _billing} w privilege AND POST-only before forwarding to
+ * the JSP. GET requests return 405. The class name retains the {@code View...}
+ * prefix for consistency with sibling gate actions in this migration, even
+ * though the behavior is mutation-gate.</p>
  *
  * @since 2026-04-13
+ *        2026-04-24 (view-model assembly + dx side-effect migration)
  */
 public final class ViewBillingONReview2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+
+    private BillingONReviewViewModel reviewModel;
 
     @Override
     public String execute() throws Exception {
@@ -54,6 +60,16 @@ public final class ViewBillingONReview2Action extends ActionSupport {
             return NONE;
         }
 
+        String userNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
+                ? loggedInInfo.getLoggedInProviderNo()
+                : "";
+        this.reviewModel = new BillingONReviewDataAssembler().assemble(request, userNo);
+        request.setAttribute("reviewModel", this.reviewModel);
+
         return SUCCESS;
+    }
+
+    public BillingONReviewViewModel getReviewModel() {
+        return reviewModel;
     }
 }
