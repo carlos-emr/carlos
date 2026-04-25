@@ -39,8 +39,8 @@ public final class ViewBillingOHIPsimulation2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)) {
-            throw new SecurityException("missing required sec object (_team_billing_only)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         return SUCCESS;
