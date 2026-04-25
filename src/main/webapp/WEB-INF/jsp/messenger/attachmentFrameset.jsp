@@ -50,14 +50,14 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta" prefix="e" %>
+<%@ taglib uri="/WEB-INF/carlos.tld" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<html lang="${e:forHtmlAttribute(pageContext.request.locale.language)}">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <%
@@ -72,7 +72,7 @@ String demographic_no = request.getParameter("demographic_no");
     <frameset rows="300,0">
         <%-- Main frame: Shows the PDF preview via the gated Struts action. --%>
         <frame name="main"
-               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= Encode.forUriComponent(demographic_no) %>"
+               src="<%= request.getContextPath() %>/messenger/PreviewPDF?demographic_no=<%= SafeEncode.forUriComponent(demographic_no) %>"
                noresize scrolling=auto marginheight=5 marginwidth=5>
         <%-- Hidden source frame: Used for background processing --%>
         <frame name="srcFrame" src="">
