@@ -184,9 +184,13 @@
                     "billingONReview.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
             throw new SecurityException("billingONReview.jsp fallback: privilege check unavailable", __springEx);
         }
-        // Review enforces _billing w in the gate (it's part of the save chain);
-        // empty-fallback render path doesn't write, so r is sufficient.
-        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
+        // Match the action's _billing w privilege exactly. Even though the
+        // empty-fallback render path itself doesn't write, the page is the
+        // save-chain UI — anyone who reaches it via shim must have the same
+        // write privilege the action enforces. Using `r` here would let a
+        // read-only user reach this JSP via an unguarded forward, breaking
+        // the privilege contract.
+        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
             throw new SecurityException("billingONReview.jsp fallback: missing required sec object (_billing)");
         }
         reviewModel = BillingONReviewViewModel.builder().build();

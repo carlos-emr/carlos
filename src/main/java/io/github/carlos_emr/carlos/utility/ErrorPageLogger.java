@@ -64,10 +64,14 @@ public final class ErrorPageLogger {
             if (t == null) {
                 return;
             }
-            // Strip the query string off the captured request_uri before
-            // logging — billing flows pass `demographic_no`, `claim_no`, and
-            // `billing_no` in the query, all of which correlate to PHI per
-            // CLAUDE.md. Path-only is enough to diagnose the failure site.
+            // Strip the query string AND any path parameters (`;jsessionid=...`,
+            // etc.) off the captured request_uri before logging:
+            //  - billing flows pass `demographic_no`, `claim_no`, and
+            //    `billing_no` in the query, all PHI-correlated per CLAUDE.md
+            //  - Tomcat can include `;jsessionid=...` as a path parameter on
+            //    cookieless requests, which is sensitive and would let an
+            //    operator with log access hijack the session.
+            // Path-only is enough to diagnose the failure site.
             Object rawUri = request != null
                     ? request.getAttribute("jakarta.servlet.error.request_uri")
                     : null;
@@ -75,7 +79,14 @@ public final class ErrorPageLogger {
             if (rawUri instanceof String) {
                 String s = (String) rawUri;
                 int q = s.indexOf('?');
-                uri = q >= 0 ? s.substring(0, q) : s;
+                if (q >= 0) {
+                    s = s.substring(0, q);
+                }
+                int sc = s.indexOf(';');
+                if (sc >= 0) {
+                    s = s.substring(0, sc);
+                }
+                uri = s;
             }
             Object status = request != null
                     ? request.getAttribute("jakarta.servlet.error.status_code")

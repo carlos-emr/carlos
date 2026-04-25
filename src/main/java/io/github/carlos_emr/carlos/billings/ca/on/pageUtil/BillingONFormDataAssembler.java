@@ -273,9 +273,22 @@ public final class BillingONFormDataAssembler {
         b.ctlBillForm(nullToEmpty(request.getParameter("billForm")));
         b.curBillForm(nullToEmpty(request.getParameter("curBillForm")));
 
-        String providerNo = (apptProviderNo != null && apptProviderNo.equalsIgnoreCase("none"))
-                ? userNo
-                : apptProviderNo;
+        // Manual billing loads (no appointment context) leave apptProvider_no
+        // blank but carry the actual selection in xml_provider | providerview.
+        // Without this fallback, providerPreference and defaultBillFormName
+        // lookups below run against "" and the form opens against the wrong
+        // provider's defaults.
+        String providerNo;
+        if (apptProviderNo.equalsIgnoreCase("none")) {
+            providerNo = userNo;
+        } else if (!apptProviderNo.isEmpty()) {
+            providerNo = apptProviderNo;
+        } else {
+            String fromPicker = BillingONRequestParams.extractProviderNo(
+                    request.getParameter("xml_provider"),
+                    request.getParameter("providerview"));
+            providerNo = !fromPicker.isEmpty() ? fromPicker : userNo;
+        }
         b.providerNo(providerNo);
 
         Demographic demo = demographicManager.getDemographic(loggedInInfo, demoNo);

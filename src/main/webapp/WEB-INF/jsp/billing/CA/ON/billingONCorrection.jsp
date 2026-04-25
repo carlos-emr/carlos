@@ -708,8 +708,8 @@
                                 ${carlos:forHtmlContent(correctionModel.demoName)}
                             </a> <input type="hidden" name="demo_name"
                                         value="${carlos:forHtmlAttribute(correctionModel.demoName)}"></td>
-                            <td style="width:46%"><fmt:message key="billing.billingCorrection.formHealth"/>: <%=hin%> <input
-                                    type="hidden" name="xml_hin" value="<%=hin%>">
+                            <td style="width:46%"><fmt:message key="billing.billingCorrection.formHealth"/>: ${carlos:forHtmlContent(correctionModel.hin)} <input
+                                    type="hidden" name="xml_hin" value="${carlos:forHtmlAttribute(correctionModel.hin)}">
                                 RS: ${carlos:forHtmlContent(correctionModel.demoRosterStatus)}
                             </td>
                         </tr>

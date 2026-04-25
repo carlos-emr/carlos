@@ -49,8 +49,16 @@ ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
 # breaks the markup. PR #1967 fixed several such sites by hand in
 # `billingONCorrection.jsp`; this regex catches the pattern so it can't
 # recur on a future JSP migration.
+#
+# The earlier shape only matched when the EL expression was the FIRST thing
+# inside the attribute value (e.g. `value="${carlos:forHtmlContent(x)}"`).
+# Real-world misuse like `value="prefix-${carlos:forHtmlContent(x)}"` or
+# `class="foo ${carlos:forHtmlContent(x)}"` would silently pass — the very
+# recurrence vector the rule exists to prevent. The current shape matches
+# `carlos:forHtmlContent(` anywhere inside an attribute value, by treating
+# anything between the opening quote and the EL marker as opaque content.
 HTML_ATTR_CONTENT_MISUSE_RE = re.compile(
-    r"""=\s*['"]\s*\$\{\s*carlos:forHtmlContent\s*\(""",
+    r"""=\s*['"][^'"]*\$\{\s*carlos:forHtmlContent\s*\(""",
 )
 TAGLIB_DECL_RE = re.compile(
     r"""<%@\s*taglib\s+[^%>]*uri\s*=\s*["']owasp\.encoder\.jakarta""",

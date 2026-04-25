@@ -171,6 +171,11 @@ public final class BillingShortcutPg1DataAssembler {
                 boolean firstReferral = true;
                 Integer demoIdInt = ConversionUtils.fromIntString(demoNo);
                 for (Billing b : billingDao.findActiveBillingsByDemoNo(demoIdInt, 5)) {
+                    // Capture bill id outside the try so the catch handler
+                    // never re-dereferences `b` (which would NPE if the row
+                    // itself was null and abort recovery for the rest of the
+                    // loop).
+                    Object capturedBillId = b == null ? "<null>" : b.getId();
                     try {
                         Properties p = new Properties();
                         p.setProperty("billing_no", "" + b.getId());
@@ -191,7 +196,7 @@ public final class BillingShortcutPg1DataAssembler {
                     } catch (RuntimeException rowEx) {
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                                 "Shortcut history: skipping malformed billing row id={} for demo={}",
-                                b.getId(), demoNo, rowEx);
+                                capturedBillId, demoNo, rowEx);
                     }
                 }
 
@@ -234,6 +239,12 @@ public final class BillingShortcutPg1DataAssembler {
                     try {
                         BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
                         BillingItemData iobj = (BillingItemData) aL.get(i + 1);
+                        // Build BOTH Properties before adding either to the
+                        // parent lists. If detail construction throws, neither
+                        // list is mutated — keeps billingHistory and
+                        // billingHistoryDetails strictly in sync at index
+                        // boundaries so the JSP iteration can pair them
+                        // positionally.
                         Properties p = new Properties();
                         p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
                         p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
@@ -242,11 +253,12 @@ public final class BillingShortcutPg1DataAssembler {
                         p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
                         String updateDt = obj.getUpdate_datetime();
                         p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
-                        billingHistory.add(p);
 
                         Properties detail = new Properties();
                         detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
                         detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
+
+                        billingHistory.add(p);
                         billingHistoryDetails.add(detail);
                     } catch (ClassCastException ccEx) {
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(

@@ -172,6 +172,11 @@ class BillingONFormViewModelUnitTest {
         assertThat(model.getProviders()).hasSize(2);
         assertThat(model.getProviders().get(0).lastName()).isEqualTo("Alpha");
         assertThat(model.getProviders().get(0).proOhip()).isEqualTo("doc1|111111");
+        // Immutability is the test name's claim — assert it directly.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> model.getProviders().add(
+                        new BillingONFormViewModel.ProviderOption("Mut", "Mut", "x|y")))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -237,6 +242,23 @@ class BillingONFormViewModelUnitTest {
         assertThat(model.getDxCodesByServiceType()).containsKey("OFC");
         assertThat(model.getDxCodesByServiceType().get("OFC")).hasSize(1);
         assertThat(model.getBillingFavourites()).containsExactly("combo1", "Fav Combo");
+        // Immutability is the test name's claim — assert it directly,
+        // including the inner List<DxCodeEntry> inside the map (the model
+        // uses copyOfNestedListMap to deep-freeze the value collections).
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> model.getBillingForms().add(
+                        new BillingONFormViewModel.BillingFormMenuEntry("X", "X", "X")))
+                .isInstanceOf(UnsupportedOperationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> model.getDxCodesByServiceType().put("X", List.of()))
+                .isInstanceOf(UnsupportedOperationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> model.getDxCodesByServiceType().get("OFC").add(
+                        new BillingONFormViewModel.DxCodeEntry("X", "X", "X")))
+                .isInstanceOf(UnsupportedOperationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> model.getBillingFavourites().add("X"))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     /**

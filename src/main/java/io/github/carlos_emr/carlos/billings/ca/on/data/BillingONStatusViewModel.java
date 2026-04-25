@@ -156,8 +156,11 @@ public final class BillingONStatusViewModel {
         public Builder search(boolean v) { this.search = v; return this; }
         // Defensive copy at the setter so callers retaining the original
         // mutable List/array can't influence builder state. The String[]
-        // variant routes through Arrays.asList(...) (which produces a fixed-
-        // size view) and then List.copyOf to get a true unmodifiable copy.
+        // variant uses List.of(...) which is varargs over the array — it
+        // rejects null elements (NPE), but billType param values from
+        // request.getParameterValues never return nulls in practice. If a
+        // future caller needs null-tolerance, switch the array overload to
+        // Arrays.stream(v).filter(Objects::nonNull).toList().
         public Builder billTypes(List<String> v) { this.billTypes = v == null ? null : List.copyOf(v); return this; }
         public Builder billTypes(String[] v) { this.billTypes = v == null ? null : List.of(v); return this; }
         public Builder statusType(String v) { this.statusType = v; return this; }

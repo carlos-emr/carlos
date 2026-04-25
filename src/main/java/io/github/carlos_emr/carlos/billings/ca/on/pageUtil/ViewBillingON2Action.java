@@ -70,7 +70,7 @@ public final class ViewBillingON2Action extends ActionSupport {
             return NONE;
         }
 
-        this.model = buildModel(request);
+        this.model = buildModel(loggedInInfo, request);
         // Domain-prefixed key so EL references on the JSP can't collide with
         // Spring MVC's well-known "model" attribute. Symmetric with the other
         // ON billing pages: correctionModel, reviewModel, statusModel,
@@ -82,10 +82,12 @@ public final class ViewBillingON2Action extends ActionSupport {
     /**
      * Builds the view model via {@link BillingONFormDataAssembler}. The
      * assembler encapsulates the DAO lookups + scriptlet logic previously
-     * inlined at the top of {@code billingON.jsp}.
+     * inlined at the top of {@code billingON.jsp}. Takes the already-resolved
+     * {@link LoggedInInfo} from the caller — re-reading it from the session
+     * here would risk a session-state mismatch with the privilege check that
+     * just succeeded.
      */
-    private BillingONFormViewModel buildModel(HttpServletRequest request) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    private BillingONFormViewModel buildModel(LoggedInInfo loggedInInfo, HttpServletRequest request) {
         return assembler.assemble(loggedInInfo, request);
     }
 

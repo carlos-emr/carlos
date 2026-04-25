@@ -32,6 +32,12 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- OWASP encoder taglib declared per project JSP-security rule. Even though
+     this page renders dynamic content via the carlos:encode wrapper (which
+     null-coalesces before delegating to OWASP), declaring `e` keeps the
+     taglib surface uniform across new JSPs and enables direct e:forXxx use
+     for any future inline encoding. --%>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     // Pull the exception message defensively — different containers stash it

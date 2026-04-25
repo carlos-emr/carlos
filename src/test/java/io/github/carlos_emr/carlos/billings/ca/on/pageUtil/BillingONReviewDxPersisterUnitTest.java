@@ -133,7 +133,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldUseCodeMatchToPatientDx_whenSupplied_overDxCode() {
+    void shouldPreferCodeMatchToPatientDx_whenBothFieldsProvided() {
         request.setParameter("addToPatientDx", "yes");
         request.setParameter("dxCode", "401");
         request.setParameter("codeMatchToPatientDx", "401.1");

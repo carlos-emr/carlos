@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -42,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  */
 @DisplayName("ErrorPageLogger")
 @Tag("unit")
-class ErrorPageLoggerUnitTest {
+class ErrorPageLoggerUnitTest extends CarlosUnitTestBase {
 
     private static final String LOGGER_NAME =
             "io.github.carlos_emr.carlos.utility.ErrorPageLogger";

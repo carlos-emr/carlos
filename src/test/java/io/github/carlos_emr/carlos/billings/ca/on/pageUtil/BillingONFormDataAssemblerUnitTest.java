@@ -27,6 +27,8 @@ import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -96,6 +98,13 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingONFilenameDao billingONFilenameDao = Mockito.mock(BillingONFilenameDao.class);
         ProviderSiteDao providerSiteDao = Mockito.mock(ProviderSiteDao.class);
 
+        // Manual-billing fallback now resolves providerNo to userNo when
+        // apptProvider_no/xml_provider/providerview are all empty, which
+        // triggers ProviderPreferencesUIBean's static init (loads these DAOs
+        // via SpringUtils). Register stubs so the class loads.
+        EFormDao eFormDao = Mockito.mock(EFormDao.class);
+        EncounterFormDao encounterFormDao = Mockito.mock(EncounterFormDao.class);
+
         registerMock(DemographicManager.class, demographicManager);
         registerMock(ProfessionalSpecialistDao.class, professionalSpecialistDao);
         registerMock(DxresearchDAO.class, dxresearchDAO);
@@ -116,6 +125,8 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(BillingONFavouriteDao.class, billingONFavouriteDao);
         registerMock(BillingONFilenameDao.class, billingONFilenameDao);
         registerMock(ProviderSiteDao.class, providerSiteDao);
+        registerMock(EFormDao.class, eFormDao);
+        registerMock(EncounterFormDao.class, encounterFormDao);
 
         // Default empty returns so the assembler doesn't NPE on any path.
         when(demographicManager.getDemographic(any(), anyString())).thenReturn(null);
@@ -188,10 +199,48 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(model.getProviderView()).isEqualTo("111111");
     }
 
-    // Note: a "shouldFallBackProviderNo_toUserNo_whenApptProviderIsNone"
-    // case would also exercise ProviderPreferencesUIBean.getProviderPreferenceByProviderNo,
-    // which transitively loads EFormDao via static initializer. That static
-    // chain is the cleanest target for a follow-up integration test (Plan A9
-    // intended a CarlosTestBase + H2 path); the unit-mock surface here covers
-    // the no-demographic happy path and the null-providerNo path.
+    @Test
+    void shouldFallBackProviderNoToUserNo_whenApptProviderAndPickerAreBlank() {
+        // Manual-billing path: all provider hints absent, so providerNo falls
+        // back to the logged-in userNo. The earlier code returned "" here,
+        // which broke provider-preference + default-billing-form lookups for
+        // every manual bill creation.
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+
+        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+
+        assertThat(model.getProviderNo()).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldUseXmlProviderForProviderNo_whenApptProviderBlank() {
+        request.setParameter("xml_provider", "111111|something");
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+
+        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+
+        assertThat(model.getProviderNo()).isEqualTo("111111");
+    }
+
+    @Test
+    void shouldUseProviderViewForProviderNo_whenOnlyProviderViewSupplied() {
+        request.setParameter("providerview", "222222");
+        request.setParameter("demographic_no", "1");
+        request.setParameter("appointment_no", "0");
+        request.setParameter("service_date", "2026-04-24");
+        request.setParameter("billForm", "GP");
+
+        BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+        BillingONFormViewModel model = assembler.assemble(loggedInInfo, request);
+
+        assertThat(model.getProviderNo()).isEqualTo("222222");
+    }
 }

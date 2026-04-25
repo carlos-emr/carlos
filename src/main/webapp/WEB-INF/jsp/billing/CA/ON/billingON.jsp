@@ -114,6 +114,11 @@
             throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");
         }
         model = new BillingONFormDataAssembler().assemble(loggedInInfo, request);
+        // Stash the assembled model back on the request so the 36 ${formModel.X}
+        // EL sites further down resolve. Without this, EL renders blank fields
+        // on the unguarded fallback path even though the local Java variable
+        // is populated.
+        request.setAttribute("formModel", model);
     }
 
     CarlosProperties oscarVariables = CarlosProperties.getInstance();
@@ -1073,7 +1078,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
         </tr>
     </table>
     <c:forEach var="dxEntry" items="${formModel.dxCodesByServiceType}">
-    <div id="dxCodeSearchDiv_<carlos:encode value='${dxEntry.key}' context='htmlAttribute'/>" style="display: none;">
+    <%-- The assembler already runs sanitizeIdToken on service-type codes, so
+         dxEntry.key is alphanumeric+underscore. The fn:replace here is
+         defense-in-depth — if a future code path ever bypasses the sanitizer,
+         the rendered HTML id remains valid (no spaces, which would otherwise
+         split the id attribute and break the JS lookup-by-id). --%>
+    <div id="dxCodeSearchDiv_<carlos:encode value='${fn:replace(dxEntry.key, " ", "_")}' context='htmlAttribute'/>" style="display: none;">
         <c:forEach var="dx" items="${dxEntry.value}">
         <table style="width: 98%; margin:auto;" class="table-striped table-hover">
             <tr>
@@ -1569,7 +1579,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                        onclick="showHideLayers('Layer1','','show');return false;">
                                         <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
-                                                                 value="${carlos:forHtmlAttribute(fn:length(model.defaultBillFormName) lt 40 ? model.defaultBillFormName : fn:substring(model.defaultBillFormName, 0, 40))}"/>
+                                                                 value="${carlos:forHtmlAttribute(fn:length(formModel.defaultBillFormName) lt 40 ? formModel.defaultBillFormName : fn:substring(formModel.defaultBillFormName, 0, 40))}"/>
                                         <input type="hidden" name="billForm" id="billForm"
                                                value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
@@ -1804,7 +1814,11 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="assgProvider_no"
                value="<carlos:encode value='${formModel.assgProviderNo}' context="htmlAttribute"/>"/>
-        <input type="hidden" name="billForm" value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/>
+        <%-- billForm is already declared at the form-name input above (line ~1573,
+             id="billForm") — that field is the one toggleDiv() updates when the
+             user switches forms. Keeping a second name="billForm" here would
+             post two values for the same param, making the receiver dependent
+             on parameter ordering. curBillForm tracks the original form. --%>
         <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
