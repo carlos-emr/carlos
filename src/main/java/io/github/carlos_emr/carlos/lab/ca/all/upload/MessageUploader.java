@@ -39,6 +39,12 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -57,13 +63,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 
 public final class MessageUploader {
 
@@ -457,16 +457,16 @@ public final class MessageUploader {
 				if (hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
 				if (hin != null) {
 					hinMod = new String(hin);
-                    // Ontario may be bare or have the version code concacted 1234567890XX
+                    // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
 					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
 					// BC hin MSP is a 9 digit code
-					if (hinMod.length() == 12 && Character.isDigit(hinMod.charAt(1)) ) {
+					if (hinMod.length() == 12 && StringUtils.isNumeric(hinMod.substring(0, 10))) {
                         // strip the version code for Ontario
 						hinMod = hinMod.substring(0, 10);
 					}
 				}
 
-				if (dob != null && !dob.equals("") && !dob.equalsIgnoreCase("UNKNOWN")) {
+				if (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")) {
 					String[] dobArray = dob.trim().split("-");
 					dobYear = dobArray[0];
 					dobMonth = dobArray[1];
@@ -476,15 +476,16 @@ public final class MessageUploader {
 				List<String> sqlParams = new ArrayList<>();
                 
                 // if no hin but there is a dob try for a complete match against the full name DOB and gender
-				if( ( hinMod == null || hinMod.equals("") ) && (dob != null && !dob.equals("") && !dob.equalsIgnoreCase("UNKNOWN"))  ) {
-					logger.debug("Finding demo for given name : "+firstName+"% surname : "+lastName+"% with dob y/m/d : "+dobYear+"/"+dobMonth+"/"+dobDay+" sex of : "+sex);
-					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name like ? and first_name like ?";
+				if( ( hinMod == null || hinMod.equals("") ) && (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN"))  ) {
+					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
+					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
+					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
 					sqlParams.add(dobYear);
 					sqlParams.add(dobMonth);
 					sqlParams.add(dobDay);
 					sqlParams.add(sex + "%");
-                    sqlParams.add(lastName + "%");
-					sqlParams.add(firstName + "%");
+                    sqlParams.add(lastName");
+					sqlParams.add(firstName");
 				}
                 
 				// only the first letter of names used for LAB_NOMATCH_NAMES=no
@@ -494,7 +495,8 @@ public final class MessageUploader {
 
 				// HIN is ALWAYS required for lab matching. Please do not revert this code. Previous iterations have caused fatal patient miss-matches.
 				if (hinMod != null && !hinMod.trim().isEmpty()) {
-                    // relax need to match gender for non binary labeled demographics " ( sex like '"+sex+"%' OR sex NOT IN ('F','M') ";
+                    // Relax gender matching to include non-binary individuals.
+                    // This will match the provided sex or any sex not explicitly 'F' or 'M'.
 					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
 						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
 						sqlParams.add(hinMod);
