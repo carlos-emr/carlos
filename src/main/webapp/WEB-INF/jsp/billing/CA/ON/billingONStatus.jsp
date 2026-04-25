@@ -96,96 +96,40 @@
     response.setHeader("Cache-Control", "max-stale=0"); // HTTP 1.1
 
 
-    boolean bSearch = true;
-    String[] billType = request.getParameterValues("billType");
-    String[] strBillType = new String[]{""};
-    if (billType == null || billType.length == 0) { // no boxes checked
-        bSearch = false;
-        strBillType = new String[]{"HCP", "WCB", "RMB", "NOT", "PAT", "OCF", "ODS", "CPP", "STD", "IFH"};
-    } else {
-        // at least on box checked
-        strBillType = billType;
+    // View-model bridge: ViewBillingONStatus2Action builds the parameter
+    // resolution + defaulting in Java and exposes the result as request
+    // attribute "statusModel". The scriptlet variables below are kept so the
+    // existing render-expression sites keep compiling; a follow-up commit
+    // replaces them with EL against the same model and deletes this bridge.
+    BillingONStatusViewModel statusModel =
+            (BillingONStatusViewModel) request.getAttribute("statusModel");
+    if (statusModel == null) {
+        // Direct-JSP-forward fallback (defensive — should not happen on the
+        // gated billing/CA/ON/billingONStatus action path).
+        throw new IllegalStateException(
+                "billingONStatus.jsp expects ViewBillingONStatus2Action to populate 'statusModel'");
     }
 
-    String statusType = request.getParameter("statusType");
-    String providerNo = request.getParameter("providerview");
-    String startDate = request.getParameter("xml_vdate");
-    String endDate = request.getParameter("xml_appointment_date");
-    String demoNo = request.getParameter("demographicNo");
-    String serviceCode = request.getParameter("serviceCode");
-    String raCode = request.getParameter("raCode");
-    String claimNo = request.getParameter("claimNo");
-    String dx = request.getParameter("dx");
-    String visitType = request.getParameter("visitType");
-    String filename = request.getParameter("demographicNo");
-
-    String selectedSite = request.getParameter("site");
-    String billingForm = request.getParameter("billing_form");
-
-    String visitLocation = request.getParameter("xml_location");
-
-    String sortName = request.getParameter("sortName");
-    String sortOrder = request.getParameter("sortOrder");
-
-    String paymentStartDate = request.getParameter("paymentStartDate");
-    String paymentEndDate = request.getParameter("paymentEndDate");
-
-    if (statusType == null) {
-        statusType = "O";
-    }
-    if ("_".equals(statusType)) {
-        demoNo = "";
-    }
-    if (startDate == null) {
-        startDate = "";
-    }
-    if (startDate == "") {
-        startDate = DateUtils.sumDate("yyyy-MM-dd", "-180");
-    }
-    if (endDate == null) {
-        endDate = "";
-    }
-    if (endDate == "") {
-        endDate = DateUtils.sumDate("yyyy-MM-dd", "0");
-    }
-    if (demoNo == null) {
-        demoNo = "";
-        filename = "";
-    }
-    if (providerNo == null) {
-        providerNo = "";
-    }
-    if (raCode == null) {
-        raCode = "";
-    }
-    if (claimNo == null) {
-        claimNo = "";
-    }
-    if (dx == null) {
-        dx = "";
-    }
-    if (visitType == null) {
-        visitType = "-";
-    }
-    if (serviceCode == null || serviceCode.equals("")) serviceCode = "%";
-    if (billingForm == null) {
-        billingForm = "-";
-    }
-    if (visitLocation == null) {
-        visitLocation = "";
-    }
-    if (sortName == null) {
-        sortName = "ServiceDate";
-    }
-    if (sortOrder == null) {
-        sortOrder = "asc";
-    }
-    if (paymentStartDate == null) {
-        paymentStartDate = "";
-    }
-    if (paymentEndDate == null) {
-        paymentEndDate = "";
-    }
+    boolean bSearch = statusModel.isSearch();
+    String[] strBillType = statusModel.getBillTypes().toArray(new String[0]);
+    String statusType = statusModel.getStatusType();
+    String providerNo = statusModel.getProviderNo();
+    String startDate = statusModel.getStartDate();
+    String endDate = statusModel.getEndDate();
+    String demoNo = statusModel.getDemoNo();
+    String serviceCode = statusModel.getServiceCode();
+    String raCode = statusModel.getRaCode();
+    String claimNo = statusModel.getClaimNo();
+    String dx = statusModel.getDx();
+    String visitType = statusModel.getVisitType();
+    String filename = statusModel.getFilename();
+    String selectedSite = statusModel.getSelectedSite();
+    String billingForm = statusModel.getBillingForm();
+    String visitLocation = statusModel.getVisitLocation();
+    String sortName = statusModel.getSortName();
+    String sortOrder = statusModel.getSortOrder();
+    String paymentStartDate = statusModel.getPaymentStartDate();
+    String paymentEndDate = statusModel.getPaymentEndDate();
 
     List<String> pList = isTeamBillingOnly
             ? (new JdbcBillingPageUtil()).getCurTeamProviderStr((String) session.getAttribute("user"))
@@ -215,9 +159,7 @@
 
 %>
 <%
-    String ohipNo = "";
-    if (request.getParameter("provider_ohipNo") != null)
-        ohipNo = request.getParameter("provider_ohipNo");
+    String ohipNo = statusModel.getProviderOhipNo();
 %>
 
 <html>
