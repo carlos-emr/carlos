@@ -45,6 +45,7 @@ public final class BillingONReviewDataAssembler {
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
     private final BillingReviewPrep reviewPrep;
+    private final BillingONReviewValidator validator;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -55,15 +56,18 @@ public final class BillingONReviewDataAssembler {
     public BillingONReviewDataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),
-             new BillingReviewPrep());
+             new BillingReviewPrep(),
+             new BillingONReviewValidator());
     }
 
     BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
-                                 BillingReviewPrep reviewPrep) {
+                                 BillingReviewPrep reviewPrep,
+                                 BillingONReviewValidator validator) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
+        this.validator = validator;
     }
 
     /**
@@ -87,7 +91,38 @@ public final class BillingONReviewDataAssembler {
         loadProvider(request, b);
         loadDemographic(demoNo, request.getParameter("DemoSex"), b);
 
+        // Pre-render validation (replaces the legacy inline-DAO scriptlet
+        // block in billingONReview.jsp lines 700-786).
+        String billRefDate = firstNonEmpty(
+                request.getParameter("service_date"),
+                request.getParameter("appointment_date"),
+                request.getParameter("billReferalDate"));
+        BillingONReviewValidator.Result validation = validator.validate(request, demoNo, billRefDate);
+        b.validationMessages(validation.messages())
+                .codeValid(validation.codeValid());
+
+        // Provider name lookup map keyed by providerNo (replaces the
+        // ProviderDao.getProvider call mid-render in the JSP for payee
+        // name resolution).
+        java.util.Map<String, BillingONReviewViewModel.ProviderName> providerNames = new java.util.HashMap<>();
+        for (Provider p : providerDao.getProvidersWithNonEmptyCredentials()) {
+            providerNames.put(nullToEmpty(p.getProviderNo()),
+                    new BillingONReviewViewModel.ProviderName(
+                            nullToEmpty(p.getLastName()),
+                            nullToEmpty(p.getFirstName())));
+        }
+        b.providerNameLookup(providerNames);
+
         return b.build();
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isEmpty()) {
+                return v;
+            }
+        }
+        return "";
     }
 
     private void loadProvider(HttpServletRequest request, BillingONReviewViewModel.Builder b) {

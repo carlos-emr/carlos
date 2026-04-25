@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -60,7 +61,10 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         when(reviewPrep.getDxDescription(any())).thenReturn("Essential, benign hypertension");
-        assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep);
+        BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
+        when(stubValidator.validate(any(), any(), any())).thenReturn(
+                new BillingONReviewValidator.Result(java.util.Collections.emptyList(), true));
+        assembler = new BillingONReviewDataAssembler(demographicDao, providerDao, reviewPrep, stubValidator);
         request = new MockHttpServletRequest();
     }
 

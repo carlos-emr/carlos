@@ -52,14 +52,10 @@
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao, io.github.carlos_emr.carlos.commn.model.BillingONCHeader1" %>
-
-
-<%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-    BillingONCHeader1Dao billingONCHeader1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-%>
+<%-- Validation DAO scriptlet block removed: BillingONReviewValidator runs
+     pre-render via the assembler and surfaces results on the view model
+     (reviewModel.validationMessages + reviewModel.codeValid). The JSP
+     iterates the messages with c:forEach below. --%>
 <%
     //
     if (session.getAttribute("user") == null) {
@@ -230,11 +226,9 @@
     if (request.getParameter("xml_provider") != null) {
         providerview = reviewModel.getProviderView();
     }
-    // Still required by a downstream scriptlet that resolves the payee
-    // provider (which may differ from xml_provider) into payeename. The
-    // assembler can't pre-resolve that without knowing the payee, so the
-    // DAO handle stays in the JSP for now.
-    ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    // Provider lookup for payee resolution is now pre-built into a Map
+    // on the view model (reviewModel.providerNameLookup) so the JSP no
+    // longer needs to call SpringUtils.getBean / ProviderDao mid-render.
 
     // Bridge locals retained because downstream scriptlets still reference them.
     // Other demographic fields (firstName, lastName, address, referral doctor,
@@ -697,96 +691,34 @@
         <tr>
             <td style="text-align:center">
                 <table class="border1" style="width:100%">
-                        <%  boolean codeValid = true;
-
-    //validation that user hasn't already had billed to OHIP an annual physical this year
-    String serviceCodeValue = null;
-    int srvCodeIdx = 0;
-    while (codeValid && (srvCodeIdx < BillingDataHlp.FIELD_SERVICE_NUM)) {
-
-         serviceCodeValue = request.getParameter("serviceCode" + srvCodeIdx);
-         //Only worry about this check if we are billing OHIP for A003
-         if (serviceCodeValue.equals("A003A") && request.getParameter("xml_billtype").matches("ODP.*")) {
-            BillingONCHeader1 bCh1 = billingONCHeader1Dao.getLastOHIPBillingDateForServiceCode(Integer.parseInt(demo_no),"A003A");
-            if (bCh1 != null) {
-                Calendar serviceDateCal = Calendar.getInstance();
-                java.util.Date serviceDate = null;
-                try {
-                    serviceDate = DateUtils.parseDate(request.getParameter("service_date"),request.getLocale());
-                    serviceDateCal.setTime(serviceDate);
-                } catch (java.text.ParseException e) {}
-
-                Calendar nextBillDateCal = Calendar.getInstance();
-                nextBillDateCal.setTime(bCh1.getBillingDate());
-                //year plus a day
-                nextBillDateCal.add(Calendar.YEAR,1);
-                nextBillDateCal.add(Calendar.DATE,1);
-                if (nextBillDateCal.after(serviceDateCal)) {
-                      //codeValid = false; the bill will not be rejected if its only the second A003A and the diagnosis differs
-    %>
-                    <tr style="color:white">
-                        <td align=center>
-                            <div class='myError'>
-                                (<fmt:message key="oscar.billing.ca.on.billingON.review.invoiceNo"/><%=String.valueOf(bCh1.getId())%>
-                                ) A003A - <fmt:message key="oscar.billing.ca.on.billingON.review.msgServiceCodeAlreadyBilled"/>
-                            </div>
-                        </td>
-                    </tr>
-                        <%
-                }
-            }
-        }
-        srvCodeIdx++;
-    }
-
-    //validation of user entered service codes
-    serviceCodeValue = null;
-    for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) {
-	serviceCodeValue = request.getParameter("serviceCode" + i);
-
-	if (!serviceCodeValue.equals("")) {
-		BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-
-		List<Object> svcCodes = billingServiceDao.findBillingCodesByCodeAndTerminationDate(serviceCodeValue.trim().replaceAll("_","\\_"),
-				ConversionUtils.fromDateString(billReferalDate));
-
-	    if (svcCodes.isEmpty()) {
-			codeValid = false;
-		%>
-                    <tr class="alert alert-danger">
-                        <td align=center>
-                            &nbsp;<br>
-                            Service code "<carlos:encode value='<%= StringUtils.noNull(serviceCodeValue) %>' context="html"/>" is invalid. Please go back to correct it.
-                        </td>
-                    </tr>
-                        <%
-	    }
-	}
-    }
-
-    //validation of diagnostic code (dxcode)
-    String dxCodeValue = null;
-    for (int i = 0; i < 3; i++) {
-	if (i==0) dxCodeValue=dxCode;
-	else dxCodeValue=request.getParameter("dxCode" + i);
-	if (!dxCodeValue.equals("")) {
-		List<DiagnosticCode> dcodes = diagnosticCodeDao.findByDiagnosticCode(dxCodeValue.trim());
-		if(dcodes.size() == 0) {
-		codeValid = false;
-		%>
-                    <tr class="alert alert-danger">
-                        <td align=center>
-                            &nbsp;<br>
-                            Diagnostic code "<carlos:encode value='<%= dxCodeValue %>' context="html"/>" is invalid. Please go back to correct it.
-                        </td>
-                    </tr>
-                        <%
-	    }
-	}
-    }
-
-    if (codeValid) {
-%>
+                    <%-- Pre-render validation rows. The legacy 80-line scriptlet
+                         block (3 inline DAO calls, A003A guard + service-code
+                         validity + dx-code validity) has been moved to
+                         BillingONReviewValidator (run pre-render by
+                         BillingONReviewDataAssembler). The JSP just iterates
+                         the resulting messages. --%>
+                    <c:forEach var="vm" items="${reviewModel.validationMessages}">
+                        <c:choose>
+                            <c:when test="${vm.severity == 'WARNING'}">
+                                <tr style="color:white">
+                                    <td align="center">
+                                        <div class="myError">${carlos:forHtmlContent(vm.text)}</div>
+                                    </td>
+                                </tr>
+                            </c:when>
+                            <c:otherwise>
+                                <tr class="alert alert-danger">
+                                    <td align="center">
+                                        &nbsp;<br>
+                                        ${carlos:forHtmlContent(vm.text)}
+                                    </td>
+                                </tr>
+                            </c:otherwise>
+                        </c:choose>
+                    </c:forEach>
+                    <% boolean codeValid = reviewModel.isCodeValid();
+                       if (codeValid) {
+                    %>
                     <%--= msg --%>
                     <tr class="myYellow">
                         <td colspan='3'>Calculation</td>
@@ -1176,10 +1108,12 @@
                                         String lname = "";
                                         String fname = "";
                                         if (providerNo != null) {
-                                            Provider p = providerDao.getProvider(providerNo);
+                                            // Lookup is pre-built by the assembler — no DAO call mid-render.
+                                            io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel.ProviderName p =
+                                                    reviewModel.getProviderNameLookup().get(providerNo);
                                             if (p != null) {
-                                                lname = p.getLastName() != null ? p.getLastName() : "";
-                                                fname = p.getFirstName() != null ? p.getFirstName() : "";
+                                                lname = p.lastName();
+                                                fname = p.firstName();
                                             }
                                         }
                                         payeename = fname + " " + lname;

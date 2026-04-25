@@ -170,7 +170,7 @@ class BillingONReviewViewModelUnitTest {
                 .warningMessage("<i>warn</i>")
                 .build();
 
-        BillingValidationMessages msgs = m.getValidationMessages();
+        BillingValidationMessages msgs = m.getValidationMessagesAggregate();
         assertThat(msgs.errorFlag()).isEqualTo(m.getErrorFlag());
         assertThat(msgs.errorMessage()).isEqualTo(m.getErrorMessage());
         assertThat(msgs.warningMessage()).isEqualTo(m.getWarningMessage());

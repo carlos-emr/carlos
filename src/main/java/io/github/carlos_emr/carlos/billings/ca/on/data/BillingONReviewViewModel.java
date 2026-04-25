@@ -52,6 +52,21 @@ public final class BillingONReviewViewModel {
     private final String errorMessage;
     private final String warningMessage;
 
+    // Pre-render validation results (replaces the inline DAO scriptlet
+    // block in billingONReview.jsp lines 700-786). Pre-computed by
+    // BillingONReviewValidator at assemble time so the JSP just iterates.
+    private final java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
+    private final boolean codeValid;
+
+    // Provider name lookup map keyed by providerNo. Replaces the
+    // ProviderDao.getProvider(providerNo) call mid-render in the JSP
+    // (line 1179) for the payee-name resolution. Populated for every
+    // provider with non-empty credentials.
+    private final java.util.Map<String, ProviderName> providerNameLookup;
+
+    /** Provider name pair surfaced for the payee lookup. */
+    public record ProviderName(String lastName, String firstName) { }
+
     private BillingONReviewViewModel(Builder b) {
         this.demoFirst = nullToEmpty(b.demoFirst);
         this.demoLast = nullToEmpty(b.demoLast);
@@ -75,6 +90,13 @@ public final class BillingONReviewViewModel {
         this.errorFlag = nullToEmpty(b.errorFlag);
         this.errorMessage = nullToEmpty(b.errorMessage);
         this.warningMessage = nullToEmpty(b.warningMessage);
+        this.validationMessages = b.validationMessages == null
+                ? java.util.Collections.emptyList()
+                : java.util.List.copyOf(b.validationMessages);
+        this.codeValid = b.codeValid;
+        this.providerNameLookup = b.providerNameLookup == null
+                ? java.util.Collections.emptyMap()
+                : java.util.Map.copyOf(b.providerNameLookup);
     }
 
     public static Builder builder() {
@@ -118,9 +140,16 @@ public final class BillingONReviewViewModel {
     public String getErrorMessage() { return errorMessage; }
     public String getWarningMessage() { return warningMessage; }
     /** Aggregated view of the (errorFlag, errorMessage, warningMessage) triple. */
-    public BillingValidationMessages getValidationMessages() {
+    public BillingValidationMessages getValidationMessagesAggregate() {
         return new BillingValidationMessages(errorFlag, errorMessage, warningMessage);
     }
+    /** Pre-render validation result list (already-immutable). */
+    public java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> getValidationMessages() {
+        return validationMessages;
+    }
+    public boolean isCodeValid() { return codeValid; }
+    /** Provider-name lookup keyed by providerNo (already-immutable). */
+    public java.util.Map<String, ProviderName> getProviderNameLookup() { return providerNameLookup; }
 
     public static final class Builder {
         private String demoFirst = "";
@@ -145,6 +174,17 @@ public final class BillingONReviewViewModel {
         private String errorFlag = "";
         private String errorMessage = "";
         private String warningMessage = "";
+        private java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> validationMessages;
+        private boolean codeValid = true;
+        private java.util.Map<String, ProviderName> providerNameLookup;
+
+        public Builder validationMessages(java.util.List<io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewValidator.Message> v) {
+            this.validationMessages = v == null ? null : java.util.List.copyOf(v); return this;
+        }
+        public Builder codeValid(boolean v) { this.codeValid = v; return this; }
+        public Builder providerNameLookup(java.util.Map<String, ProviderName> v) {
+            this.providerNameLookup = v == null ? null : java.util.Map.copyOf(v); return this;
+        }
 
         public Builder demoFirst(String v) { this.demoFirst = v; return this; }
         public Builder demoLast(String v) { this.demoLast = v; return this; }
