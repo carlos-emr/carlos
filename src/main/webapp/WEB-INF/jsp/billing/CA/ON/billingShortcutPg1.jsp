@@ -503,7 +503,7 @@
             <td>
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr bgcolor="#33CCCC">
-                        <td nowrap bgcolor="#FFCC99" width="10%" align="center"><carlos:encode value='<%= demoname %>' context="html"/>
+                        <td nowrap bgcolor="#FFCC99" width="10%" align="center">${carlos:forHtmlContent(shortcutPg1Model.demoName)}
                         </td>
                         <td bgcolor="#99CCCC" align="center"><font color="black"><%= msg %>
                         </font>
@@ -998,8 +998,8 @@
         </tr>
 
         <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demo_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appt_no %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(shortcutPg1Model.demoNo)}"/>
+        <input type="hidden" name="appointment_no" value="${carlos:forHtmlAttribute(shortcutPg1Model.apptNo)}"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
         <input type="hidden" name="hin" value="<%=demoHIN%>"/>
@@ -1014,13 +1014,13 @@
         <input type="hidden" name="asstProvider_no"
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' context="htmlAttribute"/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='<%= demoname %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='<%= providerview %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_name" value="${carlos:forHtmlAttribute(shortcutPg1Model.demoName)}"/>
+        <input type="hidden" name="providerview" value="${carlos:forHtmlAttribute(shortcutPg1Model.providerView)}"/>
         <input type="hidden" name="appointment_date"
                value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='<%= assgProvider_no %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="billForm" value="<carlos:encode value='<%= ctlBillForm %>' context="htmlAttribute"/>"/>
+               value="${carlos:forHtmlAttribute(shortcutPg1Model.assignedProviderNo)}"/>
+        <input type="hidden" name="billForm" value="${carlos:forHtmlAttribute(shortcutPg1Model.ctlBillForm)}"/>
 
     </table>
 </form>
@@ -1034,7 +1034,7 @@
 <table border="0" cellpadding="0" cellspacing="2" width="100%"
        bgcolor="#CCCCFF">
     <tr>
-        <td colspan="6" class="RowTop"><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
+        <td colspan="6" class="RowTop">${carlos:forHtmlContent(shortcutPg1Model.demoName)} - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/>
         </b> <fmt:message key="billing.hospitalBilling.frmLastFive"/></td>
     </tr>
     <tr>
@@ -1080,7 +1080,7 @@
 <table border="0" cellpadding="1" cellspacing="2" width="100%"
        class="myIvory">
     <tr class="myYellow">
-        <td colspan="6"><carlos:encode value='<%= demoname %>' context="html"/> - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
+        <td colspan="6">${carlos:forHtmlContent(shortcutPg1Model.demoName)} - <b><fmt:message key="billing.hospitalBilling.frmBillHistory"/></b>
             <fmt:message key="billing.hospitalBilling.frmLastFive"/>
         </td>
     </tr>

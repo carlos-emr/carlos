@@ -579,8 +579,8 @@
                                         %>
                                     </td>
                                     <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
-                                        <carlos:encode value='<%= dxCode %>' context="html"/><br>
-                                        <carlos:encode value='<%= dxDesc %>' context="html"/>
+                                        ${carlos:forHtmlContent(reviewModel.dxCode)}<br>
+                                        ${carlos:forHtmlContent(reviewModel.dxDesc)}
                                     </td>
                                     <td style="vertical-align:top"><b>Refer. Doctor</b><br>
                                         <carlos:encode value='<%= StringUtils.noNull(request.getParameter("referralDocName")) %>' context="html"/><br>
@@ -1124,7 +1124,7 @@
                         <table id="privateBillInfo" style="width:100%">
                             <tr>
                                 <td>Bill To [<a href=# onclick="scriptAttach('billTo'); return false;">Search</a>]<br>
-                                    <textarea name="billto" id="billTo" cols=30 rows=6><carlos:encode value='<%= StringUtils.noNull(strPatientAddr) %>' context="html"/></textarea>
+                                    <textarea name="billto" id="billTo" cols=30 rows=6>${carlos:forHtmlContent(reviewModel.patientAddress)}</textarea>
                                 </td>
                                 <td>Remit To [<a href=# onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
                                     <textarea name="remitto" id="remitTo" value="" cols=30
