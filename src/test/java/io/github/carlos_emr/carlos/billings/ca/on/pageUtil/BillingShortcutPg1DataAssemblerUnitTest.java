@@ -164,7 +164,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldMapDemographicSexCodes() {
+    void shouldMapDemographicSexCodes_toScriptletOneOrTwo() {
         Demographic demo = new Demographic();
         demo.setSex("M");
         demo.setHin("9876543225");
@@ -181,7 +181,7 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDefaultMissingHcTypeToON() {
+    void shouldDefaultHcType_toON_whenMissing() {
         Demographic demo = new Demographic();
         demo.setSex("F");
         demo.setHin("9876543225");

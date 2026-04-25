@@ -12,7 +12,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 
@@ -106,14 +105,14 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) servletActionContextMock.close();
     }
 
-    private BillingONCorrectionViewModel invokeBuildModel(BillingCorrection2Action action, LoggedInInfo info) throws Exception {
-        Method m = BillingCorrection2Action.class.getDeclaredMethod("buildModel", LoggedInInfo.class);
-        m.setAccessible(true);
-        return (BillingONCorrectionViewModel) m.invoke(action, info);
+    private BillingONCorrectionViewModel invokeBuildModel(BillingCorrection2Action action, LoggedInInfo info) {
+        // buildModel is package-private; this test lives in the same package
+        // and calls it directly. Reflection is no longer needed.
+        return action.buildModel(info);
     }
 
     @Test
-    void shouldReturnEmptyModel_whenLoggedInInfoIsNull() throws Exception {
+    void shouldReturnEmptyModel_whenLoggedInInfoIsNull() {
         BillingCorrection2Action action = new BillingCorrection2Action();
         BillingONCorrectionViewModel m = invokeBuildModel(action, null);
 
@@ -126,7 +125,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPopulateUserContext_whenAllPrivilegesGranted() throws Exception {
+    void shouldPopulateUserContext_whenAllPrivilegesGranted() {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         Provider userProvider = new Provider();
@@ -162,7 +161,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotCallSiteDao_whenSiteAccessPrivacyDenied() throws Exception {
+    void shouldNotCallSiteDao_whenSiteAccessPrivacyDenied() {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(providerDao.getProvider("999998")).thenReturn(new Provider());
 
@@ -178,7 +177,7 @@ class BillingCorrection2ActionBuildModelUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPopulateMgrSites_fromSiteDao() throws Exception {
+    void shouldPopulateMgrSites_fromSiteDao() {
         // Note: bMultisites comes from IsPropertiesOn.isMultisitesEnable(), which reads
         // CarlosProperties singleton. In the test environment that returns false, so
         // mgrSites stays empty. We verify the structure is at least an empty list.

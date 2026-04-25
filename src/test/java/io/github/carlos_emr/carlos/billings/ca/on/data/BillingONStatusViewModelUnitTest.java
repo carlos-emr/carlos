@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingONStatusViewModelUnitTest {
 
     @Test
-    void shouldExposeDefaultBillTypesMatchingLegacyScriptlet() {
+    void shouldExposeDefaultBillTypes_matchingLegacyScriptlet() {
         // The legacy JSP top scriptlet hard-coded:
         // {"HCP", "WCB", "RMB", "NOT", "PAT", "OCF", "ODS", "CPP", "STD", "IFH"}
         assertThat(BillingONStatusViewModel.DEFAULT_BILL_TYPES)
@@ -34,7 +34,7 @@ class BillingONStatusViewModelUnitTest {
     }
 
     @Test
-    void shouldRoundTripBuilderInputForAllParamEchoFields() {
+    void shouldRoundTripBuilderInput_forAllParamEchoFields() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder()
                 .teamBillingOnly(true)
                 .siteAccessPrivacy(true)
@@ -91,13 +91,13 @@ class BillingONStatusViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultToEmptyBillTypesWhenNotSet() {
+    void shouldDefaultBillTypes_toEmpty_whenNotSet() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder().build();
         assertThat(m.getBillTypes()).isEmpty();
     }
 
     @Test
-    void shouldAcceptStringArrayBillTypes() {
+    void shouldAcceptBillTypes_fromStringArrayOverload() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder()
                 .billTypes(new String[]{"HCP", "PAT"})
                 .build();
@@ -105,7 +105,7 @@ class BillingONStatusViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultPrimitiveBooleansToFalse() {
+    void shouldDefaultPrimitiveBooleans_toFalse_whenNotSet() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder().build();
         assertThat(m.isTeamBillingOnly()).isFalse();
         assertThat(m.isSiteAccessPrivacy()).isFalse();

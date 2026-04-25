@@ -113,11 +113,12 @@ public final class BillingONFormDataAssembler {
         BillingONFormViewModel.Builder b = BillingONFormViewModel.builder();
 
         // Prefer the authenticated provider from LoggedInInfo over the session
-        // attribute. The session "user" attribute is only set at login (see
-        // Login2Action.java:621) so they should match — but pulling from the
-        // authenticated context keeps the assembler consistent with the action's
-        // identity check and avoids drift if the session attribute is ever
-        // mutated elsewhere.
+        // attribute. The session "user" attribute is only set once (in
+        // Login2Action#doProviderLogin — search for `setAttribute("user")`)
+        // and never modified elsewhere, so the two should match. Pulling
+        // from the authenticated context keeps the assembler consistent with
+        // the action's identity check and avoids drift if the session
+        // attribute is ever mutated by future code.
         String userNo = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
         if (userNo == null || userNo.isEmpty()) {
             // Fall back to the session attribute for compatibility, but log so
@@ -131,13 +132,11 @@ public final class BillingONFormDataAssembler {
         }
         b.userNo(userNo);
 
-        // xml_provider overrides providerview when present (matches original scriptlet behavior)
-        String providerView = firstNonEmpty(
+        // xml_provider ("providerNo|ohipNo" picker output) overrides
+        // providerview when present. See BillingONRequestParams.extractProviderNo.
+        String providerView = BillingONRequestParams.extractProviderNo(
                 request.getParameter("xml_provider"),
-                firstNonEmpty(request.getParameter("providerview"), ""));
-        if (providerView.indexOf('|') != -1) {
-            providerView = providerView.substring(0, providerView.indexOf('|'));
-        }
+                request.getParameter("providerview"));
         b.providerView(providerView);
 
         String today = java.time.LocalDate.now()
@@ -158,13 +157,21 @@ public final class BillingONFormDataAssembler {
         if (visitType.startsWith("00") || visitType.isEmpty()) {
             clinicView = "0000";
         }
-        b.clinicView(clinicView);
+        // NOTE: do NOT call b.clinicView(...) here — the field is finalized
+        // below after xml_location resolution (~line 495). The local
+        // `clinicView` variable above stages the property/visit-type default
+        // for that resolution step to layer the param override on top of.
+        // Setting the builder twice would just discard the first write; a
+        // future maintainer who removes "the duplicate" line below would
+        // silently break the param override.
         b.clinicNo(clinicNo);
         b.visitType(visitType);
 
-        // Missing appointment_no treated as "0" (manual bill not tied to an
-        // appointment). Downstream scriptlets call appt_no.compareTo("0") and
-        // null-deref otherwise.
+        // Missing appointment_no defaults to "0" — the legacy convention for
+        // a manual bill not tied to an existing appointment. The JSP body
+        // (billingON.jsp:~1114) reads model.getAppointmentNo() and calls
+        // .compareTo("0") on it, so this default keeps the EL-bridge code
+        // null-safe.
         String apptNo = firstNonNull(request.getParameter("appointment_no"), "0");
         if (apptNo.isEmpty()) {
             apptNo = "0";
@@ -179,9 +186,10 @@ public final class BillingONFormDataAssembler {
         } else {
             billReferenceDate = request.getParameter("appointment_date");
         }
-        // Default to today when both apptNo!=0 and appointment_date are missing —
-        // downstream ConversionUtils.fromDateString feeds this into DAO date
-        // filters that NPE on null and into calculateAge which expects a real date.
+        // Defensive fallback: in the apptNo=="0" branch service_date may be
+        // null and in the else branch appointment_date may be null. Either
+        // way, downstream ConversionUtils.fromDateString and calculateAge
+        // both NPE on null, so coalesce to today as the safe default.
         if (billReferenceDate == null || billReferenceDate.isEmpty()) {
             billReferenceDate = today;
         }
@@ -321,7 +329,11 @@ public final class BillingONFormDataAssembler {
         b.patientDxAddCode(patientDxAddCode)
                 .patientDxMatchCode(patientDxMatchCode);
 
-        // Billing guidelines (Drools) — yields warning-strength consequences as pre-rendered HTML
+        // Billing guidelines (Drools) — yields warning-strength consequences as pre-rendered HTML.
+        // Include demoNo/userNo in the log: BillingGuidelines.getInstance()
+        // lazy-compiles DRL via RuleBaseFactory, so a corrupt rule cache fails
+        // identically for every patient until cleared. Without this context,
+        // ops can't distinguish a one-off failure from a global outage.
         StringBuilder recommendations = new StringBuilder();
         try {
             List<DSConsequence> consequences = BillingGuidelines.getInstance()
@@ -332,11 +344,19 @@ public final class BillingONFormDataAssembler {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error evaluating billing guidelines", e);
+            MiscUtils.getLogger().error(
+                    "Drools billing-guidelines evaluation failed for demo={} provider={}",
+                    demoNo, userNo, e);
         }
         b.billingRecommendations(recommendations.toString());
 
-        // Billing history (first 5 entries) — the JSP only reads the first record's visitType / clinic_ref_code
+        // Billing history (first 5 entries) — the JSP only reads the first record's visitType / clinic_ref_code.
+        // Split exception handling: a SQLException is "DB unreachable, billing
+        // form still safe to render with empty history" — log at WARN; a
+        // ClassCastException is "data shape regressed under us" and *must* be
+        // loud at ERROR so a deploy that broke the JdbcBillingReviewImpl
+        // contract doesn't silently strip the visit-context hint that
+        // providers rely on to avoid duplicate-billing the same encounter.
         List<BillingONFormViewModel.BillingHistoryEntry> history = new ArrayList<>();
         if (demoNo != null && !demoNo.isEmpty()) {
             try {
@@ -351,8 +371,22 @@ public final class BillingONFormDataAssembler {
                             nullSafe(header.getFacilty_num()),
                             nullSafe(item.getDx())));
                 }
-            } catch (Exception e) {
-                MiscUtils.getLogger().warn("Billing history lookup failed for demo={}", demoNo, e);
+            } catch (ClassCastException ccEx) {
+                // Loud: JdbcBillingReviewImpl.getBillingHist returned an unexpected
+                // type at index 0 / 1. Provider will see an empty visit-context
+                // hint and may duplicate-bill the same encounter — a deploy that
+                // breaks this contract must be visible to ops at ERROR.
+                MiscUtils.getLogger().error(
+                        "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
+                        demoNo, ccEx);
+            } catch (RuntimeException rtEx) {
+                // Catch-all for upstream wrapped DAO exceptions
+                // (HibernateException, DataAccessException, etc. — JdbcBillingReviewImpl
+                // doesn't declare SQLException). Don't fail the whole page; the
+                // billing form is usable without history.
+                MiscUtils.getLogger().warn(
+                        "Billing history lookup failed for demo={}; rendering with empty history",
+                        demoNo, rtEx);
             }
         }
         b.billingHistory(history);
@@ -520,7 +554,12 @@ public final class BillingONFormDataAssembler {
         java.util.Date billRefDate = io.github.carlos_emr.carlos.util.ConversionUtils
                 .fromDateString(billReferenceDate);
 
-        for (Object[] typeRow : cbsDao.findServiceTypesByStatus("A")) {
+        // One DAO roundtrip for the service-type rows; reused below for the
+        // billing-form menu so we don't issue an identical findServiceTypesByStatus
+        // a second time during the same render.
+        @SuppressWarnings("unchecked")
+        List<Object[]> serviceTypeRows = (List<Object[]>) cbsDao.findServiceTypesByStatus("A");
+        for (Object[] typeRow : serviceTypeRows) {
             // Sanitize the code at ingest so the same string flows through
             // every downstream surface (HTML element ids, EL ${st}, scriptlet
             // <%=st%>, JS args). Without this, a malformed DB row containing
@@ -544,6 +583,11 @@ public final class BillingONFormDataAssembler {
                     }
                     String displayStyle = "";
                     if (svc.getDisplayStyle() != null) {
+                        // TODO(perf): one DB roundtrip per service code (~240
+                        // for an 8-service-type x 3-group install). Pre-existing
+                        // scriptlet pattern carried across the migration; a
+                        // future refactor should batch via cssStylesDao.findAll()
+                        // into a HashMap<String, CssStyle> outside the loop.
                         CssStyle cssStyle = cssStylesDao.find(svc.getDisplayStyle());
                         if (cssStyle != null && cssStyle.getStyle() != null) {
                             // The displayStyle string is rendered straight into the
@@ -604,9 +648,11 @@ public final class BillingONFormDataAssembler {
         }
         b.defaultBillType(nullSafe(resolvedBillType));
 
-        // Billing-form menu: one entry per service type, with its billType (for Layer1 anchors + _billingForms JS array)
+        // Billing-form menu: one entry per service type, with its billType
+        // (for Layer1 anchors + _billingForms JS array). Reuses the
+        // serviceTypeRows captured above instead of re-querying the DAO.
         List<BillingONFormViewModel.BillingFormMenuEntry> billingForms = new ArrayList<>();
-        for (Object[] typeRow : cbsDao.findServiceTypesByStatus("A")) {
+        for (Object[] typeRow : serviceTypeRows) {
             String menuCode = String.valueOf(typeRow[1]);
             String menuName = String.valueOf(typeRow[0]);
             String menuBillType = "";
@@ -670,9 +716,11 @@ public final class BillingONFormDataAssembler {
      * {@code _}. Service-type codes are conventionally short alphanumerics in
      * the {@code ctl_billservice} table, so this is a no-op in practice; it
      * exists to keep the rendered DOM ids well-formed if a malformed row ever
-     * makes it into the table.
+     * makes it into the table. Package-private to allow direct unit-testing
+     * of the regex behavior — this is the gate against future changes to the
+     * safe-character set silently breaking DOM-id integrity across browsers.
      */
-    private static String sanitizeIdToken(String s) {
+    static String sanitizeIdToken(String s) {
         if (s == null) {
             return "";
         }
@@ -685,9 +733,5 @@ public final class BillingONFormDataAssembler {
 
     private static String firstNonNull(String primary, String fallback) {
         return primary != null ? primary : fallback;
-    }
-
-    private static String firstNonEmpty(String primary, String fallback) {
-        return primary != null && !primary.isEmpty() ? primary : fallback;
     }
 }

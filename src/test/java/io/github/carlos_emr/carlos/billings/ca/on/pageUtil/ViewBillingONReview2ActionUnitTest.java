@@ -101,9 +101,10 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldReturnSuccess_whenAuthorizedPostRequest() throws Exception {
-        try (MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
+        try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
+                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(action.getReviewModel()).isSameAs(STUB_MODEL);
@@ -114,11 +115,13 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectGet_with405() throws Exception {
         mockRequest.setMethod("GET");
 
-        try (MockedConstruction<BillingONReviewDataAssembler> ignored =
+        try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         }
     }
 
@@ -127,7 +130,8 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(false);
 
-        try (MockedConstruction<BillingONReviewDataAssembler> ignored =
+        try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> ignored =
                 mockConstruction(BillingONReviewDataAssembler.class)) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             assertThatThrownBy(action::execute)
@@ -137,13 +141,38 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExposeModelAsRequestAttribute() throws Exception {
-        try (MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
+    void shouldExposeModel_asRequestAttribute() throws Exception {
+        try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> ignored = mockConstruction(
                 BillingONReviewDataAssembler.class,
-                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
+                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             action.execute();
             assertThat(mockRequest.getAttribute("reviewModel")).isSameAs(STUB_MODEL);
+        }
+    }
+
+    /**
+     * Regression armor: the persister runs BEFORE the assembler so any audit
+     * failure (non-numeric demoNo, DAO outage) propagates through the action's
+     * standard error handling and the operator never sees a successful review
+     * page with the dx silently dropped.
+     */
+    @Test
+    void shouldRunPersister_beforeAssembler() throws Exception {
+        try (MockedConstruction<BillingONReviewDxPersister> persisterMock = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> assemblerMock = mockConstruction(
+                BillingONReviewDataAssembler.class,
+                (mock, ctx) -> when(mock.assemble(any())).thenReturn(STUB_MODEL))) {
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            action.execute();
+
+            // Both collaborators were invoked, and the persister was invoked
+            // exactly once with the request and provider id.
+            assertThat(persisterMock.constructed()).hasSize(1);
+            assertThat(assemblerMock.constructed()).hasSize(1);
+            org.mockito.Mockito.verify(persisterMock.constructed().get(0))
+                    .persistIfRequested(any(), any());
         }
     }
 }

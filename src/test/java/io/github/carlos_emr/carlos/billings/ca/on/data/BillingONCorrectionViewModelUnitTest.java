@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BillingONCorrectionViewModelUnitTest {
 
     @Test
-    void shouldDefaultAllFieldsWhenBuiltEmpty() {
+    void shouldDefaultAllFields_whenBuiltEmpty() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder().build();
 
         assertThat(m.getUserProviderNo()).isEmpty();
@@ -43,7 +43,7 @@ class BillingONCorrectionViewModelUnitTest {
     }
 
     @Test
-    void shouldRoundTripAllFields() {
+    void shouldRoundTripAllFields_whenBuilderSetsThem() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
                 .userProviderNo("999998")
                 .userFirstName("doctor")
@@ -68,7 +68,7 @@ class BillingONCorrectionViewModelUnitTest {
     }
 
     @Test
-    void shouldReturnImmutableProviderAccessList() {
+    void shouldReturnImmutableProviderAccessList_whenAccessed() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
                 .providerAccessList(Set.of("999998"))
                 .build();
@@ -78,12 +78,76 @@ class BillingONCorrectionViewModelUnitTest {
     }
 
     @Test
-    void shouldReturnImmutableMgrSites() {
+    void shouldReturnImmutableMgrSites_whenAccessed() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
                 .mgrSites(List.of("Site A"))
                 .build();
 
         assertThatThrownBy(() -> m.getMgrSites().add("new"))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    /**
+     * Regression armor for the d2db61d4 Group D bridge-migration bug where
+     * `xml_payProgram` was bound to `correctionModel.billDate` (copy/paste
+     * error). The model fields are independent — verify they round-trip
+     * separately so a future renaming or accidental field merge breaks loud.
+     */
+    @Test
+    void shouldKeepPayProgram_independentFromBillDate() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
+                .payProgram("HCP")
+                .billDate("2026-04-25")
+                .build();
+
+        assertThat(m.getPayProgram()).isEqualTo("HCP");
+        assertThat(m.getBillDate()).isEqualTo("2026-04-25");
+        assertThat(m.getPayProgram()).isNotEqualTo(m.getBillDate());
+    }
+
+    /**
+     * Regression armor for the d2db61d4 clinic-dropdown bug where every
+     * `<option>` rendered the same `correctionModel.billLocationNo` instead
+     * of the per-iteration loop variable. The model field is a single
+     * canonical String value, distinct from the `bCh1.getFaciltyNum()` row
+     * data — verify the field exists and round-trips.
+     */
+    @Test
+    void shouldRoundTripBillLocationNo_asASingleCanonicalValue() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
+                .billLocationNo("1985")
+                .build();
+
+        assertThat(m.getBillLocationNo()).isEqualTo("1985");
+    }
+
+    /**
+     * The bill-record fields (billLocationNo, payProgram, billDate, billStatus,
+     * billProvider, billTotal, hcType, hcSex) are populated by
+     * BillingCorrection2Action#loadBillRecord from a BillingONCHeader1 row.
+     * They MUST be independent — collapsing any pair would re-introduce the
+     * d2db61d4 bridge-migration class of bugs.
+     */
+    @Test
+    void shouldKeepBillRecordFields_independentOfEachOther() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
+                .billLocationNo("1985")
+                .billDate("2026-04-25")
+                .billStatus("O")
+                .billProvider("999998")
+                .billTotal("123.45")
+                .payProgram("HCP")
+                .hcType("ON")
+                .hcSex("F")
+                .build();
+
+        assertThat(m.getBillLocationNo()).isEqualTo("1985");
+        assertThat(m.getBillDate()).isEqualTo("2026-04-25");
+        assertThat(m.getBillStatus()).isEqualTo("O");
+        assertThat(m.getBillProvider()).isEqualTo("999998");
+        assertThat(m.getBillTotal()).isEqualTo("123.45");
+        assertThat(m.getPayProgram()).isEqualTo("HCP");
+        assertThat(m.getHcType()).isEqualTo("ON");
+        assertThat(m.getHcSex()).isEqualTo("F");
     }
 }

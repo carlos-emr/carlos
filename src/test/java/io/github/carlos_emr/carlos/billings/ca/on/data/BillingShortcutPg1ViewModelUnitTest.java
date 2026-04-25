@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingShortcutPg1ViewModelUnitTest {
 
     @Test
-    void shouldDefaultStringFieldsToEmpty() {
+    void shouldDefaultStringFields_toEmpty_whenBuilderUnused() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder().build();
 
         assertThat(m.getUserProviderNo()).isEmpty();
@@ -43,7 +43,7 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultCollectionsToEmpty() {
+    void shouldDefaultCollections_toEmpty_whenBuilderUnused() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder().build();
 
         assertThat(m.getBillingHistory()).isEmpty();
@@ -57,7 +57,7 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
-    void shouldRoundTripIdentityAndDemographicFields() {
+    void shouldRoundTripIdentityAndDemographicFields_whenBuilderSetsThem() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
                 .userProviderNo("999998")
                 .providerView("999998")
@@ -108,7 +108,7 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
-    void shouldReturnVectorViewsForLegacyJspIteration() {
+    void shouldReturnVectorViews_forLegacyJspIteration() {
         List<Properties> hist = new ArrayList<>();
         Properties p = new Properties();
         p.setProperty("billing_no", "1");
@@ -137,7 +137,7 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
-    void shouldExposePropPremiumAsDefensiveProperties() {
+    void shouldExposePropPremium_asDefensivePropertiesCopy() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
                 .propPremium(Map.of("A007A", "A", "A001A", "A"))
                 .build();

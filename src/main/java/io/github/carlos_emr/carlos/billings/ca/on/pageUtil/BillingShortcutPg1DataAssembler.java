@@ -162,75 +162,94 @@ public final class BillingShortcutPg1DataAssembler {
         String referralDoctorOhip = demoLoad.referralDoctorOhip;
         boolean isNewOnBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 
-        if (!isNewOnBilling) {
-            boolean firstReferral = true;
-            Integer demoIdInt = ConversionUtils.fromIntString(demoNo);
-            for (Billing b : billingDao.findActiveBillingsByDemoNo(demoIdInt, 5)) {
-                Properties p = new Properties();
-                p.setProperty("billing_no", "" + b.getId());
-                p.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate()));
-                p.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate()));
-                p.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate()));
-                p.setProperty("visitType", nullToEmpty(b.getVisitType()));
-                p.setProperty("clinic_ref_code", nullToEmpty(b.getClinicRefCode()));
-                billingHistory.add(p);
+        // Wrap the entire history walk so a single malformed billing row or DAO
+        // failure doesn't 500 the whole shortcut page. Mirrors the split-by-type
+        // pattern in BillingONFormDataAssembler: ClassCastException is loud
+        // (data-shape regression -> ops must see it); other RuntimeExceptions
+        // degrade to "render with empty history" + WARN.
+        try {
+            if (!isNewOnBilling) {
+                boolean firstReferral = true;
+                Integer demoIdInt = ConversionUtils.fromIntString(demoNo);
+                for (Billing b : billingDao.findActiveBillingsByDemoNo(demoIdInt, 5)) {
+                    Properties p = new Properties();
+                    p.setProperty("billing_no", "" + b.getId());
+                    p.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate()));
+                    p.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate()));
+                    p.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate()));
+                    p.setProperty("visitType", nullToEmpty(b.getVisitType()));
+                    p.setProperty("clinic_ref_code", nullToEmpty(b.getClinicRefCode()));
+                    billingHistory.add(p);
 
-                if (firstReferral && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
-                    firstReferral = false;
-                    String rdohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
-                    if (rdohip != null) {
-                        referralDoctorOhip = rdohip;
+                    if (firstReferral && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
+                        firstReferral = false;
+                        String rdohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
+                        if (rdohip != null) {
+                            referralDoctorOhip = rdohip;
+                        }
                     }
                 }
-            }
 
-            for (Properties hist : billingHistory) {
-                String billingNo = hist.getProperty("billing_no", "");
-                // Build the comma-joined dx and service-code summaries for one
-                // bill, deduplicating against the FULL accumulated set rather
-                // than just the last entry. The legacy JSP did `last.equals(...)`
-                // which broke as soon as any non-adjacent code matched a prior
-                // one — for instance "401, 402, 401" would emit "401, 402, 401"
-                // even though "401" already appeared.
-                java.util.LinkedHashSet<String> dxSeen = new java.util.LinkedHashSet<>();
-                java.util.LinkedHashSet<String> serSeen = new java.util.LinkedHashSet<>();
-                for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
-                    if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
-                        dxSeen.add(bd.getDiagnosticCode());
+                for (Properties hist : billingHistory) {
+                    String billingNo = hist.getProperty("billing_no", "");
+                    // Build the comma-joined dx and service-code summaries for one
+                    // bill, deduplicating against the FULL accumulated set rather
+                    // than just the last entry. The legacy JSP did `last.equals(...)`
+                    // which broke as soon as any non-adjacent code matched a prior
+                    // one — for instance "401, 402, 401" would emit "401, 402, 401"
+                    // even though "401" already appeared.
+                    java.util.LinkedHashSet<String> dxSeen = new java.util.LinkedHashSet<>();
+                    java.util.LinkedHashSet<String> serSeen = new java.util.LinkedHashSet<>();
+                    for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
+                        if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
+                            dxSeen.add(bd.getDiagnosticCode());
+                        }
+                        if (bd.getServiceCode() != null && !bd.getServiceCode().isEmpty()) {
+                            serSeen.add(bd.getServiceCode() + " x " + bd.getBillingUnit());
+                        }
                     }
-                    if (bd.getServiceCode() != null && !bd.getServiceCode().isEmpty()) {
-                        serSeen.add(bd.getServiceCode() + " x " + bd.getBillingUnit());
-                    }
+                    Properties detail = new Properties();
+                    detail.setProperty("service_code", String.join(", ", serSeen));
+                    detail.setProperty("diagnostic_code", String.join(", ", dxSeen));
+                    billingHistoryDetails.add(detail);
                 }
-                Properties detail = new Properties();
-                detail.setProperty("service_code", String.join(", ", serSeen));
-                detail.setProperty("diagnostic_code", String.join(", ", dxSeen));
-                billingHistoryDetails.add(detail);
-            }
-        } else {
-            JdbcBillingReviewImpl hdbObj = billingReviewImplFactory.get();
-            List<?> aL = hdbObj.getBillingHist(demoNo, 5, 0, null);
-            // aL contains alternating pairs of (BillingClaimHeader1Data, BillingItemData).
-            // Walk pairwise so the downstream JSP renders one row per pair without
-            // needing the raw list shape.
-            for (int i = 0; i + 1 < aL.size(); i += 2) {
-                BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-                Properties p = new Properties();
-                p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
-                p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
-                p.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date());
-                p.setProperty("visitType", nullToEmpty(obj.getVisittype()));
-                p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
-                String updateDt = obj.getUpdate_datetime();
-                p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
-                billingHistory.add(p);
+            } else {
+                JdbcBillingReviewImpl hdbObj = billingReviewImplFactory.get();
+                List<?> aL = hdbObj.getBillingHist(demoNo, 5, 0, null);
+                // aL contains alternating pairs of (BillingClaimHeader1Data, BillingItemData).
+                // Walk pairwise so the downstream JSP renders one row per pair without
+                // needing the raw list shape.
+                for (int i = 0; i + 1 < aL.size(); i += 2) {
+                    BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
+                    BillingItemData iobj = (BillingItemData) aL.get(i + 1);
+                    Properties p = new Properties();
+                    p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
+                    p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
+                    p.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date());
+                    p.setProperty("visitType", nullToEmpty(obj.getVisittype()));
+                    p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
+                    String updateDt = obj.getUpdate_datetime();
+                    p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
+                    billingHistory.add(p);
 
-                Properties detail = new Properties();
-                detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
-                detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
-                billingHistoryDetails.add(detail);
+                    Properties detail = new Properties();
+                    detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
+                    detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
+                    billingHistoryDetails.add(detail);
+                }
             }
+        } catch (ClassCastException ccEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "Shortcut billing history data-shape regression for demo={} — DAO returned unexpected types",
+                    demoNo, ccEx);
+            billingHistory.clear();
+            billingHistoryDetails.clear();
+        } catch (RuntimeException rtEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "Shortcut billing history lookup failed for demo={}; rendering with empty history",
+                    demoNo, rtEx);
+            billingHistory.clear();
+            billingHistoryDetails.clear();
         }
 
         // Provider list (doctors with OHIP)

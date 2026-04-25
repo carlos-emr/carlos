@@ -218,8 +218,13 @@ public final class BillingONCorrectionViewModel {
         public Builder teamAccessPrivacy(boolean v) { this.teamAccessPrivacy = v; return this; }
         public Builder teamBillingOnly(boolean v) { this.teamBillingOnly = v; return this; }
         public Builder multisites(boolean v) { this.multisites = v; return this; }
-        public Builder providerAccessList(Set<String> v) { this.providerAccessList = v; return this; }
-        public Builder mgrSites(List<String> v) { this.mgrSites = v; return this; }
+        // Defensive copy at the setter so callers retaining the original
+        // mutable Set/List can't influence builder state between setter and
+        // build(). Matches BillingONFormViewModel's pattern; closes the
+        // CodeQL "exposing internal representation" finding consistently
+        // across the view-model family.
+        public Builder providerAccessList(Set<String> v) { this.providerAccessList = v == null ? null : Set.copyOf(v); return this; }
+        public Builder mgrSites(List<String> v) { this.mgrSites = v == null ? null : List.copyOf(v); return this; }
         public Builder billLoaded(boolean v) { this.billLoaded = v; return this; }
         public Builder billNoErr(boolean v) { this.billNoErr = v; return this; }
         public Builder multiSiteProvider(boolean v) { this.multiSiteProvider = v; return this; }

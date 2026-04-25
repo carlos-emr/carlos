@@ -12,7 +12,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -150,8 +149,12 @@ public final class BillingONStatusViewModel {
         public Builder multisites(boolean v) { this.multisites = v; return this; }
         public Builder hideName(boolean v) { this.hideName = v; return this; }
         public Builder search(boolean v) { this.search = v; return this; }
-        public Builder billTypes(List<String> v) { this.billTypes = v; return this; }
-        public Builder billTypes(String[] v) { this.billTypes = v == null ? null : Arrays.asList(v); return this; }
+        // Defensive copy at the setter so callers retaining the original
+        // mutable List/array can't influence builder state. The String[]
+        // variant routes through Arrays.asList(...) (which produces a fixed-
+        // size view) and then List.copyOf to get a true unmodifiable copy.
+        public Builder billTypes(List<String> v) { this.billTypes = v == null ? null : List.copyOf(v); return this; }
+        public Builder billTypes(String[] v) { this.billTypes = v == null ? null : List.of(v); return this; }
         public Builder statusType(String v) { this.statusType = v; return this; }
         public Builder providerNo(String v) { this.providerNo = v; return this; }
         public Builder providerOhipNo(String v) { this.providerOhipNo = v; return this; }

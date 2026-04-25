@@ -43,6 +43,24 @@
   @since 2026-03
 --%>
 <%@ page isErrorPage="true" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%
+    // Log the captured exception so JSP-render failures don't disappear into a
+    // generic "CARLOS Error" page with nothing in catalina.out. Without this,
+    // every uncaught Throwable forwarded here by `<%@ page errorPage="..."%>` —
+    // and every container-forwarded servlet error — produces an opaque user
+    // page with no operational signal. Logging once here gives every JSP a
+    // free post-mortem trail without needing per-page try/catch.
+    Throwable __ep_throwable = (exception != null) ? exception
+            : (Throwable) request.getAttribute("jakarta.servlet.error.exception");
+    if (__ep_throwable != null) {
+        Object __ep_uri = request.getAttribute("jakarta.servlet.error.request_uri");
+        Object __ep_status = request.getAttribute("jakarta.servlet.error.status_code");
+        MiscUtils.getLogger().error(
+                "errorpage.jsp captured exception (uri={}, status={})",
+                __ep_uri, __ep_status, __ep_throwable);
+    }
+%>
 <!-- only true can access exception object -->
 <%@ taglib uri='jakarta.tags.core' prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

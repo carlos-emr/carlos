@@ -12,34 +12,31 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
-import java.util.Date;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Assembles {@link BillingONReviewViewModel} for {@code billingONReview.jsp}.
  *
- * <p>Encapsulates the demographic + provider DAO lookups, the diagnostic
- * description lookup, and the validation message construction that previously
- * lived in the JSP top scriptlet (lines 60-276 of the legacy file). Also
- * applies the {@code addToPatientDx} side-effect via {@link DxresearchDAO}
- * before returning the model — moving that database write out of the JSP
- * (where it had no transactional boundary, no return-status surface, and
- * raised the security-gate cost of the JSP itself).</p>
+ * <p>Pure read of request state into a view model. Encapsulates the
+ * demographic + provider DAO lookups, the diagnostic description lookup,
+ * and the validation message construction that previously lived in the JSP
+ * top scriptlet (lines 60-276 of the legacy file).</p>
  *
- * <p>This is an incremental scaffold. The vector-driven service-code summary
- * (handled by {@link BillingReviewPrep} and friends) still lives in the JSP
- * and will move in a follow-up step.</p>
+ * <p>The optional {@code addToPatientDx} clinical write that used to live
+ * here was extracted to {@link BillingONReviewDxPersister} so this class
+ * stays read-only and easier to test in isolation.</p>
+ *
+ * <p>The vector-driven service-code summary (handled by
+ * {@link BillingReviewPrep} and friends) still lives in the JSP and will
+ * move in a follow-up step.</p>
  *
  * @since 2026-04-24
  */
@@ -47,40 +44,34 @@ public final class BillingONReviewDataAssembler {
 
     private final DemographicDao demographicDao;
     private final ProviderDao providerDao;
-    private final DxresearchDAO dxresearchDAO;
     private final BillingReviewPrep reviewPrep;
 
     public BillingONReviewDataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(DxresearchDAO.class),
              new BillingReviewPrep());
     }
 
     BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
-                                 DxresearchDAO dxresearchDAO,
                                  BillingReviewPrep reviewPrep) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
-        this.dxresearchDAO = dxresearchDAO;
         this.reviewPrep = reviewPrep;
     }
 
     /**
-     * Applies the {@code addToPatientDx} side-effect, if requested, and assembles
-     * the view model. The side-effect runs before the read so any save error
-     * propagates via the action's normal exception handling.
+     * Pure read: assembles the view model from request state. The optional
+     * {@code addToPatientDx} clinical write is no longer the assembler's
+     * responsibility — see {@link BillingONReviewDxPersister}, which the
+     * action runs before this method.
      *
-     * @param request   the current request (parameter source)
-     * @param userNo    the logged-in provider number (saved as {@code dxresearch.providerNo})
+     * @param request the current request (parameter source)
      * @return the populated view model
      */
-    public BillingONReviewViewModel assemble(HttpServletRequest request, String userNo) {
+    public BillingONReviewViewModel assemble(HttpServletRequest request) {
         String dxCode = nullToEmpty(request.getParameter("dxCode"));
         String demoNo = nullToEmpty(request.getParameter("demographic_no"));
-
-        applyAddToPatientDxIfRequested(request, dxCode, demoNo, userNo);
 
         String dxDesc = reviewPrep.getDxDescription(dxCode);
         BillingONReviewViewModel.Builder b = BillingONReviewViewModel.builder()
@@ -93,54 +84,12 @@ public final class BillingONReviewDataAssembler {
         return b.build();
     }
 
-    private void applyAddToPatientDxIfRequested(HttpServletRequest request,
-                                                String dxCode,
-                                                String demoNo,
-                                                String userNo) {
-        if (!"yes".equals(request.getParameter("addToPatientDx"))) {
-            return;
-        }
-        if (demoNo.isEmpty()) {
-            return;
-        }
-        String dxCodeMatch = nullToEmpty(request.getParameter("codeMatchToPatientDx"));
-        String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
-        if (dxCodeAdd.isEmpty()) {
-            return;
-        }
-
-        Integer demoNoInt;
-        try {
-            demoNoInt = Integer.valueOf(demoNo);
-        } catch (NumberFormatException nfe) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                    "addToPatientDx skipped — demographic_no is not numeric: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(demoNo));
-            return;
-        }
-        Date now = new Date();
-        Dxresearch dx = new Dxresearch(
-                demoNoInt,
-                now,
-                now,
-                'A',
-                dxCodeAdd,
-                "icd9",
-                (byte) 0,
-                userNo);
-        dxresearchDAO.save(dx);
-    }
-
     private void loadProvider(HttpServletRequest request, BillingONReviewViewModel.Builder b) {
-        // billingON.jsp posts xml_provider as "providerNo|ohipNo"; strip at the pipe
-        // before either echoing it or passing it to the DAO, otherwise the lookup
-        // misses for the normal case and providerOhip / providerRma stay empty.
-        String selection = nullToEmpty(request.getParameter("xml_provider"));
-        if (selection.isEmpty()) {
-            selection = nullToEmpty(request.getParameter("providerview"));
-        }
-        int pipe = selection.indexOf('|');
-        String providerNo = pipe >= 0 ? selection.substring(0, pipe) : selection;
+        // xml_provider carries "providerNo|ohipNo" from the picker; strip the
+        // suffix before passing to the DAO. See BillingONRequestParams.
+        String providerNo = BillingONRequestParams.extractProviderNo(
+                request.getParameter("xml_provider"),
+                request.getParameter("providerview"));
         b.providerView(providerNo);
 
         Provider p = providerNo.isEmpty() ? null : providerDao.getProvider(providerNo);

@@ -59,18 +59,25 @@ public final class ViewBillingONReview2Action extends ActionSupport {
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            // RFC 7231 §6.5.5: 405 responses MUST include the Allow header.
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
-        // The assembler may persist a Dxresearch row when addToPatientDx=yes.
-        // Refuse to proceed if we can't attach that row to a real provider —
-        // an empty providerNo creates an audit-trail gap for clinical data.
+        // The optional addToPatientDx persist needs a real provider id so the
+        // dxresearch row has a valid audit-trail attribution. Refuse the
+        // request before the persister runs if we can't attach to a provider.
         String userNo = loggedInInfo.getLoggedInProviderNo();
         if (userNo == null || userNo.isEmpty()) {
             throw new SecurityException("missing provider in session");
         }
-        this.reviewModel = new BillingONReviewDataAssembler().assemble(request, userNo);
+        // Run the optional clinical write FIRST so any failure (audit gap on
+        // non-numeric demoNo, DAO outage) propagates through the action's
+        // standard error path rather than producing a misleadingly successful
+        // review render with the patient unchanged in the registry.
+        new BillingONReviewDxPersister().persistIfRequested(request, userNo);
+        this.reviewModel = new BillingONReviewDataAssembler().assemble(request);
         request.setAttribute("reviewModel", this.reviewModel);
 
         return SUCCESS;

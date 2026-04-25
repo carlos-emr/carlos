@@ -88,7 +88,23 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     BillingONFormViewModel model = (BillingONFormViewModel) request.getAttribute("model");
     if (model == null) {
-        // Defensive fallback for any legacy entry path that forwarded at this JSP without chaining through the view action.
+        // Defensive fallback for any legacy entry path that forwarded at this
+        // JSP without chaining through BillingONView2Action. The fallback
+        // path runs the full assembler (Demographic + Dxresearch + billing
+        // history + dx codes — all PHI), so re-check the same `_billing r`
+        // privilege the action enforces. Without this guard, a future
+        // <jsp:forward> from an unguarded JSP would silently expose PHI
+        // assembly. Accepts a tiny double-cost on the legitimate path
+        // (action already ran the same check) for correctness on the
+        // shim path.
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr =
+                SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        if (loggedInInfo == null) {
+            throw new SecurityException("billingON.jsp fallback: missing session");
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+            throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");
+        }
         model = new BillingONFormDataAssembler().assemble(loggedInInfo, request);
     }
 
@@ -116,10 +132,9 @@
     String curBillForm = model.getCurBillForm();
     String provider_no = model.getProviderNo();
 
-    // Demographic object still used downstream (demo.getRosterStatus etc.);
-    // filter date is only used by now-migrated code-filter logic in the assembler.
-    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    Demographic demo = demographicManager.getDemographic(loggedInInfo, demo_no);
+    // (Removed redundant DemographicManager.getDemographic() call here — the
+    // assembler already loaded it once and surfaced everything the JSP needs
+    // via the model. Saving one DB roundtrip per render.)
 
     List<String> patientDx = model.getPatientDx();
     String codeToAddPatientDx = model.getPatientDxAddCode();
@@ -705,9 +720,12 @@
                 self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
-                <%-- __enc_15..__enc_21 must be set BEFORE this rewrite is emitted.
-                     <c:set> runs at JSP render time, top-to-bottom; if they're
-                     declared later in onHistory() the values render empty here. --%>
+                <%-- __enc_15..__enc_21 must be declared BEFORE the
+                     `self.location.href = ...` rewrite below references them.
+                     <c:set> runs at JSP render time, top-to-bottom regardless
+                     of which JS function the literal text appears inside;
+                     declaring these after the URL rewrite would render
+                     ${__enc_15..21} as empty strings into the emitted JS. --%>
                 <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>

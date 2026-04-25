@@ -99,6 +99,14 @@ public class BillingCorrection2Action extends ActionSupport {
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
+        // dereferences loggedInInfo and emits an internal ERROR log on null, so
+        // null-checking here keeps the log signal clean for real privilege denials.
+        // Matches the pattern in BillingONView2Action / ViewBillingONReview2Action /
+        // ViewBillingONStatus2Action / BillingShortcutPg1View2Action.
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
@@ -612,7 +620,9 @@ public class BillingCorrection2Action extends ActionSupport {
      * existing state-machine path; this only captures the pieces driven by
      * the logged-in user.
      */
-    private BillingONCorrectionViewModel buildModel(LoggedInInfo loggedInInfo) {
+    // Package-private for direct unit-testing without reflection.
+    // BillingCorrection2ActionBuildModelUnitTest depends on this visibility.
+    BillingONCorrectionViewModel buildModel(LoggedInInfo loggedInInfo) {
         String providerNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
                 ? loggedInInfo.getLoggedInProviderNo()
                 : "";

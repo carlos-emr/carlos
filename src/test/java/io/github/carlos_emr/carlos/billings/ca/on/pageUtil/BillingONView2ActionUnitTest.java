@@ -193,7 +193,7 @@ class BillingONView2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldExposeModelAsRequestAttribute() throws Exception {
+    void shouldExposeModel_asRequestAttribute() throws Exception {
         try (MockedConstruction<BillingONFormDataAssembler> ignored = mockConstruction(
                 BillingONFormDataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {

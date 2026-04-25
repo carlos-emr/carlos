@@ -37,7 +37,7 @@ class BillingONReviewViewModelUnitTest {
     }
 
     @Test
-    void shouldRoundTripBuilderInput() {
+    void shouldRoundTripBuilderInput_forAllSetters() {
         BillingONReviewViewModel m = BillingONReviewViewModel.builder()
                 .demoFirst("Jones")
                 .demoLast("Jacky")

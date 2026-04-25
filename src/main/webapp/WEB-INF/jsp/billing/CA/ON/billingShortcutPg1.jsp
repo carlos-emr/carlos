@@ -428,7 +428,13 @@
             CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
             for (Object[] o : cbsDao.findServiceTypesByStatus("A")) {
                 ctlcodename = String.valueOf(o[0]);
-                ctlcode = String.valueOf(o[1]);
+                // Sanitize the code at ingest so it's safe to embed in the URL
+                // and the on-click rewrite below. Mirrors BillingONFormDataAssembler's
+                // sanitizeIdToken: defensive against malformed ctl_billservice
+                // rows containing whitespace or other URL-significant chars.
+                // Real codes are short alphanumerics so this is a no-op in
+                // practice.
+                ctlcode = String.valueOf(o[1]).replaceAll("[^A-Za-z0-9_-]", "_");
                 ctlCount++;
                 if (ctlcode.equals(ctlBillForm)) {
                     currentFormName = ctlcodename;
@@ -436,8 +442,8 @@
         %>
         <tr bgcolor=<%=ctlCount % 2 == 0 ? "#FFFFFF" : "#EEEEFF"%>>
             <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                    href="${pageContext.request.contextPath}/billing/CA/ON/billingShortcutPg1View?billForm=<%=ctlcode%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&user_no=<%=user_no%>&apptProvider_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&providerview=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/>&status=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/>&bNewForm=1"
-                    onClick="showHideLayers('Layer1','','hide');"><%=ctlcodename%>
+                    href="${pageContext.request.contextPath}/billing/CA/ON/billingShortcutPg1View?billForm=<carlos:encode value='<%=ctlcode%>' context="uriComponent"/>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>&user_no=<carlos:encode value='<%=user_no%>' context="uriComponent"/>&apptProvider_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&providerview=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/>&appointment_date=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/>&status=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/>&start_time=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/>&bNewForm=1"
+                    onClick="showHideLayers('Layer1','','hide');"><carlos:encode value='<%=ctlcodename%>' context="html"/>
             </a></font></b></td>
         </tr>
         <%

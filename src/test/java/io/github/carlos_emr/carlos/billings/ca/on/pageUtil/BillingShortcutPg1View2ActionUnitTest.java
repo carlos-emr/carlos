@@ -124,7 +124,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDelegateToAssembler() throws Exception {
+    void shouldDelegateToAssembler_whenExecuted() throws Exception {
         try (MockedConstruction<BillingShortcutPg1DataAssembler> construction = mockConstruction(
                 BillingShortcutPg1DataAssembler.class,
                 (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
