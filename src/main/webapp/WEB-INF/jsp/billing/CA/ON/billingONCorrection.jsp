@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -67,78 +68,39 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<% if (session.getAttribute("user") == null)
-    response.sendRedirect(request.getContextPath() + "/logout.htm");
-    String userfirstname, userlastname;
+<%
+    // View-model bridge: BillingCorrection2Action.buildModel populates the
+    // user-context fields (provider, site/team-access flags, multisite list).
+    // The action layer is responsible for the security checks; the JSP keeps
+    // the scriptlet-variable names so the existing render-expression sites
+    // keep compiling. A follow-up commit will replace those with EL on the
+    // same model.
+    BillingONCorrectionViewModel correctionModel =
+            (BillingONCorrectionViewModel) request.getAttribute("correctionModel");
+    if (correctionModel == null) {
+        throw new IllegalStateException(
+                "billingONCorrection.jsp expects BillingCorrection2Action to populate 'correctionModel'");
+    }
 
+    String userProviderNo = correctionModel.getUserProviderNo();
+    String userfirstname = correctionModel.getUserFirstName();
+    String userlastname = correctionModel.getUserLastName();
+    boolean isSiteAccessPrivacy = correctionModel.isSiteAccessPrivacy();
+    boolean isTeamAccessPrivacy = correctionModel.isTeamAccessPrivacy();
+    boolean isTeamBillingOnly = correctionModel.isTeamBillingOnly();
+    boolean isMultiSiteProvider = true;
+    boolean bMultisites = correctionModel.isMultisites();
+    Set<String> providerAccessList = correctionModel.getProviderAccessList();
+    List<String> mgrSites = correctionModel.getMgrSites();
 
-    String userProviderNo = (String) session.getAttribute("user");
-    ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-    BillingONExtDao bExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-
+    // Record-specific DAOs the JSP still uses below (bExt due-date / use-bill-to
+    // lookups, third-party payment list). Hoisting these into the assembler
+    // requires the bill record context, which is part of the state-machine
+    // path — left in the JSP for now.
+    BillingONExtDao bExtDao = SpringUtils.getBean(BillingONExtDao.class);
     BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
-    Provider userProvider = providerDao.getProvider(userProviderNo);
-
-
-    if (userProvider == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-
-    if (session.getAttribute("userrole") == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-
-    String roleName$ = (String) session.getAttribute("userrole") + "," + userProviderNo;
-
-    boolean isSiteAccessPrivacy = false;
-    boolean isTeamAccessPrivacy = false;
-
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-
-%>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-
-<security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isTeamAccessPrivacy = true; %>
-</security:oscarSec>
-<%
-    ProviderSiteDao providerSiteDao = (ProviderSiteDao) SpringUtils.getBean(ProviderSiteDao.class);
-    Set<String> providerAccessList = new HashSet<String>();
-
-    //multisites function
-    if (isSiteAccessPrivacy) {
-        List<ProviderSite> providerSite = providerSiteDao.findByProviderNo(userProviderNo);
-        for (ProviderSite pSite : providerSite) {
-            providerAccessList.add(pSite.getId().getProviderNo());
-        }
-    }
-
-    if (isTeamAccessPrivacy) {
-        List<Provider> providers = providerDao.getBillableProvidersOnTeam(userProvider);
-        for (Provider p : providers) {
-            providerAccessList.add(p.getProviderNo());
-        }
-    }
-
-    boolean isTeamBillingOnly = false;
-    boolean isMultiSiteProvider = true;
-%>
-<security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <% isTeamBillingOnly = true; %>
-</security:oscarSec>
-<%
-    boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
-    List<String> mgrSites = new ArrayList<String>();
-
-    if (bMultisites) {
-        SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-        List<Site> sites = siteDao.getActiveSitesByProviderNo(userProviderNo);
-        for (Site s : sites) {
-            mgrSites.add(s.getName());
-        }
-    }
 
     int MAXRECORDS = 6;  //number of billing items to display if record has less than 6
     String UpdateDate = "";
