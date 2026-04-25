@@ -91,7 +91,7 @@ class BillingONStatusViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultBillTypes_toEmpty_whenNotSet() {
+    void shouldDefaultBillTypesToEmpty_whenNotSet() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder().build();
         assertThat(m.getBillTypes()).isEmpty();
     }
@@ -105,7 +105,7 @@ class BillingONStatusViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultPrimitiveBooleans_toFalse_whenNotSet() {
+    void shouldDefaultPrimitiveBooleansToFalse_whenNotSet() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder().build();
         assertThat(m.isTeamBillingOnly()).isFalse();
         assertThat(m.isSiteAccessPrivacy()).isFalse();
@@ -121,7 +121,7 @@ class BillingONStatusViewModelUnitTest {
      * caller forgetting to coalesce can't pollute the rendered page.
      */
     @Test
-    void shouldCoalesceNullStrings_toEmpty_acrossEverySetter() {
+    void shouldCoalesceNullStringsToEmpty_acrossEverySetter() {
         BillingONStatusViewModel m = BillingONStatusViewModel.builder()
                 .statusType(null)
                 .providerNo(null)

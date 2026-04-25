@@ -12,10 +12,18 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
+import java.util.List;
+
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,23 +54,46 @@ import static org.mockito.Mockito.verify;
 @Tag("billing")
 class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
 
+    private static final String LOGGER_NAME =
+            "io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDxPersister";
+
     @Mock
     private DxresearchDAO dxresearchDAO;
 
     private BillingONReviewDxPersister persister;
     private MockHttpServletRequest request;
     private AutoCloseable mockitoCloseable;
+    private CapturingAppender appender;
+    private LoggerConfig loggerConfig;
+    private LoggerContext ctx;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         persister = new BillingONReviewDxPersister(dxresearchDAO);
         request = new MockHttpServletRequest();
+
+        // Attach a tiny in-memory log4j2 appender so we can assert the WARN
+        // emissions on the early-return paths (the M4 audit-trail claim:
+        // a stale form resubmit that opted in but didn't fill the form must
+        // leave a trail rather than acknowledge "saved" silently).
+        ctx = (LoggerContext) LogManager.getContext(false);
+        appender = new CapturingAppender();
+        appender.start();
+        loggerConfig = ctx.getConfiguration().getLoggerConfig(LOGGER_NAME);
+        loggerConfig.addAppender(appender, Level.ALL, null);
+        loggerConfig.setLevel(Level.ALL);
+        ctx.updateLoggers();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (mockitoCloseable != null) mockitoCloseable.close();
+        if (loggerConfig != null && appender != null) {
+            loggerConfig.removeAppender(appender.getName());
+            appender.stop();
+            ctx.updateLoggers();
+        }
     }
 
     @Test
@@ -115,6 +146,12 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         persister.persistIfRequested(request, "999998");
 
         verify(dxresearchDAO, never()).save(any());
+        // M4 audit-trail integrity: opt-in clinical write that early-returns
+        // must leave a WARN-level breadcrumb rather than acknowledging
+        // "saved" silently.
+        assertThat(appender.events()).anyMatch(evt ->
+                evt.getLevel() == Level.WARN
+                && evt.getMessage().getFormattedMessage().contains("demographic_no"));
     }
 
     @Test
@@ -126,6 +163,12 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         persister.persistIfRequested(request, "999998");
 
         verify(dxresearchDAO, never()).save(any());
+        // M4 audit-trail integrity: opt-in clinical write that early-returns
+        // must leave a WARN-level breadcrumb rather than acknowledging
+        // "saved" silently.
+        assertThat(appender.events()).anyMatch(evt ->
+                evt.getLevel() == Level.WARN
+                && evt.getMessage().getFormattedMessage().contains("dx code"));
     }
 
     /**
@@ -207,5 +250,27 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("Could not save dx")
                 .hasMessageContaining("please retry");
+    }
+
+    /**
+     * Minimal in-memory log4j2 appender — captures events without filtering
+     * so the M4 WARN-on-early-return assertions can run. Mirrors the shape
+     * used in {@code ErrorPageLoggerUnitTest}.
+     */
+    private static final class CapturingAppender extends AbstractAppender {
+        private final java.util.List<LogEvent> events = new java.util.ArrayList<>();
+
+        CapturingAppender() {
+            super("BillingONReviewDxPersisterUnitTestCaptureAppender", null, null, false, null);
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            events.add(event.toImmutable());
+        }
+
+        List<LogEvent> events() {
+            return events;
+        }
     }
 }

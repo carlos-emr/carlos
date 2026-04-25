@@ -247,7 +247,7 @@ class BillingONFormViewModelUnitTest {
      * across every field, so per-field coverage isn't required.
      */
     @Test
-    void shouldCoalesceNullStrings_toEmpty_acrossRepresentativeSetters() {
+    void shouldCoalesceNullStringsToEmpty_acrossRepresentativeSetters() {
         BillingONFormViewModel m = BillingONFormViewModel.builder()
                 .userNo(null)
                 .demographicNo(null)
@@ -291,5 +291,83 @@ class BillingONFormViewModelUnitTest {
         assertThat(m.getClinicNo()).isEmpty();
         assertThat(m.getVisitType()).isEmpty();
         assertThat(m.getDxCode()).isEmpty();
+    }
+
+    /**
+     * Round-trip the demoDobInvalid flag (S3 — surfaces a banner on the form
+     * when the patient's stored DOB is unparseable). Default must be false
+     * so an unset model doesn't render a misleading banner.
+     */
+    @Test
+    void shouldRoundTripDemoDobInvalid_throughBuilder() {
+        BillingONFormViewModel defaultModel = BillingONFormViewModel.builder().build();
+        assertThat(defaultModel.isDemoDobInvalid()).isFalse();
+
+        BillingONFormViewModel flagged = BillingONFormViewModel.builder()
+                .demoDobInvalid(true)
+                .build();
+        assertThat(flagged.isDemoDobInvalid()).isTrue();
+    }
+
+    /**
+     * The structured-record accessors mirror the corresponding flat getters.
+     * Adding regression armor so a future refactor that drops a flat getter
+     * (or vice versa) breaks loud.
+     */
+    @Test
+    void shouldExposeValidationMessagesAsRecord_mirroringFlatGetters() {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .errorFlag("1")
+                .errorMsg("<b>Error: bad DOB</b>")
+                .warningMsg("<i>Warning: missing HIN</i>")
+                .build();
+
+        BillingValidationMessages msgs = m.getValidationMessages();
+        assertThat(msgs.errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(msgs.errorMessage()).isEqualTo(m.getErrorMsg());
+        assertThat(msgs.warningMessage()).isEqualTo(m.getWarningMsg());
+        assertThat(msgs.hasError()).isTrue();
+    }
+
+    @Test
+    void shouldExposeDemographicSummaryAsRecord_mirroringFlatGetters() {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .demoFirst("Jane")
+                .demoLast("Doe")
+                .demoHin("9876543225")
+                .demoVer("AB")
+                .demoSex("F")
+                .demoHcType("ON")
+                .demoDob("19850615")
+                .demoDobYear("1985")
+                .demoDobMonth("06")
+                .demoDobDay("15")
+                .build();
+
+        BillingDemographicSummary demo = m.getDemographicSummary();
+        assertThat(demo.firstName()).isEqualTo("Jane");
+        assertThat(demo.lastName()).isEqualTo("Doe");
+        assertThat(demo.hin()).isEqualTo("9876543225");
+        assertThat(demo.ver()).isEqualTo("AB");
+        assertThat(demo.sex()).isEqualTo("F");
+        assertThat(demo.hcType()).isEqualTo("ON");
+        assertThat(demo.dob()).isEqualTo("19850615");
+        assertThat(demo.dobYy()).isEqualTo("1985");
+        assertThat(demo.dobMm()).isEqualTo("06");
+        assertThat(demo.dobDd()).isEqualTo("15");
+    }
+
+    @Test
+    void shouldExposeReferralDoctorAsRecord_mirroringFlatGetters() {
+        BillingONFormViewModel m = BillingONFormViewModel.builder()
+                .referralDoctor("Smith")
+                .referralDoctorOhip("123456")
+                .referralSpecialty("00")
+                .build();
+
+        BillingReferralDoctor r = m.getReferralDoctorRecord();
+        assertThat(r.name()).isEqualTo("Smith");
+        assertThat(r.ohip()).isEqualTo("123456");
+        assertThat(r.specialty()).isEqualTo("00");
     }
 }

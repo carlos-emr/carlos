@@ -138,7 +138,7 @@ class BillingONCorrectionViewModelUnitTest {
      */
     @Test
     @Tag("security")
-    void shouldDefaultMultiSiteProvider_toFalse_whenBuilderIsEmpty() {
+    void shouldDefaultMultiSiteProviderToFalse_whenBuilderIsEmpty() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder().build();
 
         assertThat(m.isMultiSiteProvider()).isFalse();

@@ -68,7 +68,7 @@ import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
  *
  * <p>Collaborates with {@link ViewBillingON2Action}, which constructs this
  * assembler, calls {@link #assemble(LoggedInInfo, HttpServletRequest)}, and
- * exposes the returned DTO to the JSP as request attribute {@code model}.</p>
+ * exposes the returned DTO to the JSP as request attribute {@code formModel}.</p>
  *
  * <p>Behavioral note: the scriptlet originally called
  * {@code response.sendRedirect("/logoutPage")} when {@code session.getAttribute("user")}
@@ -330,8 +330,8 @@ public final class BillingONFormDataAssembler {
                 .familyDoctor(familyDoctor)
                 .assgProviderNo(assgProviderNo)
                 .rosterStatus(rosterStatus)
-                .age(ageResult.age)
-                .demoDobInvalid(ageResult.invalid);
+                .age(ageResult.age())
+                .demoDobInvalid(ageResult.invalid());
 
         // Referral doctor is extracted from the family_doctor XML blob
         String rDoctor;
@@ -732,22 +732,25 @@ public final class BillingONFormDataAssembler {
      * years. {@code invalid} is true when the input was non-empty but failed
      * to parse — the assembler propagates the flag onto the view model so
      * the JSP can surface a banner instead of silently emitting a 0-year-old.
+     *
+     * <p>The {@code age == 0 && !invalid} state legitimately means "no DOB
+     * supplied / no patient context yet". Only {@code invalid == true}
+     * indicates a parse failure worth warning about.</p>
      */
-    static final class AgeResult {
-        final int age;
-        final boolean invalid;
-        AgeResult(int age, boolean invalid) { this.age = age; this.invalid = invalid; }
-    }
+    record AgeResult(int age, boolean invalid) { }
 
     static AgeResult calculateAge(String dobYyyymmdd) {
         if (dobYyyymmdd == null || dobYyyymmdd.isEmpty()) {
             // Empty DOB is the "no patient yet" case, not a parse failure.
             return new AgeResult(0, false);
         }
+        // PHI hygiene: never log the DOB itself. Logging length is enough
+        // for ops to confirm the data shape regression without leaking
+        // patient data per CLAUDE.md.
         if (dobYyyymmdd.length() != 8) {
             MiscUtils.getLogger().warn(
-                    "calculateAge: DOB '{}' is not 8 chars; flagging invalid",
-                    LogSanitizer.sanitize(dobYyyymmdd));
+                    "calculateAge: DOB has length {} (expected 8); flagging invalid",
+                    dobYyyymmdd.length());
             return new AgeResult(0, true);
         }
         try {
@@ -764,9 +767,10 @@ public final class BillingONFormDataAssembler {
             // would silently emit a 0-year-old patient on the form, which
             // drives downstream visit-type defaults and premium codes off
             // bad input. Flag invalid so the JSP renders a warning banner.
+            // Log the exception type only (no DOB content per PHI hygiene).
             MiscUtils.getLogger().warn(
-                    "calculateAge: malformed DOB '{}'; flagging invalid",
-                    LogSanitizer.sanitize(dobYyyymmdd), e);
+                    "calculateAge: 8-char DOB rejected by LocalDate.of ({}); flagging invalid",
+                    e.getClass().getSimpleName());
             return new AgeResult(0, true);
         }
     }

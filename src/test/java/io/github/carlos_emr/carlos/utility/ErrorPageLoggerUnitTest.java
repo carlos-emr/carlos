@@ -150,6 +150,51 @@ class ErrorPageLoggerUnitTest {
     }
 
     /**
+     * PHI hardening: billing flows pass {@code demographic_no},
+     * {@code claim_no}, and {@code billing_no} in the query string. These
+     * correlate to patient health information per CLAUDE.md and must NEVER
+     * appear in catalina.out. Verify the query portion is stripped before
+     * the URI is logged.
+     */
+    @Test
+    void shouldStripQueryString_fromRequestUri_beforeLogging() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/BillingONCorrection?billing_no=12345&claim_no=ABC123&demographic_no=42");
+        Throwable t = new RuntimeException("boom");
+
+        ErrorPageLogger.logIfPresent(t, req);
+
+        assertThat(appender.events()).hasSize(1);
+        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/BillingONCorrection");
+        // PHI-correlated query parameters must not leak into logs.
+        assertThat(msg).doesNotContain("billing_no");
+        assertThat(msg).doesNotContain("12345");
+        assertThat(msg).doesNotContain("claim_no");
+        assertThat(msg).doesNotContain("ABC123");
+        assertThat(msg).doesNotContain("demographic_no");
+        assertThat(msg).doesNotContain("?");
+    }
+
+    /**
+     * Path-only URIs (no query string) must pass through unchanged — the
+     * strip logic shouldn't truncate a legitimately query-less URI.
+     */
+    @Test
+    void shouldPreservePathOnly_whenNoQueryString() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/billingView");
+        Throwable t = new RuntimeException("boom");
+
+        ErrorPageLogger.logIfPresent(t, req);
+
+        String msg = appender.events().get(0).getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
+    }
+
+    /**
      * Minimal in-memory log4j2 appender. Captures events without filtering
      * so the test can assert any level / any field. Not a full substitute
      * for log4j-test's ListAppender but sufficient for the 5 cases here.

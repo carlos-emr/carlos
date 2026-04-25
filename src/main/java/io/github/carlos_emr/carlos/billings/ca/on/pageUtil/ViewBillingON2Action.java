@@ -30,7 +30,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Built during the incremental scriptlet-extraction refactor that targets
  * the 1 MB JSP page-buffer overflow. Enforces {@code _billing r}, accepts GET /
  * HEAD / POST (the form self-posts), and exposes a {@link BillingONFormViewModel}
- * at request attribute {@code model} for the JSP to consume via EL.</p>
+ * at request attribute {@code formModel} for the JSP to consume via EL.</p>
  *
  * <p>Data population is progressive. Fields migrated from scriptlets so far:
  * request parameter echoes (demographicNo, appointmentNo, apptProviderNo,

@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BillingShortcutPg1ViewModelUnitTest {
 
     @Test
-    void shouldDefaultStringFields_toEmpty_whenBuilderUnused() {
+    void shouldDefaultStringFieldsToEmpty_whenBuilderUnused() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder().build();
 
         assertThat(m.getUserProviderNo()).isEmpty();
@@ -43,7 +43,7 @@ class BillingShortcutPg1ViewModelUnitTest {
     }
 
     @Test
-    void shouldDefaultCollections_toEmpty_whenBuilderUnused() {
+    void shouldDefaultCollectionsToEmpty_whenBuilderUnused() {
         BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder().build();
 
         assertThat(m.getBillingHistory()).isEmpty();
@@ -148,5 +148,65 @@ class BillingShortcutPg1ViewModelUnitTest {
         // Mutations to the returned Properties don't propagate.
         props.setProperty("A007A", "X");
         assertThat(m.getPropPremiumProps().getProperty("A007A")).isEqualTo("A");
+    }
+
+    /**
+     * Structured-record accessors mirror the flat getters — regression armor
+     * so a future refactor that drops a flat getter breaks loud.
+     */
+    @Test
+    void shouldExposeValidationMessagesAsRecord_mirroringFlatGetters() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .errorFlag("1")
+                .errorMessage("<b>err</b>")
+                .warningMessage("<i>warn</i>")
+                .build();
+
+        BillingValidationMessages msgs = m.getValidationMessages();
+        assertThat(msgs.errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(msgs.errorMessage()).isEqualTo(m.getErrorMessage());
+        assertThat(msgs.warningMessage()).isEqualTo(m.getWarningMessage());
+    }
+
+    @Test
+    void shouldExposeDemographicSummaryAsRecord_mirroringFlatGetters() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .demoFirst("Jones")
+                .demoLast("Jacky")
+                .demoHin("9876543225")
+                .demoSex("1")
+                .demoHcType("ON")
+                .demoDob("19850615")
+                .demoDobYy("1985")
+                .demoDobMm("06")
+                .demoDobDd("15")
+                .build();
+
+        BillingDemographicSummary demo = m.getDemographicSummary();
+        assertThat(demo.firstName()).isEqualTo("Jones");
+        assertThat(demo.lastName()).isEqualTo("Jacky");
+        assertThat(demo.hin()).isEqualTo("9876543225");
+        // Shortcut doesn't carry a hin-version field — empty by design.
+        assertThat(demo.ver()).isEmpty();
+        assertThat(demo.sex()).isEqualTo("1");
+        assertThat(demo.hcType()).isEqualTo("ON");
+        assertThat(demo.dob()).isEqualTo("19850615");
+        assertThat(demo.dobYy()).isEqualTo("1985");
+        assertThat(demo.dobMm()).isEqualTo("06");
+        assertThat(demo.dobDd()).isEqualTo("15");
+    }
+
+    @Test
+    void shouldExposeReferralDoctorAsRecord_mirroringFlatGetters() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .referralDoctorName("Smith")
+                .referralDoctorOhip("123456")
+                .build();
+
+        BillingReferralDoctor r = m.getReferralDoctorRecord();
+        assertThat(r.name()).isEqualTo("Smith");
+        assertThat(r.ohip()).isEqualTo("123456");
+        // Shortcut doesn't carry a specialty field — empty by design.
+        assertThat(r.specialty()).isEmpty();
     }
 }

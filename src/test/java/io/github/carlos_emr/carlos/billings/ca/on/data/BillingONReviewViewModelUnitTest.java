@@ -108,7 +108,7 @@ class BillingONReviewViewModelUnitTest {
      * {@link BillingShortcutPg1ViewModel}.
      */
     @Test
-    void shouldCoalesceNullStrings_toEmpty_acrossEverySetter() {
+    void shouldCoalesceNullStringsToEmpty_acrossEverySetter() {
         BillingONReviewViewModel m = BillingONReviewViewModel.builder()
                 .demoFirst(null)
                 .demoLast(null)
@@ -156,5 +156,65 @@ class BillingONReviewViewModelUnitTest {
         assertThat(m.getErrorFlag()).isEmpty();
         assertThat(m.getErrorMessage()).isEmpty();
         assertThat(m.getWarningMessage()).isEmpty();
+    }
+
+    /**
+     * Structured-record accessors mirror the flat getters — regression armor
+     * so a future refactor that drops a flat getter breaks loud.
+     */
+    @Test
+    void shouldExposeValidationMessagesAsRecord_mirroringFlatGetters() {
+        BillingONReviewViewModel m = BillingONReviewViewModel.builder()
+                .errorFlag("1")
+                .errorMessage("<b>err</b>")
+                .warningMessage("<i>warn</i>")
+                .build();
+
+        BillingValidationMessages msgs = m.getValidationMessages();
+        assertThat(msgs.errorFlag()).isEqualTo(m.getErrorFlag());
+        assertThat(msgs.errorMessage()).isEqualTo(m.getErrorMessage());
+        assertThat(msgs.warningMessage()).isEqualTo(m.getWarningMessage());
+    }
+
+    @Test
+    void shouldExposeDemographicSummaryAsRecord_mirroringFlatGetters() {
+        BillingONReviewViewModel m = BillingONReviewViewModel.builder()
+                .demoFirst("Jones")
+                .demoLast("Jacky")
+                .demoHin("9876543225")
+                .demoVer("AB")
+                .demoSex("1")
+                .demoHcType("ON")
+                .demoDob("19850615")
+                .demoDobYy("1985")
+                .demoDobMm("06")
+                .demoDobDd("15")
+                .build();
+
+        BillingDemographicSummary demo = m.getDemographicSummary();
+        assertThat(demo.firstName()).isEqualTo("Jones");
+        assertThat(demo.lastName()).isEqualTo("Jacky");
+        assertThat(demo.hin()).isEqualTo("9876543225");
+        assertThat(demo.ver()).isEqualTo("AB");
+        assertThat(demo.sex()).isEqualTo("1");
+        assertThat(demo.hcType()).isEqualTo("ON");
+        assertThat(demo.dob()).isEqualTo("19850615");
+        assertThat(demo.dobYy()).isEqualTo("1985");
+        assertThat(demo.dobMm()).isEqualTo("06");
+        assertThat(demo.dobDd()).isEqualTo("15");
+    }
+
+    @Test
+    void shouldExposeReferralDoctorAsRecord_mirroringFlatGetters() {
+        BillingONReviewViewModel m = BillingONReviewViewModel.builder()
+                .referralDoctorName("Smith")
+                .referralDoctorOhip("123456")
+                .build();
+
+        BillingReferralDoctor r = m.getReferralDoctorRecord();
+        assertThat(r.name()).isEqualTo("Smith");
+        assertThat(r.ohip()).isEqualTo("123456");
+        // Review doesn't carry a specialty field — empty by design.
+        assertThat(r.specialty()).isEmpty();
     }
 }
