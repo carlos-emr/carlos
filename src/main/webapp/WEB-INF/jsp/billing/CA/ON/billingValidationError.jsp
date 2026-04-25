@@ -23,8 +23,9 @@
   per-action duplication.
 
   PHI-safe: the exception message is server-composed at the throw site with
-  LogSanitizer-sanitized values; it is rendered with carlos:forHtmlContent
-  so any residual control characters are HTML-escaped before display.
+  LogSanitizer-sanitized values; it is rendered with the carlos:encode tag
+  in context="html" mode so any residual control characters are HTML-escaped
+  before display.
 
   @since 2026-04-25
 --%>
