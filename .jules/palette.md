@@ -1,0 +1,3 @@
+## 2024-05-19 - Make dynamic anchor tags accessible
+**Learning:** In dynamically generated UI elements (like HTML constructed in JavaScript strings within JSPs), developers often omit the `href` attribute on anchor tags acting as buttons, rendering them unfocusable via keyboard. Furthermore, `href="javascript:void();"` is syntactically invalid; it must be `href="javascript:void(0);"`. Finally, icon-only buttons (like calendar icons) often lack `aria-label`s, breaking screen reader access.
+**Action:** Always include `href="javascript:void(0);"` on interactive anchors that use `onclick` to ensure they are keyboard focusable. Add `aria-label` to icon-only anchors, and hide purely decorative inner icons from screen readers using `aria-hidden="true"`.
