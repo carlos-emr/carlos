@@ -478,7 +478,15 @@
             <result name="success" type="chain">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReview" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONReview2Action">
+            <!-- Surface BillingValidationException (e.g. addToPatientDx with
+                 non-numeric demographic_no) to a specific user-facing message
+                 instead of the generic "CARLOS Error 500" page. The audit-
+                 trail integrity is preserved by the persister's ERROR log;
+                 this mapping just gives the operator an actionable hint. -->
+            <exception-mapping result="validationError"
+                exception="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException"/>
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONReview.jsp</result>
+            <result name="validationError">/WEB-INF/jsp/billing/CA/ON/billingONReviewValidationError.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONStatus" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONStatus2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp</result>

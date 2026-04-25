@@ -55,6 +55,14 @@ public final class BillingONCorrectionViewModel {
     private final boolean billLoaded;
     private final boolean billNoErr;
     private final boolean multiSiteProvider;
+    // True when the demographic-by-id lookup threw — JSP shows a banner so
+    // the operator doesn't act on the (empty) patient context as if it were
+    // authoritative.
+    private final boolean demoLoadError;
+    // True when the OHIP RA claim-number lookup threw — JSP shows a hint
+    // since the operator's primary correlation key for ministry remittance
+    // is silently absent.
+    private final boolean raLookupError;
     private final String billingNo;
     private final String claimNo;
     private final String createTimestamp;
@@ -98,6 +106,8 @@ public final class BillingONCorrectionViewModel {
         this.billLoaded = b.billLoaded;
         this.billNoErr = b.billNoErr;
         this.multiSiteProvider = b.multiSiteProvider;
+        this.demoLoadError = b.demoLoadError;
+        this.raLookupError = b.raLookupError;
         this.billingNo = nullToEmpty(b.billingNo);
         this.claimNo = nullToEmpty(b.claimNo);
         this.createTimestamp = nullToEmpty(b.createTimestamp);
@@ -146,6 +156,8 @@ public final class BillingONCorrectionViewModel {
     public boolean isBillLoaded() { return billLoaded; }
     public boolean isBillNoErr() { return billNoErr; }
     public boolean isMultiSiteProvider() { return multiSiteProvider; }
+    public boolean isDemoLoadError() { return demoLoadError; }
+    public boolean isRaLookupError() { return raLookupError; }
     public String getBillingNo() { return billingNo; }
     public String getClaimNo() { return claimNo; }
     public String getCreateTimestamp() { return createTimestamp; }
@@ -185,6 +197,8 @@ public final class BillingONCorrectionViewModel {
         private boolean billLoaded;
         private boolean billNoErr;
         private boolean multiSiteProvider = true; // matches legacy default
+        private boolean demoLoadError;
+        private boolean raLookupError;
         private String billingNo;
         private String claimNo;
         private String createTimestamp;
@@ -228,6 +242,8 @@ public final class BillingONCorrectionViewModel {
         public Builder billLoaded(boolean v) { this.billLoaded = v; return this; }
         public Builder billNoErr(boolean v) { this.billNoErr = v; return this; }
         public Builder multiSiteProvider(boolean v) { this.multiSiteProvider = v; return this; }
+        public Builder demoLoadError(boolean v) { this.demoLoadError = v; return this; }
+        public Builder raLookupError(boolean v) { this.raLookupError = v; return this; }
         public Builder billingNo(String v) { this.billingNo = v; return this; }
         public Builder claimNo(String v) { this.claimNo = v; return this; }
         public Builder createTimestamp(String v) { this.createTimestamp = v; return this; }

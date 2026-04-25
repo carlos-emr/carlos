@@ -156,7 +156,9 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
      * Regression armor: the persister runs BEFORE the assembler so any audit
      * failure (non-numeric demoNo, DAO outage) propagates through the action's
      * standard error handling and the operator never sees a successful review
-     * page with the dx silently dropped.
+     * page with the dx silently dropped. Uses {@code InOrder} so an accidental
+     * swap of the two lines in {@code execute()} fails this test loudly
+     * rather than passing on construction-count alone.
      */
     @Test
     void shouldRunPersister_beforeAssembler() throws Exception {
@@ -167,12 +169,14 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
             ViewBillingONReview2Action action = new ViewBillingONReview2Action();
             action.execute();
 
-            // Both collaborators were invoked, and the persister was invoked
-            // exactly once with the request and provider id.
             assertThat(persisterMock.constructed()).hasSize(1);
             assertThat(assemblerMock.constructed()).hasSize(1);
-            org.mockito.Mockito.verify(persisterMock.constructed().get(0))
-                    .persistIfRequested(any(), any());
+
+            BillingONReviewDxPersister persister = persisterMock.constructed().get(0);
+            BillingONReviewDataAssembler assembler = assemblerMock.constructed().get(0);
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(persister, assembler);
+            inOrder.verify(persister).persistIfRequested(any(), any());
+            inOrder.verify(assembler).assemble(any());
         }
     }
 }

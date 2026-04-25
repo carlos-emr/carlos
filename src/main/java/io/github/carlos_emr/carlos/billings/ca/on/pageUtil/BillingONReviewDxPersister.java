@@ -52,7 +52,7 @@ public final class BillingONReviewDxPersister {
     /**
      * Inserts a {@link Dxresearch} row when the request opted in via the
      * {@code addToPatientDx=yes} hidden field. No-op for any other request
-     * shape. Throws {@link IllegalArgumentException} if the request opted in
+     * shape. Throws {@link BillingValidationException} if the request opted in
      * but {@code demographic_no} is non-numeric — silent drops on a clinical
      * write are an audit-trail gap.
      *
@@ -81,7 +81,7 @@ public final class BillingONReviewDxPersister {
             String sanitized = LogSanitizer.sanitize(demoNo);
             MiscUtils.getLogger().error(
                     "addToPatientDx requested with non-numeric demographic_no: {}", sanitized);
-            throw new IllegalArgumentException(
+            throw new BillingValidationException(
                     "addToPatientDx requested with non-numeric demographic_no: " + sanitized, nfe);
         }
         Date now = new Date();

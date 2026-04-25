@@ -449,11 +449,21 @@ public class BillingCorrection2Action extends ActionSupport {
 
         String serviceDateStr = request.getParameter("xml_appointment_date");
 
-        Date serviceDate = null;
+        // ServiceDate must be valid: it feeds into bService.getTerminationDate().before(serviceDate)
+        // (line ~501) and bServiceDao.searchBillingCode(... serviceDate) (line ~493),
+        // both of which NPE or behave undefined on null. The previous code
+        // logged the failure but continued with serviceDate=null, which
+        // poisoned the entire flow while the operator saw a successful submission.
+        Date serviceDate;
         try {
             serviceDate = DateUtils.parseDate(serviceDateStr, request.getLocale());
         } catch (java.text.ParseException e) {
-            MiscUtils.getLogger().error("Invalid date", e);
+            String sanitizedDate = LogSanitizer.sanitize(serviceDateStr);
+            MiscUtils.getLogger().error(
+                    "Bill item save: unparseable xml_appointment_date={}; aborting",
+                    sanitizedDate, e);
+            throw new BillingValidationException(
+                    "Bill item save aborted: unparseable xml_appointment_date [" + sanitizedDate + "]", e);
         }
 
         /*
@@ -473,6 +483,13 @@ public class BillingCorrection2Action extends ActionSupport {
                 String unit = request.getParameter("billingunit" + i);
                 MiscUtils.getLogger().info("({}) Unit Amount:{}", LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
                 if (!unit.matches("\\d+")) {
+                    // Clinical billing-amount bug: previously the operator
+                    // believed they entered a different unit count while the
+                    // bill silently rounded to 1. Log so the rewrite is
+                    // visible — the form data is preserved for forensics.
+                    MiscUtils.getLogger().warn(
+                            "Bill item {}: non-numeric unit '{}' rewritten to '1'; preserving submission",
+                            LogSanitizer.sanitize(serviceCodeId), LogSanitizer.sanitize(unit));
                     unit = "1";
                 }
                 BigDecimal unitAmt = new BigDecimal(unit);
@@ -577,14 +594,31 @@ public class BillingCorrection2Action extends ActionSupport {
 
         Locale locale = request.getLocale();
 
-        String admissionDateStr = "Invalid Date";
-        String billingDateStr = "Invalid Date";
+        // Use a sentinel that can never match a user-submitted value AND that
+        // is distinguishable from legitimate "no change" output. The legacy
+        // code used "Invalid Date" which collides with itself across both
+        // fields and creates a phantom "user changed something" signal when
+        // a parse failure leaves both at the sentinel — that triggers a
+        // bCh1Dao.merge(...) below and writes an audit row for a change
+        // that didn't happen.
+        String admissionDateStr;
+        String billingDateStr;
 
         try {
             admissionDateStr = DateUtils.formatDate(bCh1.getAdmissionDate(), locale);
             billingDateStr = DateUtils.formatDate(bCh1.getBillingDate(), locale);
         } catch (java.text.ParseException e) {
-            MiscUtils.getLogger().warn("Invalid Date or Time", e);
+            MiscUtils.getLogger().error(
+                    "Bill {} has unparseable admission/billing date; aborting change-detection to avoid phantom audit entry",
+                    bCh1.getId(), e);
+            // Fail fast back to the caller so the bill is left untouched and
+            // the operator sees the validation-error path instead of a silent
+            // phantom audit-row. Without this, the legacy "Invalid Date"
+            // sentinel would mismatch every user input below and trigger an
+            // unintended bCh1Dao.merge().
+            throw new BillingValidationException(
+                    "Bill " + bCh1.getId()
+                            + " has unparseable admission/billing date; refusing to compare or persist");
         }
 
         String manualReview = request.getParameter("m_review");
@@ -788,8 +822,16 @@ public class BillingCorrection2Action extends ActionSupport {
                     }
                     demoRosterStatus = sdemo.getRosterStatus() == null ? "" : sdemo.getRosterStatus();
                 }
-            } catch (Exception e) {
-                MiscUtils.getLogger().warn("Demographic load failed for bill {}", billNo, e);
+            } catch (RuntimeException e) {
+                // Empty patient context renders without a banner today; surface
+                // a flag so the JSP shows ops "demographic load failed" rather
+                // than letting the operator act on the (empty) context as if
+                // it were authoritative. Logged at ERROR because a failed
+                // demographic load is data-integrity, not a transient fetch.
+                b.demoLoadError(true);
+                MiscUtils.getLogger().error(
+                        "Demographic load failed for bill {} demoNo={}; rendering correction page with empty patient context",
+                        billNo, bCh1.getDemographicNo(), e);
             }
         }
         b.hin(hin).demoRosterStatus(demoRosterStatus);
@@ -826,15 +868,21 @@ public class BillingCorrection2Action extends ActionSupport {
 
         b.comment(bCh1.getComment() == null ? "" : bCh1.getComment());
 
-        // OHIP RA claim number
+        // OHIP RA claim number — primary correlation key for ministry
+        // remittance. Surface a flag so the JSP shows "RA lookup unavailable"
+        // rather than silently rendering an empty claimNo. Log at ERROR so
+        // a JdbcBillingRAImpl regression is visible to ops.
         try {
             JdbcBillingRAImpl raObj = new JdbcBillingRAImpl();
             String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
             if (raClaim != null) {
                 b.claimNo(raClaim);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().warn("RA claim lookup failed for bill {}", billNo, e);
+        } catch (RuntimeException e) {
+            b.raLookupError(true);
+            MiscUtils.getLogger().error(
+                    "RA claim lookup failed for bill {}; correction page will show empty claimNo",
+                    billNo, e);
         }
     }
 }

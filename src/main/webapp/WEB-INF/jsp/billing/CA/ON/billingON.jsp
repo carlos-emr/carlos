@@ -96,11 +96,19 @@
         // <jsp:forward> from an unguarded JSP would silently expose PHI
         // assembly. Accepts a tiny double-cost on the legitimate path
         // (action already ran the same check) for correctness on the
-        // shim path.
-        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr =
-                SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        // shim path. Wrap the bean lookup so a Spring context-reload
+        // failure surfaces as a typed SecurityException rather than a
+        // raw BeansException through the errorPage directive.
         if (loggedInInfo == null) {
             throw new SecurityException("billingON.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingON.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingON.jsp fallback: privilege check unavailable", __springEx);
         }
         if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("billingON.jsp fallback: missing required sec object (_billing)");

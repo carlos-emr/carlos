@@ -82,4 +82,14 @@ class BillingONRequestParamsUnitTest {
         assertThat(BillingONRequestParams.extractProviderNo("|OHIP1", null))
                 .isEqualTo("");
     }
+
+    @Test
+    void shouldNotTrimWhitespace_butLockTheBehavior() {
+        // `extractProviderNo` does not trim — `"  999998  "` passes through
+        // verbatim and breaks the downstream `ProviderDao.getProvider()`
+        // lookup. This test locks the current contract; if a future change
+        // wants to trim, it must also update this test deliberately.
+        assertThat(BillingONRequestParams.extractProviderNo("  999998  ", null))
+                .isEqualTo("  999998  ");
+    }
 }

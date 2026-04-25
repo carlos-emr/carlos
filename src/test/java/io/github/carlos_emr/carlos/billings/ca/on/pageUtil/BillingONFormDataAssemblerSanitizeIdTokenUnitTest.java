@@ -99,4 +99,37 @@ class BillingONFormDataAssemblerSanitizeIdTokenUnitTest {
         assertThat(BillingONFormDataAssembler.sanitizeIdToken("!@#$%"))
                 .isEqualTo("_____");
     }
+
+    @Test
+    @DisplayName("should replace non-ASCII letters with underscore")
+    void shouldReplaceNonAsciiLetters_withUnderscore() {
+        // Surprising but defensible for a localization-touchy clinic. The
+        // regex matches only [A-Za-z0-9_-]; non-ASCII is replaced one
+        // codepoint per `_`. Locks the behavior so a future regex tightening
+        // (e.g. adding `\\p{L}`) is a deliberate change, not an accident.
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("Café"))
+                .isEqualTo("Caf_");
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("mañana"))
+                .isEqualTo("ma_ana");
+        // Each non-BMP CJK codepoint counts as ≥1 char in Java's regex; the
+        // exact replacement count depends on UTF-16 char-by-char iteration.
+        // Keep the assertion shape tolerant.
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("日本"))
+                .matches("_+");
+    }
+
+    @Test
+    @DisplayName("should preserve hyphen adjacent to a replaced char")
+    void shouldPreserveHyphen_adjacentToReplacedChar() {
+        // Verifies the hyphen-in-character-class isn't accidentally treated
+        // as a range when something gets replaced next to it. "a- b" should
+        // sanitize to "a-_b" (hyphen kept, space replaced) rather than
+        // "a__b" or "a-b".
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("a- b"))
+                .isEqualTo("a-_b");
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("-a-"))
+                .isEqualTo("-a-");
+        assertThat(BillingONFormDataAssembler.sanitizeIdToken("a -b"))
+                .isEqualTo("a_-b");
+    }
 }

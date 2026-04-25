@@ -46,9 +46,10 @@ EL_FN_RE = re.compile(r"\$\{\s*e:for[A-Za-z]+\s*\(")
 ENCODE_SCRIPTLET_RE = re.compile(r"<%=\s*Encode\.for[A-Za-z]+\s*\(")
 # Class C — context misuse: forHtmlContent inside an HTML attribute value.
 # `forHtmlContent` does NOT escape `"` or `'`, so a value containing a quote
-# breaks the markup. The PR #1967 d2db61d4 commit fixed 8 such sites by hand
-# (every `value="${carlos:forHtmlContent(...)}"`); this regex catches the
-# pattern so it can't recur on a future JSP migration.
+# breaks the markup. The PR #1967 d2db61d4 commit fixed several such sites
+# by hand (every `value="${carlos:forHtmlContent(...)}"` in
+# `billingONCorrection.jsp`); this regex catches the pattern so it can't
+# recur on a future JSP migration.
 HTML_ATTR_CONTENT_MISUSE_RE = re.compile(
     r"""=\s*['"]\s*\$\{\s*carlos:forHtmlContent\s*\(""",
 )

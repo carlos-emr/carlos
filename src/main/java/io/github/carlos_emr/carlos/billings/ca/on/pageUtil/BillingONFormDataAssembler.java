@@ -19,6 +19,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
@@ -169,9 +170,9 @@ public final class BillingONFormDataAssembler {
 
         // Missing appointment_no defaults to "0" — the legacy convention for
         // a manual bill not tied to an existing appointment. The JSP body
-        // (billingON.jsp:~1114) reads model.getAppointmentNo() and calls
-        // .compareTo("0") on it, so this default keeps the EL-bridge code
-        // null-safe.
+        // reads model.getAppointmentNo() and tests `appt_no.compareTo("0") == 0`
+        // (search billingON.jsp for that comparison), so this default keeps
+        // the EL-bridge code null-safe.
         String apptNo = firstNonNull(request.getParameter("appointment_no"), "0");
         if (apptNo.isEmpty()) {
             apptNo = "0";
@@ -306,21 +307,7 @@ public final class BillingONFormDataAssembler {
                 .errorMsg(error.toString())
                 .errorFlag(errorFlag);
 
-        // Patient dx list (ICD-9 only) + add/match codes from user properties
-        List<String> patientDx = new ArrayList<>();
-        if (demoNo != null && !demoNo.isEmpty()) {
-            try {
-                List<Dxresearch> dxList = dxresearchDao.getByDemographicNo(Integer.parseInt(demoNo));
-                for (Dxresearch dx : dxList) {
-                    if ("icd9".equals(dx.getCodingSystem())) {
-                        patientDx.add(dx.getDxresearchCode());
-                    }
-                }
-            } catch (NumberFormatException nfe) {
-                MiscUtils.getLogger().warn("Invalid demographic_no for dx lookup: {}", demoNo);
-            }
-        }
-        b.patientDx(patientDx);
+        b.patientDx(loadPatientDx(demoNo));
 
         UserProperty addCodeProp = userPropertyDao.getProp(UserProperty.CODE_TO_ADD_PATIENTDX);
         String patientDxAddCode = addCodeProp != null ? nullSafe(addCodeProp.getValue()).trim() : "";
@@ -350,45 +337,9 @@ public final class BillingONFormDataAssembler {
         }
         b.billingRecommendations(recommendations.toString());
 
-        // Billing history (first 5 entries) — the JSP only reads the first record's visitType / clinic_ref_code.
-        // Split exception handling: a SQLException is "DB unreachable, billing
-        // form still safe to render with empty history" — log at WARN; a
-        // ClassCastException is "data shape regressed under us" and *must* be
-        // loud at ERROR so a deploy that broke the JdbcBillingReviewImpl
-        // contract doesn't silently strip the visit-context hint that
-        // providers rely on to avoid duplicate-billing the same encounter.
-        List<BillingONFormViewModel.BillingHistoryEntry> history = new ArrayList<>();
-        if (demoNo != null && !demoNo.isEmpty()) {
-            try {
-                JdbcBillingReviewImpl reviewer = new JdbcBillingReviewImpl();
-                List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
-                if (raw.size() >= 2) {
-                    BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);
-                    BillingItemData item = (BillingItemData) raw.get(1);
-                    history.add(new BillingONFormViewModel.BillingHistoryEntry(
-                            nullSafe(header.getAdmission_date()),
-                            nullSafe(header.getVisittype()),
-                            nullSafe(header.getFacilty_num()),
-                            nullSafe(item.getDx())));
-                }
-            } catch (ClassCastException ccEx) {
-                // Loud: JdbcBillingReviewImpl.getBillingHist returned an unexpected
-                // type at index 0 / 1. Provider will see an empty visit-context
-                // hint and may duplicate-bill the same encounter — a deploy that
-                // breaks this contract must be visible to ops at ERROR.
-                MiscUtils.getLogger().error(
-                        "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
-                        demoNo, ccEx);
-            } catch (RuntimeException rtEx) {
-                // Catch-all for upstream wrapped DAO exceptions
-                // (HibernateException, DataAccessException, etc. — JdbcBillingReviewImpl
-                // doesn't declare SQLException). Don't fail the whole page; the
-                // billing form is usable without history.
-                MiscUtils.getLogger().warn(
-                        "Billing history lookup failed for demo={}; rendering with empty history",
-                        demoNo, rtEx);
-            }
-        }
+        // Capture history into a local — downstream blocks (default dx code,
+        // default visit type) read from it.
+        List<BillingONFormViewModel.BillingHistoryEntry> history = loadBillingHistory(demoNo);
         b.billingHistory(history);
 
         // Provider list for the form's provider picker
@@ -560,13 +511,23 @@ public final class BillingONFormDataAssembler {
         @SuppressWarnings("unchecked")
         List<Object[]> serviceTypeRows = (List<Object[]>) cbsDao.findServiceTypesByStatus("A");
         for (Object[] typeRow : serviceTypeRows) {
+            // Skip rows where the code column is null — `String.valueOf((Object)null)`
+            // returns the literal 4-character string "null", which would render
+            // `id="null"` in the DOM and `billForm=null` in click-through URLs.
+            // ctl_billservice.servicetype is conventionally non-null, but a
+            // left-join or schema-drift could produce one; log + continue.
+            if (typeRow == null || typeRow[1] == null) {
+                MiscUtils.getLogger().warn(
+                        "ctl_billservice service-type row has null code column; skipping");
+                continue;
+            }
             // Sanitize the code at ingest so the same string flows through
             // every downstream surface (HTML element ids, EL ${st}, scriptlet
             // <%=st%>, JS args). Without this, a malformed DB row containing
             // whitespace could emit invalid HTML (id="..."  contains a space)
             // and the JS lookup-by-id would fail intermittently across browsers.
             String ctlcode = sanitizeIdToken(String.valueOf(typeRow[1]));
-            String ctlcodename = String.valueOf(typeRow[0]);
+            String ctlcodename = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
 
             if (ctlcode.equals(ctlBillForm)) {
                 resolvedBillFormName = ctlcodename;
@@ -651,10 +612,17 @@ public final class BillingONFormDataAssembler {
         // Billing-form menu: one entry per service type, with its billType
         // (for Layer1 anchors + _billingForms JS array). Reuses the
         // serviceTypeRows captured above instead of re-querying the DAO.
+        // Sanitize codes via sanitizeIdToken consistently with the grid loop
+        // above so a malformed DB row produces the same id token in both the
+        // grid div and the menu URL — otherwise the click-to-show round-trip
+        // would lookup a different id than the rendered one.
         List<BillingONFormViewModel.BillingFormMenuEntry> billingForms = new ArrayList<>();
         for (Object[] typeRow : serviceTypeRows) {
-            String menuCode = String.valueOf(typeRow[1]);
-            String menuName = String.valueOf(typeRow[0]);
+            if (typeRow == null || typeRow[1] == null) {
+                continue; // already logged in the grid loop above
+            }
+            String menuCode = sanitizeIdToken(String.valueOf(typeRow[1]));
+            String menuName = typeRow[0] == null ? "" : String.valueOf(typeRow[0]);
             String menuBillType = "";
             for (CtlBillingType t : tDao.findByServiceType(menuCode)) {
                 menuBillType = t.getBillType();
@@ -701,9 +669,79 @@ public final class BillingONFormDataAssembler {
             int day = Integer.parseInt(dobYyyymmdd.substring(6, 8));
             java.time.LocalDate dob = java.time.LocalDate.of(year, month, day);
             return java.time.Period.between(dob, java.time.LocalDate.now()).getYears();
-        } catch (Exception e) {
+        } catch (NumberFormatException | java.time.DateTimeException e) {
+            // A malformed DOB that survived the length()==8 guard (e.g.,
+            // "99999999" parses but throws DateTimeException at LocalDate.of)
+            // would silently emit a 0-year-old patient on the form, which
+            // drives downstream visit-type defaults and premium codes off
+            // bad input. Log so the data-shape regression is visible.
+            MiscUtils.getLogger().warn(
+                    "calculateAge: malformed DOB '{}'; defaulting age to 0",
+                    LogSanitizer.sanitize(dobYyyymmdd), e);
             return 0;
         }
+    }
+
+    /**
+     * Loads the patient's ICD-9 diagnosis list. Pure read; no side effects.
+     * Extracted from {@code assemble()} for testability and to keep the main
+     * method's flow legible.
+     */
+    private List<String> loadPatientDx(String demoNo) {
+        List<String> patientDx = new ArrayList<>();
+        if (demoNo == null || demoNo.isEmpty()) {
+            return patientDx;
+        }
+        try {
+            List<Dxresearch> dxList = dxresearchDao.getByDemographicNo(Integer.parseInt(demoNo));
+            for (Dxresearch dx : dxList) {
+                if ("icd9".equals(dx.getCodingSystem())) {
+                    patientDx.add(dx.getDxresearchCode());
+                }
+            }
+        } catch (NumberFormatException nfe) {
+            MiscUtils.getLogger().warn(
+                    "Invalid demographic_no for dx lookup: {}",
+                    LogSanitizer.sanitize(demoNo));
+        }
+        return patientDx;
+    }
+
+    /**
+     * Loads up to 5 recent billing-history entries via JdbcBillingReviewImpl.
+     * The JSP only reads the first record's visitType / clinic_ref_code, so
+     * we surface only that. Split exception handling: ClassCastException is
+     * loud at ERROR (data-shape regression in JdbcBillingReviewImpl);
+     * RuntimeException is WARN (DB outage — billing form still safe to
+     * render with empty history).
+     */
+    private List<BillingONFormViewModel.BillingHistoryEntry> loadBillingHistory(String demoNo) {
+        List<BillingONFormViewModel.BillingHistoryEntry> history = new ArrayList<>();
+        if (demoNo == null || demoNo.isEmpty()) {
+            return history;
+        }
+        try {
+            JdbcBillingReviewImpl reviewer = new JdbcBillingReviewImpl();
+            List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
+            if (raw.size() >= 2) {
+                BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);
+                BillingItemData item = (BillingItemData) raw.get(1);
+                history.add(new BillingONFormViewModel.BillingHistoryEntry(
+                        nullSafe(header.getAdmission_date()),
+                        nullSafe(header.getVisittype()),
+                        nullSafe(header.getFacilty_num()),
+                        nullSafe(item.getDx())));
+            }
+        } catch (ClassCastException ccEx) {
+            MiscUtils.getLogger().error(
+                    "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
+                    demoNo, ccEx);
+        } catch (RuntimeException rtEx) {
+            MiscUtils.getLogger().warn(
+                    "Billing history lookup failed for demo={}; rendering with empty history",
+                    demoNo, rtEx);
+        }
+        return history;
     }
 
     private static String nullSafe(String s) {

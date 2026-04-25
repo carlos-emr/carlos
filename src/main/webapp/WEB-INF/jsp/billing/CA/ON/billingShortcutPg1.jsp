@@ -427,7 +427,13 @@
 
             CtlBillingServiceDao cbsDao = SpringUtils.getBean(CtlBillingServiceDao.class);
             for (Object[] o : cbsDao.findServiceTypesByStatus("A")) {
-                ctlcodename = String.valueOf(o[0]);
+                // Skip rows where the code column is null — String.valueOf((Object)null)
+                // returns the literal "null" string, which would emit
+                // billForm=null in the URL and id="null" in the DOM.
+                if (o == null || o[1] == null) {
+                    continue;
+                }
+                ctlcodename = o[0] == null ? "" : String.valueOf(o[0]);
                 // Sanitize the code at ingest so it's safe to embed in the URL
                 // and the on-click rewrite below. Mirrors BillingONFormDataAssembler's
                 // sanitizeIdToken: defensive against malformed ctl_billservice

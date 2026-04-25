@@ -27,13 +27,16 @@ import org.apache.struts2.ServletActionContext;
  * Mutation gate for {@code billing/CA/ON/billingONReview.jsp}. The JSP
  * historically performed a {@code dxresearchDao.save(dx)} side-effect inside
  * its top scriptlet when {@code addToPatientDx=yes} was posted; that write is
- * now done by {@link BillingONReviewDataAssembler} (driven from this action),
- * so the JSP remains a presentation layer over the resulting view model.
+ * now done by {@link BillingONReviewDxPersister}, which this action invokes
+ * <em>before</em> assembling the view model so audit failures (non-numeric
+ * demoNo, DAO outage) propagate through the standard error path rather than
+ * rendering a misleadingly successful review page. The JSP remains a
+ * presentation layer over the resulting view model.
  *
  * <p>Enforces {@code _billing} w privilege AND POST-only before forwarding to
- * the JSP. GET requests return 405. The class name retains the {@code View...}
- * prefix for consistency with sibling gate actions in this migration, even
- * though the behavior is mutation-gate.</p>
+ * the JSP. GET requests return 405 with {@code Allow: POST}. The class name
+ * retains the {@code View...} prefix for consistency with sibling gate actions
+ * in this migration, even though the behavior is mutation-gate.</p>
  *
  * @since 2026-04-13
  *        2026-04-24 (view-model assembly + dx side-effect migration)

@@ -162,31 +162,36 @@ public final class BillingShortcutPg1DataAssembler {
         String referralDoctorOhip = demoLoad.referralDoctorOhip;
         boolean isNewOnBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 
-        // Wrap the entire history walk so a single malformed billing row or DAO
-        // failure doesn't 500 the whole shortcut page. Mirrors the split-by-type
-        // pattern in BillingONFormDataAssembler: ClassCastException is loud
-        // (data-shape regression -> ops must see it); other RuntimeExceptions
-        // degrade to "render with empty history" + WARN.
+        // Per-row try/catch so a single malformed billing row doesn't wipe
+        // the whole 5-bill history. Outer catch protects the DAO call itself
+        // (DB outage); each row catch protects against per-row data-shape
+        // regression (ClassCastException) and per-row corruption.
         try {
             if (!isNewOnBilling) {
                 boolean firstReferral = true;
                 Integer demoIdInt = ConversionUtils.fromIntString(demoNo);
                 for (Billing b : billingDao.findActiveBillingsByDemoNo(demoIdInt, 5)) {
-                    Properties p = new Properties();
-                    p.setProperty("billing_no", "" + b.getId());
-                    p.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate()));
-                    p.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate()));
-                    p.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate()));
-                    p.setProperty("visitType", nullToEmpty(b.getVisitType()));
-                    p.setProperty("clinic_ref_code", nullToEmpty(b.getClinicRefCode()));
-                    billingHistory.add(p);
+                    try {
+                        Properties p = new Properties();
+                        p.setProperty("billing_no", "" + b.getId());
+                        p.setProperty("visitdate", ConversionUtils.toDateString(b.getVisitDate()));
+                        p.setProperty("billing_date", ConversionUtils.toDateString(b.getBillingDate()));
+                        p.setProperty("update_date", ConversionUtils.toDateString(b.getUpdateDate()));
+                        p.setProperty("visitType", nullToEmpty(b.getVisitType()));
+                        p.setProperty("clinic_ref_code", nullToEmpty(b.getClinicRefCode()));
+                        billingHistory.add(p);
 
-                    if (firstReferral && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
-                        firstReferral = false;
-                        String rdohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
-                        if (rdohip != null) {
-                            referralDoctorOhip = rdohip;
+                        if (firstReferral && "checked".equals(SxmlMisc.getXmlContent(b.getContent(), "xml_referral"))) {
+                            firstReferral = false;
+                            String rdohip = SxmlMisc.getXmlContent(b.getContent(), "rdohip");
+                            if (rdohip != null) {
+                                referralDoctorOhip = rdohip;
+                            }
                         }
+                    } catch (RuntimeException rowEx) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                                "Shortcut history: skipping malformed billing row id={} for demo={}",
+                                b.getId(), demoNo, rowEx);
                     }
                 }
 
@@ -200,13 +205,19 @@ public final class BillingShortcutPg1DataAssembler {
                     // even though "401" already appeared.
                     java.util.LinkedHashSet<String> dxSeen = new java.util.LinkedHashSet<>();
                     java.util.LinkedHashSet<String> serSeen = new java.util.LinkedHashSet<>();
-                    for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
-                        if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
-                            dxSeen.add(bd.getDiagnosticCode());
+                    try {
+                        for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
+                            if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
+                                dxSeen.add(bd.getDiagnosticCode());
+                            }
+                            if (bd.getServiceCode() != null && !bd.getServiceCode().isEmpty()) {
+                                serSeen.add(bd.getServiceCode() + " x " + bd.getBillingUnit());
+                            }
                         }
-                        if (bd.getServiceCode() != null && !bd.getServiceCode().isEmpty()) {
-                            serSeen.add(bd.getServiceCode() + " x " + bd.getBillingUnit());
-                        }
+                    } catch (RuntimeException detailEx) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                                "Shortcut history: detail lookup failed for billing_no={}",
+                                billingNo, detailEx);
                     }
                     Properties detail = new Properties();
                     detail.setProperty("service_code", String.join(", ", serSeen));
@@ -217,34 +228,39 @@ public final class BillingShortcutPg1DataAssembler {
                 JdbcBillingReviewImpl hdbObj = billingReviewImplFactory.get();
                 List<?> aL = hdbObj.getBillingHist(demoNo, 5, 0, null);
                 // aL contains alternating pairs of (BillingClaimHeader1Data, BillingItemData).
-                // Walk pairwise so the downstream JSP renders one row per pair without
-                // needing the raw list shape.
+                // Walk pairwise; per-pair try/catch so a single bad pair doesn't
+                // strip the surrounding good rows.
                 for (int i = 0; i + 1 < aL.size(); i += 2) {
-                    BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                    BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-                    Properties p = new Properties();
-                    p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
-                    p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
-                    p.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date());
-                    p.setProperty("visitType", nullToEmpty(obj.getVisittype()));
-                    p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
-                    String updateDt = obj.getUpdate_datetime();
-                    p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
-                    billingHistory.add(p);
+                    try {
+                        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
+                        BillingItemData iobj = (BillingItemData) aL.get(i + 1);
+                        Properties p = new Properties();
+                        p.setProperty("billing_no", nullToEmpty(String.valueOf(obj.getId())));
+                        p.setProperty("billing_date", nullToEmpty(obj.getBilling_date()));
+                        p.setProperty("visitdate", obj.getAdmission_date() == null ? "" : obj.getAdmission_date());
+                        p.setProperty("visitType", nullToEmpty(obj.getVisittype()));
+                        p.setProperty("clinic_ref_code", nullToEmpty(obj.getFacilty_num()));
+                        String updateDt = obj.getUpdate_datetime();
+                        p.setProperty("update_date", updateDt != null && updateDt.length() >= 10 ? updateDt.substring(0, 10) : nullToEmpty(updateDt));
+                        billingHistory.add(p);
 
-                    Properties detail = new Properties();
-                    detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
-                    detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
-                    billingHistoryDetails.add(detail);
+                        Properties detail = new Properties();
+                        detail.setProperty("service_code", nullToEmpty(iobj.getService_code()));
+                        detail.setProperty("diagnostic_code", nullToEmpty(iobj.getDx()));
+                        billingHistoryDetails.add(detail);
+                    } catch (ClassCastException ccEx) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                                "Shortcut history: data-shape regression at pair index {} for demo={}",
+                                i, demoNo, ccEx);
+                    } catch (RuntimeException rowEx) {
+                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                                "Shortcut history: skipping malformed pair at index {} for demo={}",
+                                i, demoNo, rowEx);
+                    }
                 }
             }
-        } catch (ClassCastException ccEx) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                    "Shortcut billing history data-shape regression for demo={} — DAO returned unexpected types",
-                    demoNo, ccEx);
-            billingHistory.clear();
-            billingHistoryDetails.clear();
         } catch (RuntimeException rtEx) {
+            // Outer DAO call failed (DB outage). Render with empty history.
             io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                     "Shortcut billing history lookup failed for demo={}; rendering with empty history",
                     demoNo, rtEx);

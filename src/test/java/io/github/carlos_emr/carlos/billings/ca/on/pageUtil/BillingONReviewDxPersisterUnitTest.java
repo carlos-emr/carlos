@@ -139,7 +139,7 @@ class BillingONReviewDxPersisterUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographic_no", "abc");
 
         assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("non-numeric demographic_no");
 
         verify(dxresearchDAO, never()).save(any());
