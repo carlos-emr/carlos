@@ -1,0 +1,34 @@
+# Billing JSPs currently over the check-jsp-size.sh thresholds. Each line is an
+# active refactor target - entries come OUT as their fat scriptlet blocks move
+# into the corresponding *View2Action + *FormViewModel + *FormDataAssembler
+# per the chore/billing-refactor plan.
+#
+# Format: one relative path per line (starting from repo root), comments with #.
+# The script treats allowlisted files as "known-over-threshold baseline" and
+# does NOT fail the build on them. New regressions on other files DO fail.
+#
+# Remove entries as each JSP is refactored.
+
+# Group B - billingONStatus.jsp (scaffolding in 0e28007e38; JSP EL migration pending)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp
+
+# Group C - billingONReview.jsp (not started)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONReview.jsp
+
+# Group D - billingONCorrection.jsp (not started)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp
+
+# Group E - billingShortcutPg1.jsp (not started)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingShortcutPg1.jsp
+
+# Group A - billingON.jsp (substantially done; still above byte threshold, below scriptlet threshold)
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp
+
+# BC billing (out of scope for the ON refactor; follow-up PR)
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingBC.jsp
+src/main/webapp/WEB-INF/jsp/billing/CA/BC/adjustBill.jsp
+
+# Other ON JSPs currently over threshold
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON3rdInv.jsp
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONPayment.jsp
+src/main/webapp/WEB-INF/jsp/billing/CA/ON/viewMOHFiles.jsp
