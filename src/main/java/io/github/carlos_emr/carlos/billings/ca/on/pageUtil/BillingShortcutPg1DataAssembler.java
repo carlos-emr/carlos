@@ -72,6 +72,7 @@ public final class BillingShortcutPg1DataAssembler {
     private final CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
+    private final java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory;
 
     public BillingShortcutPg1DataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
@@ -81,7 +82,8 @@ public final class BillingShortcutPg1DataAssembler {
              SpringUtils.getBean(BillingServiceDao.class),
              SpringUtils.getBean(CtlBillingServicePremiumDao.class),
              SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(ProfessionalSpecialistDao.class));
+             SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             JdbcBillingReviewImpl::new);
     }
 
     BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
@@ -92,6 +94,21 @@ public final class BillingShortcutPg1DataAssembler {
                                     CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
                                     ClinicLocationDao clinicLocationDao,
                                     ProfessionalSpecialistDao professionalSpecialistDao) {
+        this(demographicDao, providerDao, billingDao, billingDetailDao,
+             billingServiceDao, ctlBillingServicePremiumDao,
+             clinicLocationDao, professionalSpecialistDao,
+             JdbcBillingReviewImpl::new);
+    }
+
+    BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
+                                    ProviderDao providerDao,
+                                    BillingDao billingDao,
+                                    BillingDetailDao billingDetailDao,
+                                    BillingServiceDao billingServiceDao,
+                                    CtlBillingServicePremiumDao ctlBillingServicePremiumDao,
+                                    ClinicLocationDao clinicLocationDao,
+                                    ProfessionalSpecialistDao professionalSpecialistDao,
+                                    java.util.function.Supplier<JdbcBillingReviewImpl> billingReviewImplFactory) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
@@ -100,6 +117,7 @@ public final class BillingShortcutPg1DataAssembler {
         this.ctlBillingServicePremiumDao = ctlBillingServicePremiumDao;
         this.clinicLocationDao = clinicLocationDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
+        this.billingReviewImplFactory = billingReviewImplFactory;
     }
 
     public BillingShortcutPg1ViewModel assemble(HttpServletRequest request, String userProviderNo) {
@@ -178,7 +196,7 @@ public final class BillingShortcutPg1DataAssembler {
                 billingHistoryDetails.add(detail);
             }
         } else {
-            JdbcBillingReviewImpl hdbObj = new JdbcBillingReviewImpl();
+            JdbcBillingReviewImpl hdbObj = billingReviewImplFactory.get();
             List<?> aL = hdbObj.getBillingHist(demoNo, 5, 0, null);
             // aL contains alternating pairs of (BillingClaimHeader1Data, BillingItemData).
             // Walk pairwise so the downstream JSP renders one row per pair without

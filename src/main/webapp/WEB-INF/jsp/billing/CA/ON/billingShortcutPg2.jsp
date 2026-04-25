@@ -452,7 +452,7 @@
             if ("Save".equals(request.getParameter("submit"))) {
                 msg += "<script language=\"JavaScript\"> self.close();</script>";
             } else {
-                msg += "<script language=\"JavaScript\">window.location = 'billingShortcutPg1.jsp?billRegion=&billForm="
+                msg += "<script language=\"JavaScript\">window.location = '" + request.getContextPath() + "/billing/CA/ON/billingShortcutPg1View?billRegion=&billForm="
                         + URLEncoder.encode(oscarVariables.getProperty("hospital_view", oscarVariables.getProperty("default_view"))) + "&hotclick=&appointment_no=0&demographic_name="
                         + URLEncoder.encode(demoLast, StandardCharsets.UTF_8) + "%2C"
                         + URLEncoder.encode(demoFirst, StandardCharsets.UTF_8) + "&demographic_no="

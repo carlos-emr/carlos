@@ -16,6 +16,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewMod
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.mockito.MockedConstruction;
+import static org.mockito.Mockito.mockConstruction;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -92,42 +94,54 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) servletActionContextMock.close();
     }
 
-    @Test
-    void shouldReturnSuccess_andDefaultProviderViewToLoggedInProvider_whenParamMissing() throws Exception {
-        BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-
-        BillingShortcutPg1ViewModel m = action.getShortcutPg1Model();
-        assertThat(m).isNotNull();
-        assertThat(m.getUserProviderNo()).isEqualTo("999998");
-        assertThat(m.getProviderView()).isEqualTo("999998");
-        assertThat(mockRequest.getAttribute("shortcutPg1Model")).isSameAs(m);
-    }
+    private static final BillingShortcutPg1ViewModel STUB_MODEL =
+            BillingShortcutPg1ViewModel.builder().userProviderNo("999998").providerView("999998").build();
 
     @Test
-    void shouldHonorProviderViewParam_whenSupplied() throws Exception {
-        mockRequest.setParameter("providerview", "111111");
-
-        BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(action.getShortcutPg1Model().getProviderView()).isEqualTo("111111");
+    void shouldReturnSuccess_andStashModelOnRequest_whenAuthorizedGet() throws Exception {
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
+                BillingShortcutPg1DataAssembler.class,
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
+            BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.getShortcutPg1Model()).isSameAs(STUB_MODEL);
+            assertThat(mockRequest.getAttribute("shortcutPg1Model")).isSameAs(STUB_MODEL);
+        }
     }
 
     @Test
     void shouldAcceptPost() throws Exception {
         mockRequest.setMethod("POST");
 
-        BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored = mockConstruction(
+                BillingShortcutPg1DataAssembler.class,
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
+            BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+    }
+
+    @Test
+    void shouldDelegateToAssembler() throws Exception {
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> construction = mockConstruction(
+                BillingShortcutPg1DataAssembler.class,
+                (mock, ctx) -> when(mock.assemble(any(), any())).thenReturn(STUB_MODEL))) {
+            BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
+            action.execute();
+            assertThat(construction.constructed()).hasSize(1);
+        }
     }
 
     @Test
     void shouldRejectDelete_with405() throws Exception {
         mockRequest.setMethod("DELETE");
 
-        BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
+                mockConstruction(BillingShortcutPg1DataAssembler.class)) {
+            BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        }
     }
 
     @Test
@@ -135,9 +149,12 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))
                 .thenReturn(false);
 
-        BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_billing");
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
+                mockConstruction(BillingShortcutPg1DataAssembler.class)) {
+            BillingShortcutPg1View2Action action = new BillingShortcutPg1View2Action();
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_billing");
+        }
     }
 }

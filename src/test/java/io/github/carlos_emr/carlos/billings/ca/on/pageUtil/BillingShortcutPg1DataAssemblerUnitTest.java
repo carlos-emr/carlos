@@ -1,0 +1,236 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+
+import java.util.Collections;
+import java.util.List;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for {@link BillingShortcutPg1DataAssembler}.
+ *
+ * <p>Exercises the demographic-driven validation path, provider/clinic list
+ * assembly, and the default-resolution helper. Service-code grid prep is
+ * covered by integration tests that have a real DB; here we just verify the
+ * empty-grid case.</p>
+ *
+ * @since 2026-04-24
+ */
+@DisplayName("BillingShortcutPg1DataAssembler")
+@Tag("unit")
+@Tag("billing")
+class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
+
+    @Mock
+    private DemographicDao demographicDao;
+    @Mock
+    private ProviderDao providerDao;
+    @Mock
+    private BillingDao billingDao;
+    @Mock
+    private BillingDetailDao billingDetailDao;
+    @Mock
+    private BillingServiceDao billingServiceDao;
+    @Mock
+    private CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
+    @Mock
+    private ClinicLocationDao clinicLocationDao;
+    @Mock
+    private ProfessionalSpecialistDao professionalSpecialistDao;
+    @Mock
+    private JdbcBillingReviewImpl billingReviewImpl;
+
+    private BillingShortcutPg1DataAssembler assembler;
+    private MockHttpServletRequest request;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        // Default: empty everything (the assembler shouldn't NPE on no data).
+        when(billingDao.findActiveBillingsByDemoNo(anyInt(), anyInt())).thenReturn(Collections.emptyList());
+        when(providerDao.getDoctorsWithOhip()).thenReturn(Collections.emptyList());
+        when(clinicLocationDao.findAll()).thenReturn(Collections.emptyList());
+        when(billingServiceDao.findBillingServiceAndCtlBillingServiceByMagic(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        when(billingReviewImpl.getBillingHist(any(), anyInt(), anyInt(), any()))
+                .thenReturn(Collections.emptyList());
+
+        assembler = new BillingShortcutPg1DataAssembler(
+                demographicDao, providerDao, billingDao, billingDetailDao,
+                billingServiceDao, ctlBillingServicePremiumDao,
+                clinicLocationDao, professionalSpecialistDao,
+                () -> billingReviewImpl);
+
+        request = new MockHttpServletRequest();
+    }
+
+    @Test
+    void shouldHardCodeVisitTypeTo02_forHospitalBilling() {
+        request.setParameter("demographic_no", "1");
+        when(demographicDao.getDemographic("1")).thenReturn(null);
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        // The assembler is the hospital-billing shortcut, so visit type 02 is forced
+        // unless an xml_visittype param overrides it.
+        assertThat(m.getVisitType()).isEqualTo("02");
+    }
+
+    @Test
+    void shouldHonorXmlVisittypeOverride_overHospitalDefault() {
+        request.setParameter("demographic_no", "1");
+        request.setParameter("xml_visittype", "00");
+        when(demographicDao.getDemographic("1")).thenReturn(null);
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m.getVisitType()).isEqualTo("00");
+    }
+
+    @Test
+    void shouldNotNpe_whenDemographicMissing() {
+        when(demographicDao.getDemographic(any())).thenReturn(null);
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m).isNotNull();
+        assertThat(m.getDemoFirst()).isEmpty();
+        assertThat(m.getDemoLast()).isEmpty();
+        assertThat(m.getDemoHin()).isEmpty();
+    }
+
+    @Test
+    void shouldFlagInvalidDob_andSurfaceErrorMessage() {
+        Demographic demo = new Demographic();
+        demo.setFirstName("Jones");
+        demo.setLastName("Jacky");
+        demo.setSex("M");
+        demo.setHin("9876543225");
+        demo.setVer("AB");
+        demo.setHcType("ON");
+        demo.setYearOfBirth("1985");
+        demo.setMonthOfBirth("06");
+        // Missing dateOfBirth -> dob length != 8 -> errorFlag set.
+        when(demographicDao.getDemographic("1")).thenReturn(demo);
+        request.setParameter("demographic_no", "1");
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getErrorFlag()).isEqualTo("1");
+        assertThat(m.getErrorMessage()).contains("does not have a valid DOB");
+    }
+
+    @Test
+    void shouldMapDemographicSexCodes() {
+        Demographic demo = new Demographic();
+        demo.setSex("M");
+        demo.setHin("9876543225");
+        demo.setVer("AB");
+        demo.setYearOfBirth("1985");
+        demo.setMonthOfBirth("06");
+        demo.setDateOfBirth("15");
+        when(demographicDao.getDemographic("1")).thenReturn(demo);
+        request.setParameter("demographic_no", "1");
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m.getDemoSex()).isEqualTo("1");
+        assertThat(m.getDemoDob()).isEqualTo("19850615");
+    }
+
+    @Test
+    void shouldDefaultMissingHcTypeToON() {
+        Demographic demo = new Demographic();
+        demo.setSex("F");
+        demo.setHin("9876543225");
+        demo.setVer("AB");
+        demo.setYearOfBirth("1985");
+        demo.setMonthOfBirth("06");
+        demo.setDateOfBirth("15");
+        when(demographicDao.getDemographic("1")).thenReturn(demo);
+        request.setParameter("demographic_no", "1");
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m.getDemoHcType()).isEqualTo("ON");
+        assertThat(m.getDemoSex()).isEqualTo("2");
+    }
+
+    @Test
+    void shouldBuildProviderList_fromDoctorsWithOhip() {
+        Provider p = new Provider();
+        p.setLastName("Doe");
+        p.setFirstName("Jane");
+        p.setProviderNo("999998");
+        when(providerDao.getDoctorsWithOhip()).thenReturn(List.of(p));
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getProviders()).hasSize(1);
+        assertThat(m.getProviders().get(0).getProperty("last_name")).isEqualTo("Doe");
+        assertThat(m.getProviders().get(0).getProperty("first_name")).isEqualTo("Jane");
+        assertThat(m.getProviders().get(0).getProperty("proOHIP")).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldBuildClinicLocationList_fromClinicLocationDao() {
+        ClinicLocation loc = new ClinicLocation();
+        loc.setClinicLocationName("Main Clinic");
+        loc.setClinicLocationNo("1000");
+        when(clinicLocationDao.findAll()).thenReturn(List.of(loc));
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getClinicLocations()).hasSize(1);
+        assertThat(m.getClinicLocations().get(0).getProperty("clinic_location_name")).isEqualTo("Main Clinic");
+        assertThat(m.getClinicLocations().get(0).getProperty("clinic_location_no")).isEqualTo("1000");
+    }
+
+    @Test
+    void shouldEchoDxCodeFromRequestParam_whenProvided() {
+        request.setParameter("dxCode", "401");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m.getDxCode()).isEqualTo("401");
+    }
+
+    @Test
+    void shouldUseProviderViewParam_overUserProviderNo_whenXmlProviderProvided() {
+        request.setParameter("xml_provider", "111111");
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+        assertThat(m.getProviderView()).isEqualTo("111111");
+    }
+}
