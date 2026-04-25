@@ -155,8 +155,21 @@
 
 
     Properties propCodeDesc = (new JdbcBillingCodeImpl()).getCodeDescByNames(vecServiceParam[0]);
-    String dxCode = request.getParameter("dxCode");
-    String dxDesc = prepObj.getDxDescription(dxCode);
+    // View-model bridge: ViewBillingONReview2Action assembles the demographic
+    // and provider lookups, the dx description, and the validation messages.
+    // It also performs the addToPatientDx side-effect before this JSP runs,
+    // so the JSP no longer touches DxresearchDAO directly. Scriptlet variable
+    // names are kept so the existing render-expression sites keep compiling;
+    // a follow-up commit will replace them with EL on the same model.
+    BillingONReviewViewModel reviewModel =
+            (BillingONReviewViewModel) request.getAttribute("reviewModel");
+    if (reviewModel == null) {
+        throw new IllegalStateException(
+                "billingONReview.jsp expects ViewBillingONReview2Action to populate 'reviewModel'");
+    }
+
+    String dxCode = reviewModel.getDxCode();
+    String dxDesc = reviewModel.getDxDesc();
     String clinicview = oscarVariables.getProperty("clinic_view", "");
     String clinicNo = oscarVariables.getProperty("clinic_no", "");
     String visitType = oscarVariables.getProperty("visit_type", "");
@@ -168,7 +181,6 @@
     String assgProvider_no = request.getParameter("assgProvider_no");
     String xmlBilltypeRaw = request.getParameter("xml_billtype");
     String billType = (xmlBilltypeRaw != null && xmlBilltypeRaw.contains("|")) ? xmlBilltypeRaw.substring(0, xmlBilltypeRaw.indexOf("|")).trim() : "";
-    String demoSex = request.getParameter("DemoSex");
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
@@ -177,100 +189,44 @@
     String content = "";
     String total = "";
 
-    //add to patientDx (or not)
-    if ("yes".equals(request.getParameter("addToPatientDx"))) {
-        String dxCodeMatch = request.getParameter("codeMatchToPatientDx");
-        String dxCodeAdd = dxCodeMatch.isEmpty() ? dxCode : dxCodeMatch;
-
-        DxresearchDAO dxresearchDao = SpringUtils.getBean(DxresearchDAO.class);
-        java.util.Date d = new java.util.Date();
-        Dxresearch dx = new Dxresearch(Integer.valueOf(demo_no), d, d, 'A', dxCodeAdd, "icd9", (byte) 0, user_no);
-        dxresearchDao.save(dx);
-    }
-
     String msg = "<tr><td colspan='2'>Calculation</td></tr>";
     String action = "edit";
     Properties propHist = null;
     Vector vecHist = new Vector();
-    // get providers's detail
-    String proOHIPNO = "", proRMA = "";
 
+    String proOHIPNO = reviewModel.getProviderOhip();
+    String proRMA = reviewModel.getProviderRma();
+    if (request.getParameter("xml_provider") != null) {
+        providerview = reviewModel.getProviderView();
+    }
+    // Still required by a downstream scriptlet that resolves the payee
+    // provider (which may differ from xml_provider) into payeename. The
+    // assembler can't pre-resolve that without knowing the payee, so the
+    // DAO handle stays in the JSP for now.
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    Provider ppp = providerDao.getProvider(request.getParameter("xml_provider"));
-    if (ppp != null) {
-        proOHIPNO = ppp.getOhipNo();
-        proRMA = ppp.getRmaNo();
+
+    String r_doctor = reviewModel.getReferralDoctorName();
+    String r_doctor_ohip = reviewModel.getReferralDoctorOhip();
+    String demoFirst = reviewModel.getDemoFirst();
+    String demoLast = reviewModel.getDemoLast();
+    String demoHIN = reviewModel.getDemoHin();
+    String demoVer = reviewModel.getDemoVer();
+    String demoDOB = reviewModel.getDemoDob();
+    String demoDOBYY = reviewModel.getDemoDobYy();
+    String demoDOBMM = reviewModel.getDemoDobMm();
+    String demoDOBDD = reviewModel.getDemoDobDd();
+    String demoHCTYPE = reviewModel.getDemoHcType();
+    String demoSex = reviewModel.getDemoSex();
+    String strPatientAddr = reviewModel.getPatientAddress();
+    if (!reviewModel.getAssignedProviderNo().isEmpty()) {
+        assgProvider_no = reviewModel.getAssignedProviderNo();
     }
-    if (request.getParameter("xml_provider") != null)
-        providerview = request.getParameter("xml_provider");
-    // get patient's detail
-    String r_doctor = "", r_doctor_ohip = "";
-    String demoFirst = "", demoLast = "", demoHIN = "", demoVer = "", demoDOB = "", demoDOBYY = "", demoDOBMM = "", demoDOBDD = "", demoHCTYPE = "";
-    String strPatientAddr = "";
-
-    DemographicDao demoDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demo = demoDao.getDemographic(demo_no);
-    if (demo != null) {
-        strPatientAddr = demo.getFirstName() + " " + demo.getLastName() + "\n"
-                + demo.getAddress() + "\n"
-                + demo.getCity() + ", " + demo.getProvince() + "\n"
-                + demo.getPostal() + "\n"
-                + "Tel: " + demo.getPhone();
-
-        assgProvider_no = demo.getProviderNo();
-        demoFirst = demo.getFirstName();
-        demoLast = demo.getLastName();
-        demoHIN = demo.getHin();
-        demoVer = demo.getVer();
-        demoSex = demo.getSex();
-        if (demoSex.compareTo("M") == 0)
-            demoSex = "1";
-        if (demoSex.compareTo("F") == 0)
-            demoSex = "2";
-
-        demoHCTYPE = demo.getHcType() == null ? "" : demo.getHcType();
-        if (demoHCTYPE.compareTo("") == 0 || demoHCTYPE == null || demoHCTYPE.length() < 2) {
-            demoHCTYPE = "ON";
-        } else {
-            demoHCTYPE = demoHCTYPE.substring(0, 2).toUpperCase();
-        }
-        demoDOBYY = demo.getYearOfBirth();
-        demoDOBMM = demo.getMonthOfBirth();
-        demoDOBDD = demo.getDateOfBirth();
-
-        if (demo.getFamilyDoctor() == null) {
-            r_doctor = "N/A";
-            r_doctor_ohip = "000000";
-        } else {
-            r_doctor = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc
-                    .getXmlContent(demo.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip") == null ? ""
-                    : SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
-        }
-
-        demoDOBMM = demoDOBMM.length() == 1 ? ("0" + demoDOBMM) : demoDOBMM;
-        demoDOBDD = demoDOBDD.length() == 1 ? ("0" + demoDOBDD) : demoDOBDD;
-        demoDOB = demoDOBYY + demoDOBMM + demoDOBDD;
-
-        if (demo.getHin() == null) {
-            errorFlag = "1";
-            errorMsg = errorMsg
-                    + "<br><div class='alert alert-danger'>Error: The patient does not have a HIN </div><br>";
-        } else if (demo.getHin().equals("")) {
-            warningMsg += "<br><div class='alert alert-danger'>Warning: The patient does not have a HIN </div><br>";
-        }
-        if (r_doctor_ohip != null && r_doctor_ohip.length() > 0 && r_doctor_ohip.length() != 6) {
-            warningMsg += "<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>";
-        }
-        if (demoDOB.length() != 8) {
-            errorFlag = "1";
-            errorMsg = errorMsg
-                    + "<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>";
-        }
+    if (!reviewModel.getErrorFlag().isEmpty()) {
+        errorFlag = reviewModel.getErrorFlag();
     }
+    errorMsg += reviewModel.getErrorMessage();
+    warningMsg += reviewModel.getWarningMessage();
 
-
-    // create msg
     String wrongMsg = errorMsg + warningMsg;
 
 %>
