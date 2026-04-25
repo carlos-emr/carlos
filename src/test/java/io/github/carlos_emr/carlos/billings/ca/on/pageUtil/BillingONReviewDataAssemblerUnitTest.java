@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -62,14 +63,20 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
 
     private BillingONReviewDataAssembler assembler;
     private MockHttpServletRequest request;
+    private AutoCloseable mockitoCloseable;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
         when(reviewPrep.getDxDescription(any())).thenReturn("Essential, benign hypertension");
         assembler = new BillingONReviewDataAssembler(
                 demographicDao, providerDao, dxresearchDAO, reviewPrep);
         request = new MockHttpServletRequest();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
     @Test
@@ -219,5 +226,35 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
         assertThat(m.getProviderRma()).isEqualTo("RMA1");
         assertThat(m.getProviderView()).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldStripPipeSuffix_fromXmlProviderBeforeDaoLookup() {
+        Provider p = new Provider();
+        p.setOhipNo("OHIP1");
+        p.setRmaNo("RMA1");
+        // billingON.jsp posts xml_provider as "providerNo|ohipNo"; assembler must
+        // strip at the pipe before calling getProvider.
+        when(providerDao.getProvider("999998")).thenReturn(p);
+        request.setParameter("xml_provider", "999998|OHIP1");
+
+        BillingONReviewViewModel m = assembler.assemble(request, "111111");
+
+        assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
+        assertThat(m.getProviderRma()).isEqualTo("RMA1");
+        assertThat(m.getProviderView()).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldFallBackToProviderviewParam_whenXmlProviderMissing() {
+        Provider p = new Provider();
+        p.setOhipNo("OHIP1");
+        when(providerDao.getProvider("888888")).thenReturn(p);
+        request.setParameter("providerview", "888888");
+
+        BillingONReviewViewModel m = assembler.assemble(request, "111111");
+
+        assertThat(m.getProviderView()).isEqualTo("888888");
+        assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
     }
 }

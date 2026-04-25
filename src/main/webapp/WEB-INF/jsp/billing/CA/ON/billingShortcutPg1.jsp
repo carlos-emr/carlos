@@ -59,8 +59,12 @@
     BillingShortcutPg1ViewModel shortcutPg1Model =
             (BillingShortcutPg1ViewModel) request.getAttribute("shortcutPg1Model");
     if (shortcutPg1Model == null) {
-        throw new IllegalStateException(
-                "billingShortcutPg1.jsp expects BillingShortcutPg1View2Action to populate 'shortcutPg1Model'");
+        // Defensive fallback for any caller that forwards directly to this JSP
+        // without going through BillingShortcutPg1View2Action.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                "billingShortcutPg1.jsp reached without shortcutPg1Model — using empty fallback. "
+                + "Caller should route through billing/CA/ON/billingShortcutPg1View.");
+        shortcutPg1Model = BillingShortcutPg1ViewModel.builder().build();
     }
 
     String user_no = shortcutPg1Model.getUserProviderNo();

@@ -207,8 +207,12 @@ public final class BillingONFormViewModel {
         this.xmlVisitType = b.xmlVisitType;
         this.xmlLocation = b.xmlLocation;
         this.visitDate = b.visitDate;
+        // Deep-copy: Map.copyOf is shallow, so without per-entry copying the
+        // nested lists could still be mutated after build. Force the inner lists
+        // immutable too so the view-model's immutability contract holds.
         this.billingServiceCodesMap = b.billingServiceCodesMap == null
-                ? Collections.emptyMap() : Map.copyOf(b.billingServiceCodesMap);
+                ? Collections.emptyMap()
+                : copyOfNestedListMap(b.billingServiceCodesMap);
         this.listServiceType = b.listServiceType == null
                 ? Collections.emptyList() : List.copyOf(b.listServiceType);
         this.titleMap = b.titleMap == null ? Collections.emptyMap() : Map.copyOf(b.titleMap);
@@ -217,7 +221,8 @@ public final class BillingONFormViewModel {
         this.defaultBillType = b.defaultBillType;
         this.billingForms = b.billingForms == null ? Collections.emptyList() : List.copyOf(b.billingForms);
         this.dxCodesByServiceType = b.dxCodesByServiceType == null
-                ? Collections.emptyMap() : Map.copyOf(b.dxCodesByServiceType);
+                ? Collections.emptyMap()
+                : copyOfNestedListMap(b.dxCodesByServiceType);
         this.billingFavourites = b.billingFavourites == null
                 ? Collections.emptyList() : List.copyOf(b.billingFavourites);
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
@@ -408,5 +413,22 @@ public final class BillingONFormViewModel {
         public BillingONFormViewModel build() {
             return new BillingONFormViewModel(this);
         }
+    }
+
+    /**
+     * Builds an immutable copy of a {@code Map<String, List<T>>} where the
+     * outer map and each inner list are wrapped in {@link Map#copyOf} /
+     * {@link List#copyOf}. {@link Map#copyOf} alone would only freeze the outer
+     * map, leaving the inner lists mutable and breaking the view-model
+     * immutability contract.
+     */
+    private static <T> Map<String, List<T>> copyOfNestedListMap(Map<String, List<T>> source) {
+        java.util.LinkedHashMap<String, List<T>> tmp = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, List<T>> e : source.entrySet()) {
+            tmp.put(e.getKey(), e.getValue() == null
+                    ? Collections.emptyList()
+                    : List.copyOf(e.getValue()));
+        }
+        return Map.copyOf(tmp);
     }
 }

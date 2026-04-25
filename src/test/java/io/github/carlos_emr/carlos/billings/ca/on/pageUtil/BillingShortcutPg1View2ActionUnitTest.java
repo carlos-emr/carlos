@@ -55,6 +55,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mockitoCloseable;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -67,7 +68,7 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -89,9 +90,10 @@ class BillingShortcutPg1View2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
     private static final BillingShortcutPg1ViewModel STUB_MODEL =

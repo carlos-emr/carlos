@@ -515,12 +515,17 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/genRASummaryDetail.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenSimulation" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenSimulation2Action">
-            <!-- genSimulation.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
-            <result name="success" type="chain">billing/CA/ON/ViewBillingOHIPsimulation</result>
+            <!-- genSimulation.jsp is NOT a forward-only shim — its body iterates
+                 ProviderDao.getActiveProviders() to build the simulation provider list
+                 before forwarding to ViewBillingOHIPsimulation. Keep the JSP forward
+                 so that body runs. -->
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/genSimulation.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenReport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenReport2Action">
-            <!-- genreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
-            <result name="success" type="chain">billing/CA/ON/ViewGenGroupReport</result>
+            <!-- genreport.jsp is NOT a forward-only shim — its body persists
+                 BillActivity rows via billActivityDao.persist(...) BEFORE the
+                 jsp:forward. Chaining bypasses that persistence; keep the JSP. -->
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/genreport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewOnGenRA" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOnGenRA2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRA.jsp</result>
@@ -538,12 +543,17 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRAsettle35.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewOngenreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOngenreport2Action">
-            <!-- ongenreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
-            <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
+            <!-- ongenreport.jsp is NOT a forward-only shim — its body uses
+                 JdbcBillingCreateBillingFile to write the MOH disk/billing file
+                 before the jsp:forward. Chaining bypasses that side effect; keep
+                 the JSP forward. -->
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/ongenreport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewOnregenreport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOnregenreport2Action">
-            <!-- onregenreport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
-            <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
+            <!-- onregenreport.jsp is NOT a forward-only shim — its body uses
+                 JdbcBillingCreateBillingFile to write the regenerated MOH disk
+                 file before the jsp:forward. Keep the JSP. -->
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/onregenreport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewPrintBillingClipboard" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewPrintBillingClipboard2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/printBillingClipboard.jsp</result>
@@ -604,8 +614,10 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/manageBillingform_billtype.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewGenGroupReport" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenGroupReport2Action">
-            <!-- genGroupReport.jsp is a <jsp:forward> shim; chain through Struts to avoid empty-body dispatch. -->
-            <result name="success" type="chain">billing/CA/ON/ViewBillingOHIPreport</result>
+            <!-- genGroupReport.jsp is NOT a forward-only shim — its body persists
+                 BillActivity rows via billActivityDao.persist(...) before the
+                 jsp:forward. Keep the JSP. -->
+            <result name="success">/WEB-INF/jsp/billing/CA/ON/genGroupReport.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewInrGenINRbilling" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewInrGenINRbilling2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/inr/genINRbilling.jsp</result>

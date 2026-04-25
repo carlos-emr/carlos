@@ -55,6 +55,7 @@ class BillingONView2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mockitoCloseable;
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
@@ -67,7 +68,7 @@ class BillingONView2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -88,9 +89,10 @@ class BillingONView2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+        if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
     /** A pre-built stub DTO the mocked assembler returns for the happy path. */

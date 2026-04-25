@@ -50,8 +50,11 @@ public final class AddEditServiceCode2Action extends ActionSupport {
 
         // Self-posting form: require POST only when the mutation-intent
         // 'action' param is present (form submit). Plain GETs render the form.
+        // isBlank vs isEmpty: a whitespace-only "action" param value (e.g.
+        // ?action=%20) would otherwise bypass POST enforcement here. Real form
+        // submissions never carry blank intent, so isBlank closes that corner.
         String mutationAction = request.getParameter("action");
-        if (mutationAction != null && !mutationAction.isEmpty()
+        if (mutationAction != null && !mutationAction.isBlank()
                 && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

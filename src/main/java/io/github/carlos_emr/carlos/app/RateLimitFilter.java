@@ -382,12 +382,30 @@ public final class RateLimitFilter implements Filter {
      * @return the matching path key, or {@code null} if no path-specific rate applies
      */
     private String findMatchingPath(String path) {
+        // Path matching rules:
+        //  - A pattern ending with "/" is a prefix match (e.g. "/mfa/" matches
+        //    "/mfa/whatever").
+        //  - A pattern NOT ending with "/" matches the exact path or a path that
+        //    has the pattern followed by '/' or '?' (e.g. "/login" matches
+        //    "/login" and "/login/something" but NOT "/loginfailed" or
+        //    "/loginResource/foo"). This avoids accidentally throttling
+        //    sibling paths that share a name prefix.
+        //  - When multiple patterns match, prefer the longest (most specific).
         String bestMatch = null;
         for (String prefix : pathRates.keySet()) {
-            if (path.startsWith(prefix)) {
-                if (bestMatch == null || prefix.length() > bestMatch.length()) {
-                    bestMatch = prefix;
-                }
+            boolean matches;
+            if (prefix.endsWith("/")) {
+                matches = path.startsWith(prefix);
+            } else if (path.equals(prefix)) {
+                matches = true;
+            } else if (path.startsWith(prefix)) {
+                char nextChar = path.charAt(prefix.length());
+                matches = nextChar == '/' || nextChar == '?';
+            } else {
+                matches = false;
+            }
+            if (matches && (bestMatch == null || prefix.length() > bestMatch.length())) {
+                bestMatch = prefix;
             }
         }
         return bestMatch;

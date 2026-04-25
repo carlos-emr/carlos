@@ -27,12 +27,20 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * View gate for {@code billing/CA/ON/billingONStatus.jsp}. Enforces
- * {@code _team_billing_only r} and exposes a {@link BillingONStatusViewModel}
- * on the request at attribute {@code statusModel} so the JSP can read request
- * parameter echoes + default-value resolution via EL.
+ * {@code _billing r} for page access and exposes a
+ * {@link BillingONStatusViewModel} on the request at attribute
+ * {@code statusModel} so the JSP can read request parameter echoes +
+ * default-value resolution via EL.
+ *
+ * <p>{@code _team_billing_only} is consulted separately as a *filter flag*
+ * (does this user see only their team's bills?) and is captured on the view
+ * model rather than being a page-access gate. Earlier docs/code on this gate
+ * incorrectly used {@code _team_billing_only} as the access privilege; that
+ * was relaxed to {@code _billing r} to match the companion mutation action
+ * {@code BillingONStatusERUpdateStatus2Action}.</p>
  *
  * @since 2026-04-13 (security gate)
- *        2026-04-24 (view model)
+ *        2026-04-24 (view model + privilege-gate alignment)
  */
 public final class ViewBillingONStatus2Action extends ActionSupport {
 
@@ -45,6 +53,13 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
+        // dereferences loggedInInfo and emits an internal ERROR log on null, so
+        // null-checking here keeps the log signal clean for real privilege denials.
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
 
         // _team_billing_only is a filter flag in the JSP (does the user see only
         // their team's bills?), NOT a page-access gate. The page access privilege
@@ -102,7 +117,9 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
             serviceCode = "%";
         }
 
-        String billingForm = firstNonNull(request.getParameter("billing_form"), "-");
+        // Legacy "any billing form" sentinel is three dashes; a single "-" is a
+        // real value in some installations and would mis-filter the search.
+        String billingForm = firstNonNull(request.getParameter("billing_form"), "---");
         String visitLocation = firstNonNull(request.getParameter("xml_location"), "");
         String selectedSite = request.getParameter("site");
         String sortName = firstNonNull(request.getParameter("sortName"), "ServiceDate");

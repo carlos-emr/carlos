@@ -25,6 +25,12 @@
 
 set -euo pipefail
 
+# extglob is required by the allowlist whitespace-trimming patterns below
+# (`*([[:space:]])`). Default bash settings have it off, which silently makes
+# the trim a no-op and causes allowlist entries with incidental whitespace to
+# miss.
+shopt -s extglob
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 

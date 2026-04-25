@@ -139,10 +139,16 @@ public final class BillingShortcutPg1DataAssembler {
         String ctlBillForm = nullToEmpty(request.getParameter("billForm"));
         String assignedProviderNo = nullToEmpty(request.getParameter("assgProvider_no"));
 
+        // providerview default order: xml_provider param > providerview param >
+        // logged-in provider. The legacy View2Action defaulted to userProviderNo
+        // when both params were absent; preserve that.
         String providerView = nullToEmpty(request.getParameter("providerview"));
         String xmlProvider = request.getParameter("xml_provider");
         if (xmlProvider != null) {
             providerView = xmlProvider;
+        }
+        if (providerView.isEmpty()) {
+            providerView = nullToEmpty(userProviderNo);
         }
 
         DemographicLoad demoLoad = loadDemographic(demoNo, request.getParameter("DemoSex"));
@@ -180,19 +186,25 @@ public final class BillingShortcutPg1DataAssembler {
 
             for (Properties hist : billingHistory) {
                 String billingNo = hist.getProperty("billing_no", "");
-                String dx = "";
-                String serCode = "";
+                // Build the comma-joined dx and service-code summaries for one
+                // bill, deduplicating against the FULL accumulated set rather
+                // than just the last entry. The legacy JSP did `last.equals(...)`
+                // which broke as soon as any non-adjacent code matched a prior
+                // one — for instance "401, 402, 401" would emit "401, 402, 401"
+                // even though "401" already appeared.
+                java.util.LinkedHashSet<String> dxSeen = new java.util.LinkedHashSet<>();
+                java.util.LinkedHashSet<String> serSeen = new java.util.LinkedHashSet<>();
                 for (BillingDetail bd : billingDetailDao.findByBillingNo(ConversionUtils.fromIntString(billingNo))) {
-                    if (dx.isEmpty() || !dx.equals(bd.getDiagnosticCode())) {
-                        dx += (dx.isEmpty() ? "" : ", ") + bd.getDiagnosticCode();
+                    if (bd.getDiagnosticCode() != null && !bd.getDiagnosticCode().isEmpty()) {
+                        dxSeen.add(bd.getDiagnosticCode());
                     }
-                    if (serCode.isEmpty() || !serCode.equals(bd.getServiceCode())) {
-                        serCode += (serCode.isEmpty() ? "" : ", ") + bd.getServiceCode() + " x " + bd.getBillingUnit();
+                    if (bd.getServiceCode() != null && !bd.getServiceCode().isEmpty()) {
+                        serSeen.add(bd.getServiceCode() + " x " + bd.getBillingUnit());
                     }
                 }
                 Properties detail = new Properties();
-                detail.setProperty("service_code", serCode);
-                detail.setProperty("diagnostic_code", dx);
+                detail.setProperty("service_code", String.join(", ", serSeen));
+                detail.setProperty("diagnostic_code", String.join(", ", dxSeen));
                 billingHistoryDetails.add(detail);
             }
         } else {

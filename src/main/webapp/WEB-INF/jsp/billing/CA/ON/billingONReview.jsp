@@ -164,8 +164,14 @@
     BillingONReviewViewModel reviewModel =
             (BillingONReviewViewModel) request.getAttribute("reviewModel");
     if (reviewModel == null) {
-        throw new IllegalStateException(
-                "billingONReview.jsp expects ViewBillingONReview2Action to populate 'reviewModel'");
+        // Defensive fallback for any legacy caller that forwards directly to
+        // this JSP without going through ViewBillingONReview2Action. The model
+        // contract is "non-null" — callers should chain through the gate, but
+        // we render with an empty model rather than 500'ing.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                "billingONReview.jsp reached without reviewModel — using empty fallback. "
+                + "Caller should route through billing/CA/ON/ViewBillingONReview.");
+        reviewModel = BillingONReviewViewModel.builder().build();
     }
 
     String dxCode = reviewModel.getDxCode();

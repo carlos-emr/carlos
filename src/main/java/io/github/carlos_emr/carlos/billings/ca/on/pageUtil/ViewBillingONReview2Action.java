@@ -50,6 +50,9 @@ public final class ViewBillingONReview2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing session");
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -60,9 +63,13 @@ public final class ViewBillingONReview2Action extends ActionSupport {
             return NONE;
         }
 
-        String userNo = loggedInInfo != null && loggedInInfo.getLoggedInProviderNo() != null
-                ? loggedInInfo.getLoggedInProviderNo()
-                : "";
+        // The assembler may persist a Dxresearch row when addToPatientDx=yes.
+        // Refuse to proceed if we can't attach that row to a real provider —
+        // an empty providerNo creates an audit-trail gap for clinical data.
+        String userNo = loggedInInfo.getLoggedInProviderNo();
+        if (userNo == null || userNo.isEmpty()) {
+            throw new SecurityException("missing provider in session");
+        }
         this.reviewModel = new BillingONReviewDataAssembler().assemble(request, userNo);
         request.setAttribute("reviewModel", this.reviewModel);
 

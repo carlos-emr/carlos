@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -79,10 +80,11 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
 
     private BillingShortcutPg1DataAssembler assembler;
     private MockHttpServletRequest request;
+    private AutoCloseable mockitoCloseable;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
 
         // Default: empty everything (the assembler shouldn't NPE on no data).
         when(billingDao.findActiveBillingsByDemoNo(anyInt(), anyInt())).thenReturn(Collections.emptyList());
@@ -101,6 +103,11 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
                 () -> billingReviewImpl);
 
         request = new MockHttpServletRequest();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
     @Test

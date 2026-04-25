@@ -109,9 +109,18 @@ public final class BillingONReviewDataAssembler {
             return;
         }
 
+        Integer demoNoInt;
+        try {
+            demoNoInt = Integer.valueOf(demoNo);
+        } catch (NumberFormatException nfe) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "addToPatientDx skipped — demographic_no is not numeric: {}",
+                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(demoNo));
+            return;
+        }
         Date now = new Date();
         Dxresearch dx = new Dxresearch(
-                Integer.valueOf(demoNo),
+                demoNoInt,
                 now,
                 now,
                 'A',
@@ -123,14 +132,18 @@ public final class BillingONReviewDataAssembler {
     }
 
     private void loadProvider(HttpServletRequest request, BillingONReviewViewModel.Builder b) {
-        String providerView = nullToEmpty(request.getParameter("providerview"));
-        String xmlProvider = request.getParameter("xml_provider");
-        if (xmlProvider != null) {
-            providerView = xmlProvider;
+        // billingON.jsp posts xml_provider as "providerNo|ohipNo"; strip at the pipe
+        // before either echoing it or passing it to the DAO, otherwise the lookup
+        // misses for the normal case and providerOhip / providerRma stay empty.
+        String selection = nullToEmpty(request.getParameter("xml_provider"));
+        if (selection.isEmpty()) {
+            selection = nullToEmpty(request.getParameter("providerview"));
         }
-        b.providerView(providerView);
+        int pipe = selection.indexOf('|');
+        String providerNo = pipe >= 0 ? selection.substring(0, pipe) : selection;
+        b.providerView(providerNo);
 
-        Provider p = (xmlProvider != null) ? providerDao.getProvider(xmlProvider) : null;
+        Provider p = providerNo.isEmpty() ? null : providerDao.getProvider(providerNo);
         if (p != null) {
             b.providerOhip(nullToEmpty(p.getOhipNo()));
             b.providerRma(nullToEmpty(p.getRmaNo()));

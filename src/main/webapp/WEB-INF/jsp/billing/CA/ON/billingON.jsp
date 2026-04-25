@@ -705,6 +705,16 @@
                 self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("primary_care_incentive", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_8}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_9}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_10}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_11}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_12}' context="javaScript"/>&status=<carlos:encode value='${__enc_13}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_14}' context="javaScript"/>&bNewForm=1";
             } else {
                 <% if(ctlBillForm.equals("PRI") ) {%>
+                <%-- __enc_15..__enc_21 must be set BEFORE this rewrite is emitted.
+                     <c:set> runs at JSP render time, top-to-bottom; if they're
+                     declared later in onHistory() the values render empty here. --%>
+                <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_18"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
+                <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
                 self.location.href = billingContextPath + "/billing?curBillForm=<%=oscarVariables.getProperty("default_view", "").trim()%>&hotclick=<%=URLEncoder.encode("","UTF-8")%>&appointment_no=<carlos:encode value='${__enc_15}' context="javaScript"/>&demographic_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&demographic_no=<carlos:encode value='${__enc_16}' context="javaScript"/>&xml_billtype=" + val.substring(0, 3) + "&apptProvider_no=<carlos:encode value='${__enc_17}' context="javaScript"/>&providerview=<carlos:encode value='${__enc_18}' context="javaScript"/>&appointment_date=<carlos:encode value='${__enc_19}' context="javaScript"/>&status=<carlos:encode value='${__enc_20}' context="javaScript"/>&start_time=<carlos:encode value='${__enc_21}' context="javaScript"/>&bNewForm=1";
                 <% } %>
             }
@@ -723,14 +733,7 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-                          <c:set var="__enc_15"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_16"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_17"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_18"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_19"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_20"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("status")) %>' context="uriComponent"/></c:set>
-                <c:set var="__enc_21"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="uriComponent"/></c:set>
-  popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${model.demographicNo}' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${model.demographicNo}' context="javaScript"/>&demo_name=<%=URLEncoder.encode(demoname,"UTF-8")%>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {
@@ -1534,7 +1537,7 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                                        onclick="showHideLayers('Layer1','','show');return false;">
                                         <fmt:message key="oscar.billing.ca.on.billingON.billingFormLink"/></a>: <input type="text" name="billFormName" class="form-control"
 											id="billFormName" readonly
-                                                                 value="${fn:escapeXml(fn:length(model.defaultBillFormName) lt 40 ? model.defaultBillFormName : fn:substring(model.defaultBillFormName, 0, 40))}"/>
+                                                                 value="${carlos:forHtmlAttribute(fn:length(model.defaultBillFormName) lt 40 ? model.defaultBillFormName : fn:substring(model.defaultBillFormName, 0, 40))}"/>
                                         <input type="hidden" name="billForm" id="billForm"
                                                value="<carlos:encode value='${model.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
@@ -1613,9 +1616,9 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                                   ondblclick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
-                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
-                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
+                                            <div onclick="getElementById('xml_${entry.serviceCode}').click();"><c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
                                         <td style="text-align: right; ${entry.displayStyle} ${bgcolor}">
@@ -1665,10 +1668,10 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor}"
-                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
                                             <div onclick="getElementById('xml_${entry.serviceCode}').click();">
-                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
                                         <td style="text-align: right;${entry.displayStyle}  ${bgcolor}">
@@ -1718,10 +1721,10 @@ var _billingForms = [<c:forEach var="bf" items="${model.billingForms}" varStatus
                                                   onDblClick="onDblClickServiceCode(this)"><carlos:encode value='${entry.serviceCode}' context='html'/></span>
                                         </td>
                                         <td style="${entry.displayStyle} ${bgcolor} "
-                                                title="${fn:escapeXml(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
+                                                title="${carlos:forHtmlAttribute(fn:length(entry.serviceDesc) gt 30 ? entry.serviceDesc : '')}"
                                                 class="${entry.displayStyle eq '' ? 'smallFont' : ''}">
                                             <div onclick="getElementById('xml_${entry.serviceCode}').click();">
-                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><c:out value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><c:out value="${entry.serviceDesc}"/></c:otherwise></c:choose>
+                                                <c:choose><c:when test="${fn:length(entry.serviceDesc) gt 30}"><carlos:encode value="${fn:substring(entry.serviceDesc, 0, 30)}"/>...</c:when><c:otherwise><carlos:encode value="${entry.serviceDesc}"/></c:otherwise></c:choose>
                                             </div>
                                         </td>
                                         <td style="text-align: right; ${entry.displayStyle}  ${bgcolor}">

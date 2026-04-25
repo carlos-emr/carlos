@@ -104,10 +104,25 @@
     BillingONStatusViewModel statusModel =
             (BillingONStatusViewModel) request.getAttribute("statusModel");
     if (statusModel == null) {
-        // Direct-JSP-forward fallback (defensive — should not happen on the
-        // gated billing/CA/ON/billingONStatus action path).
-        throw new IllegalStateException(
-                "billingONStatus.jsp expects ViewBillingONStatus2Action to populate 'statusModel'");
+        // Defensive fallback: legacy callers (struts-scheduling.xml's
+        // BillingInvoice listSuccess result, etc.) forward directly to this
+        // JSP without going through ViewBillingONStatus2Action. Build an
+        // empty model with the same defaults the action would produce so
+        // those legacy paths render instead of 500'ing.
+        MiscUtils.getLogger().warn(
+                "billingONStatus.jsp reached without statusModel — using empty fallback. "
+                + "Caller should route through billing/CA/ON/ViewBillingONStatus.");
+        statusModel = BillingONStatusViewModel.builder()
+                .billTypes(BillingONStatusViewModel.DEFAULT_BILL_TYPES)
+                .statusType("O")
+                .startDate(DateUtils.sumDate("yyyy-MM-dd", "-180"))
+                .endDate(DateUtils.sumDate("yyyy-MM-dd", "0"))
+                .visitType("-")
+                .billingForm("---")
+                .serviceCode("%")
+                .sortName("ServiceDate")
+                .sortOrder("asc")
+                .build();
     }
 
     boolean bSearch = statusModel.isSearch();

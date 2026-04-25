@@ -78,6 +78,16 @@ import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
  */
 public final class BillingONFormDataAssembler {
 
+    /**
+     * Matches a simple inline CSS string of the form
+     * {@code property:value;property:value;...} where each property name and
+     * value contains only safe characters. Used to gate DB-stored CSS values
+     * before they're rendered straight into a {@code style="..."} attribute on
+     * the service-code grid. Anything outside this shape is dropped.
+     */
+    private static final java.util.regex.Pattern SAFE_INLINE_STYLE = java.util.regex.Pattern.compile(
+            "(?:[A-Za-z][A-Za-z0-9-]*\\s*:\\s*[A-Za-z0-9 #_,.%/()-]+\\s*;?\\s*)+");
+
     private final DemographicManager demographicManager =
             SpringUtils.getBean(DemographicManager.class);
     private final ProfessionalSpecialistDao professionalSpecialistDao =
@@ -96,7 +106,23 @@ public final class BillingONFormDataAssembler {
         CarlosProperties oscarVars = CarlosProperties.getInstance();
         BillingONFormViewModel.Builder b = BillingONFormViewModel.builder();
 
-        String userNo = (String) request.getSession().getAttribute("user");
+        // Prefer the authenticated provider from LoggedInInfo over the session
+        // attribute. The session "user" attribute is only set at login (see
+        // Login2Action.java:621) so they should match — but pulling from the
+        // authenticated context keeps the assembler consistent with the action's
+        // identity check and avoids drift if the session attribute is ever
+        // mutated elsewhere.
+        String userNo = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
+        if (userNo == null || userNo.isEmpty()) {
+            // Fall back to the session attribute for compatibility, but log so
+            // the drift is visible.
+            userNo = (String) request.getSession().getAttribute("user");
+            if (userNo != null && !userNo.isEmpty()) {
+                MiscUtils.getLogger().warn(
+                        "BillingONFormDataAssembler: LoggedInInfo missing providerNo; "
+                        + "falling back to session attribute \"user\"={}", userNo);
+            }
+        }
         b.userNo(userNo);
 
         // xml_provider overrides providerview when present (matches original scriptlet behavior)
@@ -130,30 +156,45 @@ public final class BillingONFormDataAssembler {
         b.clinicNo(clinicNo);
         b.visitType(visitType);
 
-        String apptNo = request.getParameter("appointment_no");
+        // Missing appointment_no treated as "0" (manual bill not tied to an
+        // appointment). Downstream scriptlets call appt_no.compareTo("0") and
+        // null-deref otherwise.
+        String apptNo = firstNonNull(request.getParameter("appointment_no"), "0");
+        if (apptNo.isEmpty()) {
+            apptNo = "0";
+        }
         b.appointmentNo(apptNo);
 
         String billReferenceDate;
-        if (apptNo != null && "0".equals(apptNo)) {
+        if ("0".equals(apptNo)) {
             billReferenceDate = firstNonNull(
                     request.getParameter("service_date"),
                     today);
         } else {
             billReferenceDate = request.getParameter("appointment_date");
         }
+        // Default to today when both apptNo!=0 and appointment_date are missing —
+        // downstream ConversionUtils.fromDateString feeds this into DAO date
+        // filters that NPE on null and into calculateAge which expects a real date.
+        if (billReferenceDate == null || billReferenceDate.isEmpty()) {
+            billReferenceDate = today;
+        }
         b.billReferenceDate(billReferenceDate);
 
-        String demoName = request.getParameter("demographic_name");
-        String demoNo = request.getParameter("demographic_no");
-        String apptProviderNo = request.getParameter("apptProvider_no");
+        // Coalesce request-param strings to empty rather than null. The JSP and
+        // downstream JS string-builders call URLEncoder.encode(...) and concat
+        // into href URLs, both of which NPE on null inputs.
+        String demoName = nullSafe(request.getParameter("demographic_name"));
+        String demoNo = nullSafe(request.getParameter("demographic_no"));
+        String apptProviderNo = nullSafe(request.getParameter("apptProvider_no"));
         b.demoName(demoName);
         b.demographicNo(demoNo);
         b.apptProviderNo(apptProviderNo);
 
         String mReview = firstNonNull(request.getParameter("m_review"), "");
         b.mReview(mReview);
-        b.ctlBillForm(request.getParameter("billForm"));
-        b.curBillForm(request.getParameter("curBillForm"));
+        b.ctlBillForm(nullSafe(request.getParameter("billForm")));
+        b.curBillForm(nullSafe(request.getParameter("curBillForm")));
 
         String providerNo = (apptProviderNo != null && apptProviderNo.equalsIgnoreCase("none"))
                 ? userNo
@@ -175,9 +216,13 @@ public final class BillingONFormDataAssembler {
         if (demo != null) {
             demoLast = nullSafe(demo.getLastName());
             demoFirst = nullSafe(demo.getFirstName());
+            // Zero-pad month/day so the YYYYMMDD substring slices below land at
+            // fixed positions. Without padding, a single-digit month (e.g. "4")
+            // makes `demoDob` 6-7 chars, `substring(4, 6)` becomes "47", and
+            // calculateAge() returns 0.
             demoDob = nullSafe(demo.getYearOfBirth())
-                    + nullSafe(demo.getMonthOfBirth())
-                    + nullSafe(demo.getDateOfBirth());
+                    + padTwo(nullSafe(demo.getMonthOfBirth()))
+                    + padTwo(nullSafe(demo.getDateOfBirth()));
             demoHin = nullSafe(demo.getHin());
             demoVer = nullSafe(demo.getVer());
             demoHcType = nullSafe(demo.getHcType());
@@ -419,17 +464,21 @@ public final class BillingONFormDataAssembler {
         b.ctlBillForm(ctlBillForm)
                 .defaultServiceType(nullSafe(defaultServiceType));
 
-        // xml_location -> clinicView; default "0000" if not set
+        // Resolution order (matches legacy scriptlet intent): user-selected
+        // xml_location wins; CarlosProperties.clinic_view is the per-installation
+        // default; "0000" is the final fallback if both are missing. Reading the
+        // property first and *then* allowing the param to override avoids the
+        // earlier bug where the property always clobbered the user selection.
         String xmlLocationParam = request.getParameter("xml_location");
         String xmlLocation = xmlLocationParam != null && !xmlLocationParam.isEmpty()
                 ? xmlLocationParam
                 : "0000";
-        if (!xmlLocation.isEmpty()) {
-            clinicView = xmlLocation;
-        }
         String propertiesClinicView = CarlosProperties.getInstance().getProperty("clinic_view");
-        if (propertiesClinicView != null) {
+        if (propertiesClinicView != null && !propertiesClinicView.isEmpty()) {
             clinicView = propertiesClinicView;
+        }
+        if (!xmlLocation.isEmpty() && !"0000".equals(xmlLocation)) {
+            clinicView = xmlLocation;
         }
         b.clinicView(nullSafe(clinicView))
                 .xmlLocation(nullSafe(xmlLocation));
@@ -483,7 +532,21 @@ public final class BillingONFormDataAssembler {
                     if (svc.getDisplayStyle() != null) {
                         CssStyle cssStyle = cssStylesDao.find(svc.getDisplayStyle());
                         if (cssStyle != null && cssStyle.getStyle() != null) {
-                            displayStyle = cssStyle.getStyle();
+                            // The displayStyle string is rendered straight into the
+                            // service-grid <td style="..."> attribute. Allow only
+                            // the simple "property:value;property:value;" shape so
+                            // a malformed DB row can't break out of the attribute
+                            // (CSS injection). Anything that doesn't match the
+                            // whitelist is dropped. A future improvement is mapping
+                            // displayStyle keys to a stable CSS class instead of
+                            // emitting raw values.
+                            if (SAFE_INLINE_STYLE.matcher(cssStyle.getStyle()).matches()) {
+                                displayStyle = cssStyle.getStyle();
+                            } else {
+                                MiscUtils.getLogger().warn(
+                                        "Dropped malformed inline CSS for service code {}: {}",
+                                        svc.getServiceCode(), cssStyle.getStyle());
+                            }
                         }
                     }
                     groupEntries.add(new BillingONFormViewModel.ServiceCodeEntry(
@@ -585,6 +648,10 @@ public final class BillingONFormDataAssembler {
 
     private static String nullSafe(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String padTwo(String value) {
+        return value != null && value.length() == 1 ? "0" + value : nullSafe(value);
     }
 
     private static String firstNonNull(String primary, String fallback) {
