@@ -12,11 +12,22 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.util.List;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
@@ -33,39 +44,130 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 @Tag("unit")
 class ErrorPageLoggerUnitTest {
 
+    private static final String LOGGER_NAME =
+            "io.github.carlos_emr.carlos.utility.ErrorPageLogger";
+
+    private CapturingAppender appender;
+    private LoggerConfig loggerConfig;
+    private LoggerContext ctx;
+
+    @BeforeEach
+    void attachAppender() {
+        // Attach a tiny in-memory log4j2 appender so we can assert what
+        // ErrorPageLogger actually emits. Without this the tests could only
+        // confirm the helper doesn't throw — leaving the actual emit silent.
+        ctx = (LoggerContext) LogManager.getContext(false);
+        appender = new CapturingAppender();
+        appender.start();
+        loggerConfig = ctx.getConfiguration().getLoggerConfig(LOGGER_NAME);
+        loggerConfig.addAppender(appender, Level.ALL, null);
+        loggerConfig.setLevel(Level.ALL);
+        ctx.updateLoggers();
+    }
+
+    @AfterEach
+    void detachAppender() {
+        if (loggerConfig != null && appender != null) {
+            loggerConfig.removeAppender(appender.getName());
+            appender.stop();
+            ctx.updateLoggers();
+        }
+    }
+
     @Test
     void shouldNoOp_whenNoExceptionAvailable() {
         MockHttpServletRequest req = new MockHttpServletRequest();
         assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
                 .doesNotThrowAnyException();
+        assertThat(appender.events()).isEmpty();
     }
 
     @Test
-    void shouldLogExplicitException_whenProvidedDirectly() {
+    void shouldLogAtError_whenExplicitExceptionProvidedDirectly() {
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setRequestURI("/carlos/billing/CA/ON/billingView");
+        // ErrorPageLogger reads from the standard servlet-error attributes,
+        // not from getRequestURI() / getMethod() — that mirrors how Tomcat
+        // populates the error dispatcher's request when a JSP errorPage
+        // forwards.
+        req.setAttribute("jakarta.servlet.error.request_uri",
+                "/carlos/billing/CA/ON/billingView");
         req.setMethod("GET");
         Throwable t = new RuntimeException("boom");
-        assertThatCode(() -> ErrorPageLogger.logIfPresent(t, req))
-                .doesNotThrowAnyException();
+
+        ErrorPageLogger.logIfPresent(t, req);
+
+        assertThat(appender.events()).hasSize(1);
+        LogEvent evt = appender.events().get(0);
+        assertThat(evt.getLevel()).isEqualTo(Level.ERROR);
+        String msg = evt.getMessage().getFormattedMessage();
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingView");
+        assertThat(msg).contains("method=GET");
+        assertThat(evt.getThrown()).isSameAs(t);
     }
 
     @Test
     void shouldFallBackToServletErrorAttribute_whenExplicitExceptionIsNull() {
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setAttribute("jakarta.servlet.error.exception",
-                new IllegalStateException("from container"));
+        IllegalStateException fromContainer = new IllegalStateException("from container");
+        req.setAttribute("jakarta.servlet.error.exception", fromContainer);
         req.setAttribute("jakarta.servlet.error.request_uri",
                 "/carlos/billing/CA/ON/billingONReview");
         req.setAttribute("jakarta.servlet.error.status_code", 500);
         req.setMethod("POST");
-        assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
-                .doesNotThrowAnyException();
+
+        ErrorPageLogger.logIfPresent(null, req);
+
+        assertThat(appender.events()).hasSize(1);
+        LogEvent evt = appender.events().get(0);
+        assertThat(evt.getLevel()).isEqualTo(Level.ERROR);
+        assertThat(evt.getThrown()).isSameAs(fromContainer);
+        String msg = evt.getMessage().getFormattedMessage();
+        assertThat(msg).contains("status=500");
+        assertThat(msg).contains("uri=/carlos/billing/CA/ON/billingONReview");
+        assertThat(msg).contains("method=POST");
     }
 
     @Test
     void shouldHandleNullRequest_withoutThrowing() {
         assertThatCode(() -> ErrorPageLogger.logIfPresent(new RuntimeException("x"), null))
                 .doesNotThrowAnyException();
+        // Single error log emits with method/uri/status all null.
+        assertThat(appender.events()).hasSize(1);
+        assertThat(appender.events().get(0).getLevel()).isEqualTo(Level.ERROR);
+    }
+
+    @Test
+    void shouldNotEmit_whenServletErrorAttributeIsNotAThrowable() {
+        // A buggy filter could stash a non-Throwable under the attribute key.
+        // The defensive instanceof guard in the helper means we no-op rather
+        // than ClassCastException.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("jakarta.servlet.error.exception", "this is a string, not a Throwable");
+
+        assertThatCode(() -> ErrorPageLogger.logIfPresent(null, req))
+                .doesNotThrowAnyException();
+        assertThat(appender.events()).isEmpty();
+    }
+
+    /**
+     * Minimal in-memory log4j2 appender. Captures events without filtering
+     * so the test can assert any level / any field. Not a full substitute
+     * for log4j-test's ListAppender but sufficient for the 5 cases here.
+     */
+    private static final class CapturingAppender extends AbstractAppender {
+        private final java.util.List<LogEvent> events = new java.util.ArrayList<>();
+
+        CapturingAppender() {
+            super("ErrorPageLoggerUnitTestCaptureAppender", null, null, false, null);
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            events.add(event.toImmutable());
+        }
+
+        List<LogEvent> events() {
+            return events;
+        }
     }
 }

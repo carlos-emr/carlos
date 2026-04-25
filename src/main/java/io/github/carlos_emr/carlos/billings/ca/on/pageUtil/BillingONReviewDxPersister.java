@@ -94,7 +94,30 @@ public final class BillingONReviewDxPersister {
                 "icd9",
                 (byte) 0,
                 userNo);
-        dxresearchDAO.save(dx);
+        try {
+            dxresearchDAO.save(dx);
+        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
+            // Duplicate (demoNo, dxCode, status='A') row, FK violation, or
+            // similar constraint failure. Surface as BillingValidationException
+            // so the user sees the friendly "submission rejected" page rather
+            // than the generic CARLOS Error 500. The save was a clinical
+            // write — the operator needs to know it was rejected.
+            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
+            MiscUtils.getLogger().error(
+                    "addToPatientDx: data-integrity violation persisting dx {} for demo {}",
+                    sanitizedDx, demoNoInt, dive);
+            throw new BillingValidationException(
+                    String.join("", "Could not save dx (", sanitizedDx,
+                            ") for the patient: it may already be in the registry."), dive);
+        } catch (org.hibernate.NonUniqueObjectException nuoe) {
+            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
+            MiscUtils.getLogger().error(
+                    "addToPatientDx: NonUniqueObjectException for dx {} demo {}",
+                    sanitizedDx, demoNoInt, nuoe);
+            throw new BillingValidationException(
+                    String.join("", "Could not save dx (", sanitizedDx,
+                            ") for the patient: a session conflict occurred. Please reload the chart and retry."), nuoe);
+        }
     }
 
     private static String nullToEmpty(String s) {

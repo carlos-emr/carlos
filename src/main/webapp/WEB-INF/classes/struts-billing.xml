@@ -28,6 +28,25 @@
 <struts>
     <package name="billing" namespace="/" extends="struts-default">
 
+        <!--
+          Package-level exception mapping for BillingValidationException.
+          Surfaces a specific, actionable user-facing message rather than the
+          generic CARLOS Error 500 page when a bill action rejects validated
+          input (non-numeric demoNo on addToPatientDx, unparseable bill date,
+          etc.). Audit-trail integrity is preserved by the throw site's
+          ERROR log; this mapping is purely operator guidance. Inherited by
+          every action in this package; individual actions may still
+          override with a different result name if a per-page experience
+          is needed.
+        -->
+        <global-results>
+            <result name="billingValidationError">/WEB-INF/jsp/billing/CA/ON/billingValidationError.jsp</result>
+        </global-results>
+        <global-exception-mappings>
+            <exception-mapping result="billingValidationError"
+                exception="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException"/>
+        </global-exception-mappings>
+
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/quickBillingBC.jsp</result>
             <result name="searchdx">/WEB-INF/jsp/billing/CA/BC/billingDigNewSearch.jsp</result>
@@ -478,15 +497,10 @@
             <result name="success" type="chain">billing/CA/ON/ViewBillingONNewReport</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONReview" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONReview2Action">
-            <!-- Surface BillingValidationException (e.g. addToPatientDx with
-                 non-numeric demographic_no) to a specific user-facing message
-                 instead of the generic "CARLOS Error 500" page. The audit-
-                 trail integrity is preserved by the persister's ERROR log;
-                 this mapping just gives the operator an actionable hint. -->
-            <exception-mapping result="validationError"
-                exception="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingValidationException"/>
+            <!-- BillingValidationException is mapped at the package level
+                 (see <global-exception-mappings> at the top of this file).
+                 No per-action override needed. -->
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONReview.jsp</result>
-            <result name="validationError">/WEB-INF/jsp/billing/CA/ON/billingONReviewValidationError.jsp</result>
         </action>
         <action name="billing/CA/ON/ViewBillingONStatus" class="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONStatus2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONStatus.jsp</result>

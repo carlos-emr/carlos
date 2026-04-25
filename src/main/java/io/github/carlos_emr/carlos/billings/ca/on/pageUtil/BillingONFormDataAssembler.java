@@ -63,7 +63,8 @@ import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 /**
  * Assembles the {@link BillingONFormViewModel} from request parameters and DAO
  * lookups. Extracts the data-preparation work that previously lived in the top
- * scriptlet block of {@code billingON.jsp} (lines 82-260 before this refactor).
+ * scriptlet block of {@code billingON.jsp} (the data-preparation scriptlet
+ * preceding the rendered form, removed in this refactor).
  *
  * <p>Collaborates with {@link BillingONView2Action}, which constructs this
  * assembler, calls {@link #assemble(LoggedInInfo, HttpServletRequest)}, and
@@ -616,6 +617,13 @@ public final class BillingONFormDataAssembler {
         // above so a malformed DB row produces the same id token in both the
         // grid div and the menu URL — otherwise the click-to-show round-trip
         // would lookup a different id than the rendered one.
+        //
+        // TODO(perf): the inner tDao.findByServiceType(menuCode) call is N+1
+        // (~8 DAO roundtrips per render for a typical install). The DAO does
+        // not currently expose a batch findByServiceTypes(Collection<String>)
+        // — adding one + caching the result here would replace the N+1 with
+        // 1 query per render. Out of scope for the current refactor (no
+        // schema-touching changes) but worth a follow-up issue.
         List<BillingONFormViewModel.BillingFormMenuEntry> billingForms = new ArrayList<>();
         for (Object[] typeRow : serviceTypeRows) {
             if (typeRow == null || typeRow[1] == null) {
@@ -737,7 +745,12 @@ public final class BillingONFormDataAssembler {
                     "Billing history data-shape regression for demo={} — JdbcBillingReviewImpl returned unexpected types",
                     demoNo, ccEx);
         } catch (RuntimeException rtEx) {
-            MiscUtils.getLogger().warn(
+            // Promoted from WARN to ERROR: a billing-only DB outage that
+            // strips the visit-context hint from the form is high-impact
+            // for clinical workflow (provider may duplicate-bill the same
+            // encounter). On-call should see this at the same severity as
+            // the data-shape regression above.
+            MiscUtils.getLogger().error(
                     "Billing history lookup failed for demo={}; rendering with empty history",
                     demoNo, rtEx);
         }

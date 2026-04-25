@@ -97,6 +97,22 @@ public class BillingCorrection2Action extends ActionSupport {
     private BillingONExtDao billExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
     private final BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
 
+    /*
+     * TODO(transactional): wrap updateInvoice() (which calls updateBillingONCHeader1
+     * + updateBillingItems + bCh1Dao.merge) in a transaction so a partial-save
+     * failure rolls back the in-memory mutations on bCh1. Today, if merge()
+     * throws after updateBillingONCHeader1 mutated header fields, the bCh1
+     * may be detached/dirty for the next request in the same Hibernate
+     * session — a clinical-data-integrity concern. Adding @Transactional to
+     * this Struts-instantiated action does not take effect without registering
+     * the action as a Spring bean (Struts+Spring objectFactory autowires
+     * dependencies but does not apply AOP proxies). The clean fix is a
+     * TransactionTemplate around the merge sequence; deferred to a focused
+     * follow-up because correctness here requires a Hibernate session-state
+     * audit beyond this round's scope. The throw-on-invalid-input fixes
+     * (BillingValidationException) close the most acute exposure: input
+     * validation now fails before any mutation begins.
+     */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Reject sessionless requests up front. SecurityInfoManagerImpl.hasPrivilege
@@ -129,67 +145,108 @@ public class BillingCorrection2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        // Validate billing_no first — every other validation below assumes
+        // a real BillingONCHeader1 row. Throwing on bad input surfaces a
+        // specific "submission rejected" page (via the package-level
+        // BillingValidationException mapping) instead of the legacy
+        // "closeReload" silent-success — operator no longer believes the
+        // payment posted when it didn't.
         String invoiceNo = request.getParameter("billing_no");
+        Integer invoiceId;
+        try {
+            invoiceId = Integer.valueOf(invoiceNo);
+        } catch (NumberFormatException nfe) {
+            String sanitized = LogSanitizer.sanitize(invoiceNo);
+            MiscUtils.getLogger().error("3rd party payment: invalid billing_no '{}'", sanitized);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: invalid billing_no [" + sanitized + "]", nfe);
+        }
+        BillingONCHeader1 bCh1 = bCh1Dao.find(invoiceId);
 
-        BillingONCHeader1 bCh1 = bCh1Dao.find(Integer.parseInt(invoiceNo));
-
-        //If we have a bill
-        if (bCh1 != null) {
-
-            //Validate pay amount
-            BigDecimal paidAmt = null;
-            try {
-                String amtPaid = request.getParameter("amtPaid");
-                paidAmt = new BigDecimal(amtPaid);
-            } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("3rd party pay amount not a valid number", e);
-                return "closeReload";
-            }
-
-            //Validate pay Method
-            String payMethod = request.getParameter("payMethod");
-            BillingPaymentType paymentType = billingPaymentTypeDao.find(payMethod);
-            if (paymentType == null) {
-                MiscUtils.getLogger().error("3rd party pay method not valid");
-                return "closeReload";
-            }
-
-            //Validate pay type
-            String payType = request.getParameter("payType");
-            if ((payType == null) ||
-                    (!payType.equals("P")//Payment
-                            && !payType.equals("R")//Refund
-                    )
-            ) {
-                MiscUtils.getLogger().error("3rd party pay type not valid");
-                return "closeReload";
-            }
-
-            //Add new payment amount to third party bill
-            bPaymentDao.createPayment(bCh1, request.getLocale(), payType, paidAmt, payMethod, providerNo);
-
-            return SUCCESS;
-        } else {
-            MiscUtils.getLogger().error("Invalid billing invoice:{}", LogSanitizer.sanitize(invoiceNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            return "closeReload";
+        if (bCh1 == null) {
+            String sanitized = LogSanitizer.sanitize(invoiceNo);
+            MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found", sanitized);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: bill not found [" + sanitized + "]");
         }
 
+        //Validate pay amount
+        BigDecimal paidAmt;
+        try {
+            String amtPaid = request.getParameter("amtPaid");
+            paidAmt = new BigDecimal(amtPaid);
+        } catch (NumberFormatException e) {
+            String sanitized = LogSanitizer.sanitize(request.getParameter("amtPaid"));
+            MiscUtils.getLogger().error(
+                    "3rd party payment: amtPaid '{}' is not a valid number for bill {}",
+                    sanitized, invoiceId, e);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: amount [" + sanitized + "] is not a valid number", e);
+        }
+
+        //Validate pay Method
+        String payMethod = request.getParameter("payMethod");
+        BillingPaymentType paymentType = billingPaymentTypeDao.find(payMethod);
+        if (paymentType == null) {
+            String sanitized = LogSanitizer.sanitize(payMethod);
+            MiscUtils.getLogger().error(
+                    "3rd party payment: payMethod '{}' not in billing_payment_type for bill {}",
+                    sanitized, invoiceId);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: pay-method [" + sanitized + "] is not configured");
+        }
+
+        //Validate pay type
+        String payType = request.getParameter("payType");
+        if (payType == null
+                || (!payType.equals("P") /* Payment */
+                        && !payType.equals("R") /* Refund */)) {
+            String sanitized = LogSanitizer.sanitize(payType);
+            MiscUtils.getLogger().error(
+                    "3rd party payment: payType '{}' invalid for bill {} (must be P or R)",
+                    sanitized, invoiceId);
+            throw new BillingValidationException(
+                    "3rd party payment rejected: pay-type [" + sanitized + "] must be P (payment) or R (refund)");
+        }
+
+        //Add new payment amount to third party bill
+        bPaymentDao.createPayment(bCh1, request.getLocale(), payType, paidAmt, payMethod, providerNo);
+
+        return SUCCESS;
     }
 
     public String updateInvoice() {
 
-        Integer billingNo = null;
-        try {
-            billingNo = Integer.parseInt(request.getParameter("xml_billing_no"));
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Billing number invalid for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no")), e);
+        // The action funnels every request that isn't "add3rdPartyPayment"
+        // through updateInvoice(), including the GET-load path that opens
+        // the correction page in the first place. The GET path posts no
+        // `xml_billing_no` (it uses `billing_no` only); legacy behavior was
+        // to short-circuit through "closeReload" which renders the JSP.
+        // Preserve that load path here by treating a null/missing
+        // `xml_billing_no` as the load case. A *non-null but unparseable*
+        // value indicates form tampering / browser auto-fill regression
+        // and must throw — that's the silent-success failure mode round-3
+        // closed.
+        String rawBillingNo = request.getParameter("xml_billing_no");
+        if (rawBillingNo == null || rawBillingNo.isEmpty()) {
             return "closeReload";
+        }
+        Integer billingNo;
+        try {
+            billingNo = Integer.parseInt(rawBillingNo);
+        } catch (NumberFormatException e) {
+            String sanitized = LogSanitizer.sanitize(rawBillingNo);
+            MiscUtils.getLogger().error("updateInvoice: invalid xml_billing_no '{}'", sanitized, e);
+            throw new BillingValidationException(
+                    String.join("", "Bill change rejected: invalid bill identifier (", sanitized, ")"), e);
         }
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
 
         if (bCh1 == null) {
-            MiscUtils.getLogger().error("No billing object found for Ch1 Id: {}", LogSanitizer.sanitize(request.getParameter("xml_billing_no"))); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            return "closeReload";
+            String sanitized = LogSanitizer.sanitize(rawBillingNo);
+            MiscUtils.getLogger().error("updateInvoice: bill {} not found", sanitized);
+            throw new BillingValidationException(
+                    String.join("", "Bill change rejected: bill (", sanitized, ") not found"));
         }
 
         if (!updateBillingONCHeader1(bCh1, request))
@@ -405,7 +462,12 @@ public class BillingCorrection2Action extends ActionSupport {
             int doReverse = reversedFunds.compareTo(new BigDecimal("0.00"));
 
             if (doReverse < 0) {
-                MiscUtils.getLogger().warn("Amount owing on the account is less than zero. Cannot return payment to third party.");
+                // Race-on-concurrent-write: another payment landed between
+                // the read at the top of this method and now. Surface the
+                // bill id so ops can correlate with the parallel write.
+                MiscUtils.getLogger().warn(
+                        "updateBillingONCHeader1: amount owing on bill {} is negative ({}); cannot return payment to third party. Likely concurrent payment write.",
+                        bCh1.getId(), reversedFunds);
                 return false;
             }
 
@@ -427,7 +489,10 @@ public class BillingCorrection2Action extends ActionSupport {
             int doSettlePayment = amtOutstanding.compareTo(new BigDecimal("0.00"));
 
             if (doSettlePayment < 0) {
-                MiscUtils.getLogger().warn("Amount to settle on the account is already less than zero. No additional third party payment required.");
+                // Same race-on-concurrent-write surface as above.
+                MiscUtils.getLogger().warn(
+                        "updateBillingONCHeader1: amount-to-settle on bill {} already negative ({}); no additional third party payment required. Likely concurrent payment write.",
+                        bCh1.getId(), amtOutstanding);
                 return false;
             }
 

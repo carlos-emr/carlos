@@ -569,6 +569,30 @@
         </div>
         <%} %>
 
+        <%-- Banners for the demoLoadError / raLookupError flags set by
+             BillingCorrection2Action.loadBillRecord. Without these, the
+             operator might mistake an empty patient context or empty
+             claimNo for authoritative data. Scriptlet form to match the
+             surrounding banner style; the file does not declare jakarta.tags.core. --%>
+        <%if (correctionModel.isDemoLoadError()) {%>
+        <div class="alert alert-warning" role="alert">
+            <strong>Warning:</strong> The patient demographic could not be
+            loaded for this bill. Patient name, DOB, sex, HIN, and roster
+            status are unavailable below — do <em>not</em> rely on the empty
+            fields as authoritative. The system administrator has been
+            notified via the server log; please retry shortly.
+        </div>
+        <%}%>
+        <%if (correctionModel.isRaLookupError()) {%>
+        <div class="alert alert-warning" role="alert">
+            <strong>Warning:</strong> The OHIP RA claim number lookup failed
+            for this bill. The claim number field below may be empty —
+            cross-reference with ministry remittance is unavailable until
+            the lookup is restored. The system administrator has been
+            notified via the server log.
+        </div>
+        <%}%>
+
         <div class="row card card-body bg-body-tertiary">
             <%if (createTimestamp != null) {%>
             <fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <%=nullToEmpty(createTimestamp)%>

@@ -44,27 +44,49 @@ public final class ErrorPageLogger {
      *                          {@code jakarta.servlet.error.*} attributes
      */
     public static void logIfPresent(Throwable explicitException, ServletRequest request) {
-        Throwable t = explicitException;
-        if (t == null && request != null) {
-            t = (Throwable) request.getAttribute("jakarta.servlet.error.exception");
+        // The error page itself MUST NEVER throw — if it did, the user would
+        // see a different (more confusing) error page than the one the JSP
+        // hierarchy is supposed to produce, and a stack-trace log loop is
+        // possible if errorpage.jsp is itself the next page Tomcat tries to
+        // render. Wrap the entire body in a defensive try/catch and swallow
+        // anything that escapes the log call (corrupted servlet attribute
+        // bound to a non-Throwable, log4j2 ConfigurationException at runtime,
+        // ClassCastException on a buggy filter that stashed a String under
+        // jakarta.servlet.error.exception, etc.).
+        try {
+            Throwable t = explicitException;
+            if (t == null && request != null) {
+                Object attr = request.getAttribute("jakarta.servlet.error.exception");
+                if (attr instanceof Throwable) {
+                    t = (Throwable) attr;
+                }
+            }
+            if (t == null) {
+                return;
+            }
+            Object uri = request != null
+                    ? request.getAttribute("jakarta.servlet.error.request_uri")
+                    : null;
+            Object status = request != null
+                    ? request.getAttribute("jakarta.servlet.error.status_code")
+                    : null;
+            // For HttpServletRequest, also attempt to log the original request
+            // method when available — useful for distinguishing GET vs POST
+            // failures on the same URI.
+            Object method = (request instanceof HttpServletRequest)
+                    ? ((HttpServletRequest) request).getMethod()
+                    : null;
+            MiscUtils.getLogger().error(
+                    "errorpage.jsp captured exception (method={}, uri={}, status={})",
+                    method, uri, status, t);
+        } catch (Throwable suppressed) { // NOSONAR — error page must never throw
+            // Last-ditch: best-effort write to System.err so a logging-config
+            // failure doesn't leave operations entirely blind.
+            try {
+                System.err.println("ErrorPageLogger: suppressed exception during error logging: " + suppressed);
+            } catch (Throwable ignored) {
+                // truly nothing more we can do
+            }
         }
-        if (t == null) {
-            return;
-        }
-        Object uri = request != null
-                ? request.getAttribute("jakarta.servlet.error.request_uri")
-                : null;
-        Object status = request != null
-                ? request.getAttribute("jakarta.servlet.error.status_code")
-                : null;
-        // For HttpServletRequest, also attempt to log the original request
-        // method when available — useful for distinguishing GET vs POST
-        // failures on the same URI.
-        Object method = (request instanceof HttpServletRequest)
-                ? ((HttpServletRequest) request).getMethod()
-                : null;
-        MiscUtils.getLogger().error(
-                "errorpage.jsp captured exception (method={}, uri={}, status={})",
-                method, uri, status, t);
     }
 }
