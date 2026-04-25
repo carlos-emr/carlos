@@ -379,9 +379,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li><a href="${ctx}/oscarReport/ocan_report_form.jsp" class="contentLink"><fmt:message key="admin.admin.ocanRpt"/></a></li>
 						<li><a href="${ctx}/oscarReport/ocan_iar.jsp" class="contentLink"><fmt:message key="admin.admin.ocanIarRpt"/></a></li>
 						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/ocan_reporting.jsp"><fmt:message key="admin.admin.ocanReporting"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_submit_form.jsp"><fmt:message key="admin.admin.cbiSubmit"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/cbiAdmin.jsp"><fmt:message key="admin.admin.cbi.reportlink"/></a></li>
-						<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/oscarReport/cbi_report_form.jsp"><fmt:message key="admin.admin.cbiRpt"/></a></li>
 					</caisi:isModuleLoad>
 					
 					<li><a href="${ctx}/admin/ViewUsageReport" class="contentLink"><fmt:message key="admin.admin.usageRpt"/></a></li>
