@@ -27,15 +27,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * View-scope gate for the Ontario billing form ({@code billingON.jsp}).
  *
- * <p>Built during the incremental scriptlet-extraction refactor that targets
- * the 1 MB JSP page-buffer overflow. Enforces {@code _billing r}, accepts GET /
- * HEAD / POST (the form self-posts), and exposes a {@link BillingONFormViewModel}
- * at request attribute {@code formModel} for the JSP to consume via EL.</p>
- *
- * <p>Data population is progressive. Fields migrated from scriptlets so far:
- * request parameter echoes (demographicNo, appointmentNo, apptProviderNo,
- * providerView, billReferenceDate). Remaining scriptlet blocks in
- * {@code billingON.jsp} will migrate field-by-field in follow-up commits.</p>
+ * <p>Enforces {@code _billing r}, accepts GET / HEAD / POST (the form
+ * self-posts), and exposes a {@link BillingONFormViewModel} at request
+ * attribute {@code formModel} for the JSP to consume via EL. Resolves the
+ * 1 MB JSP page-buffer overflow that occurred when the form built its
+ * data inline via ~24 DAO lookups.</p>
  *
  * @since 2026-04-24
  */

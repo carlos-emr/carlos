@@ -211,4 +211,77 @@ class BillingShortcutPg1ViewModelUnitTest {
         // Shortcut doesn't carry a specialty field — empty by design.
         assertThat(r.specialty()).isEmpty();
     }
+
+    /**
+     * Null-tolerance contract: every String setter must coalesce a passed
+     * {@code null} to the empty string so EL output never renders the
+     * literal 4-character word "null". A future caller forgetting to
+     * coalesce can't pollute the rendered page.
+     */
+    @Test
+    void shouldCoalesceNullStringsToEmpty_acrossEverySetter() {
+        BillingShortcutPg1ViewModel m = BillingShortcutPg1ViewModel.builder()
+                .userProviderNo(null)
+                .providerView(null)
+                .demoNo(null)
+                .demoName(null)
+                .apptNo(null)
+                .apptProviderNo(null)
+                .apptDate(null)
+                .startTime(null)
+                .ctlBillForm(null)
+                .clinicNo(null)
+                .demoFirst(null)
+                .demoLast(null)
+                .demoSex(null)
+                .demoHin(null)
+                .demoDob(null)
+                .demoDobYy(null)
+                .demoDobMm(null)
+                .demoDobDd(null)
+                .demoHcType(null)
+                .assignedProviderNo(null)
+                .referralDoctorName(null)
+                .referralDoctorOhip(null)
+                .visitType(null)
+                .clinicView(null)
+                .visitDate(null)
+                .dxCode(null)
+                .errorFlag(null)
+                .errorMessage(null)
+                .warningMessage(null)
+                .msg(null)
+                .build();
+
+        assertThat(m.getUserProviderNo()).isEmpty();
+        assertThat(m.getProviderView()).isEmpty();
+        assertThat(m.getDemoNo()).isEmpty();
+        assertThat(m.getDemoName()).isEmpty();
+        assertThat(m.getApptNo()).isEmpty();
+        assertThat(m.getApptProviderNo()).isEmpty();
+        assertThat(m.getApptDate()).isEmpty();
+        assertThat(m.getStartTime()).isEmpty();
+        assertThat(m.getCtlBillForm()).isEmpty();
+        assertThat(m.getClinicNo()).isEmpty();
+        assertThat(m.getDemoFirst()).isEmpty();
+        assertThat(m.getDemoLast()).isEmpty();
+        assertThat(m.getDemoSex()).isEmpty();
+        assertThat(m.getDemoHin()).isEmpty();
+        assertThat(m.getDemoDob()).isEmpty();
+        assertThat(m.getDemoDobYy()).isEmpty();
+        assertThat(m.getDemoDobMm()).isEmpty();
+        assertThat(m.getDemoDobDd()).isEmpty();
+        assertThat(m.getDemoHcType()).isEmpty();
+        assertThat(m.getAssignedProviderNo()).isEmpty();
+        assertThat(m.getReferralDoctorName()).isEmpty();
+        assertThat(m.getReferralDoctorOhip()).isEmpty();
+        assertThat(m.getVisitType()).isEmpty();
+        assertThat(m.getClinicView()).isEmpty();
+        assertThat(m.getVisitDate()).isEmpty();
+        assertThat(m.getDxCode()).isEmpty();
+        assertThat(m.getErrorFlag()).isEmpty();
+        assertThat(m.getErrorMessage()).isEmpty();
+        assertThat(m.getWarningMessage()).isEmpty();
+        assertThat(m.getMsg()).isEmpty();
+    }
 }

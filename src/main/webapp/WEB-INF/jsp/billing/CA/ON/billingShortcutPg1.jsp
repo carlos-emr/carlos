@@ -60,10 +60,30 @@
             (BillingShortcutPg1ViewModel) request.getAttribute("shortcutPg1Model");
     if (shortcutPg1Model == null) {
         // Defensive fallback for any caller that forwards directly to this JSP
-        // without going through ViewBillingShortcutPg12Action.
+        // without going through ViewBillingShortcutPg12Action. Re-check the
+        // privilege the action enforces so a future <jsp:forward> from an
+        // unguarded JSP can't silently expose PHI assembly. Mirrors
+        // billingON.jsp.
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingShortcutPg1.jsp reached without shortcutPg1Model — using empty fallback. "
                 + "Caller should route through billing/CA/ON/billingShortcutPg1View.");
+        io.github.carlos_emr.carlos.utility.LoggedInInfo __fallbackLii =
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (__fallbackLii == null) {
+            throw new SecurityException("billingShortcutPg1.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = io.github.carlos_emr.carlos.utility.SpringUtils
+                    .getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingShortcutPg1.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingShortcutPg1.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
+            throw new SecurityException("billingShortcutPg1.jsp fallback: missing required sec object (_billing)");
+        }
         shortcutPg1Model = BillingShortcutPg1ViewModel.builder().build();
     }
 

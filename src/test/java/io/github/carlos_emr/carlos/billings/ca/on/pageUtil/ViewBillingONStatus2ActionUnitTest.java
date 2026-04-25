@@ -178,6 +178,24 @@ class ViewBillingONStatus2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("_billing");
     }
 
+    /**
+     * Reject sessionless requests up front rather than letting the call
+     * to {@code SecurityInfoManager.hasPrivilege(null, ...)} dereference
+     * null inside the manager (which emits an internal ERROR log,
+     * polluting the privilege-denial signal). Regression armor for the
+     * null-loggedInInfo guard in the action.
+     */
+    @Test
+    void shouldThrowSecurityException_whenSessionMissing() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+
+        ViewBillingONStatus2Action action = new ViewBillingONStatus2Action();
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("session");
+    }
+
     @Test
     void shouldHonorParamEchoes_forIdentityFields() throws Exception {
         mockRequest.setParameter("providerview", "999998");

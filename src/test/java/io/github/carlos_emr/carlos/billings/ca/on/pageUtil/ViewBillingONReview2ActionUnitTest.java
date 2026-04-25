@@ -125,6 +125,28 @@ class ViewBillingONReview2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Reject sessionless requests up front rather than letting the call
+     * to {@code SecurityInfoManager.hasPrivilege(null, ...)} dereference
+     * null inside the manager (which emits an internal ERROR log,
+     * polluting the privilege-denial signal). Regression armor for the
+     * null-loggedInInfo guard in the action.
+     */
+    @Test
+    void shouldThrowSecurityException_whenSessionMissing() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+
+        try (MockedConstruction<BillingONReviewDxPersister> persisterIgnored = mockConstruction(BillingONReviewDxPersister.class);
+             MockedConstruction<BillingONReviewDataAssembler> ignored =
+                mockConstruction(BillingONReviewDataAssembler.class)) {
+            ViewBillingONReview2Action action = new ViewBillingONReview2Action();
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("session");
+        }
+    }
+
     @Test
     void shouldThrowSecurityException_whenLacksBillingWrite() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))

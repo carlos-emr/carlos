@@ -84,10 +84,30 @@
             (BillingONCorrectionViewModel) request.getAttribute("correctionModel");
     if (correctionModel == null) {
         // Defensive fallback for any caller that forwards directly to this JSP
-        // without going through BillingCorrection2Action.
+        // without going through BillingCorrection2Action. Re-check the same
+        // privilege the action enforces — without this guard a future
+        // <jsp:forward> from an unguarded JSP could silently expose PHI
+        // through the patient/bill assembly. Mirrors billingON.jsp.
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingONCorrection.jsp reached without correctionModel — using empty fallback. "
                 + "Caller should route through billing/CA/ON/BillingONCorrection.");
+        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (__fallbackLii == null) {
+            throw new SecurityException("billingONCorrection.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingONCorrection.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingONCorrection.jsp fallback: privilege check unavailable", __springEx);
+        }
+        // BillingCorrection2Action enforces _billing w (mutation gate); on the
+        // empty-fallback render path no mutation occurs, so r is sufficient.
+        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
+            throw new SecurityException("billingONCorrection.jsp fallback: missing required sec object (_billing)");
+        }
         correctionModel = BillingONCorrectionViewModel.builder().build();
     }
 

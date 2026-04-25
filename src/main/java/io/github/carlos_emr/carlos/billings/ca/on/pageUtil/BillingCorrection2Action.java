@@ -144,18 +144,20 @@ public class BillingCorrection2Action extends ActionSupport {
         try {
             invoiceId = Integer.valueOf(invoiceNo);
         } catch (NumberFormatException nfe) {
-            String sanitized = LogSanitizer.sanitize(invoiceNo);
-            MiscUtils.getLogger().error("3rd party payment: invalid billing_no '{}'", sanitized);
+            MiscUtils.getLogger().error("3rd party payment: invalid billing_no '{}'",
+                    LogSanitizer.sanitize(invoiceNo));
             throw new BillingValidationException(
-                    "3rd party payment rejected: invalid billing_no [" + sanitized + "]", nfe);
+                    "3rd party payment rejected: invalid billing_no ["
+                    + LogSanitizer.sanitizeForDisplay(invoiceNo) + "]", nfe);
         }
         BillingONCHeader1 bCh1 = bCh1Dao.find(invoiceId);
 
         if (bCh1 == null) {
-            String sanitized = LogSanitizer.sanitize(invoiceNo);
-            MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found", sanitized);
+            MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found",
+                    LogSanitizer.sanitize(invoiceNo));
             throw new BillingValidationException(
-                    "3rd party payment rejected: bill not found [" + sanitized + "]");
+                    "3rd party payment rejected: bill not found ["
+                    + LogSanitizer.sanitizeForDisplay(invoiceNo) + "]");
         }
 
         //Validate pay amount
@@ -164,24 +166,25 @@ public class BillingCorrection2Action extends ActionSupport {
             String amtPaid = request.getParameter("amtPaid");
             paidAmt = new BigDecimal(amtPaid);
         } catch (NumberFormatException e) {
-            String sanitized = LogSanitizer.sanitize(request.getParameter("amtPaid"));
+            String rawAmt = request.getParameter("amtPaid");
             MiscUtils.getLogger().error(
                     "3rd party payment: amtPaid '{}' is not a valid number for bill {}",
-                    sanitized, invoiceId, e);
+                    LogSanitizer.sanitize(rawAmt), invoiceId, e);
             throw new BillingValidationException(
-                    "3rd party payment rejected: amount [" + sanitized + "] is not a valid number", e);
+                    "3rd party payment rejected: amount ["
+                    + LogSanitizer.sanitizeForDisplay(rawAmt) + "] is not a valid number", e);
         }
 
         //Validate pay Method
         String payMethod = request.getParameter("payMethod");
         BillingPaymentType paymentType = billingPaymentTypeDao.find(payMethod);
         if (paymentType == null) {
-            String sanitized = LogSanitizer.sanitize(payMethod);
             MiscUtils.getLogger().error(
                     "3rd party payment: payMethod '{}' not in billing_payment_type for bill {}",
-                    sanitized, invoiceId);
+                    LogSanitizer.sanitize(payMethod), invoiceId);
             throw new BillingValidationException(
-                    "3rd party payment rejected: pay-method [" + sanitized + "] is not configured");
+                    "3rd party payment rejected: pay-method ["
+                    + LogSanitizer.sanitizeForDisplay(payMethod) + "] is not configured");
         }
 
         //Validate pay type
@@ -189,12 +192,12 @@ public class BillingCorrection2Action extends ActionSupport {
         if (payType == null
                 || (!payType.equals("P") /* Payment */
                         && !payType.equals("R") /* Refund */)) {
-            String sanitized = LogSanitizer.sanitize(payType);
             MiscUtils.getLogger().error(
                     "3rd party payment: payType '{}' invalid for bill {} (must be P or R)",
-                    sanitized, invoiceId);
+                    LogSanitizer.sanitize(payType), invoiceId);
             throw new BillingValidationException(
-                    "3rd party payment rejected: pay-type [" + sanitized + "] must be P (payment) or R (refund)");
+                    "3rd party payment rejected: pay-type ["
+                    + LogSanitizer.sanitizeForDisplay(payType) + "] must be P (payment) or R (refund)");
         }
 
         //Add new payment amount to third party bill
@@ -224,18 +227,24 @@ public class BillingCorrection2Action extends ActionSupport {
         try {
             billingNo = Integer.parseInt(rawBillingNo);
         } catch (NumberFormatException e) {
-            String sanitized = LogSanitizer.sanitize(rawBillingNo);
-            MiscUtils.getLogger().error("updateInvoice: invalid xml_billing_no '{}'", sanitized, e);
+            // Use sanitize() for the log line (defends against log-injection
+            // via control chars in the input) but sanitizeForDisplay() for
+            // the user-facing exception message (preserves printable Unicode
+            // / quotes so the operator can read what they typed).
+            MiscUtils.getLogger().error("updateInvoice: invalid xml_billing_no '{}'",
+                    LogSanitizer.sanitize(rawBillingNo), e);
             throw new BillingValidationException(
-                    String.join("", "Bill change rejected: invalid bill identifier (", sanitized, ")"), e);
+                    "Bill change rejected: invalid bill identifier ("
+                    + LogSanitizer.sanitizeForDisplay(rawBillingNo) + ")", e);
         }
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
 
         if (bCh1 == null) {
-            String sanitized = LogSanitizer.sanitize(rawBillingNo);
-            MiscUtils.getLogger().error("updateInvoice: bill {} not found", sanitized);
+            MiscUtils.getLogger().error("updateInvoice: bill {} not found",
+                    LogSanitizer.sanitize(rawBillingNo));
             throw new BillingValidationException(
-                    String.join("", "Bill change rejected: bill (", sanitized, ") not found"));
+                    "Bill change rejected: bill ("
+                    + LogSanitizer.sanitizeForDisplay(rawBillingNo) + ") not found");
         }
 
         if (!updateBillingONCHeader1(bCh1, request))
@@ -512,12 +521,12 @@ public class BillingCorrection2Action extends ActionSupport {
         try {
             serviceDate = DateUtils.parseDate(serviceDateStr, request.getLocale());
         } catch (java.text.ParseException e) {
-            String sanitizedDate = LogSanitizer.sanitize(serviceDateStr);
             MiscUtils.getLogger().error(
                     "Bill item save: unparseable xml_appointment_date={}; aborting",
-                    sanitizedDate, e);
+                    LogSanitizer.sanitize(serviceDateStr), e);
             throw new BillingValidationException(
-                    "Bill item save aborted: unparseable xml_appointment_date [" + sanitizedDate + "]", e);
+                    "Bill item save aborted: unparseable xml_appointment_date ["
+                    + LogSanitizer.sanitizeForDisplay(serviceDateStr) + "]", e);
         }
 
         /*

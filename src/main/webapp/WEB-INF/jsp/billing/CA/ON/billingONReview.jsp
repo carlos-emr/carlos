@@ -164,12 +164,31 @@
             (BillingONReviewViewModel) request.getAttribute("reviewModel");
     if (reviewModel == null) {
         // Defensive fallback for any legacy caller that forwards directly to
-        // this JSP without going through ViewBillingONReview2Action. The model
-        // contract is "non-null" — callers should chain through the gate, but
-        // we render with an empty model rather than 500'ing.
+        // this JSP without going through ViewBillingONReview2Action. Re-check
+        // the same privilege the action enforces so a future <jsp:forward>
+        // from an unguarded JSP can't silently expose PHI through the
+        // patient assembly. Mirrors billingON.jsp.
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingONReview.jsp reached without reviewModel — using empty fallback. "
                 + "Caller should route through billing/CA/ON/ViewBillingONReview.");
+        io.github.carlos_emr.carlos.utility.LoggedInInfo __fallbackLii =
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (__fallbackLii == null) {
+            throw new SecurityException("billingONReview.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingONReview.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingONReview.jsp fallback: privilege check unavailable", __springEx);
+        }
+        // Review enforces _billing w in the gate (it's part of the save chain);
+        // empty-fallback render path doesn't write, so r is sufficient.
+        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "r", null)) {
+            throw new SecurityException("billingONReview.jsp fallback: missing required sec object (_billing)");
+        }
         reviewModel = BillingONReviewViewModel.builder().build();
     }
 

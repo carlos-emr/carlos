@@ -147,6 +147,27 @@ class ViewBillingShortcutPg12ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Reject sessionless requests up front rather than letting the call
+     * to {@code SecurityInfoManager.hasPrivilege(null, ...)} dereference
+     * null inside the manager (which emits an internal ERROR log,
+     * polluting the privilege-denial signal). Regression armor for the
+     * round-7 null guard.
+     */
+    @Test
+    void shouldThrowSecurityException_whenSessionMissing() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(null);
+
+        try (MockedConstruction<BillingShortcutPg1DataAssembler> ignored =
+                mockConstruction(BillingShortcutPg1DataAssembler.class)) {
+            ViewBillingShortcutPg12Action action = new ViewBillingShortcutPg12Action();
+            assertThatThrownBy(action::execute)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("session");
+        }
+    }
+
     @Test
     void shouldThrowSecurityException_whenLacksBillingRead() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull()))

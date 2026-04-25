@@ -18,10 +18,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
  * <p>Captures demographic + provider lookups, the chosen diagnostic code, and
  * the validation messages produced from those lookups. Built by
  * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDataAssembler}
- * and exposed to the JSP as request attribute {@code reviewModel}. Fields are
- * added incrementally as additional scriptlet blocks migrate out of the JSP;
- * for now this captures the demographic-driven prep that previously happened
- * inline in the top scriptlet (lines 199-270 of the legacy JSP).</p>
+ * and exposed to the JSP as request attribute {@code reviewModel}. Replaces
+ * the demographic-driven prep block that previously ran inline in the top
+ * scriptlet of the JSP.</p>
  *
  * @since 2026-04-24
  */

@@ -135,6 +135,36 @@ public final class LogSanitizer {
     }
 
     /**
+     * Sanitizes a {@code String} value for inclusion in a user-facing
+     * exception message that will be rendered to a JSP. Strips ASCII
+     * control characters and truncates, but does <em>not</em> Java-escape
+     * printable characters — so quotes/backslashes/non-ASCII appear as
+     * themselves rather than as {@code "} / {@code \\} / {@code é}.
+     *
+     * <p>Use this when the sanitized value will be displayed back to the
+     * operator (e.g. "Bill rejected: invalid billing_no [{@code abc"})"
+     * rather than logged. The downstream JSP must still HTML-escape the
+     * value via {@code <carlos:encode>} to prevent XSS — this helper only
+     * removes characters that would corrupt log lines or terminal output
+     * if the message is later logged via {@code e.getMessage()}.</p>
+     *
+     * @param input String the value to sanitize; may be {@code null}
+     * @return String the sanitized string, or the literal {@code "null"} if
+     *         input is null; never returns {@code null}
+     */
+    public static String sanitizeForDisplay(String input) {
+        if (input == null) {
+            return "null";
+        }
+        String stripped = input.replaceAll("\\p{Cntrl}", "");
+        boolean truncated = stripped.length() > DEFAULT_MAX_LENGTH;
+        if (truncated) {
+            stripped = stripped.substring(0, DEFAULT_MAX_LENGTH);
+        }
+        return truncated ? stripped + "..." : stripped;
+    }
+
+    /**
      * Sanitizes an arbitrary {@code Object} value for safe inclusion in a log statement.
      *
      * <p>Converts the object to its {@link Object#toString()} representation and delegates

@@ -309,7 +309,15 @@ public final class BillingONCorrectionDataAssembler {
         try {
             b.visitDate(DateUtils.formatDate(bCh1.getAdmissionDate(), locale));
         } catch (java.text.ParseException e) {
+            // Stored admission_date is unparseable. Surface a flag so the
+            // JSP shows ops a banner — mirrors demoLoadError / raLookupError
+            // sibling branches in this method which also flag + log on
+            // load-side data corruption rather than swallowing silently.
             b.visitDate("");
+            b.visitDateInvalid(true);
+            MiscUtils.getLogger().warn(
+                    "Bill {} has unparseable admission_date; rendering empty visitDate",
+                    billNo, e);
         }
         b.visitType(bCh1.getVisitType() == null ? "" : bCh1.getVisitType());
         b.sliCode(bCh1.getLocation() == null ? "" : bCh1.getLocation());

@@ -27,9 +27,10 @@ import java.util.Set;
  * existing state machine and is not duplicated here.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action#buildModel}
- * and exposed to the JSP as request attribute {@code correctionModel}. Fields
- * are added incrementally as scriptlet blocks migrate out of the JSP.</p>
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONCorrectionDataAssembler#assemble}
+ * (invoked from
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action})
+ * and exposed to the JSP as request attribute {@code correctionModel}.</p>
  *
  * @since 2026-04-24
  */
@@ -58,6 +59,10 @@ public final class BillingONCorrectionViewModel {
     // True when the demographic-by-id lookup threw — JSP shows a banner so
     // the operator doesn't act on the (empty) patient context as if it were
     // authoritative.
+    /** True when the bill row's admission_date column was non-empty but
+     *  failed to parse. Sibling of {@link #demoLoadError} /
+     *  {@link #raLookupError}; the JSP can render a banner when set. */
+    private final boolean visitDateInvalid;
     private final boolean demoLoadError;
     // True when the OHIP RA claim-number lookup threw — JSP shows a hint
     // since the operator's primary correlation key for ministry remittance
@@ -106,6 +111,7 @@ public final class BillingONCorrectionViewModel {
         this.billLoaded = b.billLoaded;
         this.billNoErr = b.billNoErr;
         this.multiSiteProvider = b.multiSiteProvider;
+        this.visitDateInvalid = b.visitDateInvalid;
         this.demoLoadError = b.demoLoadError;
         this.raLookupError = b.raLookupError;
         this.billingNo = nullToEmpty(b.billingNo);
@@ -156,6 +162,7 @@ public final class BillingONCorrectionViewModel {
     public boolean isBillLoaded() { return billLoaded; }
     public boolean isBillNoErr() { return billNoErr; }
     public boolean isMultiSiteProvider() { return multiSiteProvider; }
+    public boolean isVisitDateInvalid() { return visitDateInvalid; }
     public boolean isDemoLoadError() { return demoLoadError; }
     public boolean isRaLookupError() { return raLookupError; }
     public String getBillingNo() { return billingNo; }
@@ -203,6 +210,7 @@ public final class BillingONCorrectionViewModel {
         // the false default — and any future code path that constructs an
         // empty model can't accidentally expose other-site bills.
         private boolean multiSiteProvider = false;
+        private boolean visitDateInvalid;
         private boolean demoLoadError;
         private boolean raLookupError;
         private String billingNo;
@@ -248,6 +256,7 @@ public final class BillingONCorrectionViewModel {
         public Builder billLoaded(boolean v) { this.billLoaded = v; return this; }
         public Builder billNoErr(boolean v) { this.billNoErr = v; return this; }
         public Builder multiSiteProvider(boolean v) { this.multiSiteProvider = v; return this; }
+        public Builder visitDateInvalid(boolean v) { this.visitDateInvalid = v; return this; }
         public Builder demoLoadError(boolean v) { this.demoLoadError = v; return this; }
         public Builder raLookupError(boolean v) { this.raLookupError = v; return this; }
         public Builder billingNo(String v) { this.billingNo = v; return this; }

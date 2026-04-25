@@ -39,9 +39,7 @@ import org.apache.struts2.ServletActionContext;
  * <p>Parameter parsing + default resolution is delegated to
  * {@link BillingONStatusDataAssembler} so this action stays a thin gate.</p>
  *
- * @since 2026-04-13 (security gate)
- *        2026-04-24 (view model + privilege-gate alignment)
- *        2026-04-25 (assembler extraction)
+ * @since 2026-04-13
  */
 public final class ViewBillingONStatus2Action extends ActionSupport {
 

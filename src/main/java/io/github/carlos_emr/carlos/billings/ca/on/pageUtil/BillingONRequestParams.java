@@ -15,10 +15,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 /**
  * Small parsing helpers shared by the Ontario billing assemblers
  * ({@link BillingONFormDataAssembler}, {@link BillingONReviewDataAssembler},
- * and the shortcut variant). Extracted so the same shape isn't reimplemented
- * inconsistently — a prior round of review caught the review-assembler
- * passing the unstripped {@code "providerNo|ohipNo"} string straight to
- * {@code ProviderDao.getProvider(...)}, which silently returned null.
+ * and the shortcut variant). Extracted so the same parsing isn't
+ * reimplemented inconsistently — passing the unstripped
+ * {@code "providerNo|ohipNo"} pair to {@code ProviderDao.getProvider(...)}
+ * silently returns null.
  *
  * @since 2026-04-25
  */

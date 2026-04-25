@@ -27,16 +27,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Pure read of request state into a view model. Encapsulates the
  * demographic + provider DAO lookups, the diagnostic description lookup,
- * and the validation message construction that previously lived in the JSP
- * top scriptlet (lines 60-276 of the legacy file).</p>
+ * and the validation message construction that previously lived in the
+ * JSP's top scriptlet block.</p>
  *
  * <p>The optional {@code addToPatientDx} clinical write that used to live
  * here was extracted to {@link BillingONReviewDxPersister} so this class
  * stays read-only and easier to test in isolation.</p>
  *
  * <p>The vector-driven service-code summary (handled by
- * {@link BillingReviewPrep} and friends) still lives in the JSP and will
- * move in a follow-up step.</p>
+ * {@link BillingReviewPrep} and friends) is currently consumed inline by
+ * the JSP rather than through this assembler.</p>
  *
  * @since 2026-04-24
  */

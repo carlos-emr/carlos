@@ -175,4 +175,73 @@ class BillingONCorrectionViewModelUnitTest {
         assertThat(m.getHcType()).isEqualTo("ON");
         assertThat(m.getHcSex()).isEqualTo("F");
     }
+
+    /**
+     * Null-tolerance contract: every String setter must coalesce a passed
+     * {@code null} to the empty string. EL output renders bare null as the
+     * literal 4-character word "null" — guarding here means a future caller
+     * forgetting to coalesce can't pollute the rendered page.
+     */
+    @Test
+    void shouldCoalesceNullStringsToEmpty_acrossEverySetter() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
+                .userProviderNo(null)
+                .userFirstName(null)
+                .userLastName(null)
+                .billingNo(null)
+                .claimNo(null)
+                .createTimestamp(null)
+                .demoNo(null)
+                .demoName(null)
+                .demoDob(null)
+                .demoSex(null)
+                .demoRosterStatus(null)
+                .hin(null)
+                .hcType(null)
+                .hcSex(null)
+                .billLocationNo(null)
+                .billDate(null)
+                .billProvider(null)
+                .billStatus(null)
+                .payProgram(null)
+                .billTotal(null)
+                .visitDate(null)
+                .visitType(null)
+                .sliCode(null)
+                .referralDoctorOhip(null)
+                .referralDoctor(null)
+                .manReview(null)
+                .comment(null)
+                .clinicSite(null)
+                .build();
+
+        assertThat(m.getUserProviderNo()).isEmpty();
+        assertThat(m.getUserFirstName()).isEmpty();
+        assertThat(m.getUserLastName()).isEmpty();
+        assertThat(m.getBillingNo()).isEmpty();
+        assertThat(m.getClaimNo()).isEmpty();
+        assertThat(m.getCreateTimestamp()).isEmpty();
+        assertThat(m.getDemoNo()).isEmpty();
+        assertThat(m.getDemoName()).isEmpty();
+        assertThat(m.getDemoDob()).isEmpty();
+        assertThat(m.getDemoSex()).isEmpty();
+        assertThat(m.getDemoRosterStatus()).isEmpty();
+        assertThat(m.getHin()).isEmpty();
+        assertThat(m.getHcType()).isEmpty();
+        assertThat(m.getHcSex()).isEmpty();
+        assertThat(m.getBillLocationNo()).isEmpty();
+        assertThat(m.getBillDate()).isEmpty();
+        assertThat(m.getBillProvider()).isEmpty();
+        assertThat(m.getBillStatus()).isEmpty();
+        assertThat(m.getPayProgram()).isEmpty();
+        assertThat(m.getBillTotal()).isEmpty();
+        assertThat(m.getVisitDate()).isEmpty();
+        assertThat(m.getVisitType()).isEmpty();
+        assertThat(m.getSliCode()).isEmpty();
+        assertThat(m.getReferralDoctorOhip()).isEmpty();
+        assertThat(m.getReferralDoctor()).isEmpty();
+        assertThat(m.getManReview()).isEmpty();
+        assertThat(m.getComment()).isEmpty();
+        assertThat(m.getClinicSite()).isEmpty();
+    }
 }

@@ -90,11 +90,15 @@ public final class BillingONReviewDxPersister {
         try {
             demoNoInt = Integer.valueOf(demoNo);
         } catch (NumberFormatException nfe) {
-            String sanitized = LogSanitizer.sanitize(demoNo);
+            // sanitize() for log (defends against log-injection); for the
+            // user-facing BVE message use sanitizeForDisplay so the operator
+            // sees printable characters as themselves.
             MiscUtils.getLogger().error(
-                    "addToPatientDx requested with non-numeric demographic_no: {}", sanitized);
+                    "addToPatientDx requested with non-numeric demographic_no: {}",
+                    LogSanitizer.sanitize(demoNo));
             throw new BillingValidationException(
-                    "addToPatientDx requested with non-numeric demographic_no: " + sanitized, nfe);
+                    "addToPatientDx requested with non-numeric demographic_no: "
+                    + LogSanitizer.sanitizeForDisplay(demoNo), nfe);
         }
         Date now = new Date();
         Dxresearch dx = new Dxresearch(
@@ -114,34 +118,31 @@ public final class BillingONReviewDxPersister {
             // so the user sees the friendly "submission rejected" page rather
             // than the generic CARLOS Error 500. The save was a clinical
             // write — the operator needs to know it was rejected.
-            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
             MiscUtils.getLogger().error(
                     "addToPatientDx: data-integrity violation persisting dx {} for demo {}",
-                    sanitizedDx, demoNoInt, dive);
+                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, dive);
             throw new BillingValidationException(
-                    String.join("", "Could not save dx (", sanitizedDx,
-                            ") for the patient: it may already be in the registry."), dive);
+                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    + ") for the patient: it may already be in the registry.", dive);
         } catch (org.hibernate.NonUniqueObjectException nuoe) {
-            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
             MiscUtils.getLogger().error(
                     "addToPatientDx: NonUniqueObjectException for dx {} demo {}",
-                    sanitizedDx, demoNoInt, nuoe);
+                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, nuoe);
             throw new BillingValidationException(
-                    String.join("", "Could not save dx (", sanitizedDx,
-                            ") for the patient: a session conflict occurred. Please reload the chart and retry."), nuoe);
+                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    + ") for the patient: a session conflict occurred. Please reload the chart and retry.", nuoe);
         } catch (RuntimeException rtEx) {
             // Catch-all for transient JDBC outages, lock-wait timeouts, etc.
             // Without this, the user sees the generic CARLOS Error 500 page
             // and has no signal that the dx was *not* added — same audit-trail
             // gap the targeted catches above close. Translate to BVE so the
             // operator gets the friendly "retry" message.
-            String sanitizedDx = LogSanitizer.sanitize(dxCodeAdd);
             MiscUtils.getLogger().error(
                     "addToPatientDx: unexpected save failure for dx {} demo {}",
-                    sanitizedDx, demoNoInt, rtEx);
+                    LogSanitizer.sanitize(dxCodeAdd), demoNoInt, rtEx);
             throw new BillingValidationException(
-                    String.join("", "Could not save dx (", sanitizedDx,
-                            ") for the patient — please retry, then contact support if the problem persists."), rtEx);
+                    "Could not save dx (" + LogSanitizer.sanitizeForDisplay(dxCodeAdd)
+                    + ") for the patient — please retry, then contact support if the problem persists.", rtEx);
         }
     }
 
