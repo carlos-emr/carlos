@@ -240,4 +240,47 @@ class BillingShortcutPg1DataAssemblerUnitTest extends CarlosUnitTestBase {
         BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
         assertThat(m.getProviderView()).isEqualTo("111111");
     }
+
+    /**
+     * The provider picker emits {@code xml_provider} as
+     * {@code "<providerNo>|<ohipNo>"}; the assembler must strip the suffix
+     * so downstream {@code ProviderDao.getProvider(providerView)} doesn't
+     * receive a pipe-delimited token.
+     */
+    @Test
+    void shouldStripPipeSuffix_fromXmlProvider() {
+        request.setParameter("xml_provider", "111111|OHIP1234");
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getProviderView()).isEqualTo("111111");
+    }
+
+    /**
+     * Regression armor for the {@code xml_provider == ""} clobber bug. An
+     * empty {@code xml_provider} param (e.g., a stale form re-submit) must
+     * NOT overwrite a populated {@code providerview} — it should fall
+     * through to the providerview value.
+     */
+    @Test
+    void shouldNotClobberProviderview_whenXmlProviderIsEmpty() {
+        request.setParameter("xml_provider", "");
+        request.setParameter("providerview", "111111");
+
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getProviderView()).isEqualTo("111111");
+    }
+
+    /**
+     * When neither {@code xml_provider} nor {@code providerview} is supplied
+     * the assembler falls back to the logged-in provider passed by
+     * {@code BillingShortcutPg1View2Action}.
+     */
+    @Test
+    void shouldFallBackToUserProviderNo_whenBothParamsAbsent() {
+        BillingShortcutPg1ViewModel m = assembler.assemble(request, "999998");
+
+        assertThat(m.getProviderView()).isEqualTo("999998");
+    }
 }

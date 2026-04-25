@@ -128,6 +128,31 @@ class BillingONCorrectionViewModelUnitTest {
      * They MUST be independent — collapsing any pair would re-introduce the
      * d2db61d4 bridge-migration class of bugs.
      */
+    /**
+     * Regression armor for the multiSiteProvider fail-closed default. The JSP
+     * only consumes isMultiSiteProvider() when isBillLoaded() is true; on the
+     * empty-fallback render path the value MUST default to false so an
+     * unloaded model doesn't silently grant unrestricted multi-site access.
+     * The assembler explicitly opts in to true via .multiSiteProvider(true)
+     * when the bill loads and the access checks pass.
+     */
+    @Test
+    @Tag("security")
+    void shouldDefaultMultiSiteProvider_toFalse_whenBuilderIsEmpty() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder().build();
+
+        assertThat(m.isMultiSiteProvider()).isFalse();
+    }
+
+    @Test
+    void shouldRoundTripMultiSiteProvider_whenBuilderSetsTrue() {
+        BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()
+                .multiSiteProvider(true)
+                .build();
+
+        assertThat(m.isMultiSiteProvider()).isTrue();
+    }
+
     @Test
     void shouldKeepBillRecordFields_independentOfEachOther() {
         BillingONCorrectionViewModel m = BillingONCorrectionViewModel.builder()

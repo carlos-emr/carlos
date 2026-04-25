@@ -225,9 +225,9 @@ public class BillingCorrection2Action extends ActionSupport {
         // accurately reflects the path. `closeReload` (used below after
         // a successful save) is reserved for its actual semantic — a
         // post-save reload — to keep the result vocabulary honest. A
-        // *non-null but unparseable* value indicates form tampering /
-        // browser auto-fill regression and must throw — that's the
-        // silent-success failure mode round-3 closed.
+        // *non-null but unparseable* value indicates form tampering or
+        // browser auto-fill regression and must throw, otherwise the
+        // user gets a silent-success page instead of a rejection.
         String rawBillingNo = request.getParameter("xml_billing_no");
         if (rawBillingNo == null || rawBillingNo.isEmpty()) {
             return "loadOnly";

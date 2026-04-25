@@ -125,10 +125,10 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
     /**
      * The action funnels every non-add3rdPartyPayment request through
      * updateInvoice(), including the GET-load path that opens the correction
-     * page (which posts no xml_billing_no). That path now returns the
-     * dedicated "loadOnly" result rather than reusing the post-save
-     * "closeReload" semantically — but the rendered JSP is the same one,
-     * so the user-facing behavior is unchanged.
+     * page (which posts no xml_billing_no). That path returns the dedicated
+     * "loadOnly" result, distinct from the post-save "closeReload" path so
+     * the result vocabulary stays semantically honest. Both map to the same
+     * JSP, so the user-facing render is identical.
      */
     @Test
     void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsAbsent() {
