@@ -43,10 +43,28 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewBillingONReview2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingONReviewDxPersister dxPersister;
+    private final BillingONReviewDataAssembler assembler;
 
     private BillingONReviewViewModel reviewModel;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingONReview2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new BillingONReviewDxPersister(),
+             new BillingONReviewDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewBillingONReview2Action(SecurityInfoManager securityInfoManager,
+                               BillingONReviewDxPersister dxPersister,
+                               BillingONReviewDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.dxPersister = dxPersister;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -79,8 +97,8 @@ public final class ViewBillingONReview2Action extends ActionSupport {
         // non-numeric demoNo, DAO outage) propagates through the action's
         // standard error path rather than producing a misleadingly successful
         // review render with the patient unchanged in the registry.
-        new BillingONReviewDxPersister().persistIfRequested(request, userNo);
-        this.reviewModel = new BillingONReviewDataAssembler().assemble(request);
+        dxPersister.persistIfRequested(request, userNo);
+        this.reviewModel = assembler.assemble(request);
         request.setAttribute("reviewModel", this.reviewModel);
 
         return SUCCESS;

@@ -44,10 +44,24 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewBillingONStatus2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingONStatusDataAssembler assembler;
 
     private BillingONStatusViewModel statusModel;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingONStatus2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new BillingONStatusDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewBillingONStatus2Action(SecurityInfoManager securityInfoManager,
+                               BillingONStatusDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -82,7 +96,7 @@ public final class ViewBillingONStatus2Action extends ActionSupport {
             return NONE;
         }
 
-        this.statusModel = new BillingONStatusDataAssembler().assemble(request, loggedInInfo);
+        this.statusModel = assembler.assemble(request, loggedInInfo);
         request.setAttribute("statusModel", this.statusModel);
         return SUCCESS;
     }

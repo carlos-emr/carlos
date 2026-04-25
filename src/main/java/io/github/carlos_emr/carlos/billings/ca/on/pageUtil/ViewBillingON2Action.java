@@ -37,12 +37,26 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class ViewBillingON2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
-
-    private final BillingONFormDataAssembler assembler = new BillingONFormDataAssembler();
+    // Dual-constructor DI: SpringUtils.getBean is confined to the no-arg
+    // production constructor; tests use the package-private constructor with
+    // mocks to avoid the static service-locator path.
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingONFormDataAssembler assembler;
 
     private BillingONFormViewModel model;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingON2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new BillingONFormDataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewBillingON2Action(SecurityInfoManager securityInfoManager,
+                         BillingONFormDataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {

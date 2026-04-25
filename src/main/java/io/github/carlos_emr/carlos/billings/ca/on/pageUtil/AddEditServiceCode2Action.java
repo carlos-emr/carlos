@@ -36,7 +36,18 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class AddEditServiceCode2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+    private final SecurityInfoManager securityInfoManager;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public AddEditServiceCode2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    /** Test-friendly constructor — call with mock. Package-private. */
+    AddEditServiceCode2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     @Override
     public String execute() throws Exception {

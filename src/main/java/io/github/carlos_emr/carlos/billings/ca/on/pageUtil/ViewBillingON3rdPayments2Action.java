@@ -32,7 +32,18 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewBillingON3rdPayments2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+    private final SecurityInfoManager securityInfoManager;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingON3rdPayments2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    /** Test-friendly constructor — call with mock. Package-private. */
+    ViewBillingON3rdPayments2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     @Override
     public String execute() throws Exception {

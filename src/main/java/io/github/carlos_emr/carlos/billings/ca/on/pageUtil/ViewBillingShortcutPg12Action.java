@@ -43,10 +43,24 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class ViewBillingShortcutPg12Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager =
-            SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingShortcutPg1DataAssembler assembler;
 
     private BillingShortcutPg1ViewModel shortcutPg1Model;
+
+    /** Production constructor used by Struts2's Spring object factory. */
+    public ViewBillingShortcutPg12Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             new BillingShortcutPg1DataAssembler());
+    }
+
+    /** Test-friendly constructor — call with mocks. Package-private. */
+    ViewBillingShortcutPg12Action(SecurityInfoManager securityInfoManager,
+                                  BillingShortcutPg1DataAssembler assembler) {
+        this.securityInfoManager = securityInfoManager;
+        this.assembler = assembler;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -76,7 +90,7 @@ public final class ViewBillingShortcutPg12Action extends ActionSupport {
             userProviderNo = "";
         }
 
-        this.shortcutPg1Model = new BillingShortcutPg1DataAssembler().assemble(request, userProviderNo);
+        this.shortcutPg1Model = assembler.assemble(request, userProviderNo);
         request.setAttribute("shortcutPg1Model", this.shortcutPg1Model);
         return SUCCESS;
     }

@@ -71,16 +71,65 @@ import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BillingCorrection2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Dual-constructor DI: every dependency is final + injected. The no-arg
+    // constructor below resolves them from Spring (the production path Struts
+    // calls). Tests use the package-private constructor with mocks. This
+    // confines SpringUtils.getBean to a single point and keeps the class
+    // body free of static service-locator calls.
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingONPaymentDao bPaymentDao;
+    private final BillingONCHeader1Dao bCh1Dao;
+    private final BillingONExtDao billExtDao;
+    private final BillingPaymentTypeDao billingPaymentTypeDao;
+    private final BillingONService billingONService;
+    private final BillingONRepoDao billRepoDao;
+    private final ProviderDao providerDao;
+    private final BillingServiceDao billingServiceDao;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Production constructor used by Struts2's Spring object factory.
+     * Resolves every dependency via {@link SpringUtils#getBean} so this is
+     * the only place service-locator calls live in the class.
+     */
+    public BillingCorrection2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             SpringUtils.getBean(BillingONPaymentDao.class),
+             SpringUtils.getBean(BillingONCHeader1Dao.class),
+             SpringUtils.getBean(BillingONExtDao.class),
+             SpringUtils.getBean(BillingPaymentTypeDao.class),
+             SpringUtils.getBean(BillingONService.class),
+             SpringUtils.getBean(BillingONRepoDao.class),
+             SpringUtils.getBean(ProviderDao.class),
+             SpringUtils.getBean(BillingServiceDao.class));
+    }
 
-    private BillingONPaymentDao bPaymentDao = (BillingONPaymentDao) SpringUtils.getBean(BillingONPaymentDao.class);
-    private BillingONCHeader1Dao bCh1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-    private BillingONExtDao billExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
-    private final BillingPaymentTypeDao billingPaymentTypeDao = SpringUtils.getBean(BillingPaymentTypeDao.class);
+    /**
+     * Test-friendly constructor that bypasses SpringUtils — call directly
+     * with mocks. Package-private to discourage external use; production
+     * code should always go through the no-arg constructor.
+     */
+    BillingCorrection2Action(SecurityInfoManager securityInfoManager,
+                             BillingONPaymentDao bPaymentDao,
+                             BillingONCHeader1Dao bCh1Dao,
+                             BillingONExtDao billExtDao,
+                             BillingPaymentTypeDao billingPaymentTypeDao,
+                             BillingONService billingONService,
+                             BillingONRepoDao billRepoDao,
+                             ProviderDao providerDao,
+                             BillingServiceDao billingServiceDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.bPaymentDao = bPaymentDao;
+        this.bCh1Dao = bCh1Dao;
+        this.billExtDao = billExtDao;
+        this.billingPaymentTypeDao = billingPaymentTypeDao;
+        this.billingONService = billingONService;
+        this.billRepoDao = billRepoDao;
+        this.providerDao = providerDao;
+        this.billingServiceDao = billingServiceDao;
+    }
 
     /*
      * TODO(transactional): wrap updateInvoice() (which calls updateBillingONCHeader1
@@ -261,7 +310,6 @@ public class BillingCorrection2Action extends ActionSupport {
 
         if (!bCh1.getBillingItems().isEmpty()) {
             updateBillingItems(bCh1, request);
-            BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
             if (!billingONService.updateTotal(bCh1))
                 return "failure";
         }
@@ -416,7 +464,6 @@ public class BillingCorrection2Action extends ActionSupport {
             }
 
             //Add Existing state of Invoice to Billing Repository
-            BillingONRepoDao billRepoDao = (BillingONRepoDao) SpringUtils.getBean(BillingONRepoDao.class);
             billRepoDao.createBillingONCHeader1Entry(bCh1, locale);
 
             String manualReview = "";
@@ -425,7 +472,6 @@ public class BillingCorrection2Action extends ActionSupport {
                 manualReview = "Y";
             }
 
-            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
             Provider provider = providerDao.getProvider(bCh1.getProviderNo());
 
             bCh1.setStatus(status);
@@ -599,11 +645,10 @@ public class BillingCorrection2Action extends ActionSupport {
                 //Determine fee
                 String fee = request.getParameter("billingamount" + i);
                 if (fee == null || fee.isEmpty() || fee.trim().isEmpty()) {
-                    BillingServiceDao bServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
-                    BillingService bService = bServiceDao.searchBillingCode(serviceCodeId, "ON", serviceDate);
+                    BillingService bService = billingServiceDao.searchBillingCode(serviceCodeId, "ON", serviceDate);
 
                     if (bService == null) {
-                        bService = bServiceDao.searchPrivateBillingCode(serviceCodeId, serviceDate);
+                        bService = billingServiceDao.searchPrivateBillingCode(serviceCodeId, serviceDate);
                     }
                     if (bService != null) {
 
@@ -658,7 +703,6 @@ public class BillingCorrection2Action extends ActionSupport {
                         || (bItemExisting.getServiceDate().compareTo(serviceDate) != 0)
                         || statusChanged) {
 
-                    BillingONRepoDao billRepoDao = (BillingONRepoDao) SpringUtils.getBean(BillingONRepoDao.class);
                     billRepoDao.createBillingONItemEntry(bItemExisting, request.getLocale());
                 }
 

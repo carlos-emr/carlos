@@ -18,11 +18,11 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONRepoDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
-import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -61,12 +61,32 @@ import static org.mockito.Mockito.when;
 @Tag("billing")
 class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBase {
 
+    // Round-13 DI refactor: tests now construct the action via the
+    // package-private constructor with mocks, bypassing the SpringUtils
+    // service-locator path entirely. The CarlosUnitTestBase
+    // SpringUtils-mocking layer is still inherited so that downstream
+    // helpers (LogSanitizer, MiscUtils) remain mockable, but the action
+    // itself no longer depends on it.
     private BillingONCHeader1Dao bCh1Dao;
     private BillingONPaymentDao bPaymentDao;
     private BillingPaymentTypeDao billingPaymentTypeDao;
+    private SecurityInfoManager securityInfoManager;
+    private BillingONExtDao billExtDao;
+    private BillingONService billingONService;
+    private BillingONRepoDao billRepoDao;
+    private ProviderDao providerDao;
+    private BillingServiceDao billingServiceDao;
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
+
+    /** Convenience: build the action under test with the test mocks. */
+    private BillingCorrection2Action newAction() {
+        return new BillingCorrection2Action(
+                securityInfoManager, bPaymentDao, bCh1Dao, billExtDao,
+                billingPaymentTypeDao, billingONService, billRepoDao,
+                providerDao, billingServiceDao);
+    }
 
     @BeforeEach
     void setUp() {
@@ -79,16 +99,12 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
         bCh1Dao = Mockito.mock(BillingONCHeader1Dao.class);
         bPaymentDao = Mockito.mock(BillingONPaymentDao.class);
         billingPaymentTypeDao = Mockito.mock(BillingPaymentTypeDao.class);
-
-        registerMock(SecurityInfoManager.class, Mockito.mock(SecurityInfoManager.class));
-        registerMock(BillingONCHeader1Dao.class, bCh1Dao);
-        registerMock(BillingONPaymentDao.class, bPaymentDao);
-        registerMock(BillingONExtDao.class, Mockito.mock(BillingONExtDao.class));
-        registerMock(BillingPaymentTypeDao.class, billingPaymentTypeDao);
-        registerMock(BillingServiceDao.class, Mockito.mock(BillingServiceDao.class));
-        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
-        registerMock(ProviderSiteDao.class, Mockito.mock(ProviderSiteDao.class));
-        registerMock(SiteDao.class, Mockito.mock(SiteDao.class));
+        securityInfoManager = Mockito.mock(SecurityInfoManager.class);
+        billExtDao = Mockito.mock(BillingONExtDao.class);
+        billingONService = Mockito.mock(BillingONService.class);
+        billRepoDao = Mockito.mock(BillingONRepoDao.class);
+        providerDao = Mockito.mock(ProviderDao.class);
+        billingServiceDao = Mockito.mock(BillingServiceDao.class);
     }
 
     @AfterEach
@@ -98,7 +114,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void updateInvoice_shouldThrowBillingValidationException_whenBillingNoIsNonNumeric() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         // Non-empty, non-null but unparseable: indicates tampering / browser
         // auto-fill regression — throw rather than silent "closeReload".
         mockRequest.setParameter("xml_billing_no", "not-a-number");
@@ -113,7 +129,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void updateInvoice_shouldThrowBillingValidationException_whenBillNotFound() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("xml_billing_no", "999999");
         when(bCh1Dao.find(Integer.valueOf(999999))).thenReturn(null);
 
@@ -132,7 +148,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
      */
     @Test
     void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsAbsent() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         // No xml_billing_no parameter at all (the GET-load case).
 
         String result = action.updateInvoice();
@@ -143,7 +159,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void updateInvoice_shouldReturnLoadOnly_whenXmlBillingNoIsEmpty() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("xml_billing_no", "");
 
         String result = action.updateInvoice();
@@ -154,7 +170,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenBillingNoIsNonNumeric() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "not-numeric");
         LoggedInInfo info = Mockito.mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
@@ -173,7 +189,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenBillNotFound() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "12345");
         when(bCh1Dao.find(Integer.valueOf(12345))).thenReturn(null);
         LoggedInInfo info = Mockito.mock(LoggedInInfo.class);
@@ -190,7 +206,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenAmtPaidIsNonNumeric() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "not-a-number");
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
@@ -216,7 +232,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
         // NullPointerException → uncaught 500 (the catch only covered
         // NumberFormatException). Verify the explicit null/empty pre-check
         // routes the failure to the validation page instead.
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "12345");
         // intentionally do not set 'amtPaid'
         BillingONCHeader1 bCh1 = new BillingONCHeader1();
@@ -238,7 +254,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenPayMethodNotConfigured() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "100.00");
         mockRequest.setParameter("payMethod", "UNKNOWN");
@@ -262,7 +278,7 @@ class BillingCorrection2ActionValidationThrowsUnitTest extends CarlosUnitTestBas
 
     @Test
     void add3rdPartyPayment_shouldThrowBillingValidationException_whenPayTypeIsNotPorR() {
-        BillingCorrection2Action action = new BillingCorrection2Action();
+        BillingCorrection2Action action = newAction();
         mockRequest.setParameter("billing_no", "12345");
         mockRequest.setParameter("amtPaid", "100.00");
         mockRequest.setParameter("payMethod", "CASH");
