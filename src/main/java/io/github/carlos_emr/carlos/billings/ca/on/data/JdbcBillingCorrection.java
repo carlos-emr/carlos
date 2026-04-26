@@ -46,11 +46,12 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONAuditLogService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
 public class JdbcBillingCorrection {
-    JdbcBillingLog dbLog = new JdbcBillingLog();
+    BillingONAuditLogService auditLog = new BillingONAuditLogService();
 
     private BillingONCHeader1Dao billingHeaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
     //private BillingONRepoDao billingRepoDao = SpringUtils.getBean(BillingONRepoDao.class);
@@ -153,13 +154,13 @@ public class JdbcBillingCorrection {
         if (h != null) {
             h.setStatus(status);
             billingHeaderDao.merge(h);
-            dbLog.addBillingLog(providerNo, "updateBillingStatus", "", id);
+            auditLog.addBillingLog(providerNo, "updateBillingStatus", "", id);
 
             List<BillingONItem> items = billingItemDao.getBillingItemByCh1Id(Integer.valueOf(id));
             for (BillingONItem i : items) {
                 i.setStatus(status);
             }
-            dbLog.addBillingLog(providerNo, "updateBillingStatus-items", "", id);
+            auditLog.addBillingLog(providerNo, "updateBillingStatus-items", "", id);
             return true;
         } else {
             return false;

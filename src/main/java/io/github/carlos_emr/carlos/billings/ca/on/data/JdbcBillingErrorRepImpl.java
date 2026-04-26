@@ -36,8 +36,6 @@ public class JdbcBillingErrorRepImpl {
 
     private BillingONEAReportDao billingONEARReportDao = (BillingONEAReportDao) SpringUtils.getBean(BillingONEAReportDao.class);
 
-    JdbcBillingLog dbLog = new JdbcBillingLog();
-
     public List<BillingErrorRepData> getErrorRecords(BillingProviderData val, String fromDate, String toDate, String filename) {
         List<BillingErrorRepData> retval = new ArrayList<BillingErrorRepData>();
         BillingONEAReportDao dao = SpringUtils.getBean(BillingONEAReportDao.class);

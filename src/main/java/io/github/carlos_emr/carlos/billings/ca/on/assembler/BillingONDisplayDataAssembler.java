@@ -24,8 +24,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDisplayViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorCodeImpl;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
+import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -138,16 +139,14 @@ public final class BillingONDisplayDataAssembler {
                 if (lReject != null) {
                     mergedError.addAll(lReject);
                 }
-                JdbcBillingErrorCodeImpl errorObj = new JdbcBillingErrorCodeImpl();
+                BillingONErrorCodeDao errorCodeDao = SpringUtils.getBean(BillingONErrorCodeDao.class);
                 for (Object raw : mergedError) {
                     String codeNo = raw == null ? "" : raw.toString();
                     if (codeNo.isEmpty()) {
                         continue;
                     }
-                    String desc = errorObj.getCodeDesc(codeNo);
-                    if (desc == null) {
-                        desc = "Unknown";
-                    }
+                    BillingONErrorCode found = errorCodeDao.find(codeNo);
+                    String desc = found == null ? "Unknown" : found.getDescription();
                     errorCodes.add(new BillingONDisplayViewModel.ErrorCode(codeNo, desc));
                 }
             }

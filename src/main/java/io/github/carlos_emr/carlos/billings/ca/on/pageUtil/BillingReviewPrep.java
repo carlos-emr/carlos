@@ -36,9 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingDxImpl;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
+import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class BillingReviewPrep {
     private static final Logger _logger = MiscUtils.getLogger();
@@ -287,11 +289,17 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // get dx description
+    /**
+     * Returns the description for a diagnostic code, or empty string if the
+     * code is not on file. Iterates results to mirror legacy behavior of
+     * returning the last hit when multiple rows share the same code.
+     */
     public String getDxDescription(String val) {
-        JdbcBillingDxImpl dxObj = new JdbcBillingDxImpl();
-        String ret = dxObj.getDxDescription(val);
-
+        DiagnosticCodeDao dao = SpringUtils.getBean(DiagnosticCodeDao.class);
+        String ret = "";
+        for (DiagnosticCode dcode : dao.findByDiagnosticCode(val)) {
+            ret = dcode.getDescription();
+        }
         return ret;
     }
 
