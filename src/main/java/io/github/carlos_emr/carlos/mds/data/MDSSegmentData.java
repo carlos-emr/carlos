@@ -133,7 +133,7 @@ public class MDSSegmentData {
 
             // Process the notes
             Hashtable<Integer, ArrayList<String>> notes = new Hashtable<Integer, ArrayList<String>>();
-            MdsNTEDao nteDao = SpringUtils.getBean(MdsZMNDao.class);
+            MdsNTEDao nteDao = SpringUtils.getBean(MdsNTEDao.class);
             MdsZMCDao zmcDao = SpringUtils.getBean(MdsZMCDao.class);
             MdsNTE nte = nteDao.find(labID);
             if (nte != null) {

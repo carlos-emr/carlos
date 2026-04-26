@@ -74,7 +74,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
     private final PatientEndYearStatementService statementService =
-            new PatientEndYearStatementService();
+            SpringUtils.getBean(PatientEndYearStatementService.class);
 
     private final HttpServletRequest request = ServletActionContext.getRequest();
     private final HttpServletResponse response = ServletActionContext.getResponse();

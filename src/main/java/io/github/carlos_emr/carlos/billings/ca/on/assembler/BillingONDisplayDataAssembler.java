@@ -178,7 +178,7 @@ public final class BillingONDisplayDataAssembler {
 
         // Provider list (pipe-delimited entries: provider_no | last | first | ohip_no)
         List<BillingONDisplayViewModel.ProviderOption> providers = new ArrayList<>();
-        List<String> pList = (new BillingONLookupService()).getCurProviderStr();
+        List<String> pList = (SpringUtils.getBean(BillingONLookupService.class)).getCurProviderStr();
         if (pList != null) {
             for (String entry : pList) {
                 String[] parts = entry == null ? new String[0] : entry.split("\\|", -1);

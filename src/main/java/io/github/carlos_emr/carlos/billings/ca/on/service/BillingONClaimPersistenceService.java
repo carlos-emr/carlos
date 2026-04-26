@@ -67,6 +67,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
 public class BillingONClaimPersistenceService {
     private static final Logger _logger = MiscUtils.getLogger();
     private BillingONHeaderDao dao = SpringUtils.getBean(BillingONHeaderDao.class);

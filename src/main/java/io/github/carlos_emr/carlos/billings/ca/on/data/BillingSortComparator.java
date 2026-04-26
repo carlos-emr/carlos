@@ -35,6 +35,7 @@ import java.util.Hashtable;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingSortComparator implements Comparator {
 
     /**
@@ -48,7 +49,7 @@ public class BillingSortComparator implements Comparator {
         Hashtable h2 = (Hashtable) obj2;
         String billReferenceDate = (String) h1.get("billReferenceDate");
 
-        BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
+        BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
 
         String fee1 = dbObj.getCodeFee((String) h1.get("serviceCode"), billReferenceDate);
         String fee2 = dbObj.getCodeFee((String) h2.get("serviceCode"), billReferenceDate);

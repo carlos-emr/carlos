@@ -55,7 +55,7 @@ public final class ViewOnregenreport2Action extends ActionSupport {
             return NONE;
         }
 
-        new OnBillingDiskService().regenerateDisk(request);
+        SpringUtils.getBean(OnBillingDiskService.class).regenerateDisk(request);
         return SUCCESS;
     }
 }

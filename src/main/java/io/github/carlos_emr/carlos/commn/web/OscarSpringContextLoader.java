@@ -103,11 +103,20 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         }
 
         wac.setConfigLocations(configLocations.toArray(new String[0]));
-        wac.refresh();
 
+        // Publish the beanFactory reference BEFORE refresh() so any
+        // @Service / @Component bean whose constructor calls
+        // SpringUtils.getBean(...) during eager singleton instantiation
+        // sees a non-null beanFactory. The legacy ordering (setBeanFactory
+        // AFTER refresh) caused NPEs for any bean discovered by component
+        // scan that did service-locator lookups in its no-arg constructor
+        // — see the billings.ca.on.service classes that wire DAOs that
+        // way.
         if (SpringUtils.getBeanFactory() == null) {
             SpringUtils.setBeanFactory(wac);
         }
+
+        wac.refresh();
 
         return wac;
     }

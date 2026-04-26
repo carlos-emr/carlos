@@ -26,9 +26,10 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class Billing3rdPartPrep {
 
-    Billing3rdPartyService dbObj = new Billing3rdPartyService();
+    Billing3rdPartyService dbObj = SpringUtils.getBean(Billing3rdPartyService.class);
 
     // get 3rd billing data
     public Properties get3rdPartBillProp(String invNo) {

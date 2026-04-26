@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingReviewPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
+    BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
 
     public Vector getServiceCodeReviewVec(Vector vecCode, Vector vecUnit,
                                           Vector vecAt, String billReferalDate) {
@@ -255,26 +255,26 @@ public class BillingReviewPrep {
     }
 
     public List getMRIList(String sDate, String eDate, String status) {
-        BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
+        BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
         List ret = dbObj.getMRIList(sDate, eDate, status);
         return ret;
     }
 
     // ret - Vector = || ||
     public List getProviderBillingStr() {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurProviderStr();
         return ret;
     }
 
     public List getTeamProviderBillingStr(String provider_no) {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurTeamProviderStr(provider_no);
         return ret;
     }
 
     public List getSiteProviderBillingStr(String provider_no) {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurSiteProviderStr(provider_no);
         return ret;
     }

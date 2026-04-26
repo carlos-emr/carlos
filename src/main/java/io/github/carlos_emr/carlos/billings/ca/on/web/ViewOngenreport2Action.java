@@ -54,7 +54,7 @@ public final class ViewOngenreport2Action extends ActionSupport {
             return NONE;
         }
 
-        new OnBillingDiskService().generateNewDisk(request);
+        SpringUtils.getBean(OnBillingDiskService.class).generateNewDisk(request);
         return SUCCESS;
     }
 }

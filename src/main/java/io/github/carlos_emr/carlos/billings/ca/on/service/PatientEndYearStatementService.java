@@ -61,7 +61,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-26
  */
-public final class PatientEndYearStatementService {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
+public class PatientEndYearStatementService {
 
     private static final String JASPER_REPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_report.jrxml";

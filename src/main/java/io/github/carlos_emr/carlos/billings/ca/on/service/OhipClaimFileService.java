@@ -93,6 +93,9 @@ import org.owasp.encoder.Encode;
  *
  * @since 2026-04-26
  */
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
 public class OhipClaimFileService {
 
     private static final Logger _logger = MiscUtils.getLogger();

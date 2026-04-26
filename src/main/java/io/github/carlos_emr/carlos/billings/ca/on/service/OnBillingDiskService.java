@@ -44,7 +44,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep
  *
  * @since 2026-04-26
  */
-public final class OnBillingDiskService {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
+public class OnBillingDiskService {
 
     private static final String[] BILLING_STATUS_NEW = new String[]{"O", "W", "I"};
     private static final String[] BILLING_STATUS_REGEN = new String[]{"B"};

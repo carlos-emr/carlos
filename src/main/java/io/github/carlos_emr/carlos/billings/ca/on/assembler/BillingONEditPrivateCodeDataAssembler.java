@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONEditPrivateCodeViewModel} for
  * {@code billingONEditPrivateCode.jsp}, the manage-private-billing-code
@@ -57,7 +58,7 @@ public final class BillingONEditPrivateCodeDataAssembler {
 
     /** Build the view model. Mirrors all four legacy submit modes. */
     public BillingONEditPrivateCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        BillingONServiceCodeService dbObj = new BillingONServiceCodeService();
+        BillingONServiceCodeService dbObj = SpringUtils.getBean(BillingONServiceCodeService.class);
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String alert = "info";

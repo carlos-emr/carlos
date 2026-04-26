@@ -144,7 +144,7 @@ public final class BillingONStatusDataAssembler {
             Object u = request.getSession().getAttribute("user");
             if (u instanceof String) sessionUser = (String) u;
         }
-        BillingONLookupService pageUtil = new BillingONLookupService();
+        BillingONLookupService pageUtil = SpringUtils.getBean(BillingONLookupService.class);
         List<String> pList = teamBillingOnly
                 ? pageUtil.getCurTeamProviderStr(sessionUser)
                 : pageUtil.getCurProviderStr();
@@ -361,8 +361,8 @@ public final class BillingONStatusDataAssembler {
             aLProviders.add(providerNo);
         }
         List<BillingONStatusViewModel.RejectedBillRow> rows = new ArrayList<>();
-        BillingONLookupService pageUtil = new BillingONLookupService();
-        BillingONErrorReportService errorRepImpl = new BillingONErrorReportService();
+        BillingONLookupService pageUtil = SpringUtils.getBean(BillingONLookupService.class);
+        BillingONErrorReportService errorRepImpl = SpringUtils.getBean(BillingONErrorReportService.class);
         for (String entry : aLProviders) {
             String[] provInfo = entry.split("\\|", -1);
             String currentProvider = provInfo.length > 0 ? provInfo[0].trim() : "";

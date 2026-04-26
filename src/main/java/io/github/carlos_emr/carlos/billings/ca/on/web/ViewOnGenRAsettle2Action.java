@@ -54,7 +54,7 @@ public final class ViewOnGenRAsettle2Action extends ActionSupport {
             return NONE;
         }
 
-        new OnGenRAsettleService().settle(request.getParameter("rano"),
+        SpringUtils.getBean(OnGenRAsettleService.class).settle(request.getParameter("rano"),
                 OnGenRAsettleService.Mode.STANDARD);
 
         return SUCCESS;

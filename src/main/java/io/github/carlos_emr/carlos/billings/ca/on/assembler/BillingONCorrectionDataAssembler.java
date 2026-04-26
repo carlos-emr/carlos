@@ -316,7 +316,7 @@ public final class BillingONCorrectionDataAssembler {
         // ---- non-multisite provider list ----
         // Mirrors legacy scriptlet's tri-branch over BillingONLookupService.
         List<String> pList;
-        BillingONLookupService util = new BillingONLookupService();
+        BillingONLookupService util = SpringUtils.getBean(BillingONLookupService.class);
         if (teamBillingOnly || teamAccessPrivacy) {
             pList = util.getCurTeamProviderStr(userProviderNo);
         } else if (siteAccessPrivacy) {
@@ -564,7 +564,7 @@ public final class BillingONCorrectionDataAssembler {
         // rather than silently rendering an empty claimNo. Log at ERROR so
         // a BillingONRemittanceAdviceService regression is visible to ops.
         try {
-            BillingONRemittanceAdviceService raObj = new BillingONRemittanceAdviceService();
+            BillingONRemittanceAdviceService raObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
             String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
             if (raClaim != null) {
                 b.claimNo(raClaim);

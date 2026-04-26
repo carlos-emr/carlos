@@ -677,7 +677,7 @@ public final class BillingONFormDataAssembler {
             return rows;
         }
         try {
-            BillingONClaimQueryService reviewer = new BillingONClaimQueryService();
+            BillingONClaimQueryService reviewer = SpringUtils.getBean(BillingONClaimQueryService.class);
             List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
             for (int i = 0; i + 1 < raw.size(); i += 2) {
                 io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data header =
@@ -833,7 +833,7 @@ public final class BillingONFormDataAssembler {
             return history;
         }
         try {
-            BillingONClaimQueryService reviewer = new BillingONClaimQueryService();
+            BillingONClaimQueryService reviewer = SpringUtils.getBean(BillingONClaimQueryService.class);
             List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
             if (raw.size() >= 2) {
                 BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);

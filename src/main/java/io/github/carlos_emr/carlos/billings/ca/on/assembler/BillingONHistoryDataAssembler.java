@@ -120,7 +120,7 @@ public final class BillingONHistoryDataAssembler {
     private List<BillingONHistoryViewModel.HistoryRow> loadRows(String demographicNo, boolean canEdit) {
         List<BillingONHistoryViewModel.HistoryRow> rows = new ArrayList<>();
         try {
-            BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
+            BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(demographicNo, 10000, 0, null);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {

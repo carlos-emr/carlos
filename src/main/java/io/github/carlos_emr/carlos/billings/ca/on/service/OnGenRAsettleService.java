@@ -39,7 +39,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep;
  *
  * @since 2026-04-26
  */
-public final class OnGenRAsettleService {
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
+public class OnGenRAsettleService {
 
     /** Service codes whose presence in the I2/35 error rows excludes a
      *  bill from the noErrorBillNoQ set. Mirrors the legacy

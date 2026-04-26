@@ -55,7 +55,7 @@ public final class ViewGenReport2Action extends ActionSupport {
             return NONE;
         }
 
-        OhipReportGenerationService service = new OhipReportGenerationService();
+        OhipReportGenerationService service = SpringUtils.getBean(OhipReportGenerationService.class);
         service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
 
         // Hybrid clinics need a follow-up GROUP_REPORT pass for the group

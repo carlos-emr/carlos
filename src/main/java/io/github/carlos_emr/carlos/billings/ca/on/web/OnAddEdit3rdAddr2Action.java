@@ -76,7 +76,7 @@ public final class OnAddEdit3rdAddr2Action extends ActionSupport {
         String message = "Type in a name and search first to see if it is available.";
         String action = "search";
         Properties prop = new Properties();
-        Billing3rdPartyService dbObj = new Billing3rdPartyService();
+        Billing3rdPartyService dbObj = SpringUtils.getBean(Billing3rdPartyService.class);
 
         if ("Save".equals(submit)) {
             String actionParam = request.getParameter("action");

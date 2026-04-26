@@ -34,9 +34,10 @@ import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingRAPrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONRemittanceAdviceService dbObj = new BillingONRemittanceAdviceService();
+    BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
 
     // ret - Vector = || ||
     public List getProviderListFromRAReport(String raNo) {

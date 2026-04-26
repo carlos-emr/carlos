@@ -53,7 +53,7 @@ public final class ViewOnGenRAsettle352Action extends ActionSupport {
             return NONE;
         }
 
-        new OnGenRAsettleService().settle(request.getParameter("rano"),
+        SpringUtils.getBean(OnGenRAsettleService.class).settle(request.getParameter("rano"),
                 OnGenRAsettleService.Mode.I2_35_WITH_QCODES);
 
         return SUCCESS;

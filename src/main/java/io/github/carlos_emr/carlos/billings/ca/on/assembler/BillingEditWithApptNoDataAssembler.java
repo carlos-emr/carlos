@@ -72,7 +72,7 @@ public final class BillingEditWithApptNoDataAssembler {
         // BillingONClaimQueryService.getBillingByApptNo(...) which returns a
         // List<Object> of length >= 2 when a record is found: [0] is a
         // BillingClaimHeader1Data, [1] is a BillingItemData.
-        BillingONClaimQueryService hdb = new BillingONClaimQueryService();
+        BillingONClaimQueryService hdb = SpringUtils.getBean(BillingONClaimQueryService.class);
         List<Object> aL = hdb.getBillingByApptNo(appointmentNo);
 
         String serviceCode = "";

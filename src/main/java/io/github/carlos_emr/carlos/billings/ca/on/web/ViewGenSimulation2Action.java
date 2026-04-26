@@ -50,7 +50,7 @@ public final class ViewGenSimulation2Action extends ActionSupport {
         }
 
         OhipReportGenerationService.SimulationResult sim =
-                new OhipReportGenerationService().generateSimulation(request);
+                SpringUtils.getBean(OhipReportGenerationService.class).generateSimulation(request);
         String htmlOut = sim.errorMsg().isEmpty()
                 ? sim.htmlPreview()
                 : "<font color='red'>" + sim.errorMsg() + "</font>" + sim.htmlPreview();

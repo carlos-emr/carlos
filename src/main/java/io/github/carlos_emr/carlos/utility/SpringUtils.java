@@ -71,7 +71,7 @@ public class SpringUtils {
      * @throws NoSuchBeanDefinitionException if there is no bean definition with the specified name
      */
     @SuppressWarnings("unchecked")
-    public static <T> T getBean(Class<?> clazz) {
+    public static <T> T getBean(Class<T> clazz) {
 
         // legacy code - I wonder if it's necessary since we are looking up a bean based directly on the class name anyways
         // but to keep legacy logic working properly attempt to locate component based on the Spring conventions

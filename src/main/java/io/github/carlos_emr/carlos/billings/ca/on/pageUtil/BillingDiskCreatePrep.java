@@ -40,9 +40,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersiste
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingDiskCreatePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
+    BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
     Properties propProOHIP = null;
 
     public BillingDiskCreatePrep() {
@@ -51,31 +52,31 @@ public class BillingDiskCreatePrep {
 
     public static Properties getPropProviderOHIP() {
         Properties ret = new Properties();
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         ret = dbObj.getPropProviderOHIP();
         return ret;
     }
 
     public List getCurSoloProvider() {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurSoloProvider();
         return ret;
     }
 
     public List getCurGrpProvider() {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getCurGrpProvider();
         return ret;
     }
 
     public List getProvider(String diskId) {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         List ret = dbObj.getProvider(diskId);
         return ret;
     }
 
     public BillingProviderData getProviderObj(String providerNo) {
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         BillingProviderData ret = dbObj.getProviderObj(providerNo);
         return ret;
     }

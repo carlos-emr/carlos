@@ -250,7 +250,7 @@ public final class BillingONMRIDataAssembler {
         BillingReviewPrep prep = new BillingReviewPrep();
         List mriList = prep.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
-        Properties proName = new BillingONLookupService().getPropProviderName();
+        Properties proName = SpringUtils.getBean(BillingONLookupService.class).getPropProviderName();
 
         List<BillingONMRIViewModel.MriRow> rows = new ArrayList<>();
         if (mriList == null) {

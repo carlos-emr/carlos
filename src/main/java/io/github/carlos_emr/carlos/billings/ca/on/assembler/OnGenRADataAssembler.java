@@ -69,7 +69,7 @@ public final class OnGenRADataAssembler {
                 try {
                     String filepath = CarlosProperties.getInstance()
                             .getProperty("DOCUMENT_DIR", "").trim();
-                    new BillingONRemittanceAdviceService().importRAFile(filepath + filename);
+                    SpringUtils.getBean(BillingONRemittanceAdviceService.class).importRAFile(filepath + filename);
                 } catch (Exception e) {
                     MiscUtils.getLogger().error("Failed to import RA file: " + filename, e);
                 }
@@ -84,7 +84,7 @@ public final class OnGenRADataAssembler {
                 loggedInInfo, "_site_access_privacy", "r", null);
 
         String user = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
-        BillingONRemittanceAdviceService dbObj = new BillingONRemittanceAdviceService();
+        BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
 
         List<Properties> raList;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {

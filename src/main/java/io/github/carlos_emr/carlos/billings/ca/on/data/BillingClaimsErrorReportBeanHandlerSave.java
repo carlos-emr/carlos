@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportB
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingClaimsErrorReportBeanHandlerSave {
 
     Vector claimsErrorReportBeanVector = new Vector();
@@ -58,7 +59,7 @@ public class BillingClaimsErrorReportBeanHandlerSave {
         BillingClaimsErrorReportBean CERBean = new BillingClaimsErrorReportBean();
         boolean isNewHin = false;
 
-        BillingONErrorReportService erRepObj = new BillingONErrorReportService();
+        BillingONErrorReportService erRepObj = SpringUtils.getBean(BillingONErrorReportService.class);
         BillingErrorRepData erObj = null;
         String claimError = "";
         try {

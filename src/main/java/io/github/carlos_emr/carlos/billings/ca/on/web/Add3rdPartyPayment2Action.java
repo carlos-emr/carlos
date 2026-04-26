@@ -55,7 +55,7 @@ public final class Add3rdPartyPayment2Action extends ActionSupport {
     public Add3rdPartyPayment2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
              new BillingONCorrectionDataAssembler(),
-             new BillingCorrectionService());
+             SpringUtils.getBean(BillingCorrectionService.class));
     }
 
     /** Test-friendly constructor — call with mocks. Package-private. */

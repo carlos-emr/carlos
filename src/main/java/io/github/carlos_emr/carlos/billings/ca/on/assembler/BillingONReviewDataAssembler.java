@@ -370,7 +370,7 @@ public final class BillingONReviewDataAssembler {
         Vector vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
 
-        Properties propCodeDesc = new BillingONServiceCodeService().getCodeDescByNames(vecServiceParam[0]);
+        Properties propCodeDesc = SpringUtils.getBean(BillingONServiceCodeService.class).getCodeDescByNames(vecServiceParam[0]);
         Map<String, String> codeDescMap = new HashMap<>();
         for (String key : propCodeDesc.stringPropertyNames()) {
             codeDescMap.put(key, propCodeDesc.getProperty(key, ""));
@@ -488,7 +488,7 @@ public final class BillingONReviewDataAssembler {
 
         if (privatePayer && codeValid) {
             try {
-                List<String> al = new BillingONLookupService().getPaymentType();
+                List<String> al = SpringUtils.getBean(BillingONLookupService.class).getPaymentType();
                 List<BillingONReviewViewModel.PaymentType> paymentTypes = new ArrayList<>();
                 for (int i = 0; i + 1 < al.size(); i = i + 2) {
                     paymentTypes.add(new BillingONReviewViewModel.PaymentType(al.get(i), al.get(i + 1)));

@@ -56,7 +56,7 @@ public final class UpdateBillingONCorrection2Action extends ActionSupport {
     public UpdateBillingONCorrection2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
              new BillingONCorrectionDataAssembler(),
-             new BillingCorrectionService());
+             SpringUtils.getBean(BillingCorrectionService.class));
     }
 
     /** Test-friendly constructor — call with mocks. Package-private. */

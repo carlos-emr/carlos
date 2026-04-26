@@ -33,7 +33,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -81,7 +80,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
         TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
-        ProgramDao programDao = SpringUtils.getBean(ClinicDAO.class);
+        ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
 
 
         TicklerTo1 d = new TicklerTo1();

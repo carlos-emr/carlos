@@ -38,9 +38,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersiste
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingSpecPrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
+    BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
 
     // save a billing record
     public boolean addABillingRecord(Vector val) {
@@ -132,7 +133,7 @@ public class BillingSpecPrep {
         claim1Header.setBilling_time("00:00:00");
         claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
 
-        BillingONServiceCodeService tObj = new BillingONServiceCodeService();
+        BillingONServiceCodeService tObj = SpringUtils.getBean(BillingONServiceCodeService.class);
         String total;
         double runningTotal = 0.0;
         String[] codes = val.getParameter("svcCode").split(",");
@@ -176,7 +177,7 @@ public class BillingSpecPrep {
             claimItem[idx].setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
             claimItem[idx].setService_code(codes[idx].trim());
             claimItem[idx]
-                    .setFee((String) (new BillingONServiceCodeService()).getBillingCodeAttr(codes[idx].trim()).get(2));
+                    .setFee((String) (SpringUtils.getBean(BillingONServiceCodeService.class)).getBillingCodeAttr(codes[idx].trim()).get(2));
             claimItem[idx].setSer_num("1");
             claimItem[idx].setService_date(val.getParameter("apptDate"));
             claimItem[idx].setDx(val.getParameter("dxCode"));
@@ -230,7 +231,7 @@ public class BillingSpecPrep {
         claim1Header.setBilling_time("00:00:00");
         claim1Header.setUpdate_datetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
 
-        BillingONServiceCodeService tObj = new BillingONServiceCodeService();
+        BillingONServiceCodeService tObj = SpringUtils.getBean(BillingONServiceCodeService.class);
         String total = "";
         List tL = tObj.getBillingCodeAttr(val.getParameter("svcCode"));
         total = tL != null ? (String) tL.get(2) : "";
@@ -259,7 +260,7 @@ public class BillingSpecPrep {
         claimItem[0].setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);
         claimItem[0].setService_code(val.getParameter("svcCode"));
         claimItem[0]
-                .setFee((String) (new BillingONServiceCodeService()).getBillingCodeAttr(val.getParameter("svcCode")).get(2));
+                .setFee((String) (SpringUtils.getBean(BillingONServiceCodeService.class)).getBillingCodeAttr(val.getParameter("svcCode")).get(2));
         claimItem[0].setSer_num("1");
         claimItem[0].setService_date(val.getParameter("apptDate"));
         claimItem[0].setDx(val.getParameter("dxCode"));

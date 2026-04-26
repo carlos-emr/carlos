@@ -44,6 +44,9 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingONClaimQueryService {
     private static final Logger _logger = MiscUtils.getLogger();
 
@@ -535,7 +538,7 @@ public class BillingONClaimQueryService {
 
         BillingClaimHeader1Data ch1Obj = null;
 
-        BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1.class);
+        BillingONCHeader1Dao dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
         BillingONItemDao itemDao = SpringUtils.getBean(BillingONItemDao.class);
 
         try {

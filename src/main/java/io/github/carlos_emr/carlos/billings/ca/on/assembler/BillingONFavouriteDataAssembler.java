@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONFavouriteViewModel} for
  * {@code billingONfavourite.jsp}, the Add/Edit favourite-service-code admin
@@ -54,7 +55,7 @@ public final class BillingONFavouriteDataAssembler {
     public BillingONFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
                 ? "" : loggedInInfo.getLoggedInProviderNo();
-        BillingONLookupService dbObj = new BillingONLookupService();
+        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String action = "search";

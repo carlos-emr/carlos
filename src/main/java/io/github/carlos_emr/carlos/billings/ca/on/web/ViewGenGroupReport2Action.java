@@ -73,7 +73,7 @@ public final class ViewGenGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        new OhipReportGenerationService().generateReport(request,
+        SpringUtils.getBean(OhipReportGenerationService.class).generateReport(request,
                 OhipReportGenerationService.Mode.GROUP_REPORT);
 
         return SUCCESS;

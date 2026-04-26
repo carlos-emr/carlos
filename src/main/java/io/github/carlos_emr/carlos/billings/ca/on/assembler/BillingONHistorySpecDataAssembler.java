@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQuerySer
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONHistorySpecViewModel} for
  * {@code billingONHistorySpec.jsp}, the service-code-filtered billing
@@ -81,7 +82,7 @@ public final class BillingONHistorySpecDataAssembler {
         List<BillingONHistorySpecViewModel.HistoryRow> rows = new ArrayList<>();
         int nItems = 0;
         try {
-            BillingONClaimQueryService dbObj = new BillingONClaimQueryService();
+            BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {

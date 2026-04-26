@@ -42,9 +42,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersiste
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingSavePrep {
     private static final Logger _logger = MiscUtils.getLogger();
-    BillingONClaimPersistenceService dbObj = new BillingONClaimPersistenceService();
+    BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
     int billingId = 0;
 
     // save a billing record
@@ -101,13 +102,13 @@ public class BillingSavePrep {
 
     // set appt to B
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
-        boolean ret = (new BillingONLookupService()).updateApptStatus(apptNo, status, userNo);
+        boolean ret = (SpringUtils.getBean(BillingONLookupService.class)).updateApptStatus(apptNo, status, userNo);
         return ret;
     }
 
     // get appt status
     public String getApptStatus(String apptNo) {
-        String ret = (new BillingONLookupService()).getApptStatus(apptNo);
+        String ret = (SpringUtils.getBean(BillingONLookupService.class)).getApptStatus(apptNo);
         return ret;
     }
 

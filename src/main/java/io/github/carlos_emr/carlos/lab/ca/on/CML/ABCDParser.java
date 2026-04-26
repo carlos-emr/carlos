@@ -64,7 +64,7 @@ public class ABCDParser {
     ArrayList<Atype> atypes = new ArrayList<Atype>();
 
     private PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    private LabReportInformationDao labReportInformationDao = SpringUtils.getBean(LabReportInformation.class);
+    private LabReportInformationDao labReportInformationDao = SpringUtils.getBean(LabReportInformationDao.class);
     private LabPatientPhysicianInfoDao labPatientPhysicianInfoDao = SpringUtils.getBean(LabPatientPhysicianInfoDao.class);
     private LabTestResultsDao labTestResultsDao = SpringUtils.getBean(LabTestResultsDao.class);
 

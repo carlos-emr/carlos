@@ -408,7 +408,7 @@ public class BillingONPayments2Action extends ActionSupport {
         String demographicNo = cheader1.getDemographicNo().toString();
 
         // 1.billing_on_ext table: payment
-        Billing3rdPartyService tExtObj = new Billing3rdPartyService();
+        Billing3rdPartyService tExtObj = SpringUtils.getBean(Billing3rdPartyService.class);
         if (sumPaid.compareTo(BigDecimal.ZERO) == 1) {
             toUpdateChl = true;
             BigDecimal sumPaidTmp = sumPaid.add(cheader1.getPaid());

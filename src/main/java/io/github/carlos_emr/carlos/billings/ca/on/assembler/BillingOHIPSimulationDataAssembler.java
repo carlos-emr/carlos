@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingOHIPSimulationViewModel} for
  * {@code billingOHIPsimulation.jsp}, the OHIP-extract simulation admin form.
@@ -144,7 +145,7 @@ public final class BillingOHIPSimulationDataAssembler {
         StringBuilder errorMsg = new StringBuilder();
         DateRange dateRange = resolveDateRange(request);
 
-        var proObj = new BillingONLookupService().getProviderObj(pro);
+        var proObj = SpringUtils.getBean(BillingONLookupService.class).getProviderObj(pro);
         if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
             errorMsg.append("The providers's billing code is not correct!<br>");
         }
@@ -160,7 +161,7 @@ public final class BillingOHIPSimulationDataAssembler {
             groupNo = "0000";
         }
 
-        OhipClaimFileService dbObj = new OhipClaimFileService();
+        OhipClaimFileService dbObj = SpringUtils.getBean(OhipClaimFileService.class);
         dbObj.setContextPath(request.getContextPath());
         dbObj.setEFlag("0");
         dbObj.setDateRange(dateRange);
@@ -210,7 +211,7 @@ public final class BillingOHIPSimulationDataAssembler {
 
         for (String provider : providerList) {
             StringBuilder errorMsg = new StringBuilder();
-            var proObj = new BillingONLookupService().getProviderObj(provider);
+            var proObj = SpringUtils.getBean(BillingONLookupService.class).getProviderObj(provider);
             if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
                 errorMsg.append("The billing code (").append(proObj.getOhipNo())
                         .append(") for providers (").append(provider)
@@ -234,7 +235,7 @@ public final class BillingOHIPSimulationDataAssembler {
                 groupNo = "0000";
             }
 
-            OhipClaimFileService dbObj = new OhipClaimFileService();
+            OhipClaimFileService dbObj = SpringUtils.getBean(OhipClaimFileService.class);
             dbObj.setContextPath(request.getContextPath());
             dbObj.setEFlag("0");
             dbObj.setDateRange(dateRange);
