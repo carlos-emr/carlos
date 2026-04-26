@@ -125,14 +125,14 @@
     Set<String> providerAccessList = correctionModel.getProviderAccessList();
     List<String> mgrSites = correctionModel.getMgrSites();
 
-    // Record-specific DAOs the JSP still uses below (bExt due-date / use-bill-to
-    // lookups, third-party payment list). Hoisting these into the assembler
-    // requires the bill record context, which is part of the state-machine
-    // path — left in the JSP for now.
-    BillingONExtDao bExtDao = SpringUtils.getBean(BillingONExtDao.class);
-    BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    // Record-specific render-time DAOs (BillingONExtDao due-date / use-bill-to
+    // lookups, BillingONPaymentDao third-party totals, BillingServiceDao /
+    // BillingONService for the line-items table, BillingONEAReportDao /
+    // BillingONErrorCodeDao / RaDetailDao for the RA error report,
+    // ClinicLocationDao + ClinicNbrDao for the dropdowns, and the
+    // SecurityInfoManager _billing-w gate) are all owned by
+    // BillingONCorrectionRenderContextComposer now; the JSP reads pre-resolved
+    // records from correctionModel.
 
     int MAXRECORDS = 6;  //number of billing items to display if record has less than 6
     String UpdateDate = "";
@@ -429,16 +429,10 @@
 
     <body onload="setfocus();">
     <%
-        // The bill record (BillingONCHeader1) load + multisite/team access check +
-        // Demographic + ProfessionalSpecialist + RA-claim lookup were lifted into
-        // BillingCorrection2Action.buildModel; this scriptlet now reads from
-        // correctionModel and exposes the legacy variable names so the existing
-        // render-expression sites keep compiling.
-        BillingServiceDao bServiceDao = SpringUtils.getBean(BillingServiceDao.class);
-        BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-        // raDetailDao still used by downstream BillingExplanatoryList rendering scriptlet.
-        RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-
+        // All bill-record + render-context preparation happens upstream in
+        // BillingONCorrectionDataAssembler / BillingONCorrectionRenderContextComposer;
+        // the JSP only reads from correctionModel. Legacy scriptlet variable
+        // names are kept in the unchanged render expressions below.
         String billNo = correctionModel.getBillingNo();
         String claimNo = correctionModel.getClaimNo();
         if (claimNo == null || claimNo.equals("null")) {
@@ -447,8 +441,6 @@
         boolean bFlag = correctionModel.isBillLoaded() || correctionModel.isBillNoErr() || !billNo.isEmpty();
         boolean billNoErr = correctionModel.isBillNoErr();
 
-        Locale locale = request.getLocale();
-        BillingONCHeader1 bCh1 = correctionModel.isBillLoaded() ? bCh1Dao.find(Integer.parseInt(billNo)) : null;
         Integer billingNo = correctionModel.isBillLoaded() ? Integer.parseInt(billNo) : null;
         String createTimestamp = correctionModel.getCreateTimestamp().isEmpty() ? null : correctionModel.getCreateTimestamp();
         String clinicSite = correctionModel.getClinicSite();
@@ -485,98 +477,9 @@
             }
         }
 
-        boolean thirdParty = false;
-        Billing3rdPartPrep tObj = new Billing3rdPartPrep();
-
-        if ("HCP".equals(payProgram) || "RMB".equals(payProgram) || "WCB".equals(payProgram)
-                || billNo.length() < 1) {
-
-            Properties tProp = null;
-            if (billNo.length() > 0) {
-                tProp = tObj.get3rdPartBillPropInactive(billNo.trim());
-            }
-
-            if (tProp == null || tProp.size() == 0) {
-                htmlPaid = "Paid<br><input type='text' id='payment' name='payment' size=5 value='0.00'/>" +
-                        "<input type='hidden' id='oldPayment' name='oldPayment' value='0.00'/> <input type='hidden' id='payDate' name='payDate' value='" +
-                        UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss") + "'/><br> Refund<br><input type='text' id='refund' name='refund' size=5 value='0.00'/><br>";
-                payer = "";
-            } else {
-                htmlPaid = "Paid<br><input type='text' id='payment' name='payment' size=5 value='"
-                        + tProp.getProperty("payment", "0.00") + "' /><input type='hidden' id='oldPayment' name='oldPayment' value='"
-                        + tProp.getProperty("payment", "0.00") + "' /><input type='hidden' id='payDate' name='payDate' value='"
-                        + UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss") + "'/><br>";
-                htmlPaid += "Refund<br><input type='text' id='refund' name='refund' size=5 value='"
-                        + tProp.getProperty("refund") + "' /><br>";
-                payer = tProp.getProperty("billTo");
-                if (payer == null) {
-                    payer = "";
-                }
-            }
-        } else {
-            thirdParty = true;
-            Properties tProp = tObj.get3rdPartBillProp(billNo.trim());
-            NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
-
-            if (isMultiSiteProvider) {
-                BigDecimal payment = BigDecimal.ZERO;
-                BigDecimal balance = BigDecimal.ZERO;
-                BigDecimal total = BigDecimal.ZERO;
-                BigDecimal refund = BigDecimal.ZERO;
-                BigDecimal discount = BigDecimal.ZERO;
-                BigDecimal credit = BigDecimal.ZERO;
-
-                List<BillingONPayment> bops = billingOnPaymentDao.find3rdPartyPaymentsByBillingNo(Integer.parseInt(request.getParameter("billing_no").trim()));
-                for (BillingONPayment bop : bops) {
-                    credit = credit.add(bop.getTotal_credit());
-                    discount = discount.add(bop.getTotal_discount());
-                    payment = payment.add(bop.getTotal_payment());
-                    refund = refund.add(bop.getTotal_refund());
-                }
-					/*
-
-					BillingONExtDao billingOnExtDao = (BillingONExtDao)WebApplicationContextUtils.getWebApplicationContext(application).getBean(BillingONExtDao.class);
-					BillingONExt paymentItem = billingOnExtDao.getClaimExtItem(Integer.parseInt(request.getParameter("billing_no").trim()), Integer.parseInt(DemoNo), BillingONExtDao.KEY_PAYMENT);
-					if (paymentItem != null) {
-						payment = new BigDecimal(paymentItem.getValue());
-					}
-					BillingONExt discountItem = billingOnExtDao.getClaimExtItem(Integer.parseInt(request.getParameter("billing_no").trim()), Integer.parseInt(DemoNo), BillingONExtDao.KEY_DISCOUNT);
-					if (discountItem != null) {
-						discount = new BigDecimal(discountItem.getValue());
-					}
-					BillingONExt refundItem = billingOnExtDao.getClaimExtItem(Integer.parseInt(request.getParameter("billing_no").trim()), Integer.parseInt(DemoNo), BillingONExtDao.KEY_REFUND);
-					if (refundItem != null) {
-						refund = new BigDecimal(refundItem.getValue());
-					}
-					BillingONExt totalItem = billingOnExtDao.getClaimExtItem(Integer.parseInt(request.getParameter("billing_no").trim()), Integer.parseInt(DemoNo), BillingONExtDao.KEY_TOTAL);
-					if (totalItem != null) {
-						total = new BigDecimal(totalItem.getValue());
-					}
-					BillingONExt creditItem = billingOnExtDao.getClaimExtItem(Integer.parseInt(request.getParameter("billing_no").trim()), Integer.parseInt(DemoNo), BillingONExtDao.KEY_CREDIT);
-					if (creditItem != null) {
-						credit = new BigDecimal(creditItem.getValue());
-					}
-					*/
-
-                if (bCh1 != null) {
-                    total = bCh1.getTotal();
-                }
-
-                balance = total.subtract(payment).subtract(discount).add(credit);
-                payment = payment.subtract(credit);
-
-                htmlPaid = "<br/>&nbsp;&nbsp;<span style='font-size:large;font-weight:bold'>Paid:</span>&nbsp;&nbsp;&nbsp;<span id='payment' style='font-size:large;font-weight:bold'>"
-                        + ((payment.compareTo(BigDecimal.ZERO) == -1) ? "-" : "") + currency.format(payment) + "</span>";
-                htmlPaid += "&nbsp;&nbsp;&nbsp;&nbsp;<span style='font-size:large;font-weight:bold'>Balance:</span>&nbsp;&nbsp;&nbsp;<span id='balance' style='font-size:large;font-weight:bold'>"
-                        + ((balance.compareTo(BigDecimal.ZERO) == -1) ? "-" : "") + currency.format(balance) + "</span>";
-                htmlPaid += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='javascript:display3rdPartyPayments()'>Payments List</a>";
-            }
-            payer = tProp.getProperty("billTo");
-            if (payer == null) {
-                payer = "";
-            }
-        }
-
+        boolean thirdParty = correctionModel.isThirdParty();
+        payer = correctionModel.getPayer();
+        htmlPaid = correctionModel.getHtmlPaid();
     %>
 
     <h3><fmt:message key="admin.admin.btnBillingCorrection"/></h3>
@@ -653,33 +556,12 @@
 
 
         <!-- RA error -->
-        <%
-            if (bFlag) {
-                BillingONEAReportDao billingONEAReportDao = (BillingONEAReportDao) SpringUtils.getBean(BillingONEAReportDao.class);
-                List<String> lReject = billingONEAReportDao.getBillingErrorList(billingNo);
-                List<String> lError = raDetailDao.getBillingExplanatoryList(billingNo);
-                lError.addAll(lReject);
-
-                BillingONErrorCodeDao billingONErrorCodeDao = (BillingONErrorCodeDao) SpringUtils.getBean(BillingONErrorCodeDao.class);
-        %>
+        <% if (bFlag && !correctionModel.getErrorReportEntries().isEmpty()) { %>
         <table>
-            <%
-                for (int i = 0; i < lError.size(); i++) {
-                    String codeNo = lError.get(i);
-                    if ("".equals(codeNo)) continue;
-
-                    BillingONErrorCode errorCode = billingONErrorCodeDao.find(codeNo);
-                    String codeDesc = null;
-                    if (errorCode != null) {
-                        codeDesc = errorCode.getDescription();
-                    }
-                    codeDesc = codeDesc == null ? "Unknown" : codeDesc;
-            %>
+            <% for (BillingONCorrectionViewModel.ErrorReportEntry __err : correctionModel.getErrorReportEntries()) { %>
             <tr>
-                <th style="width:10%"><b><%=codeNo %>
-                </b></th>
-                <td style="text-align:left"><%=codeDesc %>
-                </td>
+                <th style="width:10%"><b><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__err.code())%></b></th>
+                <td style="text-align:left"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__err.description())%></td>
             </tr>
             <% } %>
         </table>
@@ -1003,36 +885,26 @@
                         <input type="hidden" name="xml_clinic_ref_code" value="<%=location%>">
                         <select name="clinic_ref_code">
                             <option value=""><fmt:message key="billing.billingCorrection.msgSelectLocation"/></option>
-                            <%
-                                //
-                                ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-                                List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
-                                for (ClinicLocation clinicLoc : clinicLocations) {
-                                    BillLocationNo = clinicLoc.getClinicLocationNo();
-                                    BillLocation = clinicLoc.getClinicLocationName();
+                            <% for (BillingONCorrectionViewModel.ClinicLocationEntry __cl : correctionModel.getClinicLocations()) {
+                                BillLocationNo = __cl.no();
+                                BillLocation = __cl.name();
                             %>
                             <option value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(BillLocationNo)%>"
                                     <%=location.equals(BillLocationNo) ? "selected" : ""%>><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocationNo)%>
                                 | <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(BillLocation)%>
                             </option>
-
                             <%}%>
                         </select><br>
 
-                        <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %> Clinic
+                        <%if (correctionModel.isRmaEnabled()) { %> Clinic
                         Nbr <% } else { %> <fmt:message key="billing.billingCorrection.formVisitType"/> <% } %>: <br>
 
                         <input type="hidden" name="xml_visittype" value="<%=visittype%>">
                         <select style="font-size: 80%;" name="visittype">
                             <option value=""><fmt:message key="billing.billingCorrection.msgSelectVisitType"/></option>
-                            <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
-                            <%
-                                ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
-                                ArrayList<ClinicNbr> nbrs = cnDao.findAll();
-                                for (ClinicNbr clinic : nbrs) {
-                                    String valueString = String.format("%s | %s", clinic.getNbrValue(), clinic.getNbrString());
-                            %>
-                            <option value="<%=valueString%>" <%=visittype.startsWith(clinic.getNbrValue()) ? "selected" : ""%>><%=valueString%>
+                            <% if (correctionModel.isRmaEnabled()) { %>
+                            <% for (BillingONCorrectionViewModel.ClinicNbrEntry __cn : correctionModel.getClinicNbrs()) { %>
+                            <option value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(__cn.label())%>" <%=visittype.startsWith(__cn.value()) ? "selected" : ""%>><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(__cn.label())%>
                             </option>
                             <% }
                             } else { %>
@@ -1046,7 +918,7 @@
                         </select><br>
 
 
-                        <%String clinicNo = CarlosProperties.getInstance().getProperty("clinic_no", "").trim();%>
+                        <%String clinicNo = correctionModel.getClinicNo();%>
                         <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/>: <br>
                         <select name="xml_slicode">
                             <option value="<%=clinicNo%>"><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/></option>
@@ -1082,53 +954,36 @@
 
                     <tbody>
                     <%
-                        //
+                        // Per-row line-item state — strings used by the rendered
+                        // <input value=...> attributes below. Refilled on each
+                        // iteration; legacy variable names preserved so the
+                        // unchanged HTML expressions keep compiling.
                         String serviceCode = "";
                         String serviceDesc = "";
                         String billAmount = "";
                         String diagCode = "";
-                        String diagDesc = "";
                         String billingunit = "";
                         String itemStatus = "";
 
-                        if (bFlag) {
-                            BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
-                            List<BillingONItem> bItems = new ArrayList<BillingONItem>();
-
-                            if (bCh1 != null) {
-                                bItems = billingONService.getNonDeletedInvoices(bCh1.getId());
-                            }
-
-                            if (!bItems.isEmpty()) {
-
-                                int maxRecs = Math.max(bItems.size(), MAXRECORDS);
+                        if (bFlag && isMultiSiteProvider) {
+                            List<BillingONCorrectionViewModel.BillItemEntry> __bItems = correctionModel.getBillItems();
+                            if (!__bItems.isEmpty()) {
+                                int maxRecs = Math.max(__bItems.size(), MAXRECORDS);
                                 for (int i = 0; i < maxRecs; i++) {
-                                    //multisite. skip display if billing provider_no not in current access privacy
-                                    if (!isMultiSiteProvider)
-                                        continue;
-
                                     serviceCode = "";
                                     serviceDesc = "";
                                     billAmount = "";
                                     billingunit = "";
                                     itemStatus = "";
 
-                                    if (i < bItems.size()) {
-
-                                        BillingONItem bItem = bItems.get(i);
-
-                                        BillingService bService = null;
-                                        if (bItem.getServiceCode().startsWith("_"))
-                                            bService = bServiceDao.searchPrivateBillingCode(bItem.getServiceCode(), bItem.getServiceDate());
-                                        else
-                                            bService = bServiceDao.searchBillingCode(bItem.getServiceCode(), "ON", bItem.getServiceDate());
-
-                                        serviceCode = bItem.getServiceCode();
-                                        serviceDesc = bService == null ? "N/A" : bService.getDescription();
-                                        billAmount = bItem.getFee();
-                                        diagCode = bItem.getDx();
-                                        billingunit = bItem.getServiceCount();
-                                        itemStatus = bItem.getStatus().equals("S") ? "checked" : "";
+                                    if (i < __bItems.size()) {
+                                        BillingONCorrectionViewModel.BillItemEntry __bi = __bItems.get(i);
+                                        serviceCode = __bi.serviceCode();
+                                        serviceDesc = __bi.serviceDesc();
+                                        billAmount = __bi.fee();
+                                        diagCode = __bi.dx();
+                                        billingunit = __bi.count();
+                                        itemStatus = __bi.status();
                                     }
 
                                     rowCount = rowCount + 1;
@@ -1190,7 +1045,7 @@
                 <div class="col-md-10">
 
                     <%
-                        if (securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+                        if (correctionModel.isCanEditBilling()) {
                     %>
                     <%if (request.getParameter("admin") != null || request.getParameter("adminSubmit") != null) { %>
                     <input type="hidden" name="adminSubmit" value="adminSubmit">
@@ -1224,17 +1079,8 @@
                             <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
                             <textarea name="comment" style="width:100%" rows=4><%=comment %></textarea>
                             <%
-
-                                if (thirdParty && bCh1 != null && CarlosProperties.getInstance().hasProperty("invoice_due_date")) {
-                                    BillingONExt bExtDueDate = bExtDao.getDueDate(bCh1);
-                                    String dueDateStr;
-
-                                    if (bExtDueDate == null) {
-                                        Integer numDaysTilDue = Integer.parseInt(CarlosProperties.getInstance().getProperty("invoice_due_date", "0"));
-                                        dueDateStr = DateUtils.sumDate(bCh1.getBillingDate(), numDaysTilDue, request.getLocale());
-                                    } else {
-                                        dueDateStr = bExtDueDate.getValue();
-                                    }
+                                if (correctionModel.isDueDateAvailable()) {
+                                    String dueDateStr = correctionModel.getDueDateString();
                             %>
                             <br>
                             <!--
@@ -1257,14 +1103,8 @@
                         <div class="col-md-5" id="thirdParty" style=" <%=thirdParty ? "" : "display:none"%>">
                             <a href="#" onclick="search3rdParty('billTo');return false;"><fmt:message key="billing.billingCorrection.msgPayer"/></a><br>
                             <textarea id="billTo" name="billTo" cols="32" rows=4><%=payer%></textarea>
-                            <% String useDemoClinicInfoOnInvoice = CarlosProperties.getInstance().getProperty("useDemoClinicInfoOnInvoice", "");
-                                if (bCh1 != null && !useDemoClinicInfoOnInvoice.isEmpty() && useDemoClinicInfoOnInvoice.equals("true")) {
-                                    BillingONExt bExtUseBillTo = bExtDao.getUseBillTo(bCh1);
-                                    String selectUseBillTo = "";
-
-                                    if ((bExtUseBillTo != null) && bExtUseBillTo.getValue().equalsIgnoreCase("on")) {
-                                        selectUseBillTo = "checked";
-                                    }
+                            <% if (correctionModel.isUseDemoContactAvailable()) {
+                                    String selectUseBillTo = correctionModel.isUseDemoContactChecked() ? "checked" : "";
                             %>
                             <br><fmt:message key="billing.billingCorrection.useDemoContactYesNo"/>:<input
                                 type="checkbox" name="overrideUseDemoContact"
@@ -1286,7 +1126,7 @@
     <div>
 
 
-        <% if (thirdParty && bCh1 != null && CarlosProperties.getInstance().hasProperty("invoice_due_date")) { %>
+        <% if (correctionModel.isDueDateAvailable()) { %>
         <script>
             flatpickr("#invoiceDueDate", {dateFormat: "Y-m-d", allowInput: true});
         </script>

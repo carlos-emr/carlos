@@ -25,10 +25,18 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewMo
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONPaymentDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
+import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.service.BillingONService;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -78,6 +86,7 @@ public final class BillingONCorrectionDataAssembler {
     private final BillingONCHeader1Dao bCh1Dao;
     private final RaDetailDao raDetailDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
+    private final BillingONCorrectionRenderContextComposer renderContextComposer;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -91,9 +100,24 @@ public final class BillingONCorrectionDataAssembler {
              SpringUtils.getBean(SiteDao.class),
              SpringUtils.getBean(BillingONCHeader1Dao.class),
              SpringUtils.getBean(RaDetailDao.class),
-             SpringUtils.getBean(ProfessionalSpecialistDao.class));
+             SpringUtils.getBean(ProfessionalSpecialistDao.class),
+             SpringUtils.getBean(BillingServiceDao.class),
+             SpringUtils.getBean(BillingONService.class),
+             SpringUtils.getBean(BillingONExtDao.class),
+             SpringUtils.getBean(BillingONPaymentDao.class),
+             SpringUtils.getBean(BillingONEAReportDao.class),
+             SpringUtils.getBean(BillingONErrorCodeDao.class),
+             SpringUtils.getBean(ClinicLocationDao.class),
+             SpringUtils.getBean(ClinicNbrDao.class));
     }
 
+    /**
+     * Test constructor: 7-arg shape for legacy tests that only need
+     * user-context + bill-record assembly. The render-context composer is
+     * left {@code null}; {@link #assemble} skips it when null, mirroring
+     * the test-mode short-circuit already used elsewhere in the billing
+     * assembler family.
+     */
     BillingONCorrectionDataAssembler(SecurityInfoManager securityInfoManager,
                                      ProviderDao providerDao,
                                      ProviderSiteDao providerSiteDao,
@@ -108,6 +132,42 @@ public final class BillingONCorrectionDataAssembler {
         this.bCh1Dao = bCh1Dao;
         this.raDetailDao = raDetailDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
+        this.renderContextComposer = null;
+    }
+
+    BillingONCorrectionDataAssembler(SecurityInfoManager securityInfoManager,
+                                     ProviderDao providerDao,
+                                     ProviderSiteDao providerSiteDao,
+                                     SiteDao siteDao,
+                                     BillingONCHeader1Dao bCh1Dao,
+                                     RaDetailDao raDetailDao,
+                                     ProfessionalSpecialistDao professionalSpecialistDao,
+                                     BillingServiceDao billingServiceDao,
+                                     BillingONService billingONService,
+                                     BillingONExtDao bExtDao,
+                                     BillingONPaymentDao billingONPaymentDao,
+                                     BillingONEAReportDao billingONEAReportDao,
+                                     BillingONErrorCodeDao billingONErrorCodeDao,
+                                     ClinicLocationDao clinicLocationDao,
+                                     ClinicNbrDao clinicNbrDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.providerDao = providerDao;
+        this.providerSiteDao = providerSiteDao;
+        this.siteDao = siteDao;
+        this.bCh1Dao = bCh1Dao;
+        this.raDetailDao = raDetailDao;
+        this.professionalSpecialistDao = professionalSpecialistDao;
+        this.renderContextComposer = new BillingONCorrectionRenderContextComposer(
+                securityInfoManager,
+                billingServiceDao,
+                billingONService,
+                bExtDao,
+                billingONPaymentDao,
+                billingONEAReportDao,
+                billingONErrorCodeDao,
+                raDetailDao,
+                clinicLocationDao,
+                clinicNbrDao);
     }
 
     /**
@@ -168,11 +228,26 @@ public final class BillingONCorrectionDataAssembler {
                 .providerAccessList(providerAccessList)
                 .mgrSites(mgrSites);
 
-        loadBillRecord(loggedInInfo, request, builder, providerAccessList, mgrSites,
+        BillRecordContext billCtx = loadBillRecord(loggedInInfo, request, builder, providerAccessList, mgrSites,
                 siteAccessPrivacy, teamAccessPrivacy, multisites);
+
+        if (renderContextComposer != null) {
+            renderContextComposer.compose(builder, request, loggedInInfo,
+                    billCtx.bCh1, billCtx.billNo, billCtx.multiSiteProvider, billCtx.payProgram);
+        }
 
         return builder.build();
     }
+
+    /**
+     * Internal carrier for the bill-record state {@link #loadBillRecord}
+     * needs to forward to the render-context composer (the loaded
+     * {@link BillingONCHeader1}, the parsed billing number, the multi-site
+     * access verdict, and the bill's pay program). Avoids leaking these
+     * across method boundaries via the builder.
+     */
+    private record BillRecordContext(BillingONCHeader1 bCh1, String billNo,
+                                     boolean multiSiteProvider, String payProgram) {}
 
     /**
      * Loads the bill record (BillingONCHeader1) referenced by the {@code billing_no}
@@ -190,14 +265,14 @@ public final class BillingONCorrectionDataAssembler {
      * {@code multiSiteProvider=false} and the patient fields stay empty (the
      * JSP shows an "access denied" alert).</p>
      */
-    private void loadBillRecord(LoggedInInfo loggedInInfo,
-                                HttpServletRequest request,
-                                BillingONCorrectionViewModel.Builder b,
-                                Set<String> providerAccessList,
-                                List<String> mgrSites,
-                                boolean siteAccessPrivacy,
-                                boolean teamAccessPrivacy,
-                                boolean multisites) {
+    private BillRecordContext loadBillRecord(LoggedInInfo loggedInInfo,
+                                             HttpServletRequest request,
+                                             BillingONCorrectionViewModel.Builder b,
+                                             Set<String> providerAccessList,
+                                             List<String> mgrSites,
+                                             boolean siteAccessPrivacy,
+                                             boolean teamAccessPrivacy,
+                                             boolean multisites) {
         String billNoParam = request.getParameter("billing_no");
         String claimNoParam = request.getParameter("claim_no");
         if (claimNoParam != null && claimNoParam.equals("null")) {
@@ -218,7 +293,7 @@ public final class BillingONCorrectionDataAssembler {
         b.billingNo(billNo).claimNo(claimNo);
 
         if (billNo.isEmpty()) {
-            return;
+            return new BillRecordContext(null, billNo, false, "");
         }
 
         Integer billingNo;
@@ -226,13 +301,13 @@ public final class BillingONCorrectionDataAssembler {
             billingNo = Integer.parseInt(billNo);
         } catch (NumberFormatException nfe) {
             b.billNoErr(true);
-            return;
+            return new BillRecordContext(null, billNo, false, "");
         }
 
         BillingONCHeader1 bCh1 = bCh1Dao.find(billingNo);
         if (bCh1 == null) {
             b.billNoErr(true);
-            return;
+            return new BillRecordContext(null, billNo, false, "");
         }
 
         b.billLoaded(true);
@@ -253,7 +328,11 @@ public final class BillingONCorrectionDataAssembler {
 
         if (!multiSiteProvider) {
             // Access denied — leave patient fields empty; JSP shows alert.
-            return;
+            // Render-context composer still gets bCh1 + payProgram so it can
+            // build the (empty) third-party totals consistent with the
+            // legacy scriptlet, which always rendered the htmlPaid block.
+            return new BillRecordContext(bCh1, billNo, false,
+                    bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
         }
 
         Locale locale = request.getLocale();
@@ -354,5 +433,8 @@ public final class BillingONCorrectionDataAssembler {
                     "RA claim lookup failed for bill {}; correction page will show empty claimNo",
                     billNo, e);
         }
+
+        return new BillRecordContext(bCh1, billNo, true,
+                bCh1.getPayProgram() == null ? "" : bCh1.getPayProgram());
     }
 }

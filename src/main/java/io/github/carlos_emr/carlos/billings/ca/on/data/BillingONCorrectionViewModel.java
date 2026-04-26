@@ -94,6 +94,32 @@ public final class BillingONCorrectionViewModel {
     private final String comment;
     private final String clinicSite;
 
+    // Render-time fields populated by BillingONCorrectionRenderContextComposer.
+    // These remove the 11 inline SpringUtils.getBean lookups that used to live
+    // in the JSP body (BillingServiceDao / BillingONService / BillingONExtDao /
+    // BillingONPaymentDao / BillingONEAReportDao / BillingONErrorCodeDao /
+    // RaDetailDao / ClinicLocationDao / ClinicNbrDao / SecurityInfoManager).
+    private final boolean thirdParty;
+    private final String htmlPaid;
+    private final String payer;
+    private final boolean dueDateAvailable;
+    private final String dueDateString;
+    private final boolean useDemoContactAvailable;
+    private final boolean useDemoContactChecked;
+    private final boolean canEditBilling;
+    private final String clinicNo;
+    private final boolean rmaEnabled;
+    private final List<ClinicLocationEntry> clinicLocations;
+    private final List<ClinicNbrEntry> clinicNbrs;
+    private final List<BillItemEntry> billItems;
+    private final List<ErrorReportEntry> errorReportEntries;
+
+    public record ClinicLocationEntry(String no, String name) {}
+    public record ClinicNbrEntry(String value, String label) {}
+    public record BillItemEntry(String serviceCode, String serviceDesc,
+                                String fee, String dx, String count, String status) {}
+    public record ErrorReportEntry(String code, String description) {}
+
     private BillingONCorrectionViewModel(Builder b) {
         this.userProviderNo = nullToEmpty(b.userProviderNo);
         this.userFirstName = nullToEmpty(b.userFirstName);
@@ -139,6 +165,24 @@ public final class BillingONCorrectionViewModel {
         this.manReview = nullToEmpty(b.manReview);
         this.comment = nullToEmpty(b.comment);
         this.clinicSite = nullToEmpty(b.clinicSite);
+        this.thirdParty = b.thirdParty;
+        this.htmlPaid = nullToEmpty(b.htmlPaid);
+        this.payer = nullToEmpty(b.payer);
+        this.dueDateAvailable = b.dueDateAvailable;
+        this.dueDateString = nullToEmpty(b.dueDateString);
+        this.useDemoContactAvailable = b.useDemoContactAvailable;
+        this.useDemoContactChecked = b.useDemoContactChecked;
+        this.canEditBilling = b.canEditBilling;
+        this.clinicNo = nullToEmpty(b.clinicNo);
+        this.rmaEnabled = b.rmaEnabled;
+        this.clinicLocations = b.clinicLocations == null
+                ? Collections.emptyList() : List.copyOf(b.clinicLocations);
+        this.clinicNbrs = b.clinicNbrs == null
+                ? Collections.emptyList() : List.copyOf(b.clinicNbrs);
+        this.billItems = b.billItems == null
+                ? Collections.emptyList() : List.copyOf(b.billItems);
+        this.errorReportEntries = b.errorReportEntries == null
+                ? Collections.emptyList() : List.copyOf(b.errorReportEntries);
     }
 
     private static String nullToEmpty(String s) {
@@ -191,6 +235,21 @@ public final class BillingONCorrectionViewModel {
     public String getComment() { return comment; }
     public String getClinicSite() { return clinicSite; }
 
+    public boolean isThirdParty() { return thirdParty; }
+    public String getHtmlPaid() { return htmlPaid; }
+    public String getPayer() { return payer; }
+    public boolean isDueDateAvailable() { return dueDateAvailable; }
+    public String getDueDateString() { return dueDateString; }
+    public boolean isUseDemoContactAvailable() { return useDemoContactAvailable; }
+    public boolean isUseDemoContactChecked() { return useDemoContactChecked; }
+    public boolean isCanEditBilling() { return canEditBilling; }
+    public String getClinicNo() { return clinicNo; }
+    public boolean isRmaEnabled() { return rmaEnabled; }
+    public List<ClinicLocationEntry> getClinicLocations() { return clinicLocations; }
+    public List<ClinicNbrEntry> getClinicNbrs() { return clinicNbrs; }
+    public List<BillItemEntry> getBillItems() { return billItems; }
+    public List<ErrorReportEntry> getErrorReportEntries() { return errorReportEntries; }
+
     public static final class Builder {
         private String userProviderNo;
         private String userFirstName;
@@ -238,6 +297,20 @@ public final class BillingONCorrectionViewModel {
         private String manReview;
         private String comment;
         private String clinicSite;
+        private boolean thirdParty;
+        private String htmlPaid;
+        private String payer;
+        private boolean dueDateAvailable;
+        private String dueDateString;
+        private boolean useDemoContactAvailable;
+        private boolean useDemoContactChecked;
+        private boolean canEditBilling;
+        private String clinicNo;
+        private boolean rmaEnabled;
+        private List<ClinicLocationEntry> clinicLocations;
+        private List<ClinicNbrEntry> clinicNbrs;
+        private List<BillItemEntry> billItems;
+        private List<ErrorReportEntry> errorReportEntries;
 
         public Builder userProviderNo(String v) { this.userProviderNo = v; return this; }
         public Builder userFirstName(String v) { this.userFirstName = v; return this; }
@@ -284,6 +357,22 @@ public final class BillingONCorrectionViewModel {
         public Builder manReview(String v) { this.manReview = v; return this; }
         public Builder comment(String v) { this.comment = v; return this; }
         public Builder clinicSite(String v) { this.clinicSite = v; return this; }
+        public Builder thirdParty(boolean v) { this.thirdParty = v; return this; }
+        public Builder htmlPaid(String v) { this.htmlPaid = v; return this; }
+        public Builder payer(String v) { this.payer = v; return this; }
+        public Builder dueDateAvailable(boolean v) { this.dueDateAvailable = v; return this; }
+        public Builder dueDateString(String v) { this.dueDateString = v; return this; }
+        public Builder useDemoContactAvailable(boolean v) { this.useDemoContactAvailable = v; return this; }
+        public Builder useDemoContactChecked(boolean v) { this.useDemoContactChecked = v; return this; }
+        public Builder canEditBilling(boolean v) { this.canEditBilling = v; return this; }
+        public Builder clinicNo(String v) { this.clinicNo = v; return this; }
+        public Builder rmaEnabled(boolean v) { this.rmaEnabled = v; return this; }
+        // Defensive copy at the setter so callers retaining the original
+        // mutable List can't influence builder state between setter and build().
+        public Builder clinicLocations(List<ClinicLocationEntry> v) { this.clinicLocations = v == null ? null : List.copyOf(v); return this; }
+        public Builder clinicNbrs(List<ClinicNbrEntry> v) { this.clinicNbrs = v == null ? null : List.copyOf(v); return this; }
+        public Builder billItems(List<BillItemEntry> v) { this.billItems = v == null ? null : List.copyOf(v); return this; }
+        public Builder errorReportEntries(List<ErrorReportEntry> v) { this.errorReportEntries = v == null ? null : List.copyOf(v); return this; }
 
         public BillingONCorrectionViewModel build() {
             return new BillingONCorrectionViewModel(this);
