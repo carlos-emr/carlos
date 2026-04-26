@@ -259,7 +259,7 @@ public class BillingReviewPrep {
     }
 
     public List getMRIList(String sDate, String eDate, String status) {
-        BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
+        BillingONDiskQueryService dbObj = SpringUtils.getBean(BillingONDiskQueryService.class);
         List ret = dbObj.getMRIList(sDate, eDate, status);
         return ret;
     }

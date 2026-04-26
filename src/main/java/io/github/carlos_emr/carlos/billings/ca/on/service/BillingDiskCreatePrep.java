@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingDiskCreatePrep {
     private static final Logger _logger = MiscUtils.getLogger();
     BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);
+    BillingONDiskQueryService diskQuery = SpringUtils.getBean(BillingONDiskQueryService.class);
     Properties propProOHIP = null;
 
     public BillingDiskCreatePrep() {
@@ -84,13 +85,13 @@ public class BillingDiskCreatePrep {
 
     public String getOhipfilename(int diskId) {
         String ret = null;
-        ret = dbObj.getOhipfilename(diskId);
+        ret = diskQuery.getOhipfilename(diskId);
         return ret;
     }
 
     public String getHtmlfilename(int diskId, String providerNo) {
         String ret = null;
-        ret = dbObj.getHtmlfilename(diskId, providerNo);
+        ret = diskQuery.getHtmlfilename(diskId, providerNo);
         return ret;
     }
 
@@ -168,7 +169,7 @@ public class BillingDiskCreatePrep {
         // String groupNo = "";
 
         // get diskName obj
-        BillingDiskNameData diskName = dbObj.getDisknameObj(diskId);
+        BillingDiskNameData diskName = diskQuery.getDisknameObj(diskId);
         dbObj.addRepoDiskName(diskName);
 
         // diskName.setGroupno(groupNo);
@@ -217,7 +218,7 @@ public class BillingDiskCreatePrep {
     public int updateBatchHeader(BillingProviderData providerData, String disk_id, String moh_office, String seqNum,
                                  String creator) {
         boolean ret = false;
-        BillingBatchHeaderData obj = dbObj.getBatchHeaderObj(providerData, disk_id);
+        BillingBatchHeaderData obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
         dbObj.addRepoBatchHeader(obj);
         obj.setDisk_id(disk_id);
         obj.setTransc_id(BillingDataHlp.BATCHHEADER_TRANSACTIONIDENTIFIER);
@@ -293,7 +294,7 @@ public class BillingDiskCreatePrep {
         GregorianCalendar now = new GregorianCalendar();
         int curMonth = (now.get(Calendar.MONTH) + 1);
         String curMonthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
-        String[] last = dbObj.getLatestSoloMonthCodeBatchNum(ohipNo);
+        String[] last = diskQuery.getLatestSoloMonthCodeBatchNum(ohipNo);
 
         if (last != null && curMonthCode.equals(last[0])) {
             ret[0] = curMonthCode;
@@ -312,7 +313,7 @@ public class BillingDiskCreatePrep {
         // now.get(Calendar.DAY_OF_MONTH);
         int curMonth = (now.get(Calendar.MONTH) + 1);
         String curMonthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
-        String[] last = dbObj.getLatestGrpMonthCodeBatchNum(groupNo);
+        String[] last = diskQuery.getLatestGrpMonthCodeBatchNum(groupNo);
 
         if (last != null && curMonthCode.equals(last[0])) {
             ret[0] = curMonthCode;

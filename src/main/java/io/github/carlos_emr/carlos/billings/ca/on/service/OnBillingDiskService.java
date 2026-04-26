@@ -111,7 +111,7 @@ public class OnBillingDiskService {
         String defaultMOH = mohOffice;
         String currentUser = (String) request.getSession().getAttribute("user");
 
-        BillingONClaimPersistenceService dateObj = new BillingONClaimPersistenceService();
+        BillingONDiskQueryService dateObj = SpringUtils.getBean(BillingONDiskQueryService.class);
         String dateEnd = dateObj.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
