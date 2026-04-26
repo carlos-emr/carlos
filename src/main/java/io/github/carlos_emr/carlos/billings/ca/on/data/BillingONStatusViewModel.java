@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Immutable view model for {@code billingONStatus.jsp}.
@@ -22,15 +23,83 @@ import java.util.List;
  * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONStatus2Action}
  * and exposed as request attribute {@code statusModel}. Captures the request
  * parameter echoes + default-value resolution that previously lived in the top
- * scriptlet of the JSP.</p>
+ * scriptlet of the JSP, together with all rendering data (provider list,
+ * multisite site/provider HTML, billing forms, visit locations, rejected-bill
+ * rows, and aggregated bill rows with computed totals).</p>
  *
- * @since 2026-04-24
+ * @since 2026-04-25
  */
 public final class BillingONStatusViewModel {
 
     /** Default bill types when none are selected (matches legacy scriptlet). */
     public static final List<String> DEFAULT_BILL_TYPES = List.of(
             "HCP", "WCB", "RMB", "NOT", "PAT", "OCF", "ODS", "CPP", "STD", "IFH");
+
+    /** A {@code provider_no|last|first|ohip_no}-derived dropdown row. */
+    public record ProviderOption(String providerNo, String lastName, String firstName, String ohipNo) { }
+
+    /** Multisite per-site provider option (already filtered by user privileges). */
+    public record MultisiteProviderOption(String providerNo, String lastName, String firstName) { }
+
+    /** Multisite site entry with bgColor and pre-filtered list of providers. */
+    public record MultisiteSite(String name, String bgColor,
+                                List<MultisiteProviderOption> providers) { }
+
+    /** Visit-location dropdown entry. */
+    public record VisitLocationOption(String code, String label) { }
+
+    /** Billing form dropdown entry (label/value from {@code BillingStatusPrep}). */
+    public record BillingFormOption(String label, String value) { }
+
+    /** Rejected-bill row (statusType "_") rendered as one {@code <tr>}. */
+    public record RejectedBillRow(
+            String id,
+            String hin,
+            String ver,
+            String dob,
+            String billingNo,
+            String refNo,
+            String facility,
+            String admittedDate,
+            String claimError,
+            String code,
+            String formattedFee,
+            String unit,
+            String codeDate,
+            String dx,
+            String exp,
+            String codeError,
+            String reportName,
+            boolean checked,
+            String rowClass) { }
+
+    /** Standard bill row with all derived fields pre-computed. */
+    public record BillRow(
+            String id,
+            String billingDate,
+            String demographicNo,
+            String demographicName,
+            String facilityNum,
+            String status,
+            String settleDate,
+            String code,
+            String billed,
+            String amountPaid,
+            String adjustment,
+            String recId,
+            String payProgram,
+            String invoiceNo,
+            String errorCode,
+            String cash,
+            String debit,
+            int qty,
+            String providerName,
+            String clinic,
+            String clinicBgColor,
+            String clinicShortName,
+            boolean newInvoice,
+            boolean thirdParty,
+            String rowClass) { }
 
     private final boolean teamBillingOnly;
     private final boolean siteAccessPrivacy;
@@ -58,6 +127,27 @@ public final class BillingONStatusViewModel {
     private final String sortOrder;
     private final String paymentStartDate;
     private final String paymentEndDate;
+    private final String endDateMinus30;
+    private final String endDateMinus60;
+    private final String endDateMinus90;
+
+    // Render-only derived data (assembler-populated)
+    private final List<ProviderOption> providers;
+    private final List<MultisiteSite> multisiteSites;
+    private final Map<String, String> multisiteProviderHtml;
+    private final Map<String, String> siteBgColor;
+    private final Map<String, String> siteShortName;
+    private final List<BillingFormOption> billingForms;
+    private final List<VisitLocationOption> visitLocations;
+    private final List<RejectedBillRow> rejectedBillRows;
+    private final List<BillRow> billRows;
+    private final int patientCount;
+    private final String totalBilled;
+    private final String totalPaid;
+    private final String totalAdjustments;
+    private final String totalCash;
+    private final String totalDebit;
+    private final Map<String, String> requestParamEchoes;
 
     private BillingONStatusViewModel(Builder b) {
         this.teamBillingOnly = b.teamBillingOnly;
@@ -85,6 +175,36 @@ public final class BillingONStatusViewModel {
         this.sortOrder = nullToEmpty(b.sortOrder);
         this.paymentStartDate = nullToEmpty(b.paymentStartDate);
         this.paymentEndDate = nullToEmpty(b.paymentEndDate);
+        this.endDateMinus30 = nullToEmpty(b.endDateMinus30);
+        this.endDateMinus60 = nullToEmpty(b.endDateMinus60);
+        this.endDateMinus90 = nullToEmpty(b.endDateMinus90);
+
+        this.providers = b.providers == null
+                ? Collections.emptyList() : List.copyOf(b.providers);
+        this.multisiteSites = b.multisiteSites == null
+                ? Collections.emptyList() : List.copyOf(b.multisiteSites);
+        this.multisiteProviderHtml = b.multisiteProviderHtml == null
+                ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
+        this.siteBgColor = b.siteBgColor == null
+                ? Collections.emptyMap() : Map.copyOf(b.siteBgColor);
+        this.siteShortName = b.siteShortName == null
+                ? Collections.emptyMap() : Map.copyOf(b.siteShortName);
+        this.billingForms = b.billingForms == null
+                ? Collections.emptyList() : List.copyOf(b.billingForms);
+        this.visitLocations = b.visitLocations == null
+                ? Collections.emptyList() : List.copyOf(b.visitLocations);
+        this.rejectedBillRows = b.rejectedBillRows == null
+                ? Collections.emptyList() : List.copyOf(b.rejectedBillRows);
+        this.billRows = b.billRows == null
+                ? Collections.emptyList() : List.copyOf(b.billRows);
+        this.patientCount = b.patientCount;
+        this.totalBilled = nullToEmpty(b.totalBilled);
+        this.totalPaid = nullToEmpty(b.totalPaid);
+        this.totalAdjustments = nullToEmpty(b.totalAdjustments);
+        this.totalCash = nullToEmpty(b.totalCash);
+        this.totalDebit = nullToEmpty(b.totalDebit);
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
     }
 
     public static Builder builder() {
@@ -121,6 +241,26 @@ public final class BillingONStatusViewModel {
     public String getSortOrder() { return sortOrder; }
     public String getPaymentStartDate() { return paymentStartDate; }
     public String getPaymentEndDate() { return paymentEndDate; }
+    public String getEndDateMinus30() { return endDateMinus30; }
+    public String getEndDateMinus60() { return endDateMinus60; }
+    public String getEndDateMinus90() { return endDateMinus90; }
+
+    public List<ProviderOption> getProviders() { return providers; }
+    public List<MultisiteSite> getMultisiteSites() { return multisiteSites; }
+    public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
+    public Map<String, String> getSiteBgColor() { return siteBgColor; }
+    public Map<String, String> getSiteShortName() { return siteShortName; }
+    public List<BillingFormOption> getBillingForms() { return billingForms; }
+    public List<VisitLocationOption> getVisitLocations() { return visitLocations; }
+    public List<RejectedBillRow> getRejectedBillRows() { return rejectedBillRows; }
+    public List<BillRow> getBillRows() { return billRows; }
+    public int getPatientCount() { return patientCount; }
+    public String getTotalBilled() { return totalBilled; }
+    public String getTotalPaid() { return totalPaid; }
+    public String getTotalAdjustments() { return totalAdjustments; }
+    public String getTotalCash() { return totalCash; }
+    public String getTotalDebit() { return totalDebit; }
+    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
 
     public static final class Builder {
         private boolean teamBillingOnly;
@@ -148,6 +288,26 @@ public final class BillingONStatusViewModel {
         private String sortOrder;
         private String paymentStartDate;
         private String paymentEndDate;
+        private String endDateMinus30;
+        private String endDateMinus60;
+        private String endDateMinus90;
+
+        private List<ProviderOption> providers;
+        private List<MultisiteSite> multisiteSites;
+        private Map<String, String> multisiteProviderHtml;
+        private Map<String, String> siteBgColor;
+        private Map<String, String> siteShortName;
+        private List<BillingFormOption> billingForms;
+        private List<VisitLocationOption> visitLocations;
+        private List<RejectedBillRow> rejectedBillRows;
+        private List<BillRow> billRows;
+        private int patientCount;
+        private String totalBilled;
+        private String totalPaid;
+        private String totalAdjustments;
+        private String totalCash;
+        private String totalDebit;
+        private Map<String, String> requestParamEchoes;
 
         public Builder teamBillingOnly(boolean v) { this.teamBillingOnly = v; return this; }
         public Builder siteAccessPrivacy(boolean v) { this.siteAccessPrivacy = v; return this; }
@@ -182,6 +342,56 @@ public final class BillingONStatusViewModel {
         public Builder sortOrder(String v) { this.sortOrder = v; return this; }
         public Builder paymentStartDate(String v) { this.paymentStartDate = v; return this; }
         public Builder paymentEndDate(String v) { this.paymentEndDate = v; return this; }
+        public Builder endDateMinus30(String v) { this.endDateMinus30 = v; return this; }
+        public Builder endDateMinus60(String v) { this.endDateMinus60 = v; return this; }
+        public Builder endDateMinus90(String v) { this.endDateMinus90 = v; return this; }
+
+        public Builder providers(List<ProviderOption> v) {
+            this.providers = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder multisiteSites(List<MultisiteSite> v) {
+            this.multisiteSites = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder multisiteProviderHtml(Map<String, String> v) {
+            this.multisiteProviderHtml = v == null ? null : Map.copyOf(v);
+            return this;
+        }
+        public Builder siteBgColor(Map<String, String> v) {
+            this.siteBgColor = v == null ? null : Map.copyOf(v);
+            return this;
+        }
+        public Builder siteShortName(Map<String, String> v) {
+            this.siteShortName = v == null ? null : Map.copyOf(v);
+            return this;
+        }
+        public Builder billingForms(List<BillingFormOption> v) {
+            this.billingForms = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder visitLocations(List<VisitLocationOption> v) {
+            this.visitLocations = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder rejectedBillRows(List<RejectedBillRow> v) {
+            this.rejectedBillRows = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder billRows(List<BillRow> v) {
+            this.billRows = v == null ? null : List.copyOf(v);
+            return this;
+        }
+        public Builder patientCount(int v) { this.patientCount = v; return this; }
+        public Builder totalBilled(String v) { this.totalBilled = v; return this; }
+        public Builder totalPaid(String v) { this.totalPaid = v; return this; }
+        public Builder totalAdjustments(String v) { this.totalAdjustments = v; return this; }
+        public Builder totalCash(String v) { this.totalCash = v; return this; }
+        public Builder totalDebit(String v) { this.totalDebit = v; return this; }
+        public Builder requestParamEchoes(Map<String, String> v) {
+            this.requestParamEchoes = v == null ? null : Map.copyOf(v);
+            return this;
+        }
 
         public BillingONStatusViewModel build() {
             return new BillingONStatusViewModel(this);
