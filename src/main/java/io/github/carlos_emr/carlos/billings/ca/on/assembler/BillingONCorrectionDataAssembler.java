@@ -96,6 +96,8 @@ public final class BillingONCorrectionDataAssembler {
     private final RaDetailDao raDetailDao;
     private final ProfessionalSpecialistDao professionalSpecialistDao;
     private final BillingONCorrectionRenderStep renderContextComposer;
+    private final BillingONLookupService lookupService;
+    private final BillingONRemittanceAdviceService raService;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -117,7 +119,10 @@ public final class BillingONCorrectionDataAssembler {
              SpringUtils.getBean(BillingONEAReportDao.class),
              SpringUtils.getBean(BillingONErrorCodeDao.class),
              SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(ClinicNbrDao.class));
+             SpringUtils.getBean(ClinicNbrDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService.class));
     }
 
     /**
@@ -141,6 +146,8 @@ public final class BillingONCorrectionDataAssembler {
         this.bCh1Dao = bCh1Dao;
         this.raDetailDao = raDetailDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
+        this.lookupService = null;
+        this.raService = null;
         this.renderContextComposer = null;
     }
 
@@ -158,7 +165,10 @@ public final class BillingONCorrectionDataAssembler {
                                      BillingONEAReportDao billingONEAReportDao,
                                      BillingONErrorCodeDao billingONErrorCodeDao,
                                      ClinicLocationDao clinicLocationDao,
-                                     ClinicNbrDao clinicNbrDao) {
+                                     ClinicNbrDao clinicNbrDao,
+                                     io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep thirdPartPrep,
+                                     BillingONLookupService lookupService,
+                                     BillingONRemittanceAdviceService raService) {
         this.securityInfoManager = securityInfoManager;
         this.providerDao = providerDao;
         this.providerSiteDao = providerSiteDao;
@@ -166,6 +176,8 @@ public final class BillingONCorrectionDataAssembler {
         this.bCh1Dao = bCh1Dao;
         this.raDetailDao = raDetailDao;
         this.professionalSpecialistDao = professionalSpecialistDao;
+        this.lookupService = lookupService;
+        this.raService = raService;
         this.renderContextComposer = new BillingONCorrectionRenderStep(
                 securityInfoManager,
                 billingServiceDao,
@@ -176,7 +188,8 @@ public final class BillingONCorrectionDataAssembler {
                 billingONErrorCodeDao,
                 raDetailDao,
                 clinicLocationDao,
-                clinicNbrDao);
+                clinicNbrDao,
+                thirdPartPrep);
     }
 
     /**
@@ -314,13 +327,12 @@ public final class BillingONCorrectionDataAssembler {
         // ---- non-multisite provider list ----
         // Mirrors legacy scriptlet's tri-branch over BillingONLookupService.
         List<String> pList;
-        BillingONLookupService util = SpringUtils.getBean(BillingONLookupService.class);
         if (teamBillingOnly || teamAccessPrivacy) {
-            pList = util.getCurTeamProviderStr(userProviderNo);
+            pList = lookupService.getCurTeamProviderStr(userProviderNo);
         } else if (siteAccessPrivacy) {
-            pList = util.getCurSiteProviderStr(userProviderNo);
+            pList = lookupService.getCurSiteProviderStr(userProviderNo);
         } else {
-            pList = util.getCurProviderStr();
+            pList = lookupService.getCurProviderStr();
         }
         List<BillingONCorrectionViewModel.ProviderOption> providerOptions = new ArrayList<>();
         if (pList != null) {
@@ -562,8 +574,7 @@ public final class BillingONCorrectionDataAssembler {
         // rather than silently rendering an empty claimNo. Log at ERROR so
         // a BillingONRemittanceAdviceService regression is visible to ops.
         try {
-            BillingONRemittanceAdviceService raObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);
-            String raClaim = raObj.getRAClaimNo4BillingNo(billNo);
+            String raClaim = raService.getRAClaimNo4BillingNo(billNo);
             if (raClaim != null) {
                 b.claimNo(raClaim);
             }

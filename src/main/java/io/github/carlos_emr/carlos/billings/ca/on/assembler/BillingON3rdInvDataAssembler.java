@@ -74,6 +74,7 @@ public final class BillingON3rdInvDataAssembler {
     private final ProviderDao providerDao;
     private final SiteDao siteDao;
     private final BillingONService billingONService;
+    private final Billing3rdPartPrep privateObj;
 
     public BillingON3rdInvDataAssembler() {
         this(SpringUtils.getBean(BillingONCHeader1Dao.class),
@@ -84,7 +85,8 @@ public final class BillingON3rdInvDataAssembler {
              SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),
              SpringUtils.getBean(SiteDao.class),
-             SpringUtils.getBean(BillingONService.class));
+             SpringUtils.getBean(BillingONService.class),
+             SpringUtils.getBean(Billing3rdPartPrep.class));
     }
 
     BillingON3rdInvDataAssembler(BillingONCHeader1Dao bCh1Dao,
@@ -95,7 +97,8 @@ public final class BillingON3rdInvDataAssembler {
                                  DemographicDao demographicDao,
                                  ProviderDao providerDao,
                                  SiteDao siteDao,
-                                 BillingONService billingONService) {
+                                 BillingONService billingONService,
+                                 Billing3rdPartPrep privateObj) {
         this.bCh1Dao = bCh1Dao;
         this.bExtDao = bExtDao;
         this.bPaymentDao = bPaymentDao;
@@ -105,6 +108,7 @@ public final class BillingON3rdInvDataAssembler {
         this.providerDao = providerDao;
         this.siteDao = siteDao;
         this.billingONService = billingONService;
+        this.privateObj = privateObj;
     }
 
     /**
@@ -127,7 +131,6 @@ public final class BillingON3rdInvDataAssembler {
             MiscUtils.getLogger().warn("Invalid Invoice No.");
         }
 
-        Billing3rdPartPrep privateObj = SpringUtils.getBean(Billing3rdPartPrep.class);
         Properties propClinic = privateObj.getLocalClinicAddr();
         Properties prop3rdPart = privateObj.get3rdPartBillProp(invoiceNoStr);
         Properties prop3rdPayMethod = privateObj.get3rdPayMethod();

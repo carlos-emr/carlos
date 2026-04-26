@@ -37,12 +37,12 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
 
 /**
  * Assembles {@link BillingShortcutPg2ViewModel} for {@code billingShortcutPg2.jsp},
@@ -75,6 +75,7 @@ public final class BillingShortcutPg2DataAssembler {
     private final DemographicDao demographicDao;
     private final BillingServiceDao billingServiceDao;
     private final BillingPercLimitDao billingPercLimitDao;
+    private final BillingSavePrep saveObj;
 
     public BillingShortcutPg2DataAssembler() {
         this(SpringUtils.getBean(BillingDao.class),
@@ -82,7 +83,8 @@ public final class BillingShortcutPg2DataAssembler {
              SpringUtils.getBean(ProviderDao.class),
              SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(BillingServiceDao.class),
-             SpringUtils.getBean(BillingPercLimitDao.class));
+             SpringUtils.getBean(BillingPercLimitDao.class),
+             SpringUtils.getBean(BillingSavePrep.class));
     }
 
     BillingShortcutPg2DataAssembler(BillingDao billingDao,
@@ -90,13 +92,15 @@ public final class BillingShortcutPg2DataAssembler {
                                     ProviderDao providerDao,
                                     DemographicDao demographicDao,
                                     BillingServiceDao billingServiceDao,
-                                    BillingPercLimitDao billingPercLimitDao) {
+                                    BillingPercLimitDao billingPercLimitDao,
+                                    BillingSavePrep saveObj) {
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
         this.providerDao = providerDao;
         this.demographicDao = demographicDao;
         this.billingServiceDao = billingServiceDao;
         this.billingPercLimitDao = billingPercLimitDao;
+        this.saveObj = saveObj;
     }
 
     /**
@@ -479,7 +483,6 @@ public final class BillingShortcutPg2DataAssembler {
             if (dateStr == null || dateStr.trim().length() != 10) continue;
 
             if (isNewBilling) {
-                BillingSavePrep saveObj = SpringUtils.getBean(BillingSavePrep.class);
                 if (!bServicePerc && calc.vecServiceCodePerc.size() > 1) {
                     bServicePerc = true;
                     int codeIdx = 0;

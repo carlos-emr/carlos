@@ -45,13 +45,16 @@ public final class OnGenRASummaryDataAssembler {
             "'A004A','A005A','Z731A','Z666A','Z730A','Z720A'";
 
     private final RaHeaderDao raHeaderDao;
+    private final BillingRAPrep prep;
 
     public OnGenRASummaryDataAssembler() {
-        this(SpringUtils.getBean(RaHeaderDao.class));
+        this(SpringUtils.getBean(RaHeaderDao.class),
+             SpringUtils.getBean(BillingRAPrep.class));
     }
 
-    OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao) {
+    OnGenRASummaryDataAssembler(RaHeaderDao raHeaderDao, BillingRAPrep prep) {
         this.raHeaderDao = raHeaderDao;
+        this.prep = prep;
     }
 
     /**
@@ -72,7 +75,6 @@ public final class OnGenRASummaryDataAssembler {
         String selectedProvider = (proNoParam == null || proNoParam.isEmpty()) ? "all" : proNoParam;
         builder.raNo(raNoParam).selectedProviderOhip(selectedProvider);
 
-        BillingRAPrep prep = SpringUtils.getBean(BillingRAPrep.class);
         builder.providerOptions(loadProviderOptions(prep, raNoParam));
 
         List<String> obBillingNos = prep.getRABillingNo4Code(raNoParam, OB_CODES);

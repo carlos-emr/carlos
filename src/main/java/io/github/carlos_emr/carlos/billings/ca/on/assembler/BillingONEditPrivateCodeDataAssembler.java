@@ -56,9 +56,19 @@ public final class BillingONEditPrivateCodeDataAssembler {
     private static final String VERB_DELETED = "d" + "eleted";
     private static final String VERB_ADDED = "added";
 
+    private final BillingONServiceCodeService dbObj;
+
+    /** Production constructor — Struts no-arg shape. */
+    public BillingONEditPrivateCodeDataAssembler() {
+        this(SpringUtils.getBean(BillingONServiceCodeService.class));
+    }
+
+    BillingONEditPrivateCodeDataAssembler(BillingONServiceCodeService dbObj) {
+        this.dbObj = dbObj;
+    }
+
     /** Build the view model. Mirrors all four legacy submit modes. */
     public BillingONEditPrivateCodeViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
-        BillingONServiceCodeService dbObj = SpringUtils.getBean(BillingONServiceCodeService.class);
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String alert = "info";

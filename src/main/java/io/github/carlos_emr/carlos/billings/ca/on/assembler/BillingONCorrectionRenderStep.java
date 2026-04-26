@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Composer that owns the 11 inline DAO/service lookups
  * {@code billingONCorrection.jsp} used to perform via
@@ -108,6 +107,7 @@ final class BillingONCorrectionRenderStep {
     private final RaDetailDao raDetailDao;
     private final ClinicLocationDao clinicLocationDao;
     private final ClinicNbrDao clinicNbrDao;
+    private final Billing3rdPartPrep thirdPartPrep;
 
     BillingONCorrectionRenderStep(SecurityInfoManager securityInfoManager,
                                              BillingServiceDao billingServiceDao,
@@ -118,7 +118,8 @@ final class BillingONCorrectionRenderStep {
                                              BillingONErrorCodeDao billingONErrorCodeDao,
                                              RaDetailDao raDetailDao,
                                              ClinicLocationDao clinicLocationDao,
-                                             ClinicNbrDao clinicNbrDao) {
+                                             ClinicNbrDao clinicNbrDao,
+                                             Billing3rdPartPrep thirdPartPrep) {
         this.securityInfoManager = securityInfoManager;
         this.billingServiceDao = billingServiceDao;
         this.billingONService = billingONService;
@@ -129,6 +130,7 @@ final class BillingONCorrectionRenderStep {
         this.raDetailDao = raDetailDao;
         this.clinicLocationDao = clinicLocationDao;
         this.clinicNbrDao = clinicNbrDao;
+        this.thirdPartPrep = thirdPartPrep;
     }
 
     /**
@@ -209,13 +211,12 @@ final class BillingONCorrectionRenderStep {
                                      String billNo,
                                      boolean multiSiteProvider,
                                      boolean thirdParty) {
-        Billing3rdPartPrep tObj = SpringUtils.getBean(Billing3rdPartPrep.class);
         String today = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
 
         if (!thirdParty) {
             Properties tProp = null;
             if (billNo != null && !billNo.isEmpty()) {
-                tProp = tObj.get3rdPartBillPropInactive(billNo.trim());
+                tProp = thirdPartPrep.get3rdPartBillPropInactive(billNo.trim());
             }
             if (tProp == null || tProp.isEmpty()) {
                 b.htmlPaid(String.format(HTML_PAID_FIRST_PARTY_DEFAULT, today));
@@ -230,7 +231,7 @@ final class BillingONCorrectionRenderStep {
             return;
         }
 
-        Properties tProp = tObj.get3rdPartBillProp(billNo.trim());
+        Properties tProp = thirdPartPrep.get3rdPartBillProp(billNo.trim());
         String payer = tProp.getProperty("billTo");
         b.payer(payer == null ? "" : payer);
 

@@ -39,6 +39,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class BillingONHistorySpecDataAssembler {
 
+    private final BillingONClaimQueryService dbObj;
+
+    /** Production constructor — Struts no-arg shape. */
+    public BillingONHistorySpecDataAssembler() {
+        this(SpringUtils.getBean(BillingONClaimQueryService.class));
+    }
+
+    BillingONHistorySpecDataAssembler(BillingONClaimQueryService dbObj) {
+        this.dbObj = dbObj;
+    }
+
     /**
      * Build the history-spec view model.
      *
@@ -82,7 +93,6 @@ public final class BillingONHistorySpecDataAssembler {
         List<BillingONHistorySpecViewModel.HistoryRow> rows = new ArrayList<>();
         int nItems = 0;
         try {
-            BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
             @SuppressWarnings("rawtypes")
             List aL = dbObj.getBillingHist(safeDemoNo, 10000000, 0, pDateRange);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {
