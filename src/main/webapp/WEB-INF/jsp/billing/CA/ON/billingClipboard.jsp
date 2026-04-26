@@ -22,24 +22,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Ontario Billing clipboard popup. Two free-text textareas posted to
+    ViewPrintBillingClipboard for a print-preview render. Pure presentation,
+    no model lookups; ViewBillingClipboard2Action enforces _billing r.
+
+    @since 2006
+--%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%
-    if (session.getAttribute("user") == null)
-        response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String user_no;
-    user_no = (String) session.getAttribute("user");
-    String asstProvider_no = "";
-    String color = "";
-    String premiumFlag = "";
-    String service_form = "", service_name = "";
-%>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>oscarBilling :: Clip Board ::</title>
     <link rel="stylesheet" href="billing.css">
 
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     <script language="JavaScript">
         <!--
 
@@ -77,7 +77,7 @@
 </table>
 <table width="100%" border="0" bgcolor="#EEEEFF">
     <form name="serviceform" method="post"
-          action="<%= request.getContextPath() %>/billing/CA/ON/ViewPrintBillingClipboard">
+          action="${pageContext.request.contextPath}/billing/CA/ON/ViewPrintBillingClipboard">
         <tr>
             <td height="40"><input type="submit" name="Submit"
                                    value="Print Preview"></td>
