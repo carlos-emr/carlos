@@ -875,20 +875,14 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             showBillFormDiv("group3_", selectedBillForm);
 
             //hide other billing codes whose forms are not selected
-            <%
-                    for( int j=0; j< listServiceType.size(); j++) {
-                            String st = listServiceType.get(j);
-             %>
-            if (selectedBillForm != "<%=st%>") {
-
-                hideBillFormDiv("group1_", "<%=st%>");
-                hideBillFormDiv("group2_", "<%=st%>");
-                hideBillFormDiv("group3_", "<%=st%>");
-
-                hideBillFormDiv("dxCodeSearchDiv_", "<%=st%>");
+            <c:forEach var="__st" items="${formModel.listServiceType}">
+            if (selectedBillForm != "<carlos:encode value='${__st}' context='javaScript'/>") {
+                hideBillFormDiv("group1_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("group2_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("group3_", "<carlos:encode value='${__st}' context='javaScript'/>");
+                hideBillFormDiv("dxCodeSearchDiv_", "<carlos:encode value='${__st}' context='javaScript'/>");
             }
-
-            <% }  %>
+            </c:forEach>
         }
 
 
@@ -1270,154 +1264,98 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width: 20%">
-                                        <%-- Round-15: multisite block now driven by formModel
-                                             (assembler pre-loads via BillingONFormSiteContextComposer).
-                                             SiteDao no longer touched in JSP body code; the legacy
-                                             `sites` local is rebuilt from model.getMultisiteSites()
-                                             so the existing JS-string-build below stays unchanged. --%>
-                                        <% if (model.isMultisiteEnabled()) {
-                                            // multisite start ==========================================
-                                            java.util.List<io.github.carlos_emr.carlos.commn.model.Site> sites = new java.util.ArrayList<>();
-                                            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.MultisiteSite __mss : model.getMultisiteSites()) {
-                                                io.github.carlos_emr.carlos.commn.model.Site __s = new io.github.carlos_emr.carlos.commn.model.Site();
-                                                __s.setName(__mss.name());
-                                                __s.setBgColor(__mss.bgColor());
-                                                java.util.Set<io.github.carlos_emr.carlos.commn.model.Provider> __ps = new java.util.LinkedHashSet<>();
-                                                for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.MultisiteProvider __msp : __mss.providers()) {
-                                                    io.github.carlos_emr.carlos.commn.model.Provider __p = new io.github.carlos_emr.carlos.commn.model.Provider();
-                                                    __p.setProviderNo(__msp.providerNo());
-                                                    __p.setOhipNo(__msp.ohipNo());
-                                                    __p.setLastName(__msp.lastName());
-                                                    __p.setFirstName(__msp.firstName());
-                                                    __p.setStatus("1");
-                                                    __ps.add(__p);
-                                                }
-                                                __s.setProviders(__ps);
-                                                sites.add(__s);
-                                            }
-                                        %>
-                                        <script>
-                                            var _providers = [];
-                                            <%	for (int i=0; i<sites.size(); i++) {
-                                                Set<Provider> siteProviders = sites.get(i).getProviders();
-                                                List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
-                                                 Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                                            _providers["<carlos:encode value='<%= sites.get(i).getName() %>' context="javaScriptBlock"/>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
-	while (iter.hasNext()) {
-		Provider p=iter.next();
-		if ("1".equals(p.getStatus()) && StringUtils.isNotBlank(p.getOhipNo())) {
-	%><c:set var="__enc_22"><carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/></c:set><c:set var="__enc_23"><carlos:encode value='<%= p.getOhipNo() %>' context="htmlAttribute"/></c:set><c:set var="__enc_24"><carlos:encode value='<%= p.getLastName() %>' context="html"/></c:set><c:set var="__enc_25"><carlos:encode value='<%= p.getFirstName() %>' context="html"/></c:set><option value='<carlos:encode value='${__enc_22}' context="javaScript"/>|<carlos:encode value='${__enc_23}' context="javaScript"/>' ><carlos:encode value='${__enc_24}' context="javaScript"/>, <carlos:encode value='${__enc_25}' context="javaScript"/></option><%}}%>";
-                                            <%}%>
-
-                                            function changeSite(sel) {
-                                                sel.form.xml_provider.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
-                                                sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                                            }
-                                        </script>
-                                        <select id="site" name="site" onchange="changeSite(this)"
-                                        >
-                                            <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/>
-                                            </option>
-                                            <%
-                                                // Round-15: default selected site + xml_provider come
-                                                // from formModel (request param 'site', or the
-                                                // appointment's site as resolved in the assembler).
-                                                String selectedSite = model.getDefaultSelectedSite();
-                                                if (selectedSite == null || selectedSite.isEmpty()) selectedSite = null;
-                                                String xmlp = model.getDefaultXmlProvider();
-                                                if (xmlp != null && xmlp.isEmpty()) xmlp = null;
-                                                for (int i = 0; i < sites.size(); i++) {
-                                            %>
-                                            <option value="<%=sites.get(i).getName()%>"
-                                                    style="background-color:<%=sites.get(i).getBgColor()%>"
-                                                    <%=sites.get(i).getName().toString().equals(selectedSite) ? "selected" : ""%>><carlos:encode value='<%= sites.get(i).getName() %>' context="html"/>
-                                            </option>
-                                            <%
-                                                }
-                                            %>
-                                        </select> <select id="xml_provider" name="xml_provider"
-                                    ></select>
-                                        <script>
-                                            changeSite(document.getElementById("site"));
-                                            document.getElementById("xml_provider").value = '<carlos:encode value='<%= request.getParameter("xml_provider")==null?xmlp:request.getParameter("xml_provider") %>' context="javaScriptBlock"/>';
-                                        </script>
-                                        <%
-                                            // multisite end ==========================================
-                                        } else {
-                                        %> <select name="xml_provider">
-                                        <%
-                                            String[] tmp;
-                                            if (vecProvider.size() == 1) {
-                                                propT = (Properties) vecProvider.get(0);
-                                                tmp = propT.getProperty("proOHIP", "").split("\\|");
-                                        %>
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equals(tmp[0].trim()) ? "selected" : ""%>>
-                                            <b><carlos:encode value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' context="html"/>
-                                            </b>
-                                        </option>
-                                        <%
-                                        } else {
-                                        %>
-                                        <option value="000000"
-                                                <%=providerview.equals("000000") ? "selected" : ""%>>
-                                            <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
-                                        </option>
-                                        <%
-                                            for (int i = 0; i < vecProvider.size(); i++) {
-                                                propT = (Properties) vecProvider.get(i);
-                                                String info = propT.getProperty("proOHIP");
-                                                String prov = info.substring(0, info.indexOf("|"));
-
-                                        %>
-
-                                        <option value="<%=propT.getProperty("proOHIP")%>"
-                                                <%=providerview.equalsIgnoreCase(prov) ? "selected" : ""%>>
-                                            <b><carlos:encode value='<%= propT.getProperty("last_name") + ", " + propT.getProperty("first_name") %>' context="html"/>
-                                            </b>
-                                        </option>
-                                        <%
-                                                }
-                                            }
-                                        %>
-                                    </select> <%
-                                        }
-                                    %>
-
+                                        <%-- Multisite + non-multisite provider pickers fully driven
+                                             by formModel; SiteDao + Provider iteration done in the
+                                             assembler. The pre-rendered <option> HTML for the
+                                             multisite per-site picker lives in
+                                             ${formModel.multisiteProviderHtml} keyed by site name. --%>
+                                        <c:choose>
+                                            <c:when test="${formModel.multisiteEnabled}">
+                                                <script>
+                                                    var _providers = [];
+                                                    <c:forEach var="msite" items="${formModel.multisiteSites}">
+                                                        _providers["<carlos:encode value='${msite.name}' context='javaScript'/>"] = "<carlos:encode value='${formModel.multisiteProviderHtml[msite.name]}' context='javaScript'/>";
+                                                    </c:forEach>
+                                                    function changeSite(sel) {
+                                                        sel.form.xml_provider.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
+                                                        sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
+                                                    }
+                                                </script>
+                                                <select id="site" name="site" onchange="changeSite(this)">
+                                                    <option value="none" style="background-color: white"><fmt:message key="oscar.billing.ca.on.billingON.selectClinic"/></option>
+                                                    <c:forEach var="msite" items="${formModel.multisiteSites}">
+                                                        <option value="<carlos:encode value='${msite.name}' context='htmlAttribute'/>"
+                                                                style="background-color:<carlos:encode value='${msite.bgColor}' context='cssString'/>"
+                                                                ${msite.name eq formModel.defaultSelectedSite ? 'selected' : ''}>
+                                                            <carlos:encode value='${msite.name}' context='html'/>
+                                                        </option>
+                                                    </c:forEach>
+                                                </select>
+                                                <select id="xml_provider" name="xml_provider"></select>
+                                                <script>
+                                                    changeSite(document.getElementById("site"));
+                                                    document.getElementById("xml_provider").value = '<carlos:encode value="${formModel.selectedXmlProvider}" context="javaScript"/>';
+                                                </script>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <select name="xml_provider">
+                                                    <c:choose>
+                                                        <c:when test="${fn:length(formModel.providers) eq 1}">
+                                                            <c:forEach var="po" items="${formModel.providers}">
+                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                        ${formModel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
+                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
+                                                                </option>
+                                                            </c:forEach>
+                                                        </c:when>
+                                                        <c:otherwise>
+                                                            <option value="000000"
+                                                                    ${formModel.providerView eq '000000' ? 'selected' : ''}>
+                                                                <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
+                                                            </option>
+                                                            <c:forEach var="po" items="${formModel.providers}">
+                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                        ${fn:toLowerCase(formModel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
+                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
+                                                                </option>
+                                                            </c:forEach>
+                                                        </c:otherwise>
+                                                    </c:choose>
+                                                </select>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
                                     <td style="width: 20%"><carlos:encode value='${formModel.assgProviderDisplay}' context='html'/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="width: 30%"><b><%
-                                        if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
-                                    %>
-                                        <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/> <%
-                                        } else {
-                                        %> <fmt:message key="billing.billingCorrection.formVisitType"/> <%
-                                            }
-                                        %>
+                                    <td style="width: 30%"><b>
+                                        <c:choose>
+                                            <c:when test="${formModel.rmaEnabled}">
+                                                <fmt:message key="oscar.billing.ca.on.billingON.clinicNbr"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <fmt:message key="billing.billingCorrection.formVisitType"/>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </b></td>
                                     <td style="width: 20%"><select name="xml_visittype" onchange="updateDate()">
-                                        <%
-                                            if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
-                                        %>
-                                        <%-- Round-15: clinic-nbr dropdown driven by pre-loaded
-                                             formModel.clinicNbrs (replaces ClinicNbrDao.findAll +
-                                             ProviderDao.getProvider/comments XML inline calls). --%>
-                                        <%
-                                            String providerNbr = model.getSelectedClinicNbrPrefix();
-                                            for (io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel.ClinicNbrEntry __c : model.getClinicNbrs()) {
-                                                String valueString = __c.displayLabel();
-                                        %>
-                                        <option value="<%= valueString %>"
-                                                <%= providerNbr.startsWith(__c.nbrValue()) ? "selected" : "" %>><%= valueString %>
-                                        </option>
-                                        <% } %>
-                                        <%
-                                        } else {
-                                        %>
+                                        <c:choose>
+                                            <c:when test="${formModel.rmaEnabled}">
+                                                <%-- clinic-nbr dropdown driven by pre-loaded
+                                                     formModel.clinicNbrs (replaces ClinicNbrDao.findAll +
+                                                     ProviderDao.getProvider/comments XML inline calls). --%>
+                                                <c:forEach var="__c" items="${formModel.clinicNbrs}">
+                                                    <option value="<carlos:encode value='${__c.displayLabel}' context='htmlAttribute'/>"
+                                                            ${fn:startsWith(formModel.selectedClinicNbrPrefix, __c.nbrValue) ? 'selected' : ''}>
+                                                        <carlos:encode value='${__c.displayLabel}' context='html'/>
+                                                    </option>
+                                                </c:forEach>
+                                            </c:when>
+                                            <c:otherwise>
                                         <option value="00| Clinic Visit"
                                                 ${fn:startsWith(formModel.visitType, '00') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
@@ -1436,9 +1374,8 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         <option value="05| Home Visit"
                                                 ${fn:startsWith(formModel.visitType, '05') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
-                                        <%
-                                            }
-                                        %>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </select></td>
                                     <td style="width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width: 20%">

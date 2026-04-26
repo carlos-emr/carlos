@@ -244,6 +244,14 @@ public final class BillingONFormViewModel {
     /** Pre-rendered "msg" string (msg seed + errorMsg + warningMsg + DOB-invalid
      *  warning) the legacy JSP built inline at lines 273-280. */
     private final String displayMessage;
+    /** Pre-resolved value for the multisite xml_provider input on first render
+     *  ({@code request.getParameter("xml_provider") || defaultXmlProvider}). */
+    private final String selectedXmlProvider;
+    /** Pre-rendered provider-pickers HTML keyed by site name. The legacy JSP
+     *  built the same string inline via SiteDao + Provider iteration; the
+     *  assembler now produces it once so the {@code _providers} JS array can
+     *  be a {@code c:forEach}-emitted assignment. */
+    private final Map<String, String> multisiteProviderHtml;
     /** Pre-resolved request-param echoes for hidden-input value attributes —
      *  appointment_date / start_time / asstProvider_no / apptProvider_no /
      *  billNo_old / billStatus_old / dxCode1 / dxCode2 / serviceCodeN /
@@ -350,6 +358,9 @@ public final class BillingONFormViewModel {
         this.dxCodeDefault = nullToEmpty(b.dxCodeDefault);
         this.serviceDateDefault = nullToEmpty(b.serviceDateDefault);
         this.displayMessage = nullToEmpty(b.displayMessage);
+        this.selectedXmlProvider = nullToEmpty(b.selectedXmlProvider);
+        this.multisiteProviderHtml = b.multisiteProviderHtml == null
+                ? Collections.emptyMap() : Map.copyOf(b.multisiteProviderHtml);
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
@@ -463,6 +474,8 @@ public final class BillingONFormViewModel {
     public String getDxCodeDefault() { return dxCodeDefault; }
     public String getServiceDateDefault() { return serviceDateDefault; }
     public String getDisplayMessage() { return displayMessage; }
+    public String getSelectedXmlProvider() { return selectedXmlProvider; }
+    public Map<String, String> getMultisiteProviderHtml() { return multisiteProviderHtml; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
@@ -541,6 +554,8 @@ public final class BillingONFormViewModel {
         private String dxCodeDefault;
         private String serviceDateDefault;
         private String displayMessage;
+        private String selectedXmlProvider;
+        private Map<String, String> multisiteProviderHtml;
         private Map<String, String> requestParamEchoes;
         private Map<String, String> requestEchoes;
 
@@ -642,6 +657,8 @@ public final class BillingONFormViewModel {
         public Builder dxCodeDefault(String v) { this.dxCodeDefault = v; return this; }
         public Builder serviceDateDefault(String v) { this.serviceDateDefault = v; return this; }
         public Builder displayMessage(String v) { this.displayMessage = v; return this; }
+        public Builder selectedXmlProvider(String v) { this.selectedXmlProvider = v; return this; }
+        public Builder multisiteProviderHtml(Map<String, String> v) { this.multisiteProviderHtml = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v == null ? null : Map.copyOf(v); return this; }
 
@@ -663,6 +680,10 @@ public final class BillingONFormViewModel {
         public String peekErrorMsg() { return errorMsg; }
         public String peekWarningMsg() { return warningMsg; }
         public boolean peekDemoDobInvalid() { return demoDobInvalid; }
+        public String peekDefaultXmlProvider() { return defaultXmlProvider; }
+        public List<MultisiteSite> peekMultisiteSites() {
+            return multisiteSites == null ? Collections.emptyList() : multisiteSites;
+        }
     }
 
     /**

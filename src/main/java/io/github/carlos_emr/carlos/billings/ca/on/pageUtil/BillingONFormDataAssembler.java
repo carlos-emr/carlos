@@ -565,6 +565,35 @@ public final class BillingONFormDataAssembler {
         b.serviceDateDefault(reqServiceDate != null && !reqServiceDate.isEmpty()
                 ? reqServiceDate : today);
 
+        // ---- multisite xml_provider default (request param > assembler default) ----
+        String reqXmlProvider = request.getParameter("xml_provider");
+        // The assembler-supplied default lives on the in-flight builder via the
+        // siteContextComposer; re-read it for the final pre-resolve step.
+        String composedDefault = b.peekDefaultXmlProvider();
+        b.selectedXmlProvider(reqXmlProvider != null && !reqXmlProvider.isEmpty()
+                ? reqXmlProvider : nullToEmpty(composedDefault));
+
+        // ---- multisite per-site provider <option>... HTML for the JS map ----
+        // The legacy JSP iterated SiteDao.getActiveSitesByProviderNo and built
+        // a JS associative array {siteName: "<option ...>...</option>..."}
+        // inline. We pre-render it here so the JSP renders one
+        // <c:forEach> JS-string assignment instead of a 50-line scriptlet.
+        java.util.Map<String, String> siteHtml = new java.util.LinkedHashMap<>();
+        for (BillingONFormViewModel.MultisiteSite site : b.peekMultisiteSites()) {
+            StringBuilder html = new StringBuilder();
+            for (BillingONFormViewModel.MultisiteProvider p : site.providers()) {
+                String value = p.providerNo() + "|" + p.ohipNo();
+                String label = p.lastName() + ", " + p.firstName();
+                html.append("<option value='")
+                        .append(escapeForHtmlAttr(value))
+                        .append("'>")
+                        .append(escapeForHtml(label))
+                        .append("</option>");
+            }
+            siteHtml.put(site.name(), html.toString());
+        }
+        b.multisiteProviderHtml(siteHtml);
+
         // ---- request-param echoes (form-state preservation across self-posts) ----
         java.util.Map<String, String> echoes = new java.util.HashMap<>();
         for (String name : new String[]{
@@ -786,6 +815,19 @@ public final class BillingONFormDataAssembler {
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
+    }
+
+    /** OWASP-style HTML body escape for the pre-rendered multisite-provider
+     *  HTML strings. Defers to {@link io.github.carlos_emr.carlos.utility.SafeEncode}
+     *  so the rules match the JSP's {@code <carlos:encode>} tag. */
+    private static String escapeForHtml(String s) {
+        return io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(s);
+    }
+
+    /** OWASP-style HTML attribute escape for the {@code <option value='...'>}
+     *  attribute the multisite-provider HTML emits. */
+    private static String escapeForHtmlAttr(String s) {
+        return io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(s);
     }
 
     /**
