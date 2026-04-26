@@ -22,7 +22,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
  *
  * @since 2026-04-25
  */
-final class BillingONRequestParams {
+public final class BillingONRequestParams {
 
     private BillingONRequestParams() {
         // utility
@@ -41,7 +41,7 @@ final class BillingONRequestParams {
      *
      * <p>Pure function; no side effects on the request.</p>
      */
-    static String extractProviderNo(String xmlProvider, String providerView) {
+    public static String extractProviderNo(String xmlProvider, String providerView) {
         String s = xmlProvider != null && !xmlProvider.isEmpty()
                 ? xmlProvider
                 : (providerView != null ? providerView : "");

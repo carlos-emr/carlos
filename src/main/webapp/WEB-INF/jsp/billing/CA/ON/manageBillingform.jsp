@@ -29,7 +29,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDiagCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServicePremiumDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ManageBillingformDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformDataAssembler" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

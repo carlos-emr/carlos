@@ -22,6 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- Empty stub. ViewGenSimulation2Action enforces _billing r and runs the
      dry-run extract via OhipReportGenerationService.generateSimulation

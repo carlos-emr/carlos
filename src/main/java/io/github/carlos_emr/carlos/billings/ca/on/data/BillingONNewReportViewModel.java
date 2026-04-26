@@ -18,7 +18,7 @@ import java.util.Properties;
 
 /**
  * Immutable view model for {@code billing/CA/ON/billingONNewReport.jsp}. Built
- * by {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONNewReportDataAssembler}
+ * by {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONNewReportDataAssembler}
  * before the JSP renders. Captures the four-mode report data
  * (unbilled / billed / paid / unpaid) plus the dropdown options the JSP
  * uses to present the "select provider" / "select clinic" controls.

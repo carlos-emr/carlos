@@ -20,9 +20,9 @@ import java.util.List;
  * OHIP-extract simulation admin form.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingOHIPSimulationDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOHIPSimulationDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingOHIPsimulation2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOHIPsimulation2Action})
  * and exposed to the JSP as request attribute {@code simulationModel}.</p>
  *
  * <p>The simulation HTML preview is built when

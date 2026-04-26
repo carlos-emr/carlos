@@ -18,7 +18,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
  * <p>Captures demographic + provider lookups, the chosen diagnostic code, the
  * pre-rendered service-code / percent-code rows, the validation messages, and
  * all derived flags / request-param echoes the JSP needs. Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONReviewDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONReviewDataAssembler}
  * and exposed to the JSP as request attribute {@code reviewModel}. Replaces
  * the legacy multi-block scriptlet that previously ran inline in the JSP.</p>
  *

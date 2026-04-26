@@ -22,6 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- ViewOnGenRAsettle2Action enforces _billing w + POST and runs the settle
      mutation via OnGenRAsettleService — the 3 inline DAO lookups

@@ -25,12 +25,13 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONCorrectionDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler" %>
 <%-- errorPage routes JSP-render exceptions to errorpage.jsp, which calls
      ErrorPageLogger.logIfPresent so a render-time NPE doesn't disappear
      into a generic CARLOS Error 500 with no stack trace in catalina.out.
      Without this directive, a throw inside the scriptlet body or any
      <jsp:include> would fall through to the container default. --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionRenderContextComposer" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>

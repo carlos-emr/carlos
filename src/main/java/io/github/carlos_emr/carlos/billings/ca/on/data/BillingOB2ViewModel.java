@@ -23,9 +23,9 @@ package io.github.carlos_emr.carlos.billings.ca.on.data;
  * description.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingOB2DataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOB2DataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingOB22Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingOB2View2Action})
  * and exposed to the JSP as request attribute {@code ob2Model}.</p>
  *
  * <p>Eliminates the 6 inline {@code SpringUtils.getBean} lookups the JSP

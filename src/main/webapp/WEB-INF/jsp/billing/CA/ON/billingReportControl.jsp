@@ -26,7 +26,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportControlViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReportControlDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportControlDataAssembler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

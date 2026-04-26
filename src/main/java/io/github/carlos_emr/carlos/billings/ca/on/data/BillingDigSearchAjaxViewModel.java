@@ -21,7 +21,7 @@ import java.util.List;
  * suggestions as JSON.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDigSearchAjaxDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler#assemble}
  * and exposed to the JSP as request attribute {@code ajaxModel}.</p>
  *
  * @since 2026-04-26

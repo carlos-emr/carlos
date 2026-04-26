@@ -24,7 +24,7 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONStatusDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONStatusDataAssembler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>

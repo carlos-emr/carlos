@@ -29,7 +29,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONEditPrivateCodeDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONEditPrivateCodeDataAssembler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

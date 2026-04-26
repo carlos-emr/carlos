@@ -23,9 +23,9 @@ import java.util.Vector;
  * hospital-billing entry, page 1).
  *
  * <p>Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg1DataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1DataAssembler}
  * via
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingShortcutPg12Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingShortcutPg12Action}
  * and exposed to the JSP as request attribute {@code shortcutPg1Model}. Captures
  * the demographic + provider lookups, the billing-history vectors, the
  * service-code grid, and the validation messages that previously lived in the

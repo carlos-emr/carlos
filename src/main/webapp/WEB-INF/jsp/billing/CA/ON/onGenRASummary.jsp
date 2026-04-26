@@ -22,6 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRASummaryDataAssembler" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>

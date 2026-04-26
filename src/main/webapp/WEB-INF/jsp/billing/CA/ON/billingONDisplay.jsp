@@ -24,7 +24,7 @@
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDisplayViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONDisplayDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayDataAssembler" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>

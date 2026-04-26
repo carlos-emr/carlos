@@ -1,7 +1,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReportFragmentDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
 <%--
   Defensive lazy-loader: only assembles the fragment view model when reached
   without it. The parent billingReportControl.jsp passes reportAction=unbilled

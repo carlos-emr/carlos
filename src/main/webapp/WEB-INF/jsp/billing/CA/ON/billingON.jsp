@@ -41,6 +41,7 @@
 <%@page import="io.github.carlos_emr.carlos.appt.*" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.*" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>

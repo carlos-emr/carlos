@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReportFragmentDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingReportFragmentDataAssembler" %>
 
 <%--
   Fragment-local model resolver: this JSPF is statically included from

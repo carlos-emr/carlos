@@ -29,7 +29,7 @@
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.AddEditServiceCodeViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.AddEditServiceCodeDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.AddEditServiceCodeDataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <fmt:setBundle basename="oscarResources"/>

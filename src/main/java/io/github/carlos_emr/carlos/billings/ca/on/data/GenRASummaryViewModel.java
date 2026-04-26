@@ -25,7 +25,7 @@ import java.util.List;
  *
  * <p>Both Summary and SummaryDetail JSPs share this model — they
  * differ only in cosmetic rendering. Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRASummaryDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAssembler#assemble}
  * and exposed to the JSPs as request attribute {@code raSummaryModel}.</p>
  *
  * <p>Eliminates the 5 inline {@code SpringUtils.getBean} lookups each JSP

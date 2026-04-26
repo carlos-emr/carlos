@@ -19,7 +19,7 @@ import java.util.Properties;
 
 /**
  * Immutable view model for {@code billing/CA/ON/onGenRASummary.jsp}. Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.OnGenRASummaryDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRASummaryDataAssembler}
  * after the action runs the RA-header audit merge. Holds the dropdown options,
  * the per-row summary data, and the running totals the JSP renders.
  *

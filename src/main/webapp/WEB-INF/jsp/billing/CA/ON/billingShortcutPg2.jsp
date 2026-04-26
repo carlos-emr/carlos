@@ -27,7 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg2DataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg2DataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>

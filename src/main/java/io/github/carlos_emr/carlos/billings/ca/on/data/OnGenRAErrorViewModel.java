@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Immutable view model for {@code billing/CA/ON/onGenRAError.jsp}, the
  * Billing Reconciliation - Error Report page. Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.OnGenRAErrorDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRAErrorDataAssembler}
  * after the action validates the {@code rano} parameter.
  *
  * @since 2026-04-25

@@ -23,9 +23,9 @@ import java.util.List;
  * <p>Captures the form state, the selected provider, the per-row
  * structured records for each sub-report, and the cumulative totals.
  * Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONPaymentDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONPayment2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingONPayment2Action})
  * and exposed to the JSP as request attribute {@code paymentModel}.</p>
  *
  * <p>Eliminates the 9 inline {@code SpringUtils.getBean} lookups the JSP

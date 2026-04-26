@@ -30,7 +30,7 @@ import java.util.List;
  * </ul>
  *
  * <p>All of that now runs in
- * io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewSearchRefDoc2Action
+ * io.github.carlos_emr.carlos.billings.ca.on.web.ViewSearchRefDoc2Action
  * and is exposed to the JSP as request attribute refDocModel.</p>
  *
  * <p>Field naming note: the six JS-path slots are stored under generic

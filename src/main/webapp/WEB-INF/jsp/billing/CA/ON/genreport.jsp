@@ -22,6 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- Empty stub. ViewGenReport2Action enforces _billing w + POST and runs the
      SOLO_REPORT pass via OhipReportGenerationService (BillActivity persist +

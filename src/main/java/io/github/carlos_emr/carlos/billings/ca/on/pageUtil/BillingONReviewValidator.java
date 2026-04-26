@@ -78,13 +78,13 @@ public final class BillingONReviewValidator {
     private final DiagnosticCodeDao diagnosticCodeDao;
 
     /** Production constructor used via SpringUtils; tests use the package-private one. */
-    BillingONReviewValidator() {
+    public BillingONReviewValidator() {
         this(SpringUtils.getBean(BillingONCHeader1Dao.class),
              SpringUtils.getBean(BillingServiceDao.class),
              SpringUtils.getBean(DiagnosticCodeDao.class));
     }
 
-    BillingONReviewValidator(BillingONCHeader1Dao bCh1Dao,
+    public BillingONReviewValidator(BillingONCHeader1Dao bCh1Dao,
                              BillingServiceDao billingServiceDao,
                              DiagnosticCodeDao diagnosticCodeDao) {
         this.bCh1Dao = bCh1Dao;
@@ -97,7 +97,7 @@ public final class BillingONReviewValidator {
      * The {@code billReferenceDate} is the date used for service-code
      * termination-date filtering ({@code findBillingCodesByCodeAndTerminationDate}).
      */
-    Result validate(HttpServletRequest request, String demoNo, String billReferenceDate) {
+    public Result validate(HttpServletRequest request, String demoNo, String billReferenceDate) {
         List<Message> messages = new ArrayList<>();
         boolean codeValid = true;
 

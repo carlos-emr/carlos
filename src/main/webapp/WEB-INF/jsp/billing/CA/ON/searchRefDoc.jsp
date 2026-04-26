@@ -32,7 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.SearchRefDocViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewSearchRefDoc2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.web.ViewSearchRefDoc2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>

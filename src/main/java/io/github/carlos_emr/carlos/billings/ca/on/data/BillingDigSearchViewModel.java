@@ -20,9 +20,9 @@ import java.util.List;
  * (ICD-9) search popup.
  *
  * <p>Captures the search-result rows + auto-select state. Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDigSearchDataAssembler#assemble}.
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler#assemble}.
  * The legacy JSP scriptlet ran a complex code-vs-text dispatcher;
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDigSearchDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler}
  * encapsulates that decision and produces a flat row list here.</p>
  *
  * @since 2026-04-26

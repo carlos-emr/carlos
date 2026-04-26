@@ -24,9 +24,9 @@ import java.util.List;
  * service-code/unit pair derived from the bill's active line items.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingEditWithApptNoDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingEditWithApptNoDataAssembler}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingEditWithApptNo2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingEditWithApptNo2Action})
  * and exposed as request attribute {@code editApptModel}.</p>
  *
  * @since 2026-04-25

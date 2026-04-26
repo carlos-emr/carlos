@@ -19,7 +19,7 @@ import java.util.Map;
 /**
  * Immutable view model for {@code billingONDisplay.jsp} (the
  * "Billing Correction" form). Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONDisplayDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONDisplayDataAssembler}
  * and exposed as request attribute {@code displayModel}.
  *
  * <p>Captures the request-parameter echoes, the resolved bill-header data,

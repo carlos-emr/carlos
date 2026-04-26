@@ -25,9 +25,9 @@ import java.util.List;
  * payment / discount / refund / balance totals.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingON3rdInvDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingON3rdInvDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingON3rdInv2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingON3rdInv2Action})
  * and exposed to the JSP as request attribute {@code invoiceModel}.</p>
  *
  * <p>Eliminates the 9 inline {@code SpringUtils.getBean} lookups the JSP

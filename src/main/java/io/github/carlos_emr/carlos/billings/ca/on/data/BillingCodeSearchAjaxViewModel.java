@@ -21,7 +21,7 @@ import java.util.List;
  * suggestions as JSON.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCodeSearchAjaxDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCodeSearchAjaxDataAssembler#assemble}
  * and exposed to the JSP as request attribute {@code ajaxModel}.</p>
  *
  * <p>Eliminates the inline {@code SpringUtils.getBean(BillingServiceDao)}

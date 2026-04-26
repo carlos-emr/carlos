@@ -27,7 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRADescViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRADescDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>

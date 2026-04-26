@@ -20,9 +20,9 @@ import java.util.List;
  * service-code-filtered billing-history popup.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONHistorySpecDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistorySpecDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONHistorySpec2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONHistorySpec2Action})
  * and exposed to the JSP as request attribute {@code historySpecModel}.</p>
  *
  * <p>Captures the request parameter echoes (demographic_no, demo_name,

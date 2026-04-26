@@ -21,8 +21,8 @@ import java.util.Set;
  * Immutable view model for the Ontario billing form ({@code billingON.jsp}).
  *
  * <p>Assembled by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONFormDataAssembler}
- * via {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingON2Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFormDataAssembler}
+ * via {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingON2Action}
  * and exposed to the JSP as request attribute {@code formModel}. Carries the
  * provider/demographic context, dx/service-code grids, billing history, and
  * validation banner state the form needs to render — replacing ~24 DAO

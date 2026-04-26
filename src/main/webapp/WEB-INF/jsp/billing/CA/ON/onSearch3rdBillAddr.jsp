@@ -27,7 +27,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.OnSearch3rdBillAddrViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewOnSearch3rdBillAddr2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnSearch3rdBillAddr2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>

@@ -20,9 +20,9 @@ import java.util.List;
  * billing-history popup with DataTables-powered listing.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONHistoryDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONHistoryDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONHistory2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONHistory2Action})
  * and exposed to the JSP as request attribute {@code historyModel}.</p>
  *
  * <p>Captures the patient display block (resolved server-side to keep PHI

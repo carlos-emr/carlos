@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Immutable view model for {@code billing/CA/ON/onGenRA.jsp}, the
  * Billing Reconciliation list page. Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.OnGenRADataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.OnGenRADataAssembler}
  * after the action runs the optional RA file import + Rahd list lookup.
  *
  * <p>Captures the rows the JSP renders (one per RA header) plus the action

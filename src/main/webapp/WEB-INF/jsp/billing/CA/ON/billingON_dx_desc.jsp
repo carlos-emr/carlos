@@ -29,6 +29,7 @@
 
 --%>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDxDescViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDxCodeDataAssembler" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     // ViewBillingONDxDesc2Action enforces _billing r and assembles the

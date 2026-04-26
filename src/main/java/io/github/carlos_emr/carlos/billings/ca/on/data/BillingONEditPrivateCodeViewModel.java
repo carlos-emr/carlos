@@ -21,9 +21,9 @@ import java.util.Map;
  * the manage-private-billing-code admin form.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONEditPrivateCodeDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONEditPrivateCodeDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONEditPrivateCode2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONEditPrivateCode2Action})
  * and exposed to the JSP as request attribute {@code privateCodeModel}.</p>
  *
  * @since 2026-04-25

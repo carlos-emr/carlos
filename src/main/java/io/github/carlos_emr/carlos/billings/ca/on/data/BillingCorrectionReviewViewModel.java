@@ -28,9 +28,9 @@ import java.util.List;
  * beans on POST &mdash; this view model is render-only.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionReviewDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCorrectionReviewDataAssembler}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionReview2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrectionReview2Action})
  * and exposed as request attribute {@code reviewModel}.</p>
  *
  * @since 2026-04-25

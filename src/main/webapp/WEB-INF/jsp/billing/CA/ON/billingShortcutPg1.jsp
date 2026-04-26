@@ -64,7 +64,7 @@
             __userProviderNo = "";
         }
         BillingShortcutPg1ViewModel __fallbackModel =
-                new io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingShortcutPg1DataAssembler()
+                new io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingShortcutPg1DataAssembler()
                         .assemble(request, __userProviderNo);
         request.setAttribute("shortcutPg1Model", __fallbackModel);
     }

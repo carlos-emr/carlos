@@ -20,7 +20,7 @@ import java.util.Map;
  * Immutable view model for {@code billingONStatus.jsp}.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONStatus2Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONStatus2Action}
  * and exposed as request attribute {@code statusModel}. Captures the request
  * parameter echoes + default-value resolution that previously lived in the top
  * scriptlet of the JSP, together with all rendering data (provider list,

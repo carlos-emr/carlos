@@ -24,13 +24,13 @@ import java.util.Set;
  * provider-access list, multisite list) that the JSP top scriptlet currently
  * builds inline. Bill-record-specific data (the Ch1 invoice + items the
  * correction page actually edits) still flows through
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action}'s
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action}'s
  * existing state machine and is not duplicated here.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONCorrectionDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONCorrectionDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrection2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action})
  * and exposed to the JSP as request attribute {@code correctionModel}.</p>
  *
  * @since 2026-04-24

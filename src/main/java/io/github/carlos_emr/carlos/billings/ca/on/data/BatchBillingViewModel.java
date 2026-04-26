@@ -23,7 +23,7 @@ import java.util.List;
  * dropdown, and batch-bill rows the JSP renders, plus the user-no /
  * current-date / current-time hidden form values it forwards on submit.
  * Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BatchBillingDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action}
  * (invoked from
  * {@link io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBill2Action})
  * and exposed as request attribute {@code batchModel}.</p>

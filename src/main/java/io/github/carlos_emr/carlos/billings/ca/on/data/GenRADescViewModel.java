@@ -26,9 +26,9 @@ import java.util.List;
  * its OHIP-mapped provider dropdown options).</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRADescDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRADescDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewGenRADesc2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewGenRADesc2Action})
  * and exposed to the JSP as request attribute {@code raDescModel}.</p>
  *
  * <p>Eliminates the 3 inline {@code SpringUtils.getBean} lookups the JSP

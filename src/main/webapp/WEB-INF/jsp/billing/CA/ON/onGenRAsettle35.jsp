@@ -22,6 +22,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OnGenRAsettleService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%-- ViewOnGenRAsettle352Action enforces _billing w + POST and runs the
      I2/35 settle mutation (with Q-code allow-list) via OnGenRAsettleService

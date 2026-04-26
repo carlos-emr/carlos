@@ -27,7 +27,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRASummaryDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.GenRASummaryDataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 

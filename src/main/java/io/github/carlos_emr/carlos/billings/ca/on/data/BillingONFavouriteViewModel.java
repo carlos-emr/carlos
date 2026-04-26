@@ -21,9 +21,9 @@ import java.util.Map;
  * Add/Edit Service Code "favourites" admin form.
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONFavouriteDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONFavouriteDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONFavourite2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONFavourite2Action})
  * and exposed to the JSP as request attribute {@code favouriteModel}.</p>
  *
  * @since 2026-04-25

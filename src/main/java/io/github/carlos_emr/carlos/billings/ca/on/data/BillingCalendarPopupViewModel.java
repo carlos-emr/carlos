@@ -18,7 +18,7 @@ import java.util.List;
 /**
  * Immutable view model for {@code billing/CA/ON/billingCalendarPopup.jsp},
  * the generic month-grid date-picker popup. Built by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCalendarPopupDataAssembler}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingCalendarPopupDataAssembler}
  * after the action validates the {@code year}/{@code month}/{@code delta}/{@code type}
  * request parameters.
  *

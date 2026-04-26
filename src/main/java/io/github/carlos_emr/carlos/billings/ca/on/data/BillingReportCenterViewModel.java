@@ -24,7 +24,7 @@ import java.util.List;
  * OHIP numbers, and echoed two date parameters ({@code xml_vdate},
  * {@code xml_appointment_date}) plus the {@code providerview} parameter
  * back into the form. All four pieces are now resolved server-side by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingReportCenter2Action}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingReportCenter2Action}
  * and exposed via this view model.</p>
  *
  * @since 2026-04-25

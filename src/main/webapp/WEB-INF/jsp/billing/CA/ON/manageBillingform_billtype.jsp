@@ -34,7 +34,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.ManageBillingformBilltypeViewModel" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ManageBillingformBilltypeDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.ManageBillingformBilltypeDataAssembler" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%--

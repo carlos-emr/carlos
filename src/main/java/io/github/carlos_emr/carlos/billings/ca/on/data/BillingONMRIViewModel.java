@@ -28,9 +28,9 @@ import java.util.Map;
  * provider per disk) plus older BillActivity records.</p>
  *
  * <p>Populated by
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONMRIDataAssembler#assemble}
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONMRIDataAssembler#assemble}
  * (invoked from
- * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.ViewBillingONMRI2Action})
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONMRI2Action})
  * and exposed to the JSP as request attribute {@code mriModel}.</p>
  *
  * <p>Eliminates the 4 inline {@code SpringUtils.getBean} lookups the JSP

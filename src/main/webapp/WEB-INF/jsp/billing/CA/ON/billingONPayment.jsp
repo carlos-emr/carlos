@@ -36,7 +36,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONPaymentViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONPaymentDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingONPaymentDataAssembler" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
