@@ -1,76 +1,42 @@
-<%@page import="java.net.URLEncoder" %>
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingReportFragmentViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReportFragmentDataAssembler" %>
+<%--
+  Defensive lazy-loader: only assembles the fragment view model when reached
+  without it. The parent billingReportControl.jsp passes reportAction=unbilled
+  on the request; the assembler picks the unbilled branch from there.
+--%>
+<%
+    if (request.getAttribute("billingReportFragmentModel") == null) {
+        request.setAttribute("billingReportFragmentModel",
+                new BillingReportFragmentDataAssembler().assemble(request, "unbilled"));
+    }
+%>
 <table width="100%" border="2" valign="top">
-	<% 
-String dateBegin = request.getParameter("xml_vdate");
-String dateEnd = request.getParameter("xml_appointment_date");
-if (dateEnd.compareTo("") == 0) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-if (dateBegin.compareTo("") == 0) dateBegin="2001-01-01";
-
-List<Appointment> bs = appointmentDao.search_unbill_history_daterange(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
-
-
-boolean bodd=false;
-nItems=0;
-String apptNo="", demoNo = "", demoName="", userno="", apptDate="", apptTime="", reason="";
-if(bs==null) {
-	out.println("failed!!!"); 
-} else {
-%>
-	<tr bgcolor="#CCCCFF">
-		<TH width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></TH>
-		<TH width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">TIME</font></b></TH>
-		<TH width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">PATIENT</font></b></TH>
-		<TH width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">DESCRIPTION</font></b></TH>
-		<TH width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">COMMENTS</font></b></TH>
-	</tr>
-	<%
-	for (Appointment a:bs) {
-		bodd=bodd?false:true; //for the color of rows
-		nItems++; //to calculate if it is the end of records
-		apptNo = a.getId().toString();
-		demoNo = String.valueOf(a.getDemographicNo());
-		demoName = a.getName();
-		userno=a.getProviderNo();
-		apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
-		apptTime =  ConversionUtils.toDateString(a.getStartTime());
-		reason = a.getReason();
-%>
-	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>" align="center">
-		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= apptDate %>' context="html"/></font></b></TD>
-		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= apptTime %>' context="html"/></font></b></TD>
-		<TD width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
-		<TD width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/></font></b></TD>
-		<TD width="10%"><b> <font size="2"
-			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "/billing?billForm=<carlos:encode value='<%= URLEncoder.encode(oscarVariables.getProperty("default_view"), "UTF-8") %>' context="javaScriptAttribute"/>&hotclick=&appointment_no=<carlos:encode value='<%= apptNo %>' context="javaScriptAttribute"/>&demographic_name=<carlos:encode value='<%= URLEncoder.encode(demoName, "UTF-8") %>' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='<%= demoNo %>' context="javaScriptAttribute"/>&user_no=<carlos:encode value='<%= userno %>' context="javaScriptAttribute"/>&apptProvider_no=<carlos:encode value='<%= providerview %>' context="javaScriptAttribute"/>&appointment_date=<carlos:encode value='<%= apptDate %>' context="javaScriptAttribute"/>&start_time=<carlos:encode value='<%= apptTime %>' context="javaScriptAttribute"/>&bNewForm=1")'
-			title="<carlos:encode value='<%= reason %>' context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
-	</tr>
-	<%
-		rowCount = rowCount + 1;
-	}
-
-	if (rowCount == 0) {
-%>
-	<tr bgcolor="<%=bodd?"ivory":"white"%>">
-		<TD colspan="5"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">No unbill items</font></b></TD>
-	</tr>
-	<% 
-	}
-}
-%>
+    <tr bgcolor="#CCCCFF">
+        <th width="20%"><b><font size="2" face="Arial, Helvetica, sans-serif">SERVICE DATE</font></b></th>
+        <th width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif">TIME</font></b></th>
+        <th width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif">PATIENT</font></b></th>
+        <th width="20%"><b><font size="2" face="Arial, Helvetica, sans-serif">DESCRIPTION</font></b></th>
+        <th width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif">COMMENTS</font></b></th>
+    </tr>
+    <c:forEach var="row" items="${billingReportFragmentModel.unbilledRows}">
+        <tr bgcolor="<carlos:encode value='${row.rowBgColor}' context='htmlAttribute'/>" align="center">
+            <td width="20%"><b><font size="2" face="Arial, Helvetica, sans-serif"><carlos:encode value='${row.apptDate}' context='html'/></font></b></td>
+            <td width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif"><carlos:encode value='${row.apptTime}' context='html'/></font></b></td>
+            <td width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif"><carlos:encode value='${row.demoName}' context='html'/></font></b></td>
+            <td width="20%"><b><font size="2" face="Arial, Helvetica, sans-serif"><carlos:encode value='${row.reason}' context='html'/></font></b></td>
+            <td width="10%"><b><font size="2" face="Arial, Helvetica, sans-serif">
+                <a href="#"
+                   onClick='popupPage(700, 1000, "<carlos:encode value="${row.popupUrl}" context="javaScriptAttribute"/>")'
+                   title="<carlos:encode value='${row.reason}' context='htmlAttribute'/>">Bill |$|</a>
+            </font></b></td>
+        </tr>
+    </c:forEach>
+    <c:if test="${empty billingReportFragmentModel.unbilledRows}">
+        <tr bgcolor="white">
+            <td colspan="5"><b><font size="2" face="Arial, Helvetica, sans-serif">No unbill items</font></b></td>
+        </tr>
+    </c:if>
 </table>

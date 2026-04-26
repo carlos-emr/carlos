@@ -50,15 +50,19 @@ public final class BillingReportFragmentDataAssembler {
 
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
+    private final io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao;
 
     public BillingReportFragmentDataAssembler() {
         this(SpringUtils.getBean(BillingDao.class),
-             SpringUtils.getBean(BillingDetailDao.class));
+             SpringUtils.getBean(BillingDetailDao.class),
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class));
     }
 
-    BillingReportFragmentDataAssembler(BillingDao billingDao, BillingDetailDao billingDetailDao) {
+    BillingReportFragmentDataAssembler(BillingDao billingDao, BillingDetailDao billingDetailDao,
+                                        io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao appointmentDao) {
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
+        this.appointmentDao = appointmentDao;
     }
 
     /**
@@ -107,11 +111,52 @@ public final class BillingReportFragmentDataAssembler {
             case "flu":
                 loadFlu(providerView, dateBegin, dateEnd, b);
                 break;
+            case "unbilled":
+                b.unbilledRows(loadUnbilledRows(providerView, dateBegin, dateEnd, request));
+                break;
             default:
                 // unknown reportAction → empty model; parent JSP renders nothing
                 break;
         }
         return b.build();
+    }
+
+    private List<BillingReportFragmentViewModel.UnbilledRow> loadUnbilledRows(
+            String providerView, Date dateBegin, Date dateEnd, HttpServletRequest request) {
+        List<io.github.carlos_emr.carlos.commn.model.Appointment> bs =
+                appointmentDao.search_unbill_history_daterange(providerView, dateBegin, dateEnd);
+        List<BillingReportFragmentViewModel.UnbilledRow> rows = new ArrayList<>();
+        if (bs == null) return rows;
+        String defaultView = io.github.carlos_emr.CarlosProperties.getInstance()
+                .getProperty("default_view", "");
+        boolean bodd = false;
+        for (io.github.carlos_emr.carlos.commn.model.Appointment a : bs) {
+            bodd = !bodd;
+            String apptNo = a.getId() == null ? "" : a.getId().toString();
+            String demoNo = String.valueOf(a.getDemographicNo());
+            String demoName = nullToEmpty(a.getName());
+            String userNo = nullToEmpty(a.getProviderNo());
+            String apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
+            String apptTime = ConversionUtils.toDateString(a.getStartTime());
+            String reason = nullToEmpty(a.getReason());
+
+            String popupUrl = "/billing?billForm="
+                    + java.net.URLEncoder.encode(defaultView, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&hotclick=&appointment_no=" + apptNo
+                    + "&demographic_name="
+                    + java.net.URLEncoder.encode(demoName, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&demographic_no=" + demoNo
+                    + "&user_no=" + userNo
+                    + "&apptProvider_no=" + nullToEmpty(providerView)
+                    + "&appointment_date=" + apptDate
+                    + "&start_time=" + apptTime
+                    + "&bNewForm=1";
+
+            rows.add(new BillingReportFragmentViewModel.UnbilledRow(
+                    apptNo, demoNo, demoName, userNo, apptDate, apptTime, reason,
+                    bodd ? "#EEEEFF" : "white", popupUrl));
+        }
+        return rows;
     }
 
     private List<BillingReportFragmentViewModel.BilledRow> loadBilledRows(
