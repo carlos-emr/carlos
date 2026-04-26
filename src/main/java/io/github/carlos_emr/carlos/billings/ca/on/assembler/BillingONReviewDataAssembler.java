@@ -29,13 +29,14 @@ import java.util.TreeMap;
 import java.util.Vector;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.appt.ApptUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.administration.GstControl2Action;
 import io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDemographicSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONReviewViewModel;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSortComparator;
@@ -164,14 +165,23 @@ public final class BillingONReviewDataAssembler {
         StringBuilder warningMessage = new StringBuilder();
         String errorFlag = "";
 
-        b.demoFirst(nullToEmpty(demo.getFirstName()))
-                .demoLast(nullToEmpty(demo.getLastName()))
-                .demoHin(nullToEmpty(demo.getHin()))
-                .demoVer(nullToEmpty(demo.getVer()))
+        // Canonical demographic projection (HC type defaulting, DOB padding,
+        // raw passthrough). Review's sex normalization to "1"/"2" applies on
+        // top of the factory's pass-through.
+        BillingDemographicSummary summary = BillingDemographicSummary.fromDemographic(demo);
+        b.demoFirst(summary.firstName())
+                .demoLast(summary.lastName())
+                .demoHin(summary.hin())
+                .demoVer(summary.ver())
                 .assignedProviderNo(nullToEmpty(demo.getProviderNo()))
-                .patientAddress(buildPatientAddress(demo));
+                .patientAddress(buildPatientAddress(demo))
+                .demoHcType(summary.hcType())
+                .demoDobYy(summary.dobYy())
+                .demoDobMm(summary.dobMm())
+                .demoDobDd(summary.dobDd())
+                .demoDob(summary.dob());
 
-        String demoSex = nullToEmpty(demo.getSex());
+        String demoSex = summary.sex();
         if ("M".equals(demoSex)) {
             demoSex = "1";
         } else if ("F".equals(demoSex)) {
@@ -179,30 +189,9 @@ public final class BillingONReviewDataAssembler {
         }
         b.demoSex(demoSex);
 
-        String demoHcType = nullToEmpty(demo.getHcType());
-        if (demoHcType.length() < 2) {
-            demoHcType = "ON";
-        } else {
-            demoHcType = demoHcType.substring(0, 2).toUpperCase();
-        }
-        b.demoHcType(demoHcType);
-
-        String demoDobYy = nullToEmpty(demo.getYearOfBirth());
-        String demoDobMm = padTwo(nullToEmpty(demo.getMonthOfBirth()));
-        String demoDobDd = padTwo(nullToEmpty(demo.getDateOfBirth()));
-        String demoDob = demoDobYy + demoDobMm + demoDobDd;
-        b.demoDobYy(demoDobYy).demoDobMm(demoDobMm).demoDobDd(demoDobDd).demoDob(demoDob);
-
-        String referralDoctorName = "";
-        String referralDoctorOhip = "";
-        if (demo.getFamilyDoctor() == null) {
-            referralDoctorName = "N/A";
-            referralDoctorOhip = "000000";
-        } else {
-            referralDoctorName = nullToEmpty(SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd"));
-            referralDoctorOhip = nullToEmpty(SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip"));
-        }
-        b.referralDoctorName(referralDoctorName).referralDoctorOhip(referralDoctorOhip);
+        BillingReferralDoctor referral = BillingReferralDoctor.fromFamilyDoctor(demo.getFamilyDoctor());
+        b.referralDoctorName(referral.name()).referralDoctorOhip(referral.ohip());
+        String referralDoctorOhip = referral.ohip();
 
         if (demo.getHin() == null) {
             errorFlag = "1";
@@ -213,7 +202,7 @@ public final class BillingONReviewDataAssembler {
         if (!referralDoctorOhip.isEmpty() && referralDoctorOhip.length() != 6) {
             warningMessage.append("<br><div class='alert alert-danger'>Warning: the referral doctor's no is wrong. </div><br>");
         }
-        if (demoDob.length() != 8) {
+        if (summary.dob().length() != 8) {
             errorFlag = "1";
             errorMessage.append("<br><div class='alert alert-danger'>Error: The patient does not have a valid DOB. </div><br>");
         }
@@ -229,10 +218,6 @@ public final class BillingONReviewDataAssembler {
                 + nullToEmpty(demo.getCity()) + ", " + nullToEmpty(demo.getProvince()) + "\n"
                 + nullToEmpty(demo.getPostal()) + "\n"
                 + "Tel: " + nullToEmpty(demo.getPhone());
-    }
-
-    private static String padTwo(String v) {
-        return (v != null && v.length() == 1) ? "0" + v : v;
     }
 
     private static String nullToEmpty(String s) {

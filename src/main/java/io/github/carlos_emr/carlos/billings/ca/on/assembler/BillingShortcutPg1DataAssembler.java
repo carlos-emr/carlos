@@ -28,7 +28,9 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDemographicSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg1ViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -662,13 +664,24 @@ public final class BillingShortcutPg1DataAssembler {
         }
 
         load.assignedProviderOverride = nullToEmpty(demo.getProviderNo());
-        load.firstName = nullToEmpty(demo.getFirstName());
-        load.lastName = nullToEmpty(demo.getLastName());
 
-        String sex = nullToEmpty(demo.getSex());
+        // Canonical demographic projection (HC type defaulting, DOB padding,
+        // raw fields). Shortcut concatenates hin+ver into one display field
+        // and normalizes sex to "1"/"2", so we apply both on top of the
+        // pass-through projection.
+        BillingDemographicSummary summary = BillingDemographicSummary.fromDemographic(demo);
+        load.firstName = summary.firstName();
+        load.lastName = summary.lastName();
+        load.hcType = summary.hcType();
+        load.dobYy = summary.dobYy();
+        load.dobMm = summary.dobMm();
+        load.dobDd = summary.dobDd();
+        load.dob = summary.dob();
         if (demo.getHin() != null && demo.getVer() != null) {
             load.hin = demo.getHin() + demo.getVer();
         }
+
+        String sex = summary.sex();
         if ("M".equals(sex)) {
             sex = "1";
         } else if ("F".equals(sex)) {
@@ -676,29 +689,9 @@ public final class BillingShortcutPg1DataAssembler {
         }
         load.sex = sex;
 
-        String hcType = nullToEmpty(demo.getHcType());
-        if (hcType.length() < 2) {
-            hcType = "ON";
-        } else {
-            hcType = hcType.substring(0, 2).toUpperCase();
-        }
-        load.hcType = hcType;
-
-        String dobYy = nullToEmpty(demo.getYearOfBirth());
-        String dobMm = padTwo(nullToEmpty(demo.getMonthOfBirth()));
-        String dobDd = padTwo(nullToEmpty(demo.getDateOfBirth()));
-        load.dobYy = dobYy;
-        load.dobMm = dobMm;
-        load.dobDd = dobDd;
-        load.dob = dobYy + dobMm + dobDd;
-
-        if (demo.getFamilyDoctor() == null) {
-            load.referralDoctorName = "N/A";
-            load.referralDoctorOhip = "000000";
-        } else {
-            load.referralDoctorName = nullToEmpty(SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd"));
-            load.referralDoctorOhip = nullToEmpty(SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip"));
-        }
+        BillingReferralDoctor referral = BillingReferralDoctor.fromFamilyDoctor(demo.getFamilyDoctor());
+        load.referralDoctorName = referral.name();
+        load.referralDoctorOhip = referral.ohip();
 
         StringBuilder error = new StringBuilder();
         StringBuilder warning = new StringBuilder();
@@ -739,9 +732,6 @@ public final class BillingShortcutPg1DataAssembler {
         String warningMessage = "";
     }
 
-    private static String padTwo(String v) {
-        return v != null && v.length() == 1 ? "0" + v : v;
-    }
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;

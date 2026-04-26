@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.data;
 
+import io.github.carlos_emr.SxmlMisc;
+
 /**
  * Immutable referral-doctor triple shared across the ON billing view models.
  * Replaces the {@code (referralDoctor / referralDoctorName,
@@ -40,5 +42,34 @@ public record BillingReferralDoctor(
         name = name == null ? "" : name;
         ohip = ohip == null ? "" : ohip;
         specialty = specialty == null ? "" : specialty;
+    }
+
+    /**
+     * Canonical projection from a demographic's {@code FamilyDoctor} XML
+     * blob — replaces the duplicated extraction in
+     * {@code BillingONReviewDataAssembler.populateDemographicAndValidation}
+     * and {@code BillingShortcutPg1DataAssembler.loadDemographic}.
+     *
+     * <p>The legacy convention: a {@code null} blob means "no family doctor
+     * on file", which the Review/Shortcut JSPs render as the literal
+     * {@code "N/A"} name + {@code "000000"} OHIP placeholder. A non-null
+     * blob has the doctor name in the {@code <rd>} element and the OHIP
+     * billing number in {@code <rdohip>}.</p>
+     *
+     * @param familyDoctorXml the {@code Demographic.familyDoctor} XML blob
+     *                        (nullable).
+     * @return record with name + OHIP populated; {@code specialty} stays
+     *         empty since the FamilyDoctor blob doesn't carry it (Review
+     *         and Shortcut don't display specialty either; the Form page
+     *         resolves specialty separately via {@code SpecialistsDao}).
+     */
+    public static BillingReferralDoctor fromFamilyDoctor(String familyDoctorXml) {
+        if (familyDoctorXml == null) {
+            return new BillingReferralDoctor("N/A", "000000", "");
+        }
+        return new BillingReferralDoctor(
+                SxmlMisc.getXmlContent(familyDoctorXml, "rd"),
+                SxmlMisc.getXmlContent(familyDoctorXml, "rdohip"),
+                "");
     }
 }
