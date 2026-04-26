@@ -1,6 +1,8 @@
 <%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %><%
-    if (!io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
-            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "r", null)) {
+    io.github.carlos_emr.carlos.utility.LoggedInInfo loggedInInfo =
+            io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (loggedInInfo == null || !io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
         response.sendError(403);
         return;
     }
