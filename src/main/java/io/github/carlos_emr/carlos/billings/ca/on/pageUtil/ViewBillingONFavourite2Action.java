@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -27,6 +28,11 @@ import org.apache.struts2.ServletActionContext;
  * {@code r} privilege for read-only views; mutating paths (add/edit/delete via
  * the {@code action} parameter) additionally require POST to prevent CSRF-ish
  * state-change over GET.
+ *
+ * <p>Assembles a {@link BillingONFavouriteViewModel} via
+ * {@link BillingONFavouriteDataAssembler} so the JSP body is pure
+ * presentation: the data assembler runs the Save/Search/Delete branches
+ * and dropdown population that the legacy JSP did inline.</p>
  *
  * @since 2026-04-13
  */
@@ -53,6 +59,11 @@ public final class ViewBillingONFavourite2Action extends ActionSupport {
                 return NONE;
             }
         }
+
+        String userNo = (String) request.getSession().getAttribute("user");
+        BillingONFavouriteViewModel model = new BillingONFavouriteDataAssembler()
+                .assemble(request, userNo);
+        request.setAttribute("favouriteModel", model);
 
         return SUCCESS;
     }
