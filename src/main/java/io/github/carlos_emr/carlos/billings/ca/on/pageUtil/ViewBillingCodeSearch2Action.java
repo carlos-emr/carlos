@@ -50,7 +50,8 @@ public final class ViewBillingCodeSearch2Action extends ActionSupport {
         BillingCodeSearchViewModel model = new BillingCodeSearchDataAssembler().assembleService(
                 request.getParameter("name"),
                 request.getParameter("name1"),
-                request.getParameter("name2"));
+                request.getParameter("name2"),
+                request.getParameter("nameF"));
         request.setAttribute("codeSearchModel", model);
 
         return SUCCESS;

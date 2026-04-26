@@ -33,6 +33,8 @@ public final class BillingCodeSearchViewModel {
     private final boolean noMatch;
     private final boolean autoSelect;
     private final String autoSelectCode;
+    private final String nameFSafe;
+    private final String nameFRaw;
 
     /** One row in the code-search results table. {@code preChecked}
      *  reflects whether the row's code matches one of the previously
@@ -44,6 +46,8 @@ public final class BillingCodeSearchViewModel {
         this.noMatch = b.noMatch;
         this.autoSelect = b.autoSelect;
         this.autoSelectCode = b.autoSelectCode == null ? "" : b.autoSelectCode;
+        this.nameFSafe = b.nameFSafe == null ? "" : b.nameFSafe;
+        this.nameFRaw = b.nameFRaw == null ? "" : b.nameFRaw;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -53,16 +57,50 @@ public final class BillingCodeSearchViewModel {
     public boolean isAutoSelect() { return autoSelect; }
     public String getAutoSelectCode() { return autoSelectCode; }
 
+    /**
+     * The {@code nameF} request parameter validated against
+     * {@code [a-zA-Z_][a-zA-Z0-9_.]*}. Empty string when the param is
+     * missing, malformed, or null. JSP uses this to splice a JS identifier
+     * path directly into {@code self.opener.<name> = ...}.
+     *
+     * @return validated identifier or empty string (never null)
+     */
+    public String getNameFSafe() { return nameFSafe; }
+
+    /**
+     * Raw {@code nameF} request parameter, echoed verbatim into the hidden
+     * form input that round-trips the value back to the search action on
+     * resubmit. Empty string when absent.
+     */
+    public String getNameFRaw() { return nameFRaw; }
+
+    /**
+     * @return {@code true} when {@link #getNameFSafe()} is non-empty (JS
+     *         identifier-path form is safe to splice).
+     */
+    public boolean isHasNameF() { return !nameFSafe.isEmpty(); }
+
+    /**
+     * @return {@code true} when {@link #getNameFRaw()} was supplied (any
+     *         non-null), regardless of whether it passed validation. The
+     *         JSP renders the hidden round-trip input under this gate.
+     */
+    public boolean isHasNameFRaw() { return !nameFRaw.isEmpty(); }
+
     public static final class Builder {
         private List<CodeRow> rows;
         private boolean noMatch;
         private boolean autoSelect;
         private String autoSelectCode;
+        private String nameFSafe;
+        private String nameFRaw;
 
         public Builder rows(List<CodeRow> v) { this.rows = v == null ? null : List.copyOf(v); return this; }
         public Builder noMatch(boolean v) { this.noMatch = v; return this; }
         public Builder autoSelect(boolean v) { this.autoSelect = v; return this; }
         public Builder autoSelectCode(String v) { this.autoSelectCode = v; return this; }
+        public Builder nameFSafe(String v) { this.nameFSafe = v; return this; }
+        public Builder nameFRaw(String v) { this.nameFRaw = v; return this; }
 
         public BillingCodeSearchViewModel build() { return new BillingCodeSearchViewModel(this); }
     }

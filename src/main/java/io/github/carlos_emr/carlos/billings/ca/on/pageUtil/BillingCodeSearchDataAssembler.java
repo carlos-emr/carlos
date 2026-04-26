@@ -69,6 +69,16 @@ public final class BillingCodeSearchDataAssembler {
      * @return populated view model
      */
     public BillingCodeSearchViewModel assembleService(String name, String name1, String name2) {
+        return assembleService(name, name1, name2, null);
+    }
+
+    /**
+     * Same as {@link #assembleService(String, String, String)} but also
+     * captures the {@code nameF} request parameter (the JS callback path
+     * the legacy JSP read inline) into the view model so the JSP can render
+     * pure EL.
+     */
+    public BillingCodeSearchViewModel assembleService(String name, String name1, String name2, String nameF) {
         QueryParams q = buildServiceQueryParams(name, name1, name2);
         Set<String> preSelected = collectPreSelected(name, name1, name2);
 
@@ -79,7 +89,19 @@ public final class BillingCodeSearchDataAssembler {
             String desc = bs.getDescription() == null ? "" : bs.getDescription();
             rows.add(new BillingCodeSearchViewModel.CodeRow(code, desc, preSelected.contains(code)));
         }
-        return finalize(rows);
+        return finalize(rows, nameF);
+    }
+
+    /**
+     * Validate the {@code nameF} request parameter against the legacy
+     * {@code [a-zA-Z_][a-zA-Z0-9_.]*} JS-identifier-path pattern. Returns
+     * the input when it matches, empty string otherwise. Never returns null.
+     */
+    private static String validateNameF(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.matches("[a-zA-Z_][a-zA-Z0-9_.]*") ? raw : "";
     }
 
     /**
@@ -97,10 +119,10 @@ public final class BillingCodeSearchDataAssembler {
             String desc = i.getDescription() == null ? "" : i.getDescription();
             rows.add(new BillingCodeSearchViewModel.CodeRow(code, desc, false));
         }
-        return finalize(rows);
+        return finalize(rows, null);
     }
 
-    private BillingCodeSearchViewModel finalize(List<BillingCodeSearchViewModel.CodeRow> rows) {
+    private BillingCodeSearchViewModel finalize(List<BillingCodeSearchViewModel.CodeRow> rows, String nameF) {
         BillingCodeSearchViewModel.Builder b = BillingCodeSearchViewModel.builder().rows(rows);
         if (rows.isEmpty()) {
             b.noMatch(true);
@@ -109,6 +131,10 @@ public final class BillingCodeSearchDataAssembler {
             // <script>CodeAttach('<%=Dcode%>');</script> emission when
             // intCount == 1.
             b.autoSelect(true).autoSelectCode(rows.get(0).code());
+        }
+        if (nameF != null) {
+            b.nameFRaw(nameF);
+            b.nameFSafe(validateNameF(nameF));
         }
         return b.build();
     }

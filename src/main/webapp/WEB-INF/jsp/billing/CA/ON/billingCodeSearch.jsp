@@ -23,42 +23,42 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeSearchViewModel" %>
 
 <%
-    // ViewBillingCodeSearch2Action enforces _billing r and assembles the view
-    // model with the BillingServiceDao lookup the JSP body used to perform.
-    BillingCodeSearchViewModel codeSearchModel =
-            (BillingCodeSearchViewModel) request.getAttribute("codeSearchModel");
-    if (codeSearchModel == null) {
+    // ViewBillingCodeSearch2Action enforces _billing r and assembles the
+    // view model with the BillingServiceDao lookup + nameF validation
+    // the JSP body used to perform inline. Defensive fallback: empty stub
+    // if forwarded here without the canonical action.
+    if (request.getAttribute("codeSearchModel") == null) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingCodeSearch.jsp reached without codeSearchModel — caller "
               + "should route through billing/CA/ON/ViewBillingCodeSearch.");
-        codeSearchModel = BillingCodeSearchViewModel.builder().build();
+        request.setAttribute("codeSearchModel",
+                BillingCodeSearchViewModel.builder().build());
     }
 %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Service Code Search</title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0) {
-
-            <%
-            String nameF = request.getParameter("nameF");
-            if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + SafeEncode.forJavaScript(nameF) + " = File0;");
-            } else {
-            %>
+            <c:choose>
+                <c:when test="${codeSearchModel.hasNameF}">
+            // nameFSafe is validated against [a-zA-Z_][a-zA-Z0-9_.]* in the
+            // assembler, so it's safe to splice as a JS identifier path.
+            self.opener.${codeSearchModel.nameFSafe} = File0;
+                </c:when>
+                <c:otherwise>
             self.opener.document.serviceform.xml_other1.value = File0;
             self.opener.document.serviceform.xml_other2.value = "";
             self.opener.document.serviceform.xml_other3.value = "";
-            <% } %>
+                </c:otherwise>
+            </c:choose>
             self.close();
         }
 
@@ -78,7 +78,7 @@
     </tr>
 </table>
 <form name="servicecode" id="servicecode" method="post"
-      action="<%= request.getContextPath() %>/billing/CA/ON/BillingCodeUpdate">
+      action="${pageContext.request.contextPath}/billing/CA/ON/BillingCodeUpdate">
     <table width="600" border="1">
         <tr bgcolor="#CCCCFF">
             <td width="12%"><b><font face="Arial, Helvetica, sans-serif"
@@ -87,48 +87,40 @@
                                      size="2">Description</font></b></td>
         </tr>
 
-        <%
-            int rowIndex = 0;
-            for (BillingCodeSearchViewModel.CodeRow __row : codeSearchModel.getRows()) {
-                String __color = (rowIndex++ % 2 == 0) ? "#FFFFFF" : "#EEEEFF";
-                String __checked = __row.preChecked() ? "checked" : "";
-        %>
-        <tr bgcolor="<%=__color%>">
+        <c:forEach var="__row" items="${codeSearchModel.rows}" varStatus="__rowStatus">
+            <c:set var="__color" value="${__rowStatus.index % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}"/>
+        <tr bgcolor="<carlos:encode value='${__color}' context='htmlAttribute'/>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="checkbox" name="code_<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>" <%=__checked%>>
-                <carlos:encode value='<%= __row.code() %>' context="html"/>
+                                  size="2"><input type="checkbox" name="code_<carlos:encode value='${__row.code}' context='htmlAttribute'/>" <c:if test="${__row.preChecked}">checked</c:if>>
+                <carlos:encode value="${__row.code}" context="html"/>
             </font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"><input type="hidden" name="codedesc_<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"
-                                                  value="<carlos:encode value='<%= __row.description() %>' context="htmlAttribute"/>"><input type="text" name="<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"
-                                                                                value="<carlos:encode value='<%= __row.description() %>' context="htmlAttribute"/>" size="50"><input
+                                  size="2"><input type="hidden" name="codedesc_<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
+                                                  value="<carlos:encode value='${__row.description}' context='htmlAttribute'/>"><input type="text" name="<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
+                                                                                value="<carlos:encode value='${__row.description}' context='htmlAttribute'/>" size="50"><input
                     type="submit"
-                    name="update" value="update <carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"></font></td>
+                    name="update" value="update <carlos:encode value='${__row.code}' context='htmlAttribute'/>"></font></td>
         </tr>
-        <% } %>
+        </c:forEach>
 
-        <% if (codeSearchModel.isNoMatch()) { %>
+        <c:if test="${codeSearchModel.noMatch}">
         <tr>
             <td colspan="2"><font face="Arial, Helvetica, sans-serif"
                                   size="2">No match found.</font></td>
         </tr>
-        <% } %>
+        </c:if>
 
-        <% if (codeSearchModel.isAutoSelect()) { %>
+        <c:if test="${codeSearchModel.autoSelect}">
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<carlos:encode value='<%= codeSearchModel.getAutoSelectCode() %>' context="javaScriptBlock"/>');
+            CodeAttach('<carlos:encode value="${codeSearchModel.autoSelectCode}" context="javaScriptBlock"/>');
             -->
         </script>
-        <% } %>
+        </c:if>
     </table>
     <input type="submit" name="update" value="Confirm"><input
         type="button" name="cancel" value="Cancel"
-        onclick="javascript:window.close()"> <%
-    if (request.getParameter("nameF") != null) {
-        out.println("<input type='hidden' name='nameF' value=\"" + SafeEncode.forHtmlAttribute(StringUtils.noNull(request.getParameter("nameF"))) + "\"/>");
-    }
-%>
+        onclick="javascript:window.close()"> <c:if test="${codeSearchModel.hasNameFRaw}"><input type="hidden" name="nameF" value="<carlos:encode value='${codeSearchModel.nameFRaw}' context='htmlAttribute'/>"/></c:if>
 </form>
 </body>
 </html>
