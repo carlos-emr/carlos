@@ -30,32 +30,54 @@
 
 --%>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONPaymentViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingONPaymentDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+<%--
+  Defensive model-resolver: ensures ${paymentModel} is set on the request even
+  on the unlikely path where this JSP is reached without going through
+  BillingONPayment2Action. The action's own _tasks r privilege check is
+  duplicated here for parity. Mirrors the pattern in billingON.jsp.
+--%>
 <%
-    // BillingONPayment2Action has already enforced _tasks r and assembled the
-    // view model with the 9 DAO lookups the JSP body used to perform. This JSP
-    // is now a pure presentation layer.
-    BillingONPaymentViewModel paymentModel =
-            (BillingONPaymentViewModel) request.getAttribute("paymentModel");
-    if (paymentModel == null) {
-        // Defensive fallback: any caller that forwards directly here (without
-        // routing through the action) gets a logout redirect rather than a
-        // half-rendered page. Mirrors the legacy <security:oscarSec reverse>
-        // gate at the top of the original JSP.
-        if (session.getAttribute("userrole") == null) {
+    if (request.getAttribute("paymentModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
             response.sendRedirect(request.getContextPath() + "/logoutPage");
             return;
         }
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "billingONPayment.jsp reached without paymentModel — caller should "
-              + "route through billing/CA/ON/BillingONPayment.");
-        paymentModel = BillingONPaymentViewModel.builder().build();
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "billingONPayment.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("billingONPayment.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_tasks", "r", null)) {
+            throw new SecurityException("billingONPayment.jsp fallback: missing required sec object (_tasks)");
+        }
+        boolean __isTeamBillingOnly = __secMgr.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null);
+        boolean __isThisProviderOnly = __secMgr.hasPrivilege(loggedInInfo, "_admin.invoices", "r", null)
+                && !__secMgr.hasPrivilege(loggedInInfo, "_admin", "r", null)
+                && !__secMgr.hasPrivilege(loggedInInfo, "_admin.billing", "r", null);
+        try {
+            request.setAttribute("paymentModel", new BillingONPaymentDataAssembler().assemble(
+                    request, loggedInInfo.getLoggedInProviderNo(),
+                    __isThisProviderOnly, __isTeamBillingOnly));
+        } catch (SecurityException __secEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "billingONPayment.jsp fallback: redirecting to noRights — " + __secEx.getMessage());
+            response.sendRedirect(request.getContextPath() + "/noRights.html");
+            return;
+        }
     }
 %>
 
@@ -63,13 +85,13 @@
 <head>
     <title><fmt:message key="oscar.billing.paymentReceived.title"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
         function popupPage(vheight, vwidth, varpage) {
@@ -102,7 +124,7 @@
     <div class="row card card-body bg-body-tertiary">
         <carlos:encode value="${paymentModel.errorMsg}" context="html"/>
 
-        <form name="billingPaymentForm" method="get" action="<%= request.getContextPath() %>/billing/CA/ON/BillingONPayment">
+        <form name="billingPaymentForm" method="get" action="${pageContext.request.contextPath}/billing/CA/ON/BillingONPayment">
 
             <h4><fmt:message key="oscar.billing.on.paymentReceived.freezePeriod"/></h4>
 
@@ -110,16 +132,13 @@
                 Provider:<br>
                 <!--<fmt:message key="oscar.billing.on.paymentReceived.providerName"/>-->
                 <select name="providerList">
-                    <% if (paymentModel.isAllProvidersOption()) { %>
+                    <c:if test="${paymentModel.allProvidersOption}">
                     <option value=""><fmt:message key="oscar.billing.on.paymentReceived.allproviders"/></option>
-                    <% } %>
+                    </c:if>
 
-                    <% for (BillingONPaymentViewModel.ProviderEntry __pe : paymentModel.getProviderOptions()) {
-                        boolean __selected = paymentModel.getSelectedProviderNo() != null
-                                && paymentModel.getSelectedProviderNo().equals(__pe.providerNo());
-                    %>
-                    <option <%= __selected ? "selected" : "" %> value="<carlos:encode value='<%= __pe.providerNo() %>' context="htmlAttribute"/>"><carlos:encode value='<%= __pe.displayName() %>' context="html"/></option>
-                    <% } %>
+                    <c:forEach var="pe" items="${paymentModel.providerOptions}">
+                    <option <c:if test="${not empty paymentModel.selectedProviderNo and paymentModel.selectedProviderNo eq pe.providerNo}">selected</c:if> value="<carlos:encode value='${pe.providerNo}' context='htmlAttribute'/>"><carlos:encode value="${pe.displayName}" context="html"/></option>
+                    </c:forEach>
                 </select>
             </div>
 
@@ -176,48 +195,54 @@
             </thead>
 
             <tbody>
-            <% for (BillingONPaymentViewModel.RaReportRow __ra : paymentModel.getRaRows()) { %>
-            <tr class="<carlos:encode value='<%= __ra.rowColor() %>' context="htmlAttribute"/>">
-                <% if (__ra.firstRowForBill()) {%>
+            <c:forEach var="ra" items="${paymentModel.raRows}">
+            <tr class="<carlos:encode value='${ra.rowColor}' context='htmlAttribute'/>">
+                <c:choose>
+                <c:when test="${ra.firstRowForBill}">
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= __ra.billingNo() %>' context="javaScript"/>');return false;"><carlos:encode value='<%= __ra.billingNo() %>' context="html"/>
+                                                 onclick="popupPage(700,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='${ra.billingNo}' context='javaScript'/>');return false;"><carlos:encode value="${ra.billingNo}" context="html"/>
                 </a></td>
-                <%} else {%>
+                </c:when>
+                <c:otherwise>
                 <td></td>
-                <%}%>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.billStatus() %>' context="html"/>
+                </c:otherwise>
+                </c:choose>
+                <td style="text-align:center"><carlos:encode value="${ra.billStatus}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.serviceDate() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${ra.serviceDate}" context="html"/>
                 </td>
-                <% if (__ra.firstRowForBill()) {%>
+                <c:choose>
+                <c:when test="${ra.firstRowForBill}">
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= __ra.demographicNo() %>' context="javaScript"/>');return false;"><carlos:encode value='<%= __ra.demographicName() %>' context="html"/>
+                                                 onclick="popupPage(800,740,'${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<carlos:encode value='${ra.demographicNo}' context='javaScript'/>');return false;"><carlos:encode value="${ra.demographicName}" context="html"/>
                 </a></td>
-                <%} else {%>
+                </c:when>
+                <c:otherwise>
                 <td></td>
-                <%}%>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.dxCode() %>' context="html"/>
+                </c:otherwise>
+                </c:choose>
+                <td style="text-align:center"><carlos:encode value="${ra.dxCode}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.serviceCode() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${ra.serviceCode}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.serviceCount() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${ra.serviceCount}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __ra.fee() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${ra.fee}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __ra.claim() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${ra.claim}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __ra.paid() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${ra.paid}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __ra.adjustment() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${ra.adjustment}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.payProgram() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${ra.payProgram}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __ra.claimNo() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${ra.claimNo}" context="html"/>
                 </td>
-                <td style="text-align:center;font-weight:bold"><carlos:encode value='<%= __ra.errorCode() %>' context="html"/>
+                <td style="text-align:center;font-weight:bold"><carlos:encode value="${ra.errorCode}" context="html"/>
                 </td>
             </tr>
-            <% } %>
+            </c:forEach>
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
@@ -249,16 +274,16 @@
             </tr>
             </thead>
             <tbody>
-            <% for (BillingONPaymentViewModel.PremiumRow __pr : paymentModel.getPremiumRows()) { %>
-            <tr class="<carlos:encode value='<%= __pr.rowColor() %>' context="htmlAttribute"/>">
-                <td><carlos:encode value='<%= __pr.providerName() %>' context="html"/>
+            <c:forEach var="pr" items="${paymentModel.premiumRows}">
+            <tr class="<carlos:encode value='${pr.rowColor}' context='htmlAttribute'/>">
+                <td><carlos:encode value="${pr.providerName}" context="html"/>
                 </td>
-                <td><carlos:encode value='<%= __pr.payDate() %>' context="html"/>
+                <td><carlos:encode value="${pr.payDate}" context="html"/>
                 </td>
-                <td colspan="9" style="text-align:right"><carlos:encode value='<%= __pr.amountPaid() %>' context="html"/>
+                <td colspan="9" style="text-align:right"><carlos:encode value="${pr.amountPaid}" context="html"/>
                 </td>
             </tr>
-            <% } %>
+            </c:forEach>
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>
@@ -292,80 +317,70 @@
             </tr>
             </thead>
             <tbody>
-            <% for (BillingONPaymentViewModel.ThirdPartyBillRow __tp : paymentModel.getThirdPartyRows()) { %>
-            <tr class="<carlos:encode value='<%= __tp.rowColor() %>' context="htmlAttribute"/>">
-                <% if (!paymentModel.isThisProviderOnly()) { %>
+            <c:forEach var="tp" items="${paymentModel.thirdPartyRows}">
+            <tr class="<carlos:encode value='${tp.rowColor}' context='htmlAttribute'/>">
+                <c:choose>
+                <c:when test="${not paymentModel.thisProviderOnly}">
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(700,700,'<%= request.getContextPath() %>/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='<%= __tp.billingNo() %>' context="javaScript"/>');return false;"><carlos:encode value='<%= __tp.billingNo() %>' context="html"/>
+                                                 onclick="popupPage(700,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=<carlos:encode value='${tp.billingNo}' context='javaScript'/>');return false;"><carlos:encode value="${tp.billingNo}" context="html"/>
                 </a></td>
-                <% } else { %>
-                <td style="text-align:center"><carlos:encode value='<%= __tp.billingNo() %>' context="html"/>
+                </c:when>
+                <c:otherwise>
+                <td style="text-align:center"><carlos:encode value="${tp.billingNo}" context="html"/>
                 </td>
-                <% } %>
-                <td style="text-align:center"><carlos:encode value='<%= __tp.billingDate() %>' context="html"/>
+                </c:otherwise>
+                </c:choose>
+                <td style="text-align:center"><carlos:encode value="${tp.billingDate}" context="html"/>
                 </td>
                 <td style="text-align:center"><a href="#"
-                                                 onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= __tp.demographicNo() %>' context="javaScript"/>');return false;"><carlos:encode value='<%= __tp.demographicName() %>' context="html"/>
+                                                 onclick="popupPage(800,740,'${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=<carlos:encode value='${tp.demographicNo}' context='javaScript'/>');return false;"><carlos:encode value="${tp.demographicName}" context="html"/>
                 </a></td>
-                <%
-                    int __numItem = 0;
-                    for (BillingONPaymentViewModel.ThirdPartyItemRow __it : __tp.items()) {
-                        __numItem++;
-                        if (__numItem > 1) {
-                %>
+                <c:forEach var="it" items="${tp.items}" varStatus="itSt">
+                    <c:if test="${not itSt.first}">
             </tr>
-            <tr class="<carlos:encode value='<%= __tp.rowColor() %>' context="htmlAttribute"/>">
+            <tr class="<carlos:encode value='${tp.rowColor}' context='htmlAttribute'/>">
                 <td colspan="3"></td>
-                <% } %>
-                <td style="text-align:center"><carlos:encode value='<%= __it.dxCode() %>' context="html"/>
+                    </c:if>
+                <td style="text-align:center"><carlos:encode value="${it.dxCode}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __it.serviceCode() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${it.serviceCode}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __it.serviceCount() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${it.serviceCount}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __it.amtBilled() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${it.amtBilled}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __it.amtPaid() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${it.amtPaid}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __it.amtRefund() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${it.amtRefund}" context="html"/>
                 </td>
                 <td colspan="2"></td>
-                <% } %>
+                </c:forEach>
             </tr>
-            <tr class="<carlos:encode value='<%= __tp.rowColor() %>' context="htmlAttribute"/>">
+            <tr class="<carlos:encode value='${tp.rowColor}' context='htmlAttribute'/>">
                 <td colspan="6"></td>
-                <td style="font-weight:bold;text-align:right"><carlos:encode value='<%= __tp.totalBilled() %>' context="html"/>
+                <td style="font-weight:bold;text-align:right"><carlos:encode value="${tp.totalBilled}" context="html"/>
                 </td>
-                <%
-                    int __numPay = 0;
-                    for (BillingONPaymentViewModel.ThirdPartyPaymentRow __pay : __tp.payments()) {
-                        __numPay++;
-                        String __colSpan = "1";
-                        if (__numPay > 1) {
-                            __colSpan = "8";
-                %>
+                <c:forEach var="pay" items="${tp.payments}" varStatus="paySt">
+                    <c:if test="${not paySt.first}">
             </tr>
-            <tr class="<carlos:encode value='<%= __tp.rowColor() %>' context="htmlAttribute"/>">
-                <% } %>
-                <td colspan="<carlos:encode value='<%= __colSpan %>' context="htmlAttribute"/>" style="text-align:right"><carlos:encode value='<%= __pay.paymentAmt() %>' context="html"/>
+            <tr class="<carlos:encode value='${tp.rowColor}' context='htmlAttribute'/>">
+                    </c:if>
+                <td colspan="${paySt.first ? '1' : '8'}" style="text-align:right"><carlos:encode value="${pay.paymentAmt}" context="html"/>
                 </td>
-                <td style="text-align:right"><carlos:encode value='<%= __pay.refundAmt() %>' context="html"/>
+                <td style="text-align:right"><carlos:encode value="${pay.refundAmt}" context="html"/>
                 </td>
-                <td style="text-align:center"><carlos:encode value='<%= __pay.paymentDate() %>' context="html"/>
+                <td style="text-align:center"><carlos:encode value="${pay.paymentDate}" context="html"/>
                 </td>
                 <td style="text-align:center"></td>
             </tr>
-            <%
-                    }
-                    if (__tp.hasOutstanding()) {
-                        String __fontWeight = __tp.outstandingBold() ? "font-weight:bold;" : "";
-            %>
-            <tr class="<carlos:encode value='<%= __tp.rowColor() %>' context="htmlAttribute"/>">
-                <td colspan="11" style="text-align:right;<carlos:encode value='<%= __fontWeight %>' context="htmlAttribute"/>"><carlos:encode value='<%= __tp.outstandingAmt() %>' context="html"/>
+                </c:forEach>
+                <c:if test="${tp.hasOutstanding}">
+            <tr class="<carlos:encode value='${tp.rowColor}' context='htmlAttribute'/>">
+                <td colspan="11" style="text-align:right;${tp.outstandingBold ? 'font-weight:bold;' : ''}"><carlos:encode value="${tp.outstandingAmt}" context="html"/>
                 </td>
             </tr>
-            <% }
-            } %>
+                </c:if>
+            </c:forEach>
             <tr>
                 <td colspan="2" style="font-weight:bold;"><fmt:message key="oscar.billing.on.paymentReceived.itemCount"/>:
                 </td>

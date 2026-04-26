@@ -23,43 +23,44 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingCodeUpdateViewModel" %>
 
 <%
     // BillingCodeUpdate2Action enforces _billing w + POST and assembles the
     // view model. The assembler does either:
     //   - Confirm-mode: collects the code_* checkbox params into selected0/1/2
     //   - Update-mode:  persists a single BillingService description edit
-    BillingCodeUpdateViewModel codeUpdateModel =
-            (BillingCodeUpdateViewModel) request.getAttribute("codeUpdateModel");
-    if (codeUpdateModel == null) {
+    // Defensive fallback: if a caller forwards here without going through the
+    // action, render an empty model — never re-trigger the persist mutation.
+    if (request.getAttribute("codeUpdateModel") == null) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
                 "billingCodeUpdate.jsp reached without codeUpdateModel — caller "
               + "should route through billing/CA/ON/BillingCodeUpdate.");
-        codeUpdateModel = BillingCodeUpdateViewModel.builder().build();
+        request.setAttribute("codeUpdateModel",
+                BillingCodeUpdateViewModel.builder().build());
     }
 %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Billing Summary</title>
     <script LANGUAGE="JavaScript">
         <!--
         function CodeAttach(File0, File1, File2) {
-
-            <%
-            String nameF = request.getParameter("nameF");
-            if(nameF != null && nameF.matches("[a-zA-Z_][a-zA-Z0-9_.]*")) {
-                    out.println("self.opener." + SafeEncode.forJavaScript(nameF) + " = File0;");
-            } else {
-            %>
+            <c:choose>
+                <c:when test="${codeUpdateModel.hasNameF}">
+            // nameFSafe is validated against [a-zA-Z_][a-zA-Z0-9_.]* in the
+            // assembler, so it's safe to splice as a JS identifier path.
+            self.opener.${codeUpdateModel.nameFSafe} = File0;
+                </c:when>
+                <c:otherwise>
             self.opener.document.serviceform.xml_other1.value = File0;
             self.opener.document.serviceform.xml_other2.value = File1;
             self.opener.document.serviceform.xml_other3.value = File2;
-            <% } %>
+                </c:otherwise>
+            </c:choose>
             self.close();
         }
 
@@ -68,20 +69,25 @@
 
 </head>
 <body>
-<% if (codeUpdateModel.getMode() == BillingCodeUpdateViewModel.Mode.CONFIRM_SELECTION) { %>
-    <% if (codeUpdateModel.isNoSelection()) { %>
+<c:choose>
+    <c:when test="${codeUpdateModel.confirmMode}">
+        <c:choose>
+            <c:when test="${codeUpdateModel.noSelection}">
 <p>No input selected</p>
 <input type="button" name="back" value="back"
        onClick="javascript:history.go(-1);return false;">
-    <% } else { %>
+            </c:when>
+            <c:otherwise>
 <script LANGUAGE="JavaScript">
     <!--
     CodeAttach('<carlos:encode value="${codeUpdateModel.selected0}" context="javaScriptBlock"/>', '<carlos:encode value="${codeUpdateModel.selected1}" context="javaScriptBlock"/>', '<carlos:encode value="${codeUpdateModel.selected2}" context="javaScriptBlock"/>');
     -->
 
 </script>
-    <% } %>
-<% } else { %>
+            </c:otherwise>
+        </c:choose>
+    </c:when>
+    <c:otherwise>
 <%-- Update mode: assembler already persisted; emit popup-close JS. --%>
 <p>
 <h1>Successful Addition of a billing Record.</h1>
@@ -91,7 +97,8 @@
     return false;
     self.opener.refresh();
 </script>
-<% } %>
+    </c:otherwise>
+</c:choose>
 
 </body>
 </html>

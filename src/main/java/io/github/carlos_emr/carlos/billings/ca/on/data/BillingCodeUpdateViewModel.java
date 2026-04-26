@@ -38,6 +38,7 @@ public final class BillingCodeUpdateViewModel {
     private final String selected0;
     private final String selected1;
     private final String selected2;
+    private final String nameFSafe;
 
     private BillingCodeUpdateViewModel(Builder b) {
         this.mode = b.mode == null ? Mode.CONFIRM_SELECTION : b.mode;
@@ -45,6 +46,7 @@ public final class BillingCodeUpdateViewModel {
         this.selected0 = b.selected0 == null ? "" : b.selected0;
         this.selected1 = b.selected1 == null ? "" : b.selected1;
         this.selected2 = b.selected2 == null ? "" : b.selected2;
+        this.nameFSafe = b.nameFSafe == null ? "" : b.nameFSafe;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -55,18 +57,46 @@ public final class BillingCodeUpdateViewModel {
     public String getSelected1() { return selected1; }
     public String getSelected2() { return selected2; }
 
+    /**
+     * The {@code nameF} request parameter validated against
+     * {@code [a-zA-Z_][a-zA-Z0-9_.]*}. Empty string when the param is missing,
+     * malformed, or null. JSP uses this to decide between targeted
+     * {@code self.opener.<name>} assignment and the legacy three-field
+     * fallback. Because validation strictly limits the value to JS-identifier
+     * characters and dots, the JSP can splice it directly into a JS
+     * identifier path.
+     *
+     * @return validated identifier or empty string (never null)
+     */
+    public String getNameFSafe() { return nameFSafe; }
+
+    /**
+     * @return {@code true} when {@link #getNameFSafe()} is non-empty (i.e.
+     *         the JSP should emit the targeted opener assignment).
+     */
+    public boolean isHasNameF() { return !nameFSafe.isEmpty(); }
+
+    /**
+     * @return {@code true} when {@link #getMode()} is
+     *         {@link Mode#CONFIRM_SELECTION}. EL-friendly accessor used by
+     *         the JSP to branch on render mode.
+     */
+    public boolean isConfirmMode() { return mode == Mode.CONFIRM_SELECTION; }
+
     public static final class Builder {
         private Mode mode;
         private boolean noSelection;
         private String selected0;
         private String selected1;
         private String selected2;
+        private String nameFSafe;
 
         public Builder mode(Mode v) { this.mode = v; return this; }
         public Builder noSelection(boolean v) { this.noSelection = v; return this; }
         public Builder selected0(String v) { this.selected0 = v; return this; }
         public Builder selected1(String v) { this.selected1 = v; return this; }
         public Builder selected2(String v) { this.selected2 = v; return this; }
+        public Builder nameFSafe(String v) { this.nameFSafe = v; return this; }
 
         public BillingCodeUpdateViewModel build() { return new BillingCodeUpdateViewModel(this); }
     }

@@ -64,13 +64,26 @@ public final class BillingCodeUpdateDataAssembler {
      */
     public BillingCodeUpdateViewModel assemble(HttpServletRequest request) {
         String update = request.getParameter("update");
+        String nameFSafe = validateNameF(request.getParameter("nameF"));
         if ("Confirm".equals(update)) {
-            return assembleConfirmMode(request);
+            return assembleConfirmMode(request, nameFSafe);
         }
-        return assembleUpdateMode(request, update);
+        return assembleUpdateMode(request, update, nameFSafe);
     }
 
-    private BillingCodeUpdateViewModel assembleConfirmMode(HttpServletRequest request) {
+    /**
+     * Validate the {@code nameF} request parameter against the legacy
+     * {@code [a-zA-Z_][a-zA-Z0-9_.]*} JS-identifier-path pattern. Returns
+     * the input when it matches, empty string otherwise. Never returns null.
+     */
+    private static String validateNameF(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.matches("[a-zA-Z_][a-zA-Z0-9_.]*") ? raw : "";
+    }
+
+    private BillingCodeUpdateViewModel assembleConfirmMode(HttpServletRequest request, String nameFSafe) {
         // Walk the request param names, picking the first 3 that start
         // with "code_". Mirrors the legacy scriptlet exactly.
         String[] params = new String[]{"", "", ""};
@@ -94,15 +107,17 @@ public final class BillingCodeUpdateDataAssembler {
                 .selected0(params[0])
                 .selected1(params[1])
                 .selected2(params[2])
+                .nameFSafe(nameFSafe)
                 .build();
     }
 
-    private BillingCodeUpdateViewModel assembleUpdateMode(HttpServletRequest request, String update) {
+    private BillingCodeUpdateViewModel assembleUpdateMode(HttpServletRequest request, String update, String nameFSafe) {
         // The legacy JSP cleaved the last 5 chars off the submit value
         // ("update A001A" → "A001A"). Same here, defensively guarded.
         if (update == null || update.length() < 5) {
             return BillingCodeUpdateViewModel.builder()
                     .mode(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION)
+                    .nameFSafe(nameFSafe)
                     .build();
         }
         String code = update.substring(update.length() - 5);
@@ -113,6 +128,7 @@ public final class BillingCodeUpdateDataAssembler {
         }
         return BillingCodeUpdateViewModel.builder()
                 .mode(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION)
+                .nameFSafe(nameFSafe)
                 .build();
     }
 }
