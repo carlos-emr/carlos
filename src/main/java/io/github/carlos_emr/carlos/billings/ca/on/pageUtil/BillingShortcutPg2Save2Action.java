@@ -21,44 +21,50 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingShortcutPg2ViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import jakarta.servlet.http.HttpServletRequest;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
  * Struts 2Action gate for the Ontario billing shortcut confirmation page (page 2).
  *
- * <p>Enforces {@code _billing w} authorization and routes "Back to Edit" requests,
- * then forwards all other requests to the view JSP which handles confirmation
- * display and billing save. This replaces the direct-URL access to
- * {@code billingShortcutPg2.jsp} which had only a bare session null-check.
- *
- * <p>Migrated from {@code billing/CA/ON/billingShortcutPg2.jsp}.
+ * <p>Enforces {@code _billing w} authorization, routes "Back to Edit" requests
+ * back to {@code billingShortcutPg1View}, and otherwise delegates the
+ * read-DAO data prep + bill persistence + post-save navigation directive to
+ * {@link BillingShortcutPg2DataAssembler}. The JSP renders the resulting
+ * {@link BillingShortcutPg2ViewModel} as a pure presentation layer — the 6
+ * inline {@code SpringUtils.getBean} lookups it used to perform
+ * (BillingDao, BillingDetailDao, ProviderDao, DemographicDao,
+ * BillingServiceDao, BillingPercLimitDao) are now owned by the assembler.</p>
  *
  * @since 2026
  */
 public final class BillingShortcutPg2Save2Action extends ActionSupport {
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        String submit = request.getParameter("submit");
-        String button = request.getParameter("button");
-
-        if ("Back to Edit".equals(button)) {
+        if ("Back to Edit".equals(request.getParameter("button"))) {
             return "backToEdit";
         }
+
+        String userNo = (String) request.getSession().getAttribute("user");
+        BillingShortcutPg2ViewModel model = new BillingShortcutPg2DataAssembler()
+                .assemble(request, userNo);
+        request.setAttribute("shortcutPg2Model", model);
 
         return SUCCESS;
     }
