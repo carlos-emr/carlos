@@ -62,11 +62,6 @@ public class OnGenRAsettleService {
     private final RaHeaderDao raHeaderDao;
     private final RaDetailDao raDetailDao;
 
-    public OnGenRAsettleService() {
-        this(SpringUtils.getBean(RaHeaderDao.class),
-             SpringUtils.getBean(RaDetailDao.class));
-    }
-
     OnGenRAsettleService(RaHeaderDao raHeaderDao, RaDetailDao raDetailDao) {
         this.raHeaderDao = raHeaderDao;
         this.raDetailDao = raDetailDao;

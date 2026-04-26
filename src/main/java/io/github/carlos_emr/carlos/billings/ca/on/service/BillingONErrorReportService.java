@@ -53,11 +53,6 @@ public class BillingONErrorReportService {
 
     private final BillingONEAReportDao billingONEARReportDao;
 
-    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
-    public BillingONErrorReportService() {
-        this(SpringUtils.getBean(BillingONEAReportDao.class));
-    }
-
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
     BillingONErrorReportService(BillingONEAReportDao billingONEARReportDao) {
         this.billingONEARReportDao = billingONEARReportDao;

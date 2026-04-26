@@ -21,8 +21,6 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
  * Optional clinical write triggered from {@code billing/CA/ON/ViewBillingONReview}:
  * if the user checked "add this dx to the patient's disease registry", insert
@@ -41,10 +39,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public final class BillingONReviewDxPersister {
 
     private final DxresearchDAO dxresearchDAO;
-
-    public BillingONReviewDxPersister() {
-        this(SpringUtils.getBean(DxresearchDAO.class));
-    }
 
     BillingONReviewDxPersister(DxresearchDAO dxresearchDAO) {
         this.dxresearchDAO = dxresearchDAO;

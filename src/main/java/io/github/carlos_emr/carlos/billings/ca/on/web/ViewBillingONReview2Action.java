@@ -55,7 +55,7 @@ public final class ViewBillingONReview2Action extends ActionSupport {
     /** Production constructor used by Struts2's Spring object factory. */
     public ViewBillingONReview2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
-             new BillingONReviewDxPersister(),
+             SpringUtils.getBean(BillingONReviewDxPersister.class),
              new BillingONReviewDataAssembler());
     }
 

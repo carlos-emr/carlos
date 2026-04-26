@@ -29,8 +29,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.OHIP.ExtractBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
  * Shared mutation service for the three forward-shim OHIP-extract JSPs:
  * {@code genreport.jsp}, {@code genGroupReport.jsp}, and
@@ -69,11 +67,6 @@ public class OhipReportGenerationService {
 
     private final BillActivityDao billActivityDao;
     private final ProviderDao providerDao;
-
-    public OhipReportGenerationService() {
-        this(SpringUtils.getBean(BillActivityDao.class),
-             SpringUtils.getBean(ProviderDao.class));
-    }
 
     OhipReportGenerationService(BillActivityDao billActivityDao, ProviderDao providerDao) {
         this.billActivityDao = billActivityDao;

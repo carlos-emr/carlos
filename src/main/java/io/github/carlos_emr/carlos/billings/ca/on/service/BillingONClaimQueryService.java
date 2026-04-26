@@ -56,15 +56,6 @@ public class BillingONClaimQueryService {
     private final BillingONPaymentDao payDao;
     private final BillingServiceDao serviceDao;
 
-    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
-    public BillingONClaimQueryService() {
-        this(SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingONExtDao.class),
-             SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingServiceDao.class));
-    }
-
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
     BillingONClaimQueryService(ClinicLocationDao clinicLocationDao, BillingONCHeader1Dao dao, BillingONExtDao extDao, BillingONPaymentDao payDao, BillingServiceDao serviceDao) {
         this.clinicLocationDao = clinicLocationDao;

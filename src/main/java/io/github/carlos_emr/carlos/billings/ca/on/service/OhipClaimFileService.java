@@ -872,7 +872,8 @@ public class OhipClaimFileService {
 
     private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeader1Data chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
-        List<String> vecStr = (new BillingONLookupService()).getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
+        List<String> vecStr = SpringUtils.getBean(BillingONLookupService.class)
+                .getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
         if (chObj.getStatus().equals("I")) {

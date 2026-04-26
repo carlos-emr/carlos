@@ -403,7 +403,7 @@ public final class BillingONFormDataAssembler {
 
         // ---- billing favourites (flat name/code list for the cutlist dropdown) ----
         io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService pageUtil =
-                new io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService();
+                SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class);
         List<String> favList = pageUtil.getBillingFavouriteList();
         b.billingFavourites(favList == null ? Collections.emptyList() : favList);
         // Pair the alternating [text, value, text, value, ...] entries into a

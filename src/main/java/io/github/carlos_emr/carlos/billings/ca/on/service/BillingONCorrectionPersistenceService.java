@@ -73,7 +73,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @org.springframework.context.annotation.Lazy
 @org.springframework.transaction.annotation.Transactional
 public class BillingONCorrectionPersistenceService {
-    BillingONAuditLogService auditLog = new BillingONAuditLogService();
+    BillingONAuditLogService auditLog = SpringUtils.getBean(BillingONAuditLogService.class);
 
     private BillingONCHeader1Dao billingHeaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
     //private BillingONRepoDao billingRepoDao = SpringUtils.getBean(BillingONRepoDao.class);

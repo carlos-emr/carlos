@@ -60,13 +60,6 @@ public class BillingONRemittanceAdviceService {
     private final RaHeaderDao raHeaderDao;
     private final BillingONCHeader1Dao cheader1Dao;
 
-    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
-    public BillingONRemittanceAdviceService() {
-        this(SpringUtils.getBean(RaDetailDao.class),
-             SpringUtils.getBean(RaHeaderDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class));
-    }
-
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
     BillingONRemittanceAdviceService(RaDetailDao raDetailDao, RaHeaderDao raHeaderDao, BillingONCHeader1Dao cheader1Dao) {
         this.raDetailDao = raDetailDao;

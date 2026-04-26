@@ -99,7 +99,7 @@ public final class BillingShortcutPg1DataAssembler {
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
-             BillingONClaimQueryService::new);
+             () -> SpringUtils.getBean(BillingONClaimQueryService.class));
     }
 
     BillingShortcutPg1DataAssembler(DemographicDao demographicDao,
@@ -113,7 +113,7 @@ public final class BillingShortcutPg1DataAssembler {
         this(demographicDao, providerDao, billingDao, billingDetailDao,
              billingServiceDao, ctlBillingServicePremiumDao,
              clinicLocationDao, professionalSpecialistDao,
-             null, null, null, BillingONClaimQueryService::new);
+             null, null, null, () -> SpringUtils.getBean(BillingONClaimQueryService.class));
     }
 
     /** Test-friendly constructor that overrides the BillingONClaimQueryService factory. */

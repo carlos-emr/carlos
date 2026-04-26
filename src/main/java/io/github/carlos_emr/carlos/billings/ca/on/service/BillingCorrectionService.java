@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2Action;
 
@@ -94,23 +93,6 @@ public final class BillingCorrectionService {
     private final BillingONRepoDao billRepoDao;
     private final ProviderDao providerDao;
     private final BillingServiceDao billingServiceDao;
-
-    /**
-     * Production constructor used by Struts2's Spring object factory via
-     * {@link BillingCorrection2Action}. Resolves dependencies via
-     * {@link SpringUtils#getBean} so this is the only place service-locator
-     * calls live in the class.
-     */
-    public BillingCorrectionService() {
-        this(SpringUtils.getBean(BillingONPaymentDao.class),
-             SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingONExtDao.class),
-             SpringUtils.getBean(BillingPaymentTypeDao.class),
-             SpringUtils.getBean(BillingONService.class),
-             SpringUtils.getBean(BillingONRepoDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillingServiceDao.class));
-    }
 
     /**
      * Test-friendly constructor — call directly with mocks.

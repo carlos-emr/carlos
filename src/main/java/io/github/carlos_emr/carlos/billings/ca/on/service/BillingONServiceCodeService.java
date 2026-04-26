@@ -29,8 +29,6 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
@@ -49,11 +47,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 public class BillingONServiceCodeService {
 
     private final BillingServiceDao dao;
-
-    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
-    public BillingONServiceCodeService() {
-        this(SpringUtils.getBean(BillingServiceDao.class));
-    }
 
     /** Test-friendly constructor — package-private, takes a DAO mock directly. */
     BillingONServiceCodeService(BillingServiceDao dao) {

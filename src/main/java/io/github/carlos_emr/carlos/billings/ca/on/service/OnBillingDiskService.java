@@ -50,10 +50,6 @@ public class OnBillingDiskService {
 
     private final ProviderDao providerDao;
 
-    public OnBillingDiskService() {
-        this(SpringUtils.getBean(ProviderDao.class));
-    }
-
     OnBillingDiskService(ProviderDao providerDao) {
         this.providerDao = providerDao;
     }

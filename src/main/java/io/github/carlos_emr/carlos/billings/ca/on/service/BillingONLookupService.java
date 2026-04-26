@@ -86,19 +86,6 @@ public class BillingONLookupService {
     private final BillingONFilenameDao billingONFilenameDao;
     private final ProviderSiteDao providerSiteDao;
 
-    /** Production constructor — Spring uses this; field-init via SpringUtils.getBean. */
-    public BillingONLookupService() {
-        this(SpringUtils.getBean(OscarAppointmentDao.class),
-             SpringUtils.getBean(ProfessionalSpecialistDao.class),
-             SpringUtils.getBean(ClinicLocationDao.class),
-             SpringUtils.getBean(ProviderDao.class),
-             SpringUtils.getBean(BillingPaymentTypeDao.class),
-             SpringUtils.getBean(BillingONFavouriteDao.class),
-             SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(BillingONFilenameDao.class),
-             SpringUtils.getBean(ProviderSiteDao.class));
-    }
-
     /** Test-friendly constructor — package-private, takes DAO mocks directly. */
     BillingONLookupService(OscarAppointmentDao appointmentDao, ProfessionalSpecialistDao professionalSpecialistDao, ClinicLocationDao clinicLocationDao, ProviderDao providerDao, BillingPaymentTypeDao billingPaymentTypeDao, BillingONFavouriteDao billingONFavouriteDao, DemographicManager demographicManager, BillingONFilenameDao billingONFilenameDao, ProviderSiteDao providerSiteDao) {
         this.appointmentDao = appointmentDao;

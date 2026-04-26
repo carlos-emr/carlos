@@ -35,8 +35,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
  * Side-effect operations behind the patient end-year-statement workflow.
  *
@@ -75,12 +73,6 @@ public class PatientEndYearStatementService {
     private final BillingONCHeader1Dao headerDao;
     private final BillingONItemDao itemDao;
     private final DemographicManager demographicManager;
-
-    public PatientEndYearStatementService() {
-        this(SpringUtils.getBean(BillingONCHeader1Dao.class),
-             SpringUtils.getBean(BillingONItemDao.class),
-             SpringUtils.getBean(DemographicManager.class));
-    }
 
     PatientEndYearStatementService(BillingONCHeader1Dao headerDao,
                                    BillingONItemDao itemDao,

@@ -16,8 +16,6 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONProcDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
  * Side-effect service that emits one row to the {@code billing_on_proc}
  * audit-log table per significant ON-billing state change. Replaces the
@@ -39,10 +37,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class BillingONAuditLogService {
 
     private final BillingONProcDao dao;
-
-    public BillingONAuditLogService() {
-        this(SpringUtils.getBean(BillingONProcDao.class));
-    }
 
     BillingONAuditLogService(BillingONProcDao dao) {
         this.dao = dao;
