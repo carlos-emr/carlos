@@ -1,0 +1,4 @@
+## 2026-04-26 - SQL Injection Defense in Depth for IN Clauses
+**Vulnerability:** Found a brittle query construction in `OscarAppointmentDaoImpl.java` where `updateApptStatus` built an HQL query by concatenating sanitized strings for an `id in (...)` clause. While inputs were previously checked to be numeric (mitigating actual injection risk), building queries via string concatenation is an anti-pattern that creates a fragile defense layer.
+**Learning:** Hibernate and JPA support passing a `Collection` or `List` directly to named or positional parameters for `IN` clauses. There is no need to manually construct comma-separated strings.
+**Prevention:** Always use parameterized queries for `IN` clauses by passing the collection of values directly to the query parameter to ensure robust defense-in-depth, even when inputs are pre-validated.
