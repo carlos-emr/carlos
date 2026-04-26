@@ -112,6 +112,21 @@ public final class ManageBillingformDataAssembler {
             b.currentServiceTypeName(sg.lastSeenServiceTypeName);
         }
 
+        // Unique service-types table for the manageBillingform_add.jspf
+        // right-hand panel. Mirrors the legacy
+        // ctlBillingServiceDao.getUniqueServiceTypes() / "failed!!!" branch.
+        List<Object[]> uniqueRowsRaw = ctlBillingServiceDao.getUniqueServiceTypes();
+        boolean uniqueLoaded = uniqueRowsRaw != null;
+        List<ManageBillingformViewModel.UniqueServiceTypeRow> uniqueRows = new ArrayList<>();
+        if (uniqueLoaded) {
+            for (Object[] row : uniqueRowsRaw) {
+                String typeId = row[0] == null ? "" : String.valueOf(row[0]);
+                String typeName = row[1] == null ? "" : String.valueOf(row[1]);
+                uniqueRows.add(new ManageBillingformViewModel.UniqueServiceTypeRow(typeId, typeName));
+            }
+        }
+        b.uniqueServiceTypes(uniqueRows).uniqueServiceTypesLoaded(uniqueLoaded);
+
         // Echo the request parameters that the JSPs need to round-trip via
         // hidden inputs / display values, keeping the body free of scriptlets.
         Map<String, String> echoes = new LinkedHashMap<>();

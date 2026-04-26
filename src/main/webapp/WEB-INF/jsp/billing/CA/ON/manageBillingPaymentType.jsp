@@ -28,42 +28,44 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    manageBillingPaymentType.jsp (view) - Ontario billing payment type list.
+    Rendered by PaymentType2Action#listAllType which exposes
+    ${paymentTypeList}. _billing w privilege is enforced upstream.
+    Pure presentation here.
+    @since 2001
+--%>
 <!DOCTYPE html>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.util.List" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.BillingPaymentType" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
     <title>Manage Billing Payment Type</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <!-- Bootstrap 2.3.1 -->
-    <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
-    <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
           rel="stylesheet">
-    <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="${ pageContext.request.contextPath }/js/global.js"></script>
-    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script src="${pageContext.request.contextPath}/js/global.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
         jQuery(document).ready(function () {
             jQuery('#tblBillType').DataTable({
                 "order": [],
                 "language": {
-                    "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
+                    "url": "${pageContext.request.contextPath}/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                 }
             });
         });
     </script>
-
-    <%
-        List<BillingPaymentType> paymentTypeList = (List<BillingPaymentType>) request
-                .getAttribute("paymentTypeList");
-    %>
 </head>
 <body>
 &nbsp;<h4>Manage Billing Payment Type</h4>
@@ -79,32 +81,26 @@
         </tr>
         </thead>
         <tbody>
-        <%
-            int count = 0;
-            for (BillingPaymentType paymentType : paymentTypeList) {
-                count++;
-        %>
-        <tr>
-            <td><%=paymentType.getId()%>
-            </td>
-            <td><%=paymentType.getPaymentType()%>
-            </td>
-            <td>
-                <a href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType?id=<%=paymentType.getId()%>&type=<%=paymentType.getPaymentType()%>">Edit</a>
-            </td>
-            <td>
-                <a href="#" data-paymentTypeId="<%=paymentType.getId()%>">Delete</a>
-            </td>
-        </tr>
-        <%
-            }
-        %>
+        <c:forEach var="paymentType" items="${paymentTypeList}">
+            <tr>
+                <td><carlos:encode value="${paymentType.id}" context="html"/>
+                </td>
+                <td><carlos:encode value="${paymentType.paymentType}" context="html"/>
+                </td>
+                <td>
+                    <a href="${pageContext.request.contextPath}/billing/CA/ON/EditBillingPaymentType?id=${carlos:forUriComponent(paymentType.id)}&type=${carlos:forUriComponent(paymentType.paymentType)}">Edit</a>
+                </td>
+                <td>
+                    <a href="#" data-paymentTypeId="<carlos:encode value='${paymentType.id}' context='htmlAttribute'/>">Delete</a>
+                </td>
+            </tr>
+        </c:forEach>
         </tbody>
     </table>
     <p>
     <hr/>
     <a class="btn btn-secondary"
-       href="<%=request.getContextPath()%>/billing/CA/ON/EditBillingPaymentType">Create
+       href="${pageContext.request.contextPath}/billing/CA/ON/EditBillingPaymentType">Create
         a new payment type</a>
 
 </div>
@@ -115,7 +111,7 @@
     jQuery(document).ready(function () {
         jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
             jQuery.ajax({
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType",
+                url: "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType",
                 type: "post",
                 async: false,
                 timeout: 30000,
@@ -127,7 +123,7 @@
                     }
                     if (parseInt(data.ret) == 0) {
                         alert("Successed deleting the payment type!");
-                        location.href = "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType?method=listAllType";
+                        location.href = "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType?method=listAllType";
                     } else {
                         alert("Failed to delete the payment type, reason:" + data.reason);
                     }

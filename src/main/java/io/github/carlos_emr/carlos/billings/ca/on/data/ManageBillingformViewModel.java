@@ -48,6 +48,10 @@ public final class ManageBillingformViewModel {
     /** Drop-down option for the service-type select. */
     public record ServiceTypeOption(String code, String name) { }
 
+    /** Single row of the unique-service-types list rendered in the
+     *  manageBillingform_add.jspf right-hand panel. */
+    public record UniqueServiceTypeRow(String typeId, String typeName) { }
+
     /** One row of the 3-column dx-code grid (45 slots split into 3x15). */
     public record DxCodeSlot(int index, String code) { }
 
@@ -71,6 +75,8 @@ public final class ManageBillingformViewModel {
     private final List<PremiumDeleteRow> premiumDeleteRows;
     private final List<ServiceGroup> serviceGroups;
     private final String currentServiceTypeName;
+    private final List<UniqueServiceTypeRow> uniqueServiceTypes;
+    private final boolean uniqueServiceTypesLoaded;
     private final Map<String, String> requestParamEchoes;
 
     private ManageBillingformViewModel(Builder b) {
@@ -87,6 +93,9 @@ public final class ManageBillingformViewModel {
         this.serviceGroups = b.serviceGroups == null
                 ? Collections.emptyList() : List.copyOf(b.serviceGroups);
         this.currentServiceTypeName = nullToEmpty(b.currentServiceTypeName);
+        this.uniqueServiceTypes = b.uniqueServiceTypes == null
+                ? Collections.emptyList() : List.copyOf(b.uniqueServiceTypes);
+        this.uniqueServiceTypesLoaded = b.uniqueServiceTypesLoaded;
         this.requestParamEchoes = b.requestParamEchoes == null
                 ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
     }
@@ -103,6 +112,10 @@ public final class ManageBillingformViewModel {
     public List<PremiumDeleteRow> getPremiumDeleteRows() { return premiumDeleteRows; }
     public List<ServiceGroup> getServiceGroups() { return serviceGroups; }
     public String getCurrentServiceTypeName() { return currentServiceTypeName; }
+    public List<UniqueServiceTypeRow> getUniqueServiceTypes() { return uniqueServiceTypes; }
+    /** Mirrors the legacy {@code if (uniqueServiceTypeList == null) print "failed!!!"}
+     *  branch in manageBillingform_add.jspf. */
+    public boolean isUniqueServiceTypesLoaded() { return uniqueServiceTypesLoaded; }
     public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
 
     public static final class Builder {
@@ -114,6 +127,8 @@ public final class ManageBillingformViewModel {
         private List<PremiumDeleteRow> premiumDeleteRows;
         private List<ServiceGroup> serviceGroups;
         private String currentServiceTypeName;
+        private List<UniqueServiceTypeRow> uniqueServiceTypes;
+        private boolean uniqueServiceTypesLoaded;
         private Map<String, String> requestParamEchoes;
 
         public Builder clinicView(String v) { this.clinicView = v; return this; }
@@ -134,6 +149,10 @@ public final class ManageBillingformViewModel {
             this.serviceGroups = v == null ? null : List.copyOf(v); return this;
         }
         public Builder currentServiceTypeName(String v) { this.currentServiceTypeName = v; return this; }
+        public Builder uniqueServiceTypes(List<UniqueServiceTypeRow> v) {
+            this.uniqueServiceTypes = v == null ? null : List.copyOf(v); return this;
+        }
+        public Builder uniqueServiceTypesLoaded(boolean v) { this.uniqueServiceTypesLoaded = v; return this; }
         public Builder requestParamEchoes(Map<String, String> v) {
             this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this;
         }
