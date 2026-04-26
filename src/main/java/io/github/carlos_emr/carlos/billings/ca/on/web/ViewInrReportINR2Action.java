@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingInrReportDataAssembler;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingInrReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +24,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/inr/reportINR.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/inr/reportINR.jsp}, the INR Batch
+ * Billing report. Enforces {@code _billing} {@code r} privilege and
+ * assembles a {@link BillingInrReportViewModel} via
+ * {@link BillingInrReportDataAssembler} so the JSP body is pure
+ * presentation — replacing the legacy ~12 inline scriptlets and the dead
+ * {@code ResultSet rsclinic} JDBC placeholder.
  *
  * @since 2026-04-13
  */
@@ -42,6 +45,11 @@ public final class ViewInrReportINR2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        String userNo = (String) request.getSession().getAttribute("user");
+        BillingInrReportViewModel model = new BillingInrReportDataAssembler()
+                .assemble(request, userNo);
+        request.setAttribute("reportInrModel", model);
 
         return SUCCESS;
     }
