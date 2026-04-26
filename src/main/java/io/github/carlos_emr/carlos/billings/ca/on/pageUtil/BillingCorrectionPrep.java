@@ -54,9 +54,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCorrection;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONCorrectionPersistenceService;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 
-    JdbcBillingCorrection dbObj = new JdbcBillingCorrection();
+    BillingONCorrectionPersistenceService dbObj = new BillingONCorrectionPersistenceService();
     BillingONCHeader1Dao cheader1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
     BillingONItemDao billOnItemDao = (BillingONItemDao) SpringUtils.getBean(BillingONItemDao.class);
     BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);

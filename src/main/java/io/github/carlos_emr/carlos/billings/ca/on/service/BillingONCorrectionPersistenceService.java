@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.text.ParseException;
 import java.math.BigDecimal;
@@ -32,6 +32,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONExtDao;
@@ -46,11 +49,29 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONAuditLogService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-
-public class JdbcBillingCorrection {
+/**
+ * Persistence service for the ON billing correction workflow. Wraps every
+ * {@code billing_on_cheader1} / {@code billing_on_item} mutation the
+ * correction page can perform — header updates, item updates, status
+ * flips, total/paid adjustments, plus the {@code billing_on_transaction}
+ * audit-trail rows that mirror each item-level change. The class also
+ * exposes the loader methods the correction page calls to populate its
+ * view model ({@link #getBillingRecordObj}, {@link #getBillingRejectList},
+ * {@link #getBillingExplanatoryList}, etc.) — these reads sit alongside
+ * the writes because the same callsite typically loads → mutates →
+ * persists, and the loader's DTO shape is shared with the persist path.
+ *
+ * <p>Replaces the legacy {@code JdbcBillingCorrection} shim that lived
+ * in {@code billings.ca.on.data}. No behavior change in this commit —
+ * just relocation to the {@code service/} tier per the
+ * {@code service = side effects (mutation, file I/O, audit)} contract
+ * documented in {@code service/package-info.java}.</p>
+ *
+ * @since 2026-04-26
+ */
+public class BillingONCorrectionPersistenceService {
     BillingONAuditLogService auditLog = new BillingONAuditLogService();
 
     private BillingONCHeader1Dao billingHeaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
@@ -130,18 +151,18 @@ public class JdbcBillingCorrection {
     }
 
     public boolean updateBillingOneItem(BillingItemData val) throws ParseException {
-        BillingONItem b = billingItemDao.find(val.id);
+        BillingONItem b = billingItemDao.find(val.getId());
         if (b != null) {
-            b.setTranscId(val.transc_id);
-            b.setRecId(val.rec_id);
-            b.setServiceCode(val.service_code);
-            b.setFee(val.fee);
-            b.setServiceCount(val.ser_num);
-            b.setServiceDate(dateFormatter.parse(val.service_date));
-            b.setDx(val.dx);
-            b.setDx1(val.dx1);
-            b.setDx2(val.dx2);
-            b.setStatus(val.status);
+            b.setTranscId(val.getTransc_id());
+            b.setRecId(val.getRec_id());
+            b.setServiceCode(val.getService_code());
+            b.setFee(val.getFee());
+            b.setServiceCount(val.getSer_num());
+            b.setServiceDate(dateFormatter.parse(val.getService_date()));
+            b.setDx(val.getDx());
+            b.setDx1(val.getDx1());
+            b.setDx2(val.getDx2());
+            b.setStatus(val.getStatus());
 
             billingItemDao.merge(b);
         }
