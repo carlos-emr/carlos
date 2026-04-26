@@ -23,7 +23,7 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingOB2ViewModel" %>
 <%
@@ -43,7 +43,7 @@
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title>Billing History</title>
 </head>
 
@@ -172,7 +172,7 @@
                     face="Arial, Helvetica, sans-serif" size="2">$ Fee</font></b></div>
         </td>
     </tr>
-    <% if (ob2Model.isBillDetailLoaded()) { %>
+    <c:if test="${ob2Model.billDetailLoaded}">
     <tr>
         <td width="22%"><font face="Arial, Helvetica, sans-serif"
                               size="2"><carlos:encode value="${ob2Model.serviceCode}" context="html"/>
@@ -192,7 +192,7 @@
             </font></div>
         </td>
     </tr>
-    <% } %>
+    </c:if>
     <tr bgcolor="#CCCCCC">
         <td colspan="4"><font face="Arial, Helvetica, sans-serif"
                               size="2"><b>Diagnostic Code</b></font></td>
