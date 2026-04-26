@@ -23,21 +23,24 @@
 
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigUpdateViewModel" %>
 
 <%
     // BillingDigUpdate2Action enforces _billing w + POST. The assembler
     // already ran the DiagnosticCodeDao.merge mutation; this JSP just
-    // shows the success/error banner.
-    BillingDigUpdateViewModel digUpdateModel =
-            (BillingDigUpdateViewModel) request.getAttribute("digUpdateModel");
-    if (digUpdateModel == null) {
-        digUpdateModel = BillingDigUpdateViewModel.builder().error(true).build();
+    // shows the success/error banner. Defensive fallback: if a caller forwards
+    // here without going through the action, show the error banner — never
+    // re-trigger the mutation.
+    if (request.getAttribute("digUpdateModel") == null) {
+        request.setAttribute("digUpdateModel",
+                BillingDigUpdateViewModel.builder().error(true).build());
     }
 %>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <script LANGUAGE="JavaScript">
         <!--
         function start() {
@@ -58,13 +61,16 @@
         </tr>
     </table>
 
-    <% if (!digUpdateModel.isError()) { %>
-    <p>
-    <h1>Successful Addition of a billing Record.</h1></p>
-    <% } else { %>
-    <p>
-    <h1>Sorry, addition has failed.</h1></p>
-    <% } %>
+    <c:choose>
+        <c:when test="${not digUpdateModel.error}">
+            <p>
+            <h1>Successful Addition of a billing Record.</h1></p>
+        </c:when>
+        <c:otherwise>
+            <p>
+            <h1>Sorry, addition has failed.</h1></p>
+        </c:otherwise>
+    </c:choose>
     <p></p>
     <hr width="90%"></hr>
     <form><input type="button" value="Close this window"
