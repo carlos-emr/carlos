@@ -22,82 +22,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@ page import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, java.net.*,io.github.carlos_emr.MyDateFormat"
-         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
-
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaHeader" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaHeaderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.RaDetail" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.RaDetailDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep" %>
-<%
-    RaHeaderDao dao = SpringUtils.getBean(RaHeaderDao.class);
-    BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
-    RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
-%>
-
-
-<%
-    String raNo = "", flag = "", plast = "", pfirst = "", pohipno = "", proNo = "";
-    String filepath = "", filename = "", header = "", headerCount = "", total = "", paymentdate = "", payable = "", totalStatus = "", deposit = ""; //request.getParameter("filename");
-    String transactiontype = "", providerno = "", specialty = "", account = "", patient_last = "", patient_first = "", provincecode = "", hin = "", ver = "", billtype = "", location = "";
-    String servicedate = "", serviceno = "", servicecode = "", amountsubmit = "", amountpay = "", amountpaysign = "", explain = "", error = "";
-    String proFirst = "", proLast = "", demoFirst = "", demoLast = "", apptDate = "", apptTime = "", checkAccount = "";
-    String errorAccount = "", eFlag = "", noErrorAccount = "";
-
-
-    raNo = request.getParameter("rano");
-    if (raNo == null || raNo.compareTo("") == 0) return;
-
-    ArrayList noErrorBill = new ArrayList();
-    ArrayList errorBill = new ArrayList();
-
-    for (RaDetail rad : raDetailDao.search_raerror35(Integer.parseInt(raNo), "I2", "35", proNo + "%")) {
-        account = String.valueOf(rad.getBillingNo());
-        errorBill.add(account);
-    }
-
-
-    account = "";
-    List<Integer> res = raDetailDao.search_ranoerror35(Integer.parseInt(raNo), "I2", "35", proNo + "%");
-
-    for (Integer r : res) {
-        account = String.valueOf(r);
-        eFlag = "1";
-        for (int i = 0; i < errorBill.size(); i++) {
-            errorAccount = (String) errorBill.get(i);
-            if (errorAccount.compareTo(account) == 0) {
-                eFlag = "0";
-                break;
-            }
-        }
-
-        if (eFlag.compareTo("1") == 0) noErrorBill.add(account);
-    }
-
-    BillingRAPrep obj = new BillingRAPrep();
-    for (int j = 0; j < noErrorBill.size(); j++) {
-        noErrorAccount = (String) noErrorBill.get(j);
-        obj.updateBillingStatus(noErrorAccount, "S");
-    }
-
-    int recordAffected1 = 0;
-
-    RaHeader raHeader = dao.find(Integer.parseInt(raNo));
-    if (raHeader != null) {
-        raHeader.setStatus("S");
-        dao.merge(raHeader);
-        recordAffected1++;
-    }
-%>
-
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%-- ViewOnGenRAsettle2Action enforces _billing w + POST and runs the settle
+     mutation via OnGenRAsettleService — the 3 inline DAO lookups
+     (RaHeaderDao, BillingDao, RaDetailDao) the JSP body used to perform
+     are now in the assembler. This page is rendered after the mutation;
+     it just closes the popup and refreshes the parent. --%>
 <script LANGUAGE="JavaScript">
     self.close();
     self.opener.refresh();
 </script>
-

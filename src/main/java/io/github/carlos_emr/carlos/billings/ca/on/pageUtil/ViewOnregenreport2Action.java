@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/onregenreport.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * Mutation gate for {@code billing/CA/ON/onregenreport.jsp}. The legacy JSP
+ * regenerated an existing MOH disk (keyed by {@code diskId}) by calling
+ * {@link BillingDiskCreatePrep} and
+ * {@link io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCreateBillingFile}
+ * to rewrite the OHIP claim file + HTML preview, then forwarded to
+ * {@code ViewBillingONMRI}. The regeneration logic now lives in
+ * {@link OnBillingDiskService#regenerateDisk}; this action enforces
+ * {@code _billing} {@code w} + POST and chains to the display action.
  *
  * @since 2026-04-13
  */
@@ -37,12 +41,19 @@ public final class ViewOnregenreport2Action extends ActionSupport {
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        new OnBillingDiskService().regenerateDisk(request);
         return SUCCESS;
     }
 }

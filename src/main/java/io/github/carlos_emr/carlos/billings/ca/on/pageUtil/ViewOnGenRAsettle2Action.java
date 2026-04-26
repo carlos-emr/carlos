@@ -23,15 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/onGenRAsettle.jsp}. The JSP's scriptlet
- * performs RA header settle merge. Enforces {@code _billing} w privilege AND POST-only
- * before forwarding to the JSP. GET requests return 405.
- * <p>
- * Class name retains the {@code View...} prefix for consistency with sibling
- * gate actions in this migration; behavior is mutation-gate.
- * Pattern matches the POST-only intent already documented by
- * {@code HttpMethodGuardFilter} for similar reconciliation JSPs
- * (ongenreport, gensimulation).
+ * Mutation gate for {@code billing/CA/ON/onGenRAsettle.jsp}, the standard
+ * RA settlement popup (settles all non-error bills, marks RA header
+ * status = "S").
+ *
+ * <p>Enforces {@code _billing w} privilege AND POST-only.
+ * {@link OnGenRAsettleService#settle} runs the mutation that the JSP
+ * scriptlet used to run inline (3 inline DAO lookups: RaHeaderDao,
+ * BillingDao, RaDetailDao); the JSP just emits the close-popup script.</p>
  *
  * @since 2026-04-13
  */
@@ -53,6 +52,9 @@ public final class ViewOnGenRAsettle2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+
+        new OnGenRAsettleService().settle(request.getParameter("rano"),
+                OnGenRAsettleService.Mode.STANDARD);
 
         return SUCCESS;
     }

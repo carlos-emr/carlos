@@ -15,6 +15,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRASummaryViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,21 +24,20 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Mutation gate for {@code billing/CA/ON/onGenRASummary.jsp}. The JSP's scriptlet
- * performs RA header merge. Enforces {@code _billing} w privilege AND POST-only
- * before forwarding to the JSP. GET requests return 405.
- * <p>
- * Class name retains the {@code View...} prefix for consistency with sibling
- * gate actions in this migration; behavior is mutation-gate.
- * Pattern matches the POST-only intent already documented by
- * {@code HttpMethodGuardFilter} for similar reconciliation JSPs
- * (ongenreport, gensimulation).
+ * Mutation gate for {@code billing/CA/ON/onGenRASummary.jsp}. The legacy JSP
+ * performed multiple BillingRAPrep DAO lookups, computed running totals, and
+ * called {@code raHeaderDao.merge(...)} to write the recalculated totals back
+ * into the RA header content XML. The data assembly + audit merge now live in
+ * {@link OnGenRASummaryDataAssembler}; this action enforces {@code _billing}
+ * {@code w} + POST and stashes the {@link OnGenRASummaryViewModel} on the
+ * request as {@code model} for the JSP to render.
  *
  * @since 2026-04-13
  */
 public final class ViewOnGenRASummary2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private OnGenRASummaryViewModel model;
 
     @Override
     public String execute() throws Exception {
@@ -54,6 +54,15 @@ public final class ViewOnGenRASummary2Action extends ActionSupport {
             return NONE;
         }
 
+        model = new OnGenRASummaryDataAssembler().assemble(
+                request.getParameter("rano"),
+                request.getParameter("proNo"));
+        request.setAttribute("model", model);
+
         return SUCCESS;
+    }
+
+    public OnGenRASummaryViewModel getModel() {
+        return model;
     }
 }

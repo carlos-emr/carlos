@@ -54,6 +54,27 @@ public final class ViewGenGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
+        // Validate request params (the legacy JSP did this inline before the
+        // mutation work).
+        String monthCode = request.getParameter("monthCode");
+        if (monthCode == null || !monthCode.matches("^[A-Za-z0-9]{1,10}$")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid monthCode parameter");
+            return NONE;
+        }
+        String providerParam = request.getParameter("providers");
+        if (providerParam == null || providerParam.trim().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing providers parameter");
+            return NONE;
+        }
+        providerParam = providerParam.trim();
+        if (!"all".equals(providerParam) && !providerParam.matches("[A-Za-z0-9]{6}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid providers parameter");
+            return NONE;
+        }
+
+        new OhipReportGenerationService().generateReport(request,
+                OhipReportGenerationService.Mode.GROUP_REPORT);
+
         return SUCCESS;
     }
 }

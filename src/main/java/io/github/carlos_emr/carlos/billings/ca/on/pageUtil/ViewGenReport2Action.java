@@ -54,6 +54,11 @@ public final class ViewGenReport2Action extends ActionSupport {
             return NONE;
         }
 
-        return SUCCESS;
+        OhipReportGenerationService service = new OhipReportGenerationService();
+        service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+
+        // Hybrid clinics need a follow-up GROUP_REPORT pass for the group
+        // providers; non-hybrid skips straight to the display page.
+        return service.isHybridBilling() ? "groupReport" : "ohipReport";
     }
 }

@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONNewReportViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingONNewReport.jsp}. Enforces {@code _team_billing_only}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View action for {@code billing/CA/ON/billingONNewReport.jsp}. The legacy JSP
+ * ran four inline JDBC queries (unbilled / billed / paid / unpaid) and built
+ * provider/site dropdown options inline. The data assembly now lives in
+ * {@link BillingONNewReportDataAssembler}; this action enforces {@code _billing}
+ * {@code r} and stashes the {@link BillingONNewReportViewModel} on the request
+ * as {@code model} for the JSP to render via EL.
+ *
+ * <p>This page is read-only (no DB writes), so GET / POST are both accepted.
  *
  * @since 2026-04-13
  */
@@ -34,6 +38,7 @@ public final class ViewBillingONNewReport2Action extends ActionSupport {
 
     // Dual-constructor DI: SpringUtils.getBean confined to the no-arg ctor.
     private final SecurityInfoManager securityInfoManager;
+    private BillingONNewReportViewModel model;
 
     /** Production constructor used by Struts2's Spring object factory. */
     public ViewBillingONNewReport2Action() {
@@ -60,6 +65,13 @@ public final class ViewBillingONNewReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        model = new BillingONNewReportDataAssembler().assemble(request);
+        request.setAttribute("model", model);
+
         return SUCCESS;
+    }
+
+    public BillingONNewReportViewModel getModel() {
+        return model;
     }
 }

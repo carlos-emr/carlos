@@ -77,12 +77,23 @@
 
         function recreate(si) {
             var ret = confirm("Are you sure you want to regenerate the file? \n\nWARNING: This should only be performed in very specific circumstances. If you are unsure, consult your OSCAR administrator before using this feature.");
-            if (ret) {
-                var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
-                var su = document.forms[0].useProviderMOH.checked;
-                var params = new URLSearchParams({diskId: si, billcenter: ss, useProviderMOH: su});
-                window.location.href = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnregenreport?" + params.toString();
-            }
+            if (!ret) return;
+            // ViewOnregenreport is a mutation gate (POST-only). Build a form on
+            // the fly so CSRFGuard auto-injects the token alongside our params.
+            var ss = document.forms[0].billcenter[document.forms[0].billcenter.selectedIndex].value;
+            var su = document.forms[0].useProviderMOH.checked;
+            var f = document.createElement("form");
+            f.method = "post";
+            f.action = "<%= request.getContextPath() %>/billing/CA/ON/ViewOnregenreport";
+            ["diskId", "billcenter", "useProviderMOH"].forEach(function (n) {
+                var input = document.createElement("input");
+                input.type = "hidden";
+                input.name = n;
+                input.value = (n === "diskId" ? si : (n === "billcenter" ? ss : su));
+                f.appendChild(input);
+            });
+            document.body.appendChild(f);
+            f.submit();
         }
 
         var providerBillCenterMap = {};
