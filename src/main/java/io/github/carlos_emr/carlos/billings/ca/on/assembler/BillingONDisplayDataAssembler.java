@@ -24,7 +24,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDisplayViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.dao.BillingONErrorCodeDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONErrorCode;
 import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
@@ -178,7 +178,7 @@ public final class BillingONDisplayDataAssembler {
 
         // Provider list (pipe-delimited entries: provider_no | last | first | ohip_no)
         List<BillingONDisplayViewModel.ProviderOption> providers = new ArrayList<>();
-        List<String> pList = (new JdbcBillingPageUtil()).getCurProviderStr();
+        List<String> pList = (new BillingONLookupService()).getCurProviderStr();
         if (pList != null) {
             for (String entry : pList) {
                 String[] parts = entry == null ? new String[0] : entry.split("\\|", -1);

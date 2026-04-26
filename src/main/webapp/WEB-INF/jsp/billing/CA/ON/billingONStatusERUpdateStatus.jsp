@@ -30,12 +30,12 @@
 <%@ page
         import="io.github.carlos_emr.carlos.billing.ca.on.data.*, java.sql.*, io.github.carlos_emr.*, java.net.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService" %>
 <%
     String id = request.getParameter("id");
     String val = request.getParameter("val");
     ;
-    JdbcBillingErrorRepImpl dbObj = new JdbcBillingErrorRepImpl();
+    BillingONErrorReportService dbObj = new BillingONErrorReportService();
     boolean bChecked = dbObj.updateErrorReportStatus(id, val);
     String ret = "Y".equals(val) ? "checked" : "uncheck";
     out.println(ret);

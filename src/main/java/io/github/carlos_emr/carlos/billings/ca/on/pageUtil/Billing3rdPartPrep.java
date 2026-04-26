@@ -24,11 +24,11 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import java.util.Properties;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 
 public class Billing3rdPartPrep {
 
-    JdbcBilling3rdPartImpl dbObj = new JdbcBilling3rdPartImpl();
+    Billing3rdPartyService dbObj = new Billing3rdPartyService();
 
     // get 3rd billing data
     public Properties get3rdPartBillProp(String invNo) {

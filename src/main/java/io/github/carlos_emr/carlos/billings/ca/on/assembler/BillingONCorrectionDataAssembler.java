@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONCorrectionViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingRAImpl;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -246,7 +246,7 @@ public final class BillingONCorrectionDataAssembler {
             renderContextComposer.compose(builder, request, loggedInInfo,
                     billCtx.bCh1, billCtx.billNo, billCtx.multiSiteProvider, billCtx.payProgram);
             // Render-helpers (multisite per-site provider HTML, BillingDataHlp
-            // payment-type pairs, JdbcBillingPageUtil non-multisite provider list,
+            // payment-type pairs, BillingONLookupService non-multisite provider list,
             // request-param echoes, resolved current site) live in this branch
             // because they depend on JDBC + static helpers the 7-arg test
             // constructor isn't expected to wire up. Tests that exercise them
@@ -314,9 +314,9 @@ public final class BillingONCorrectionDataAssembler {
         }
 
         // ---- non-multisite provider list ----
-        // Mirrors legacy scriptlet's tri-branch over JdbcBillingPageUtil.
+        // Mirrors legacy scriptlet's tri-branch over BillingONLookupService.
         List<String> pList;
-        JdbcBillingPageUtil util = new JdbcBillingPageUtil();
+        BillingONLookupService util = new BillingONLookupService();
         if (teamBillingOnly || teamAccessPrivacy) {
             pList = util.getCurTeamProviderStr(userProviderNo);
         } else if (siteAccessPrivacy) {

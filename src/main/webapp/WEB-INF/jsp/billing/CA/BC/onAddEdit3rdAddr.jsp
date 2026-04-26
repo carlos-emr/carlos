@@ -49,7 +49,7 @@
          import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% //
     int serviceCodeLen = 5;
@@ -57,7 +57,7 @@
     String action = "search"; // add/edit
     //BillingServiceCode serviceCodeObj = new BillingServiceCode();
     Properties prop = new Properties();
-    JdbcBilling3rdPartImpl dbObj = new JdbcBilling3rdPartImpl();
+    Billing3rdPartyService dbObj = new Billing3rdPartyService();
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Save")) {
         if (request.getParameter("action").startsWith("edit")) {
             // update the service code

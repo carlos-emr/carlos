@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,17 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-public class JdbcBillingCodeImpl {
+/**
+ * Side-effect service for the {@code billing_service} table — wraps the
+ * private-code admin workflow (add / update / delete) plus the small set
+ * of read helpers ({@link #getBillingCodeAttr},
+ * {@link #getCodeDescByNames}, {@link #getPrivateBillingCodeDesc}) the
+ * correction-review and edit-private-code pages depend on. Replaces the
+ * legacy {@code JdbcBillingCodeImpl} shim that lived in {@code data/}.
+ *
+ * @since 2026-04-26
+ */
+public class BillingONServiceCodeService {
 
     private BillingServiceDao dao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
 

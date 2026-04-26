@@ -21,18 +21,32 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-public class JdbcBillingErrorRepImpl {
+/**
+ * Side-effect service for the {@code billing_on_eareport} table — the
+ * MOH error-report ingestion + display surface. Reads
+ * ({@link #getErrorRecords}) load rows for the status page; mutations
+ * ({@link #addErrorReportRecord}, {@link #deleteErrorReport},
+ * {@link #updateErrorReportStatus}) accept and ack remediation.
+ *
+ * <p>Replaces the legacy {@code JdbcBillingErrorRepImpl} shim that lived
+ * in {@code data/}.</p>
+ *
+ * @since 2026-04-26
+ */
+public class BillingONErrorReportService {
 
     private BillingONEAReportDao billingONEARReportDao = (BillingONEAReportDao) SpringUtils.getBean(BillingONEAReportDao.class);
 
@@ -98,28 +112,28 @@ public class JdbcBillingErrorRepImpl {
 
     public int addErrorReportRecord(BillingErrorRepData val) {
         BillingONEAReport b = new BillingONEAReport();
-        b.setProviderOHIPNo(val.providerohip_no);
-        b.setGroupNo(val.group_no);
-        b.setSpecialty(val.specialty);
-        b.setProcessDate(ConversionUtils.fromDateString(val.process_date, "yyyyMMdd"));
-        b.setHin(val.hin);
-        b.setVersion(val.ver);
-        b.setDob(ConversionUtils.fromDateString(val.dob));
-        b.setBillingNo(Integer.parseInt(val.billing_no));
-        b.setRefNo(val.ref_no);
-        b.setFacility(val.facility);
-        b.setAdmittedDate(ConversionUtils.fromDateString(val.admitted_date, "yyyyMMdd"));
-        b.setClaimError(val.claim_error);
-        b.setCode(val.code);
-        b.setFee(val.fee);
-        b.setUnit(val.unit);
-        b.setCodeDate(ConversionUtils.fromDateString(val.code_date, "yyyyMMdd"));
-        b.setDx(val.dx);
-        b.setExp(val.exp);
-        b.setCodeError(val.code_error);
-        b.setReportName(val.report_name);
-        b.setStatus(val.status.toCharArray()[0]);
-        b.setComment(val.comment);
+        b.setProviderOHIPNo(val.getProviderohip_no());
+        b.setGroupNo(val.getGroup_no());
+        b.setSpecialty(val.getSpecialty());
+        b.setProcessDate(ConversionUtils.fromDateString(val.getProcess_date(), "yyyyMMdd"));
+        b.setHin(val.getHin());
+        b.setVersion(val.getVer());
+        b.setDob(ConversionUtils.fromDateString(val.getDob()));
+        b.setBillingNo(Integer.parseInt(val.getBilling_no()));
+        b.setRefNo(val.getRef_no());
+        b.setFacility(val.getFacility());
+        b.setAdmittedDate(ConversionUtils.fromDateString(val.getAdmitted_date(), "yyyyMMdd"));
+        b.setClaimError(val.getClaim_error());
+        b.setCode(val.getCode());
+        b.setFee(val.getFee());
+        b.setUnit(val.getUnit());
+        b.setCodeDate(ConversionUtils.fromDateString(val.getCode_date(), "yyyyMMdd"));
+        b.setDx(val.getDx());
+        b.setExp(val.getExp());
+        b.setCodeError(val.getCode_error());
+        b.setReportName(val.getReport_name());
+        b.setStatus(val.getStatus().toCharArray()[0]);
+        b.setComment(val.getComment());
 
         billingONEARReportDao.persist(b);
 

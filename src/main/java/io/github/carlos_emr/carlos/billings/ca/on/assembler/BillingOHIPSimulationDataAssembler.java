@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingOHIPSimulationViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -144,7 +144,7 @@ public final class BillingOHIPSimulationDataAssembler {
         StringBuilder errorMsg = new StringBuilder();
         DateRange dateRange = resolveDateRange(request);
 
-        var proObj = new JdbcBillingPageUtil().getProviderObj(pro);
+        var proObj = new BillingONLookupService().getProviderObj(pro);
         if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
             errorMsg.append("The providers's billing code is not correct!<br>");
         }
@@ -210,7 +210,7 @@ public final class BillingOHIPSimulationDataAssembler {
 
         for (String provider : providerList) {
             StringBuilder errorMsg = new StringBuilder();
-            var proObj = new JdbcBillingPageUtil().getProviderObj(provider);
+            var proObj = new BillingONLookupService().getProviderObj(provider);
             if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
                 errorMsg.append("The billing code (").append(proObj.getOhipNo())
                         .append(") for providers (").append(provider)

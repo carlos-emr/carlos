@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +31,7 @@ import java.util.Properties;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
@@ -54,7 +55,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.SxmlMisc;
 
-public class JdbcBillingPageUtil {
+/**
+ * Lookup-and-mutation service used by ten ON billing assemblers and
+ * three pageUtil prep classes. Mostly read-side helpers (provider lists,
+ * provider OHIP/name maps, appointment-status lookup, current
+ * billing-demographic-id resolution) plus one mutation
+ * ({@link #updateApptStatus}). Sits in {@code service/} because the
+ * mutation makes it side-effect-bearing per the package-info contract;
+ * the reads stay co-located so the entire surface is one file.
+ *
+ * <p>Replaces the legacy {@code JdbcBillingPageUtil} shim in
+ * {@code data/}.</p>
+ *
+ * @since 2026-04-26
+ */
+public class BillingONLookupService {
 
     private static final Logger _logger = MiscUtils.getLogger();
 

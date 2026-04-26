@@ -21,7 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -54,7 +54,7 @@ public final class BillingONFavouriteDataAssembler {
     public BillingONFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
                 ? "" : loggedInInfo.getLoggedInProviderNo();
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String action = "search";
@@ -89,7 +89,7 @@ public final class BillingONFavouriteDataAssembler {
                 .build();
     }
 
-    private FormResult handleSave(HttpServletRequest request, JdbcBillingPageUtil dbObj,
+    private FormResult handleSave(HttpServletRequest request, BillingONLookupService dbObj,
                                   String userNo, Map<String, String> formFields) {
         String actionParam = nullToEmpty(request.getParameter("action"));
         if (actionParam.startsWith("edit")) {
@@ -104,7 +104,7 @@ public final class BillingONFavouriteDataAssembler {
         return new FormResult(mismatchMsg.toString(), "search");
     }
 
-    private FormResult processEdit(HttpServletRequest request, JdbcBillingPageUtil dbObj,
+    private FormResult processEdit(HttpServletRequest request, BillingONLookupService dbObj,
                                    String userNo, Map<String, String> formFields, String actionParam) {
         String name = nullToEmpty(request.getParameter("name"));
         String safeName = SafeEncode.forHtml(name);
@@ -134,7 +134,7 @@ public final class BillingONFavouriteDataAssembler {
                 "edit" + name);
     }
 
-    private FormResult processAdd(HttpServletRequest request, JdbcBillingPageUtil dbObj,
+    private FormResult processAdd(HttpServletRequest request, BillingONLookupService dbObj,
                                   String userNo, Map<String, String> formFields, String actionParam) {
         String name = nullToEmpty(request.getParameter("name"));
         String safeName = SafeEncode.forHtml(name);
@@ -163,7 +163,7 @@ public final class BillingONFavouriteDataAssembler {
                 "add" + name);
     }
 
-    private FormResult handleSearchOrDelete(HttpServletRequest request, JdbcBillingPageUtil dbObj,
+    private FormResult handleSearchOrDelete(HttpServletRequest request, BillingONLookupService dbObj,
                                             String userNo, Map<String, String> formFields) {
         String actionParam = nullToEmpty(request.getParameter("action"));
         if ("Delete".equals(actionParam)) {

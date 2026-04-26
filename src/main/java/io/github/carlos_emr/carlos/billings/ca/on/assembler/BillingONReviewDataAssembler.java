@@ -40,8 +40,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReferralDoctor;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingSortComparator;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -370,7 +370,7 @@ public final class BillingONReviewDataAssembler {
         Vector vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
 
-        Properties propCodeDesc = new JdbcBillingCodeImpl().getCodeDescByNames(vecServiceParam[0]);
+        Properties propCodeDesc = new BillingONServiceCodeService().getCodeDescByNames(vecServiceParam[0]);
         Map<String, String> codeDescMap = new HashMap<>();
         for (String key : propCodeDesc.stringPropertyNames()) {
             codeDescMap.put(key, propCodeDesc.getProperty(key, ""));
@@ -488,7 +488,7 @@ public final class BillingONReviewDataAssembler {
 
         if (privatePayer && codeValid) {
             try {
-                List<String> al = new JdbcBillingPageUtil().getPaymentType();
+                List<String> al = new BillingONLookupService().getPaymentType();
                 List<BillingONReviewViewModel.PaymentType> paymentTypes = new ArrayList<>();
                 for (int i = 0; i + 1 < al.size(); i = i + 2) {
                     paymentTypes.add(new BillingONReviewViewModel.PaymentType(al.get(i), al.get(i + 1)));

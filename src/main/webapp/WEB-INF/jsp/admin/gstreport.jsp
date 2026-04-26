@@ -26,7 +26,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
         import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.billing.ca.on.administration.*, io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.administration.GstReport" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -93,11 +93,11 @@
 
     List<String> pList = new ArrayList<String>();
     if (isTeamAccessPrivacy) {
-        pList = (new JdbcBillingPageUtil()).getCurTeamProviderStr(curProvider_no);
+        pList = (new BillingONLookupService()).getCurTeamProviderStr(curProvider_no);
     } else if (isSiteAccessPrivacy) {
-        pList = (new JdbcBillingPageUtil()).getCurSiteProviderStr(curProvider_no);
+        pList = (new BillingONLookupService()).getCurSiteProviderStr(curProvider_no);
     } else {
-        pList = (new JdbcBillingPageUtil()).getCurProviderStr();
+        pList = (new BillingONLookupService()).getCurProviderStr();
     }
 %>
 <html>

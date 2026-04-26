@@ -37,8 +37,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingErrorRepData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONStatusViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingErrorRepImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.RAData;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -144,7 +144,7 @@ public final class BillingONStatusDataAssembler {
             Object u = request.getSession().getAttribute("user");
             if (u instanceof String) sessionUser = (String) u;
         }
-        JdbcBillingPageUtil pageUtil = new JdbcBillingPageUtil();
+        BillingONLookupService pageUtil = new BillingONLookupService();
         List<String> pList = teamBillingOnly
                 ? pageUtil.getCurTeamProviderStr(sessionUser)
                 : pageUtil.getCurProviderStr();
@@ -361,8 +361,8 @@ public final class BillingONStatusDataAssembler {
             aLProviders.add(providerNo);
         }
         List<BillingONStatusViewModel.RejectedBillRow> rows = new ArrayList<>();
-        JdbcBillingPageUtil pageUtil = new JdbcBillingPageUtil();
-        JdbcBillingErrorRepImpl errorRepImpl = new JdbcBillingErrorRepImpl();
+        BillingONLookupService pageUtil = new BillingONLookupService();
+        BillingONErrorReportService errorRepImpl = new BillingONErrorReportService();
         for (String entry : aLProviders) {
             String[] provInfo = entry.split("\\|", -1);
             String currentProvider = provInfo.length > 0 ? provInfo[0].trim() : "";

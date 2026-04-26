@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.data;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 
@@ -42,7 +42,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 
-public class JdbcBilling3rdPartImpl {
+/**
+ * Side-effect service for the third-party invoice / payee workflow.
+ * Wraps the {@code billing_3rdparty_address} CRUD plus the
+ * {@code billing_on_ext} key/value rows that store per-invoice 3rd-party
+ * billing details (Bill To, payment type, payment date, etc.). Reads
+ * sit alongside the writes because the correction page typically loads
+ * the existing 3rd-party state, mutates one or two keys, and persists —
+ * splitting them would create artificial coupling.
+ *
+ * <p>Replaces the legacy {@code JdbcBilling3rdPartImpl} shim that lived
+ * in {@code data/}.</p>
+ *
+ * @since 2026-04-26
+ */
+public class Billing3rdPartyService {
 
     private ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
     private Billing3rdPartyAddressDao dao = SpringUtils.getBean(Billing3rdPartyAddressDao.class);

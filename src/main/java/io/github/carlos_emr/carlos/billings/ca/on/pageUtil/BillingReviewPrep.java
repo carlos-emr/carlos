@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
@@ -262,19 +262,19 @@ public class BillingReviewPrep {
 
     // ret - Vector = || ||
     public List getProviderBillingStr() {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getCurProviderStr();
         return ret;
     }
 
     public List getTeamProviderBillingStr(String provider_no) {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getCurTeamProviderStr(provider_no);
         return ret;
     }
 
     public List getSiteProviderBillingStr(String provider_no) {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getCurSiteProviderStr(provider_no);
         return ret;
     }

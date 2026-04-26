@@ -168,7 +168,7 @@ public final class BillingONFormViewModel {
     private final List<String> billingFavourites;
 
     // Round-A6: residual body-DAO data — pulled from the assembler so the JSP
-    // body no longer reaches into JdbcBillingPageUtil / JdbcBillingReviewImpl /
+    // body no longer reaches into BillingONLookupService / JdbcBillingReviewImpl /
     // BillingSiteIdPrep / DemographicData / JdbcApptImpl directly.
     /** All recent-history rows the bottom table renders (was {@code aL} in JSP). */
     private final List<BillingHistoryRow> billingHistoryRows;

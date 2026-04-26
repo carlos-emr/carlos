@@ -120,7 +120,7 @@ public final class BillingONCorrectionViewModel {
     // list and the name->HTML map of <option> fragments mirroring billingON.jsp.
     private final BillingMultisiteContext multisite;
     // Non-multisite provider dropdown — pre-resolved triples of
-    // {providerNo, firstName, lastName} from JdbcBillingPageUtil so the JSP
+    // {providerNo, firstName, lastName} from BillingONLookupService so the JSP
     // can render with c:forEach.
     private final List<ProviderOption> providerOptions;
     // BillingDataHlp.vecPaymentType pairs (code + label) so the JSP renders

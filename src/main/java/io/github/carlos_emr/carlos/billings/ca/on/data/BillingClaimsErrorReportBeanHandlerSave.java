@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBean;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONErrorReportService;
 
 public class BillingClaimsErrorReportBeanHandlerSave {
 
@@ -57,7 +58,7 @@ public class BillingClaimsErrorReportBeanHandlerSave {
         BillingClaimsErrorReportBean CERBean = new BillingClaimsErrorReportBean();
         boolean isNewHin = false;
 
-        JdbcBillingErrorRepImpl erRepObj = new JdbcBillingErrorRepImpl();
+        BillingONErrorReportService erRepObj = new BillingONErrorReportService();
         BillingErrorRepData erObj = null;
         String claimError = "";
         try {

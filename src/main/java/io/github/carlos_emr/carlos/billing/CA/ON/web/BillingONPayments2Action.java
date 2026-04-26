@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingON3rdPaymentsViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 
 
 /**
@@ -408,7 +408,7 @@ public class BillingONPayments2Action extends ActionSupport {
         String demographicNo = cheader1.getDemographicNo().toString();
 
         // 1.billing_on_ext table: payment
-        JdbcBilling3rdPartImpl tExtObj = new JdbcBilling3rdPartImpl();
+        Billing3rdPartyService tExtObj = new Billing3rdPartyService();
         if (sumPaid.compareTo(BigDecimal.ZERO) == 1) {
             toUpdateChl = true;
             BigDecimal sumPaidTmp = sumPaid.add(cheader1.getPaid());

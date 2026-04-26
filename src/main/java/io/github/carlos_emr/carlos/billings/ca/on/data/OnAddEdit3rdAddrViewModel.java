@@ -22,7 +22,7 @@ import java.util.Properties;
  *
  * <p>The legacy JSP scriptlet ran a state machine across two submit paths
  * (Search / Save) plus an in-page row-list dropdown rendered from
- * {@link JdbcBilling3rdPartImpl#get3rdAddrNameList()}. The action now does all
+ * {@link Billing3rdPartyService#get3rdAddrNameList()}. The action now does all
  * mutation, search, and assembly so the JSP body becomes pure EL/JSTL.</p>
  *
  * @since 2026-04-25

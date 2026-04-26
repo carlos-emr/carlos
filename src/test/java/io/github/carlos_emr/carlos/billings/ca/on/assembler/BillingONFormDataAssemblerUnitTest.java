@@ -90,7 +90,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         CtlBillingTypeDao ctlBillingTypeDao = Mockito.mock(CtlBillingTypeDao.class);
         DiagnosticCodeDao diagnosticCodeDao = Mockito.mock(DiagnosticCodeDao.class);
 
-        // JdbcBillingPageUtil's constructor pulls a slew of additional DAOs.
+        // BillingONLookupService's constructor pulls a slew of additional DAOs.
         OscarAppointmentDao oscarAppointmentDao = Mockito.mock(OscarAppointmentDao.class);
         ClinicLocationDao clinicLocationDao = Mockito.mock(ClinicLocationDao.class);
         BillingPaymentTypeDao billingPaymentTypeDao = Mockito.mock(BillingPaymentTypeDao.class);

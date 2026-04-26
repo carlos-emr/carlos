@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONMRIViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
  * and one for the older-records OHIP-number→name lookup (using
  * {@code getActiveProviders}). Both are consolidated here.</p>
  *
- * <p>The {@code BillingReviewPrep} and {@code JdbcBillingPageUtil} helpers
+ * <p>The {@code BillingReviewPrep} and {@code BillingONLookupService} helpers
  * remain plain {@code new} instantiations — they aren't Spring beans.</p>
  *
  * @since 2026-04-26
@@ -250,7 +250,7 @@ public final class BillingONMRIDataAssembler {
         BillingReviewPrep prep = new BillingReviewPrep();
         List mriList = prep.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
-        Properties proName = new JdbcBillingPageUtil().getPropProviderName();
+        Properties proName = new BillingONLookupService().getPropProviderName();
 
         List<BillingONMRIViewModel.MriRow> rows = new ArrayList<>();
         if (mriList == null) {

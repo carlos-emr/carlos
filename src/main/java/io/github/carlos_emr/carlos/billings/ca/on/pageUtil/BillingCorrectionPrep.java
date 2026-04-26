@@ -51,10 +51,10 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingCodeImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONCorrectionPersistenceService;
 
@@ -120,7 +120,7 @@ public class BillingCorrectionPrep {
             ch1Obj.setComment(requestData.getParameter("comment"));
 
             // provider_ohip_no update as well
-            BillingProviderData otemp = (new JdbcBillingPageUtil())
+            BillingProviderData otemp = (new BillingONLookupService())
                     .getProviderObj(requestData.getParameter("provider_no"));
             ch1Obj.setProvider_ohip_no(otemp.getOhipNo());
             ch1Obj.setProvider_rma_no(otemp.getRmaNo());
@@ -194,9 +194,9 @@ public class BillingCorrectionPrep {
     }
 
     public void setInactive(String key, HttpServletRequest request) {
-        JdbcBilling3rdPartImpl tobj = new JdbcBilling3rdPartImpl();
+        Billing3rdPartyService tobj = new Billing3rdPartyService();
         String billingNo = request.getParameter("xml_billing_no");
-        tobj.updateKeyStatus(billingNo, key, JdbcBilling3rdPartImpl.INACTIVE);
+        tobj.updateKeyStatus(billingNo, key, Billing3rdPartyService.INACTIVE);
     }
 
     /*
@@ -209,7 +209,7 @@ public class BillingCorrectionPrep {
 
     public boolean update3rdPartyItem(String key, HttpServletRequest request) {
         boolean ret = true;
-        JdbcBilling3rdPartImpl tobj = new JdbcBilling3rdPartImpl();
+        Billing3rdPartyService tobj = new Billing3rdPartyService();
         String billingNo = request.getParameter("xml_billing_no");
         if (tobj.keyExists(billingNo, key)) {
             String val = request.getParameter(key);
@@ -226,7 +226,7 @@ public class BillingCorrectionPrep {
 
     public boolean update3rdPartyItem(HttpServletRequest request) {
         boolean ret = true;
-        JdbcBilling3rdPartImpl tobj = new JdbcBilling3rdPartImpl();
+        Billing3rdPartyService tobj = new Billing3rdPartyService();
         String billingNo = request.getParameter("xml_billing_no");
         tobj.updateKeyValue(billingNo, "payment",
                 request.getParameter("payment"));
@@ -341,7 +341,7 @@ public class BillingCorrectionPrep {
     // billing correction
     public String getBillingCodeDesc(String codeName) {
         String ret = null;
-        JdbcBillingCodeImpl dbCodeObj = new JdbcBillingCodeImpl();
+        BillingONServiceCodeService dbCodeObj = new BillingONServiceCodeService();
         List descL = dbCodeObj.getBillingCodeAttr(codeName);
         ret = descL.size() > 1 ? (String) descL.get(1) : "Unknown";
         return ret;
@@ -349,7 +349,7 @@ public class BillingCorrectionPrep {
 
     // billing correction
     public Properties getBillingCodeDesc(List codeName) {
-        JdbcBillingCodeImpl dbCodeObj = new JdbcBillingCodeImpl();
+        BillingONServiceCodeService dbCodeObj = new BillingONServiceCodeService();
         Properties ret = new Properties();
         for (int i = 0; i < codeName.size(); i++) {
             List descL = dbCodeObj.getBillingCodeAttr((String) codeName.get(i));
@@ -765,7 +765,7 @@ public class BillingCorrectionPrep {
     }
 
     public List getFacilty_num() {
-        JdbcBillingPageUtil dbPageObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbPageObj = new BillingONLookupService();
         List ret = dbPageObj.getFacilty_num();
         return ret;
     }

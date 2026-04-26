@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class BillingSavePrep {
@@ -101,13 +101,13 @@ public class BillingSavePrep {
 
     // set appt to B
     public boolean updateApptStatus(String apptNo, String status, String userNo) {
-        boolean ret = (new JdbcBillingPageUtil()).updateApptStatus(apptNo, status, userNo);
+        boolean ret = (new BillingONLookupService()).updateApptStatus(apptNo, status, userNo);
         return ret;
     }
 
     // get appt status
     public String getApptStatus(String apptNo) {
-        String ret = (new JdbcBillingPageUtil()).getApptStatus(apptNo);
+        String ret = (new BillingONLookupService()).getApptStatus(apptNo);
         return ret;
     }
 

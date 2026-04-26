@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDiskNameData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingClaimImpl;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class BillingDiskCreatePrep {
@@ -51,31 +51,31 @@ public class BillingDiskCreatePrep {
 
     public static Properties getPropProviderOHIP() {
         Properties ret = new Properties();
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         ret = dbObj.getPropProviderOHIP();
         return ret;
     }
 
     public List getCurSoloProvider() {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getCurSoloProvider();
         return ret;
     }
 
     public List getCurGrpProvider() {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getCurGrpProvider();
         return ret;
     }
 
     public List getProvider(String diskId) {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         List ret = dbObj.getProvider(diskId);
         return ret;
     }
 
     public BillingProviderData getProviderObj(String providerNo) {
-        JdbcBillingPageUtil dbObj = new JdbcBillingPageUtil();
+        BillingONLookupService dbObj = new BillingONLookupService();
         BillingProviderData ret = dbObj.getProviderObj(providerNo);
         return ret;
     }

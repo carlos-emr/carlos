@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingBatchHeaderData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
@@ -853,7 +852,7 @@ public class OhipClaimFileService {
 
     private void updateDemoData(LoggedInInfo loggedInInfo, BillingClaimHeader1Data chObj) {
         // last_name,first_name,dob,hin,ver,hc_type,sex
-        List<String> vecStr = (new JdbcBillingPageUtil()).getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
+        List<String> vecStr = (new BillingONLookupService()).getPatientCurBillingDemo(loggedInInfo, chObj.getDemographic_no());
 
         //Bonus Billing (Incentives)? Block out patient data : update with patient data
         if (chObj.getStatus().equals("I")) {

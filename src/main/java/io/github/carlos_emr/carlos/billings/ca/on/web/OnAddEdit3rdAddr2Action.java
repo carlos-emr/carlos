@@ -18,7 +18,7 @@ import java.util.Properties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBilling3rdPartImpl;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnAddEdit3rdAddrViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -76,7 +76,7 @@ public final class OnAddEdit3rdAddr2Action extends ActionSupport {
         String message = "Type in a name and search first to see if it is available.";
         String action = "search";
         Properties prop = new Properties();
-        JdbcBilling3rdPartImpl dbObj = new JdbcBilling3rdPartImpl();
+        Billing3rdPartyService dbObj = new Billing3rdPartyService();
 
         if ("Save".equals(submit)) {
             String actionParam = request.getParameter("action");
