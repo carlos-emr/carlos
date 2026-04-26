@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONEditPrivateCodeViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingONEditPrivateCode.jsp}. Enforces {@code _admin.billing}
- * {@code w} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingONEditPrivateCode.jsp}. Enforces
+ * {@code _admin.billing w} privilege and assembles a
+ * {@link BillingONEditPrivateCodeViewModel} via
+ * {@link BillingONEditPrivateCodeDataAssembler} so the JSP body is pure
+ * presentation.
  *
  * @since 2026-04-13
  */
@@ -42,6 +43,10 @@ public final class ViewBillingONEditPrivateCode2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
+
+        BillingONEditPrivateCodeViewModel model = new BillingONEditPrivateCodeDataAssembler()
+                .assemble(request);
+        request.setAttribute("privateCodeModel", model);
 
         return SUCCESS;
     }
