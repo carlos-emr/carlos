@@ -76,7 +76,7 @@
         <title><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
         <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
         <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-        <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+        <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
               rel="stylesheet">
         <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/datatables.min.js"></script>

@@ -49,7 +49,7 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <!-- Bootstrap 2.3.1 -->
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
-    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.min.css"
+    <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css"
           rel="stylesheet">
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
