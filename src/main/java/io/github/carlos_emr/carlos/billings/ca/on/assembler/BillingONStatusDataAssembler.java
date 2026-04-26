@@ -67,6 +67,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONStatus2Action
 public final class BillingONStatusDataAssembler {
 
     private final SecurityInfoManager securityInfoManager;
+    private final BillingONLookupService lookupService;
+    private final BillingStatusPrep statusPrep;
+    private final BillingONErrorReportService errorRepImpl;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -74,11 +77,27 @@ public final class BillingONStatusDataAssembler {
      * package-private constructor below to inject mocks directly.
      */
     public BillingONStatusDataAssembler() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class),
+             SpringUtils.getBean(BillingONLookupService.class),
+             SpringUtils.getBean(BillingStatusPrep.class),
+             SpringUtils.getBean(BillingONErrorReportService.class));
     }
 
     BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager) {
+        this(securityInfoManager,
+             SpringUtils.getBean(BillingONLookupService.class),
+             SpringUtils.getBean(BillingStatusPrep.class),
+             SpringUtils.getBean(BillingONErrorReportService.class));
+    }
+
+    BillingONStatusDataAssembler(SecurityInfoManager securityInfoManager,
+                                 BillingONLookupService lookupService,
+                                 BillingStatusPrep statusPrep,
+                                 BillingONErrorReportService errorRepImpl) {
         this.securityInfoManager = securityInfoManager;
+        this.lookupService = lookupService;
+        this.statusPrep = statusPrep;
+        this.errorRepImpl = errorRepImpl;
     }
 
     /**
@@ -143,10 +162,9 @@ public final class BillingONStatusDataAssembler {
             Object u = request.getSession().getAttribute("user");
             if (u instanceof String) sessionUser = (String) u;
         }
-        BillingONLookupService pageUtil = SpringUtils.getBean(BillingONLookupService.class);
         List<String> pList = teamBillingOnly
-                ? pageUtil.getCurTeamProviderStr(sessionUser)
-                : pageUtil.getCurProviderStr();
+                ? lookupService.getCurTeamProviderStr(sessionUser)
+                : lookupService.getCurProviderStr();
         if (pList == null) {
             pList = Collections.emptyList();
         }
@@ -229,7 +247,6 @@ public final class BillingONStatusDataAssembler {
         }
 
         // ---- billing forms list ----
-        BillingStatusPrep statusPrep = SpringUtils.getBean(BillingStatusPrep.class);
         List<LabelValueBean> formList = statusPrep.listBillingForms();
         List<BillingONStatusViewModel.BillingFormOption> billingForms = new ArrayList<>();
         if (formList != null) {
@@ -242,7 +259,7 @@ public final class BillingONStatusDataAssembler {
         // ---- visit-location list ----
         List<BillingONStatusViewModel.VisitLocationOption> visitLocations = new ArrayList<>();
         @SuppressWarnings("rawtypes")
-        List facilityNums = pageUtil.getFacilty_num();
+        List facilityNums = lookupService.getFacilty_num();
         if (facilityNums != null) {
             for (int i = 0; i < facilityNums.size() - 1; i += 2) {
                 String code = (String) facilityNums.get(i);
@@ -360,18 +377,16 @@ public final class BillingONStatusDataAssembler {
             aLProviders.add(providerNo);
         }
         List<BillingONStatusViewModel.RejectedBillRow> rows = new ArrayList<>();
-        BillingONLookupService pageUtil = SpringUtils.getBean(BillingONLookupService.class);
-        BillingONErrorReportService errorRepImpl = SpringUtils.getBean(BillingONErrorReportService.class);
         for (String entry : aLProviders) {
             String[] provInfo = entry.split("\\|", -1);
             String currentProvider = provInfo.length > 0 ? provInfo[0].trim() : "";
             @SuppressWarnings("rawtypes")
             List lPat;
             if ("all".equals(currentProvider)) {
-                List<BillingProviderData> providerObjs = pageUtil.getProviderObjList(currentProvider);
+                List<BillingProviderData> providerObjs = lookupService.getProviderObjList(currentProvider);
                 lPat = errorRepImpl.getErrorRecords(providerObjs, startDate, endDate, filename);
             } else {
-                BillingProviderData providerObj = pageUtil.getProviderObj(currentProvider);
+                BillingProviderData providerObj = lookupService.getProviderObj(currentProvider);
                 lPat = errorRepImpl.getErrorRecords(providerObj, startDate, endDate, filename);
             }
             if (lPat == null) continue;

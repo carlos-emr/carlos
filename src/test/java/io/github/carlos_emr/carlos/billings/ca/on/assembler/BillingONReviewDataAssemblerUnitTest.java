@@ -33,10 +33,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 
 /**
  * Unit tests for the pure-read part of {@link BillingONReviewDataAssembler}.
@@ -77,11 +79,13 @@ class BillingONReviewDataAssemblerUnitTest extends CarlosUnitTestBase {
         when(reviewPrep.getRequestFormCodeVec(any(), any(), any(), any())).thenReturn(emptyVec);
         when(reviewPrep.getRequestCodeVec(any(), any(), any(), any(), anyInt())).thenReturn(emptyVec);
 
-        // Reached via SpringUtils.getBean at BillingONReviewDataAssembler:370
-        // for the dx-code description lookup; empty Properties suffices.
+        // The 4-arg ctor delegates to the 7-arg via SpringUtils.getBean for
+        // these three collaborators. Empty/no-op mocks are sufficient here.
         BillingONServiceCodeService serviceCodeService = Mockito.mock(BillingONServiceCodeService.class);
         when(serviceCodeService.getCodeDescByNames(any())).thenReturn(new java.util.Properties());
         registerMock(BillingONServiceCodeService.class, serviceCodeService);
+        registerMock(BillingONLookupService.class, Mockito.mock(BillingONLookupService.class));
+        registerMock(SiteDao.class, Mockito.mock(SiteDao.class));
 
         BillingONReviewValidator stubValidator = Mockito.mock(BillingONReviewValidator.class);
         when(stubValidator.validate(any(), any(), any())).thenReturn(

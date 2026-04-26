@@ -52,22 +52,26 @@ public final class BillingONHistoryDataAssembler {
     private final BillingONCHeader1Dao bCh1Dao;
     private final DemographicManager demographicManager;
     private final SecurityInfoManager securityInfoManager;
+    private final BillingONClaimQueryService claimQueryService;
 
     public BillingONHistoryDataAssembler() {
         this(SpringUtils.getBean(BillingONPaymentDao.class),
              SpringUtils.getBean(BillingONCHeader1Dao.class),
              SpringUtils.getBean(DemographicManager.class),
-             SpringUtils.getBean(SecurityInfoManager.class));
+             SpringUtils.getBean(SecurityInfoManager.class),
+             SpringUtils.getBean(BillingONClaimQueryService.class));
     }
 
     BillingONHistoryDataAssembler(BillingONPaymentDao billingOnPaymentDao,
                                   BillingONCHeader1Dao bCh1Dao,
                                   DemographicManager demographicManager,
-                                  SecurityInfoManager securityInfoManager) {
+                                  SecurityInfoManager securityInfoManager,
+                                  BillingONClaimQueryService claimQueryService) {
         this.billingOnPaymentDao = billingOnPaymentDao;
         this.bCh1Dao = bCh1Dao;
         this.demographicManager = demographicManager;
         this.securityInfoManager = securityInfoManager;
+        this.claimQueryService = claimQueryService;
     }
 
     /**
@@ -120,9 +124,8 @@ public final class BillingONHistoryDataAssembler {
     private List<BillingONHistoryViewModel.HistoryRow> loadRows(String demographicNo, boolean canEdit) {
         List<BillingONHistoryViewModel.HistoryRow> rows = new ArrayList<>();
         try {
-            BillingONClaimQueryService dbObj = SpringUtils.getBean(BillingONClaimQueryService.class);
             @SuppressWarnings("rawtypes")
-            List aL = dbObj.getBillingHist(demographicNo, 10000, 0, null);
+            List aL = claimQueryService.getBillingHist(demographicNo, 10000, 0, null);
             for (int i = 0; i + 1 < aL.size(); i = i + 2) {
                 BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
                 BillingItemData itObj = (BillingItemData) aL.get(i + 1);

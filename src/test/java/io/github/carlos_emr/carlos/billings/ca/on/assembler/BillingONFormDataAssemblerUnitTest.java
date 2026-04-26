@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.billing.CA.filters.CodeFilterManager;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -146,6 +147,7 @@ class BillingONFormDataAssemblerUnitTest extends CarlosUnitTestBase {
         registerMock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class, siteDao);
         registerMock(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class, clinicNbrDao);
         registerMock(BillingONLookupService.class, billingONLookupService);
+        registerMock(BillingONClaimQueryService.class, Mockito.mock(BillingONClaimQueryService.class));
 
         when(billingONLookupService.getBillingFavouriteList()).thenReturn(Collections.emptyList());
 

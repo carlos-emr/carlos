@@ -47,6 +47,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Actio
 public final class BillingONDisplayDataAssembler {
 
     private final ClinicNbrDao clinicNbrDao;
+    private final BillingCorrectionPrep prep;
+    private final BillingONErrorCodeDao errorCodeDao;
+    private final BillingONLookupService lookupService;
 
     /**
      * Production constructor used by Struts; resolves dependencies from the
@@ -54,11 +57,20 @@ public final class BillingONDisplayDataAssembler {
      * package-private constructor below to inject mocks.
      */
     public BillingONDisplayDataAssembler() {
-        this(SpringUtils.getBean(ClinicNbrDao.class));
+        this(SpringUtils.getBean(ClinicNbrDao.class),
+             SpringUtils.getBean(BillingCorrectionPrep.class),
+             SpringUtils.getBean(BillingONErrorCodeDao.class),
+             SpringUtils.getBean(BillingONLookupService.class));
     }
 
-    BillingONDisplayDataAssembler(ClinicNbrDao clinicNbrDao) {
+    BillingONDisplayDataAssembler(ClinicNbrDao clinicNbrDao,
+                                  BillingCorrectionPrep prep,
+                                  BillingONErrorCodeDao errorCodeDao,
+                                  BillingONLookupService lookupService) {
         this.clinicNbrDao = clinicNbrDao;
+        this.prep = prep;
+        this.errorCodeDao = errorCodeDao;
+        this.lookupService = lookupService;
     }
 
     /**
@@ -68,8 +80,6 @@ public final class BillingONDisplayDataAssembler {
      */
     public BillingONDisplayViewModel assemble(HttpServletRequest request,
                                               LoggedInInfo loggedInInfo) {
-        BillingCorrectionPrep prep = SpringUtils.getBean(BillingCorrectionPrep.class);
-
         String rawBillingNo = request.getParameter("billing_no");
         String billingNo = rawBillingNo == null ? "" : rawBillingNo.trim();
         boolean billPresent = !billingNo.isEmpty();
@@ -139,7 +149,6 @@ public final class BillingONDisplayDataAssembler {
                 if (lReject != null) {
                     mergedError.addAll(lReject);
                 }
-                BillingONErrorCodeDao errorCodeDao = SpringUtils.getBean(BillingONErrorCodeDao.class);
                 for (Object raw : mergedError) {
                     String codeNo = raw == null ? "" : raw.toString();
                     if (codeNo.isEmpty()) {
@@ -178,7 +187,7 @@ public final class BillingONDisplayDataAssembler {
 
         // Provider list (pipe-delimited entries: provider_no | last | first | ohip_no)
         List<BillingONDisplayViewModel.ProviderOption> providers = new ArrayList<>();
-        List<String> pList = (SpringUtils.getBean(BillingONLookupService.class)).getCurProviderStr();
+        List<String> pList = lookupService.getCurProviderStr();
         if (pList != null) {
             for (String entry : pList) {
                 String[] parts = entry == null ? new String[0] : entry.split("\\|", -1);

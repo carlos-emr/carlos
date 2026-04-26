@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.beans.factory.ObjectFactory;
 /**
  * Assembles {@link BillingOHIPSimulationViewModel} for
  * {@code billingOHIPsimulation.jsp}, the OHIP-extract simulation admin form.
@@ -58,6 +59,25 @@ public final class BillingOHIPSimulationDataAssembler {
     private static final int PROVIDER_BILLINGNO_LENGTH = 6;
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
     private static final int PROVIDER_GROUPNO_LENGTH = 4;
+
+    private final BillingReviewPrep reviewPrep;
+    private final BillingONLookupService lookupService;
+    private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
+
+    /** Production constructor — Struts no-arg shape. */
+    public BillingOHIPSimulationDataAssembler() {
+        this(SpringUtils.getBean(BillingReviewPrep.class),
+             SpringUtils.getBean(BillingONLookupService.class),
+             () -> SpringUtils.getBean(OhipClaimFileService.class));
+    }
+
+    BillingOHIPSimulationDataAssembler(BillingReviewPrep reviewPrep,
+                                       BillingONLookupService lookupService,
+                                       ObjectFactory<OhipClaimFileService> ohipClaimFileFactory) {
+        this.reviewPrep = reviewPrep;
+        this.lookupService = lookupService;
+        this.ohipClaimFileFactory = ohipClaimFileFactory;
+    }
 
     /** Build the simulation view model. */
     public BillingOHIPSimulationViewModel assemble(HttpServletRequest request,
@@ -118,15 +138,14 @@ public final class BillingOHIPSimulationDataAssembler {
     private List<BillingOHIPSimulationViewModel.ProviderOption> loadProviders(
             String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
             boolean teamAccessPrivacy) {
-        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
         @SuppressWarnings("rawtypes")
         List providerStr;
         if (teamBillingOnly || teamAccessPrivacy) {
-            providerStr = prep.getTeamProviderBillingStr(userNo);
+            providerStr = reviewPrep.getTeamProviderBillingStr(userNo);
         } else if (siteAccessPrivacy) {
-            providerStr = prep.getSiteProviderBillingStr(userNo);
+            providerStr = reviewPrep.getSiteProviderBillingStr(userNo);
         } else {
-            providerStr = prep.getProviderBillingStr();
+            providerStr = reviewPrep.getProviderBillingStr();
         }
         List<BillingOHIPSimulationViewModel.ProviderOption> out = new ArrayList<>();
         for (Object o : providerStr) {
@@ -145,7 +164,7 @@ public final class BillingOHIPSimulationDataAssembler {
         StringBuilder errorMsg = new StringBuilder();
         DateRange dateRange = resolveDateRange(request);
 
-        var proObj = SpringUtils.getBean(BillingONLookupService.class).getProviderObj(pro);
+        var proObj = lookupService.getProviderObj(pro);
         if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
             errorMsg.append("The providers's billing code is not correct!<br>");
         }
@@ -161,7 +180,7 @@ public final class BillingOHIPSimulationDataAssembler {
             groupNo = "0000";
         }
 
-        OhipClaimFileService dbObj = SpringUtils.getBean(OhipClaimFileService.class);
+        OhipClaimFileService dbObj = ohipClaimFileFactory.getObject();
         dbObj.setContextPath(request.getContextPath());
         dbObj.setEFlag("0");
         dbObj.setDateRange(dateRange);
@@ -187,15 +206,14 @@ public final class BillingOHIPSimulationDataAssembler {
         String pro = request.getParameter("providers");
         List<String> providerList = new ArrayList<>();
         if ("all".equals(pro)) {
-            BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
             @SuppressWarnings("rawtypes")
             List providerStr;
             if (teamBillingOnly || teamAccessPrivacy) {
-                providerStr = prep.getTeamProviderBillingStr(userNo);
+                providerStr = reviewPrep.getTeamProviderBillingStr(userNo);
             } else if (siteAccessPrivacy) {
-                providerStr = prep.getSiteProviderBillingStr(userNo);
+                providerStr = reviewPrep.getSiteProviderBillingStr(userNo);
             } else {
-                providerStr = prep.getProviderBillingStr();
+                providerStr = reviewPrep.getProviderBillingStr();
             }
             for (Object s : providerStr) {
                 providerList.add(((String) s).split("\\|")[0]);
@@ -211,7 +229,7 @@ public final class BillingOHIPSimulationDataAssembler {
 
         for (String provider : providerList) {
             StringBuilder errorMsg = new StringBuilder();
-            var proObj = SpringUtils.getBean(BillingONLookupService.class).getProviderObj(provider);
+            var proObj = lookupService.getProviderObj(provider);
             if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
                 errorMsg.append("The billing code (").append(proObj.getOhipNo())
                         .append(") for providers (").append(provider)
@@ -235,7 +253,7 @@ public final class BillingOHIPSimulationDataAssembler {
                 groupNo = "0000";
             }
 
-            OhipClaimFileService dbObj = SpringUtils.getBean(OhipClaimFileService.class);
+            OhipClaimFileService dbObj = ohipClaimFileFactory.getObject();
             dbObj.setContextPath(request.getContextPath());
             dbObj.setEFlag("0");
             dbObj.setDateRange(dateRange);

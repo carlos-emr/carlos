@@ -73,25 +73,33 @@ public final class BillingONMRIDataAssembler {
     private final ProviderDataDao providerDataDao;
     private final ProviderBillCenterDao providerBillCenterDao;
     private final SecurityInfoManager securityInfoManager;
+    private final BillingReviewPrep reviewPrep;
+    private final BillingONLookupService lookupService;
 
     public BillingONMRIDataAssembler() {
         this(SpringUtils.getBean(ProviderDao.class),
              SpringUtils.getBean(BillActivityDao.class),
              SpringUtils.getBean(ProviderDataDao.class),
              SpringUtils.getBean(ProviderBillCenterDao.class),
-             SpringUtils.getBean(SecurityInfoManager.class));
+             SpringUtils.getBean(SecurityInfoManager.class),
+             SpringUtils.getBean(BillingReviewPrep.class),
+             SpringUtils.getBean(BillingONLookupService.class));
     }
 
     BillingONMRIDataAssembler(ProviderDao providerDao,
                               BillActivityDao billActivityDao,
                               ProviderDataDao providerDataDao,
                               ProviderBillCenterDao providerBillCenterDao,
-                              SecurityInfoManager securityInfoManager) {
+                              SecurityInfoManager securityInfoManager,
+                              BillingReviewPrep reviewPrep,
+                              BillingONLookupService lookupService) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
         this.providerDataDao = providerDataDao;
         this.providerBillCenterDao = providerBillCenterDao;
         this.securityInfoManager = securityInfoManager;
+        this.reviewPrep = reviewPrep;
+        this.lookupService = lookupService;
     }
 
     /**
@@ -187,14 +195,13 @@ public final class BillingONMRIDataAssembler {
                                                                            boolean isTeamBillingOnly,
                                                                            boolean isSiteAccessPrivacy,
                                                                            boolean isTeamAccessPrivacy) {
-        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
         List<String> providerStrs;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
-            providerStrs = prep.getTeamProviderBillingStr(userProviderNo);
+            providerStrs = reviewPrep.getTeamProviderBillingStr(userProviderNo);
         } else if (isSiteAccessPrivacy) {
-            providerStrs = prep.getSiteProviderBillingStr(userProviderNo);
+            providerStrs = reviewPrep.getSiteProviderBillingStr(userProviderNo);
         } else {
-            providerStrs = prep.getProviderBillingStr();
+            providerStrs = reviewPrep.getProviderBillingStr();
         }
         List<BillingONMRIViewModel.ProviderEntry> options = new ArrayList<>();
         if (providerStrs == null) {
@@ -245,10 +252,9 @@ public final class BillingONMRIDataAssembler {
                                                             String currentYearColor,
                                                             Set<String> visibleProviderSet,
                                                             boolean filterByVisibleProviders) {
-        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
-        List mriList = prep.getMRIList(selectedYear + "-01-01 00:00:01",
+        List mriList = reviewPrep.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
-        Properties proName = SpringUtils.getBean(BillingONLookupService.class).getPropProviderName();
+        Properties proName = lookupService.getPropProviderName();
 
         List<BillingONMRIViewModel.MriRow> rows = new ArrayList<>();
         if (mriList == null) {

@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingMultisiteContext;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFormViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
@@ -90,6 +91,8 @@ public final class BillingONFormDataAssembler {
     private final DxresearchDAO dxresearchDao;
     private final UserPropertyDAO userPropertyDao;
     private final ProviderDao providerDao;
+    private final BillingONLookupService lookupService;
+    private final BillingONClaimQueryService claimQueryService;
 
     // Inner steps — built once per assembler instance.
     private final BillingONFormDemographicStep demographicLoader;
@@ -119,7 +122,9 @@ public final class BillingONFormDataAssembler {
              SpringUtils.getBean(DiagnosticCodeDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.SiteDao.class),
              SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class),
-             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class));
+             SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao.class),
+             SpringUtils.getBean(BillingONLookupService.class),
+             SpringUtils.getBean(BillingONClaimQueryService.class));
     }
 
     /** Test-friendly ctor with the legacy 14-DAO arg list. Site-context fields default to empty. */
@@ -140,7 +145,7 @@ public final class BillingONFormDataAssembler {
         this(demographicManager, professionalSpecialistDao, dxresearchDao, userPropertyDao,
              providerDao, ctlBillingServiceDao, providerPreferenceDao, myGroupDao,
              billingServiceDao, ctlBillingServicePremiumDao, cssStylesDao, codeFilterManager,
-             ctlBillingTypeDao, diagnosticCodeDao, null, null, null);
+             ctlBillingTypeDao, diagnosticCodeDao, null, null, null, null, null);
     }
 
     BillingONFormDataAssembler(DemographicManager demographicManager,
@@ -159,11 +164,15 @@ public final class BillingONFormDataAssembler {
                                DiagnosticCodeDao diagnosticCodeDao,
                                io.github.carlos_emr.carlos.commn.dao.SiteDao siteDao,
                                io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao oscarAppointmentDao,
-                               io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao) {
+                               io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao clinicNbrDao,
+                               BillingONLookupService lookupService,
+                               BillingONClaimQueryService claimQueryService) {
         // Hold only what the orchestrator still consumes directly.
         this.dxresearchDao = dxresearchDao;
         this.userPropertyDao = userPropertyDao;
         this.providerDao = providerDao;
+        this.lookupService = lookupService;
+        this.claimQueryService = claimQueryService;
 
         // The remaining DAOs flow into the inner steps and aren't held here.
         this.demographicLoader = new BillingONFormDemographicStep(
@@ -402,9 +411,7 @@ public final class BillingONFormDataAssembler {
         siteContextComposer.populate(b, request, userNo, apptProviderNo, apptNo);
 
         // ---- billing favourites (flat name/code list for the cutlist dropdown) ----
-        io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService pageUtil =
-                SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService.class);
-        List<String> favList = pageUtil.getBillingFavouriteList();
+        List<String> favList = lookupService.getBillingFavouriteList();
         b.billingFavourites(favList == null ? Collections.emptyList() : favList);
         // Pair the alternating [text, value, text, value, ...] entries into a
         // structured list so the JSP can iterate via JSTL instead of stepping
@@ -422,7 +429,7 @@ public final class BillingONFormDataAssembler {
         b.billingHistoryRows(loadHistoryRows(demoNo));
 
         // ---- visit-location dropdown (was inline tdbObj.getFacilty_num()) ----
-        List<String> facilityFlat = pageUtil.getFacilty_num();
+        List<String> facilityFlat = lookupService.getFacilty_num();
         List<BillingONFormViewModel.FacilityNumOption> facilities = new ArrayList<>();
         if (facilityFlat != null) {
             for (int i = 0; i + 1 < facilityFlat.size(); i += 2) {
@@ -670,14 +677,13 @@ public final class BillingONFormDataAssembler {
      * Loads the recent-billing history rows the JSP renders at the bottom of
      * the form. Up to 5 (claim, item) pairs from {@link BillingONClaimQueryService}.
      */
-    private static List<BillingONFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
+    private List<BillingONFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
         List<BillingONFormViewModel.BillingHistoryRow> rows = new ArrayList<>();
         if (demoNo == null || demoNo.isEmpty()) {
             return rows;
         }
         try {
-            BillingONClaimQueryService reviewer = SpringUtils.getBean(BillingONClaimQueryService.class);
-            List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
+            List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
             for (int i = 0; i + 1 < raw.size(); i += 2) {
                 io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data header =
                         (io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data) raw.get(i);
@@ -832,8 +838,7 @@ public final class BillingONFormDataAssembler {
             return history;
         }
         try {
-            BillingONClaimQueryService reviewer = SpringUtils.getBean(BillingONClaimQueryService.class);
-            List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
+            List<Object> raw = claimQueryService.getBillingHist(demoNo, 5, 0, null);
             if (raw.size() >= 2) {
                 BillingClaimHeader1Data header = (BillingClaimHeader1Data) raw.get(0);
                 BillingItemData item = (BillingItemData) raw.get(1);

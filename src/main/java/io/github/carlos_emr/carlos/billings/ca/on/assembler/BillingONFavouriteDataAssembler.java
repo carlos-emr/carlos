@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONFavouriteViewMod
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link BillingONFavouriteViewModel} for
@@ -51,11 +50,22 @@ public final class BillingONFavouriteDataAssembler {
     private static final String VERB_DELETED = "d" + "eleted";
     private static final String VERB_ADDED = "added";
 
+    private final BillingONLookupService dbObj;
+
+    /** Production constructor (Struts no-arg shape). */
+    public BillingONFavouriteDataAssembler() {
+        this(SpringUtils.getBean(BillingONLookupService.class));
+    }
+
+    /** Test-friendly constructor — takes the lookup service mock directly. */
+    BillingONFavouriteDataAssembler(BillingONLookupService dbObj) {
+        this.dbObj = dbObj;
+    }
+
     /** Build the view model for both GET (no submit) and POST (form-mutating) paths. */
     public BillingONFavouriteViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String userNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
                 ? "" : loggedInInfo.getLoggedInProviderNo();
-        BillingONLookupService dbObj = SpringUtils.getBean(BillingONLookupService.class);
         Map<String, String> formFields = new HashMap<>();
         String msg = SUFFIX_TYPE_TO_SEARCH;
         String action = "search";

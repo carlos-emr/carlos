@@ -42,6 +42,25 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public final class BillingEditWithApptNoDataAssembler {
 
+    private final BillingONClaimQueryService claimQueryService;
+    private final BillingONItemDao itemDao;
+    private final CtlBillingServiceDao ctlBillingServiceDao;
+
+    /** Production constructor — Struts no-arg shape. */
+    public BillingEditWithApptNoDataAssembler() {
+        this(SpringUtils.getBean(BillingONClaimQueryService.class),
+             SpringUtils.getBean(BillingONItemDao.class),
+             SpringUtils.getBean(CtlBillingServiceDao.class));
+    }
+
+    BillingEditWithApptNoDataAssembler(BillingONClaimQueryService claimQueryService,
+                                       BillingONItemDao itemDao,
+                                       CtlBillingServiceDao ctlBillingServiceDao) {
+        this.claimQueryService = claimQueryService;
+        this.itemDao = itemDao;
+        this.ctlBillingServiceDao = ctlBillingServiceDao;
+    }
+
     /**
      * Build the view model.
      *
@@ -72,8 +91,7 @@ public final class BillingEditWithApptNoDataAssembler {
         // BillingONClaimQueryService.getBillingByApptNo(...) which returns a
         // List<Object> of length >= 2 when a record is found: [0] is a
         // BillingClaimHeader1Data, [1] is a BillingItemData.
-        BillingONClaimQueryService hdb = SpringUtils.getBean(BillingONClaimQueryService.class);
-        List<Object> aL = hdb.getBillingByApptNo(appointmentNo);
+        List<Object> aL = claimQueryService.getBillingByApptNo(appointmentNo);
 
         String serviceCode = "";
         String billNo = "";
@@ -131,9 +149,7 @@ public final class BillingEditWithApptNoDataAssembler {
         String curBillForm = "";
         if (!billNo.isEmpty()) {
             try {
-                BillingONItemDao dao = SpringUtils.getBean(BillingONItemDao.class);
-                CtlBillingServiceDao cBillDao = SpringUtils.getBean(CtlBillingServiceDao.class);
-                List<BillingONItem> items = dao.getActiveBillingItemByCh1Id(ConversionUtils.fromIntString(billNo));
+                List<BillingONItem> items = itemDao.getActiveBillingItemByCh1Id(ConversionUtils.fromIntString(billNo));
                 if (items != null) {
                     for (BillingONItem bItem : items) {
                         String code = bItem.getServiceCode();
@@ -142,7 +158,7 @@ public final class BillingEditWithApptNoDataAssembler {
                             // Match legacy: lookup billing-form by serviceCode (the
                             // BillingItemData.service_code, not the loop item's),
                             // first row's servicetype wins.
-                            for (Object[] svc : cBillDao.findUniqueServiceTypesByCode(serviceCode)) {
+                            for (Object[] svc : ctlBillingServiceDao.findUniqueServiceTypesByCode(serviceCode)) {
                                 curBillForm = String.valueOf(svc[1]);
                                 billForm = curBillForm;
                                 break;

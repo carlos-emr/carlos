@@ -37,6 +37,18 @@ public final class OnGenRAErrorDataAssembler {
 
     private static final String[] NOT_ERROR_CODES = new String[]{"I2"};
 
+    private final BillingRAPrep prep;
+
+    /** Production constructor — Struts no-arg shape. */
+    public OnGenRAErrorDataAssembler() {
+        this(SpringUtils.getBean(BillingRAPrep.class));
+    }
+
+    /** Test-friendly constructor. */
+    OnGenRAErrorDataAssembler(BillingRAPrep prep) {
+        this.prep = prep;
+    }
+
     /**
      * Build the view model.
      *
@@ -51,8 +63,6 @@ public final class OnGenRAErrorDataAssembler {
         }
         String selectedProvider = (proNoParam == null) ? "" : proNoParam;
         b.raNo(raNoParam).selectedProviderOhip(selectedProvider);
-
-        BillingRAPrep prep = SpringUtils.getBean(BillingRAPrep.class);
 
         // Always populate the dropdown — both render paths show it.
         List rawProviders = prep.getProviderListFromRAReport(raNoParam);

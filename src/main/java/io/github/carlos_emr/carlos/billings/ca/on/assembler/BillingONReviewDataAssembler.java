@@ -68,22 +68,44 @@ public final class BillingONReviewDataAssembler {
     private final ProviderDao providerDao;
     private final BillingReviewPrep reviewPrep;
     private final BillingONReviewValidator validator;
+    private final BillingONServiceCodeService serviceCodeService;
+    private final BillingONLookupService lookupService;
+    private final SiteDao siteDao;
 
     public BillingONReviewDataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),
              SpringUtils.getBean(BillingReviewPrep.class),
-             new BillingONReviewValidator());
+             new BillingONReviewValidator(),
+             SpringUtils.getBean(BillingONServiceCodeService.class),
+             SpringUtils.getBean(BillingONLookupService.class),
+             SpringUtils.getBean(SiteDao.class));
     }
 
     BillingONReviewDataAssembler(DemographicDao demographicDao,
                                  ProviderDao providerDao,
                                  BillingReviewPrep reviewPrep,
                                  BillingONReviewValidator validator) {
+        this(demographicDao, providerDao, reviewPrep, validator,
+             SpringUtils.getBean(BillingONServiceCodeService.class),
+             SpringUtils.getBean(BillingONLookupService.class),
+             SpringUtils.getBean(SiteDao.class));
+    }
+
+    BillingONReviewDataAssembler(DemographicDao demographicDao,
+                                 ProviderDao providerDao,
+                                 BillingReviewPrep reviewPrep,
+                                 BillingONReviewValidator validator,
+                                 BillingONServiceCodeService serviceCodeService,
+                                 BillingONLookupService lookupService,
+                                 SiteDao siteDao) {
         this.demographicDao = demographicDao;
         this.providerDao = providerDao;
         this.reviewPrep = reviewPrep;
         this.validator = validator;
+        this.serviceCodeService = serviceCodeService;
+        this.lookupService = lookupService;
+        this.siteDao = siteDao;
     }
 
     public BillingONReviewViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
@@ -367,7 +389,7 @@ public final class BillingONReviewDataAssembler {
         ArrayList vecPercCodeItem = reviewPrep.getPercCodeReviewVec(
                 vecServiceParam[0], vecServiceParam[1], vecCodeItem, billReferalDate);
 
-        Properties propCodeDesc = SpringUtils.getBean(BillingONServiceCodeService.class).getCodeDescByNames(vecServiceParam[0]);
+        Properties propCodeDesc = serviceCodeService.getCodeDescByNames(vecServiceParam[0]);
         Map<String, String> codeDescMap = new HashMap<>();
         for (String key : propCodeDesc.stringPropertyNames()) {
             codeDescMap.put(key, propCodeDesc.getProperty(key, ""));
@@ -485,7 +507,7 @@ public final class BillingONReviewDataAssembler {
 
         if (privatePayer && codeValid) {
             try {
-                List<String> al = SpringUtils.getBean(BillingONLookupService.class).getPaymentType();
+                List<String> al = lookupService.getPaymentType();
                 List<BillingONReviewViewModel.PaymentType> paymentTypes = new ArrayList<>();
                 for (int i = 0; i + 1 < al.size(); i = i + 2) {
                     paymentTypes.add(new BillingONReviewViewModel.PaymentType(al.get(i), al.get(i + 1)));
@@ -542,7 +564,6 @@ public final class BillingONReviewDataAssembler {
 
             if (bMultisites) {
                 String siteName = request.getParameter("site");
-                SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
                 List<Site> sites = siteDao.getActiveSitesByProviderNo(userNo);
                 Site s = ApptUtil.getSiteFromName(sites, siteName);
                 if (s == null) return strClinicAddr;
