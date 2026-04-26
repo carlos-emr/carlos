@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -22,11 +23,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code billing/CA/ON/billingDigSearch.jsp}. Enforces {@code _billing}
- * {@code r} privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/} location. Created as part of the ON billing migration
- * to gate direct-access paths behind Struts2 actions (same pattern as
- * PR #1632 for BC billing).
+ * View gate for {@code billing/CA/ON/billingDigSearch.jsp}, the diagnostic-code
+ * (ICD-9) search popup.
+ *
+ * <p>Enforces {@code _billing r}, then assembles a
+ * {@link BillingDigSearchViewModel} via {@link BillingDxCodeDataAssembler}'s
+ * search method so the JSP reads pre-resolved code rows instead of
+ * doing the inline {@code SpringUtils.getBean(DiagnosticCodeDao)}
+ * lookup.</p>
  *
  * @since 2026-04-13
  */
@@ -42,6 +46,11 @@ public final class ViewBillingDigSearch2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+
+        BillingDigSearchViewModel model = new BillingDxCodeDataAssembler().assembleSearch(
+                request.getParameter("coderange"),
+                request.getParameter("codedesc"));
+        request.setAttribute("digSearchModel", model);
 
         return SUCCESS;
     }

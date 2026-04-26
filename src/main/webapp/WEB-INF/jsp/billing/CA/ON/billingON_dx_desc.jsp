@@ -28,27 +28,14 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ page import="java.util.List" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingONDxDescViewModel" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-%>
-
-<%
-    String diagnostic_code = request.getParameter("diagnostic_code");
-    String description = "";
-
-    List<DiagnosticCode> results = diagnosticCodeDao.findByDiagnosticCode(diagnostic_code);
-    for (DiagnosticCode result : results) {
-        description = result.getDescription().trim();
+    // ViewBillingONDxDesc2Action enforces _billing r and assembles the
+    // truncated description via BillingDxCodeDataAssembler.assembleDescription.
+    BillingONDxDescViewModel dxDescModel =
+            (BillingONDxDescViewModel) request.getAttribute("dxDescModel");
+    if (dxDescModel == null) {
+        dxDescModel = BillingONDxDescViewModel.builder().build();
     }
-
-%>
-
-<%=(!description.equals("") && description.length() > 32) ? description.substring(0, 32) + "..." : description%>
+%><carlos:encode value="${dxDescModel.description}" context="html"/>

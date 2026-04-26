@@ -22,15 +22,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.MyDateFormat" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigUpdateViewModel" %>
 
 <%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
+    // BillingDigUpdate2Action enforces _billing w + POST. The assembler
+    // already ran the DiagnosticCodeDao.merge mutation; this JSP just
+    // shows the success/error banner.
+    BillingDigUpdateViewModel digUpdateModel =
+            (BillingDigUpdateViewModel) request.getAttribute("digUpdateModel");
+    if (digUpdateModel == null) {
+        digUpdateModel = BillingDigUpdateViewModel.builder().error(true).build();
+    }
 %>
 <html>
 <head>
@@ -39,11 +42,6 @@
         <!--
         function start() {
             this.focus();
-        }
-
-        function closeit() {
-            //self.opener.refresh();
-            //self.close();
         }
 
         //-->
@@ -59,36 +57,14 @@
                 ADD A BILLING RECORD</font></th>
         </tr>
     </table>
-    <%
-        boolean error = false;
-        String code = request.getParameter("update");
-        code = code.substring(code.length() - 3);
 
-        try {
-            List<DiagnosticCode> dcodes = diagnosticCodeDao.findByDiagnosticCode(code);
-            for (DiagnosticCode dcode : dcodes) {
-                dcode.setDescription(request.getParameter(code));
-                diagnosticCodeDao.merge(dcode);
-            }
-        } catch (Exception ex) {
-            error = true;
-            MiscUtils.getLogger().error("Error", ex);
-        }
-    %>
-
-    <%
-        if (!error) {
-    %>
+    <% if (!digUpdateModel.isError()) { %>
     <p>
     <h1>Successful Addition of a billing Record.</h1></p>
-    <%
-    } else {
-    %>
+    <% } else { %>
     <p>
     <h1>Sorry, addition has failed.</h1></p>
-    <%
-        }
-    %>
+    <% } %>
     <p></p>
     <hr width="90%"></hr>
     <form><input type="button" value="Close this window"

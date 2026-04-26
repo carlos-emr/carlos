@@ -23,27 +23,27 @@
 
 --%>
 <!DOCTYPE html>
-<%
-    String user_no = (String) session.getAttribute("user");
-%>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDigSearchViewModel" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <%
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
-%>
-<% String search = "", search2 = "";
-    search = request.getParameter("search");
-    if (search.compareTo("") == 0) {
-        search = "search_diagnostic_code";
+    // ViewBillingDigSearch2Action enforces _billing r and assembles the
+    // view model with the DiagnosticCodeDao lookups the JSP body used to
+    // perform inline.
+    BillingDigSearchViewModel digSearchModel =
+            (BillingDigSearchViewModel) request.getAttribute("digSearchModel");
+    if (digSearchModel == null) {
+        MiscUtils.getLogger().warn(
+                "billingDigSearch.jsp reached without digSearchModel — caller "
+              + "should route through billing/CA/ON/ViewBillingDigSearch.");
+        digSearchModel = BillingDigSearchViewModel.builder().build();
     }
-
-
-    String codeName = request.getParameter("name");
 
     // Extract form index + element name from a full JS path like
     // "document.forms[0].elements['fieldname'].value" (format used by billingON.jsp callers)
@@ -68,16 +68,11 @@
     }
 %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
-<fmt:setBundle basename="oscarResources"/>
-
 <html>
     <head>
         <title><fmt:message key="billing.billingDigSearch.title"/></title>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script>
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
@@ -111,17 +106,6 @@
             <th style="text-align:center; background-color:silver;"><fmt:message key="billing.billingDigSearch.msgDiagnostic"/><fmt:message key="billing.billingDigSearch.msgMaxSelections"/></th>
         </tr>
     </table>
-    <% String coderange = request.getParameter("coderange");
-        String codedesc = request.getParameter("codedesc");
-        if (codedesc != null) {
-            if (codedesc.compareTo("") == 0) {
-
-                codeName = coderange;
-            } else {
-                codeName = codedesc;
-            }
-        }
-    %>
 
     <form name="codesearch" id="codesearch" method="post"
           action="<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch">
@@ -162,175 +146,36 @@
             </tr>
             </thead>
             <tbody>
-            <% ResultSet rslocal = null;
-                ResultSet rslocal2 = null;
-                String Dcode = "", DcodeDesc = "", Dcode2 = "", DcodeDesc2 = "";
-                String codeName2 = "";
-
-                int Count = 0;
-                int intCount = 0;
-                String numCode = "";
-                String textCode = "";
-                String searchType = "";
-                for (int i = 0; i < codeName.length(); i++) {
-                    String c = codeName.substring(i, i + 1);
-                    if (c.hashCode() >= 48 && c.hashCode() <= 58)
-                        numCode += c;
-                }
-                for (int j = 0; j < codeName.length(); j++) {
-                    String d = codeName.substring(j, j + 1);
-                    if (d.hashCode() < 48 || d.hashCode() > 58)
-                        textCode += d;
-                }
-                if (textCode.compareTo("") == -1 && textCode != null) {
-                    StringBuffer sBuffer = new StringBuffer(textCode);
-                    int k = textCode.indexOf(' ');
-                    sBuffer.deleteCharAt(k);
-                    sBuffer.insert(k, "");
-                    textCode = sBuffer.toString();
-                }
-                if (numCode.compareTo("") == 0) {
-                    if (textCode.compareTo("") == 0) {
-                        // search all case
-                        codeName = numCode;
-                        search = "search_diagnostic_code";
-                        searchType = "N";
-                    } else {
-                        //search text only
-                        codeName = "%" + textCode;
-                        search = "search_diagnostic_text";
-                        searchType = "N";
-                    }
-                } else {
-
-                    if (textCode.compareTo("") == 0) {
-                        // search number only
-                        codeName = numCode;
-                        search = "search_diagnostic_code";
-                        searchType = "N";
-                    } else {
-                        //search both text and number only
-                        codeName = "%" + textCode;
-                        codeName2 = numCode;
-                        search = "search_diagnostic_text";
-                        search2 = "search_diagnostic_code";
-                        searchType = "BOTH";
-                    }
-                }
-
-                List<DiagnosticCode> results = null;
-
-                if (searchType.length() == 1) {
-
-// Retrieving Provider
-
-                    if ("search_diagnostic_code".equals(search)) {
-                        results = diagnosticCodeDao.searchCode(codeName + "%");
-                    } else if ("search_diagnostic_text".equals(search)) {
-                        results = diagnosticCodeDao.searchText(codeName + "%");
-                    }
-                    for (DiagnosticCode result : results) {
-                        intCount++;
-                        Dcode = result.getDiagnosticCode();
-                        DcodeDesc = result.getDescription().trim();
-                        if (Count == 0) {
-                            Count = 1;
-                        } else {
-                            Count = 0;
-                        }
-            %>
-
+            <% for (BillingDigSearchViewModel.DxRow __row : digSearchModel.getRows()) { %>
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScriptAttribute"/>|<carlos:encode value='<%= DcodeDesc %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= Dcode %>' context="html"/>
+                        href="javascript:CodeAttach('<carlos:encode value='<%= __row.code() %>' context="javaScriptAttribute"/>|<carlos:encode value='<%= __row.description() %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= __row.code() %>' context="html"/>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"
-                                             value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>">&nbsp;<input type="submit" class="btn btn-secondary"
+                                             name="<carlos:encode value='<%= __row.code() %>' context="htmlAttribute"/>"
+                                             value="<carlos:encode value='<%= __row.description() %>' context="htmlAttribute"/>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
-                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='<%= Dcode %>' context="html"/>">
+                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='<%= __row.code() %>' context="html"/>">
                 </td>
             </tr>
-            <%
-                } //end of while looop
-            } else { //both
+            <% } %>
 
-                results = diagnosticCodeDao.searchText(codeName + "%");
-                for (DiagnosticCode result : results) {
-                    intCount++;
-                    Dcode = result.getDiagnosticCode();
-                    DcodeDesc = result.getDescription().trim();
-                    if (Count == 0) {
-                        Count = 1;
-                    } else {
-                        Count = 0;
-                    }
-
-            %>
-
+            <% if (digSearchModel.isNoMatch()) { %>
             <tr>
-                <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScriptAttribute"/>|<carlos:encode value='<%= DcodeDesc %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= Dcode %>' context="html"/>
-                </a></td>
-                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='<%= Dcode %>' context="htmlAttribute"/>"
-                                             value="<carlos:encode value='<%= DcodeDesc %>' context="htmlAttribute"/>">&nbsp;<input type="submit" class="btn btn-secondary"
-                                                                                 name="update"
-                                                                                 value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='<%= Dcode %>' context="html"/>">
-                </td>
+                <td colspan="2"><fmt:message key="billing.billingDigSearch.msgNoMatch"/>.</td>
             </tr>
-            <%
-                }
+            <% } %>
 
-
-                results = diagnosticCodeDao.searchCode(codeName2 + "%");
-                for (DiagnosticCode result : results) {
-                    intCount++;
-                    Dcode2 = result.getDiagnosticCode();
-                    DcodeDesc2 = result.getDescription().trim();
-                    if (Count == 0) {
-                        Count = 1;
-                    } else {
-                        Count = 0;
-                    }
-            %>
-
-            <tr>
-                <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='<%= Dcode2 %>' context="javaScriptAttribute"/>|<carlos:encode value='<%= DcodeDesc2 %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= Dcode2 %>' context="html"/>
-                </a></td>
-                <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='<%= Dcode2 %>' context="htmlAttribute"/>"
-                                             value="<carlos:encode value='<%= DcodeDesc2 %>' context="htmlAttribute"/>">&nbsp;<input type="submit" class="btn btn-secondary"
-                                                                                  name="update"
-                                                                                  value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='<%= Dcode2 %>' context="html"/>">
-                </td>
-            </tr>
-            <%
-                    }
-                }
-            %>
-
-            <% if (intCount == 0) { %>
-            <tr>
-                <td colspan="2"><fmt:message key="billing.billingDigSearch.msgNoMatch"/>. <%// =i%></td>
-
-            </tr>
-            <% }%>
-
-            <% if (intCount == 1) { %>
+            <% if (digSearchModel.isAutoSelect()) { %>
             <script LANGUAGE="JavaScript">
                 <!--
-                CodeAttach('<carlos:encode value='<%= Dcode %>' context="javaScript"/>|<carlos:encode value='<%= DcodeDesc %>' context="javaScript"/>');
+                CodeAttach('<carlos:encode value='<%= digSearchModel.getAutoSelectCode() %>' context="javaScript"/>|<carlos:encode value='<%= digSearchModel.getAutoSelectDesc() %>' context="javaScript"/>');
                 -->
-
             </script>
             <% } %>
             </tbody>
         </table>
     </form>
     <p>&nbsp;</p>
-    <p>&nbsp;</p>
-    <h3>&nbsp;</h3>
     </body>
 </html>

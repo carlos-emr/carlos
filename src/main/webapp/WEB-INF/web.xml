@@ -153,6 +153,16 @@
     <filter>
         <filter-name>HttpMethodGuardFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.app.HttpMethodGuardFilter</filter-class>
+        <!-- AddEditServiceCode is a search/add/edit hybrid — admin.jsp opens it
+             via popupPage (window.open / GET) for the initial picker render.
+             The action's own POST-only gate already requires POST when an
+             `action` mutation parameter is present, so allowing GET here is
+             safe. The action URL "AddEditServiceCode" matches the filter's
+             "add" prefix rule but the page is not a pure mutator. -->
+        <init-param>
+            <param-name>allowList</param-name>
+            <param-value>addeditservicecode</param-value>
+        </init-param>
     </filter>
     <filter-mapping>
         <filter-name>HttpMethodGuardFilter</filter-name>
