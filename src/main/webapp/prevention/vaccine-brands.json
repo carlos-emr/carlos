@@ -1,5 +1,10 @@
-<%@ page contentType="application/json; charset=UTF-8" %>
-[
+<%@ page contentType="application/json; charset=UTF-8" trimDirectiveWhitespaces="true" %><%
+    if (!io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "r", null)) {
+        response.sendError(403);
+        return;
+    }
+%>[
 {"name":"OtherA","value":"IXCHIQ 3 log10 TCID50 per 0.5ml powder for solution","manufacture":"Valneva Austria GmbH","dose":"0.5","units":"mL","route":"IM","din":"2548984"},
 {"name":"Chol-Ecol-O","value":"DUKORAL oral","manufacture":"Valneva Sweden AB","dose":"","units":"DOSE","route":"PO","din":"2247208"},
 {"name":"Chol-O","value":"VAXCHORA 400000000 colony forming units per sachet powder","manufacture":"Bavarian Nordic AS","dose":"","units":"DOSE","route":"PO","din":"2538164"},
