@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONDisplay2Action;
 
 /**
@@ -68,7 +68,7 @@ public final class BillingONDisplayDataAssembler {
      */
     public BillingONDisplayViewModel assemble(HttpServletRequest request,
                                               LoggedInInfo loggedInInfo) {
-        BillingCorrectionPrep prep = new BillingCorrectionPrep();
+        BillingCorrectionPrep prep = SpringUtils.getBean(BillingCorrectionPrep.class);
 
         String rawBillingNo = request.getParameter("billing_no");
         String billingNo = rawBillingNo == null ? "" : rawBillingNo.trim();

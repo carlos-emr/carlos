@@ -20,13 +20,14 @@
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Properties;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
-
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
 public class Billing3rdPartPrep {
 
     Billing3rdPartyService dbObj = SpringUtils.getBean(Billing3rdPartyService.class);

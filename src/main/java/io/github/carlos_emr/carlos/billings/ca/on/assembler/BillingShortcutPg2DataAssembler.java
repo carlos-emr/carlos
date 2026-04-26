@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
 
 /**
  * Assembles {@link BillingShortcutPg2ViewModel} for {@code billingShortcutPg2.jsp},
@@ -480,7 +480,7 @@ public final class BillingShortcutPg2DataAssembler {
             if (dateStr == null || dateStr.trim().length() != 10) continue;
 
             if (isNewBilling) {
-                BillingSavePrep saveObj = new BillingSavePrep();
+                BillingSavePrep saveObj = SpringUtils.getBean(BillingSavePrep.class);
                 if (!bServicePerc && calc.vecServiceCodePerc.size() > 1) {
                     bServicePerc = true;
                     int codeIdx = 0;

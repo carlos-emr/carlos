@@ -32,8 +32,6 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep;
-
 /**
  * Shared mutation service for the two MOH disk-creation forward-shim JSPs:
  * {@code ongenreport.jsp} (new disk for current period) and
@@ -83,7 +81,7 @@ public class OnBillingDiskService {
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
-            BillingDiskCreatePrep prep = new BillingDiskCreatePrep();
+            BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
             if (!groupReport) {
                 writeSoloDisks(prep, prep.getCurSoloProvider(), loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
@@ -91,7 +89,7 @@ public class OnBillingDiskService {
             writeGroupDisks(prep, prep.getCurGrpProvider(), loggedInInfo, request,
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
-            BillingDiskCreatePrep prep = new BillingDiskCreatePrep();
+            BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
             BillingProviderData soloProvider = prep.getProviderObj(provider);
             if (soloProvider != null && isSoloGroupNo(soloProvider.getBillingGroupNo())) {
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
@@ -117,7 +115,7 @@ public class OnBillingDiskService {
         String dateEnd = dateObj.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
-        BillingDiskCreatePrep prep = new BillingDiskCreatePrep();
+        BillingDiskCreatePrep prep = SpringUtils.getBean(BillingDiskCreatePrep.class);
         List<BillingProviderData> lProvider = prep.getProvider(diskId);
 
         if (lProvider != null && lProvider.size() == 1

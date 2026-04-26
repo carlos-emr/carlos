@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 /**
  * Assembles {@link BillingONMRIViewModel} for {@code billingONMRI.jsp}, the
@@ -189,7 +189,7 @@ public final class BillingONMRIDataAssembler {
                                                                            boolean isTeamBillingOnly,
                                                                            boolean isSiteAccessPrivacy,
                                                                            boolean isTeamAccessPrivacy) {
-        BillingReviewPrep prep = new BillingReviewPrep();
+        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
         List<String> providerStrs;
         if (isTeamBillingOnly || isTeamAccessPrivacy) {
             providerStrs = prep.getTeamProviderBillingStr(userProviderNo);
@@ -247,7 +247,7 @@ public final class BillingONMRIDataAssembler {
                                                             String currentYearColor,
                                                             Set<String> visibleProviderSet,
                                                             boolean filterByVisibleProviders) {
-        BillingReviewPrep prep = new BillingReviewPrep();
+        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
         List mriList = prep.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
         Properties proName = SpringUtils.getBean(BillingONLookupService.class).getPropProviderName();

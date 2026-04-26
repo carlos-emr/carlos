@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingONRequestParams;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 /**
  * Assembles {@link BillingONReviewViewModel} for {@code billingONReview.jsp}.
@@ -75,7 +75,7 @@ public final class BillingONReviewDataAssembler {
     public BillingONReviewDataAssembler() {
         this(SpringUtils.getBean(DemographicDao.class),
              SpringUtils.getBean(ProviderDao.class),
-             new BillingReviewPrep(),
+             SpringUtils.getBean(BillingReviewPrep.class),
              new BillingONReviewValidator());
     }
 

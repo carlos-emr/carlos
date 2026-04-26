@@ -37,7 +37,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import java.util.List;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
 
 /**
  * Struts 2Action for Ontario billing deletion by bill number (with bill number known).
@@ -106,7 +106,7 @@ public final class BillingDeleteWithBillNo2Action extends ActionSupport {
 
         CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
-            BillingCorrectionPrep dbObj = new BillingCorrectionPrep();
+            BillingCorrectionPrep dbObj = SpringUtils.getBean(BillingCorrectionPrep.class);
             List billStatus = dbObj.getBillingNoStatusByBillNo(billNo);
             if (billStatus != null && ((billStatus.size() == 0) || (billStatus.size() > 1 && ((String) billStatus.get(billStatus.size() - 1)).startsWith("B")))) {
                 return "cannotDelete";

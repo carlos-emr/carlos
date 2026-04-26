@@ -34,7 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONReviewDxPersister;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingONReviewValidator;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 /**
  * Unit tests for the pure-read part of {@link BillingONReviewDataAssembler}.

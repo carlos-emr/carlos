@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusPrep;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingONStatus2Action;
 
 /**
@@ -230,7 +230,7 @@ public final class BillingONStatusDataAssembler {
         }
 
         // ---- billing forms list ----
-        BillingStatusPrep statusPrep = new BillingStatusPrep();
+        BillingStatusPrep statusPrep = SpringUtils.getBean(BillingStatusPrep.class);
         List<LabelValueBean> formList = statusPrep.listBillingForms();
         List<BillingONStatusViewModel.BillingFormOption> billingForms = new ArrayList<>();
         if (formList != null) {

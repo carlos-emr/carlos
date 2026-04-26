@@ -17,8 +17,9 @@ import java.util.List;
 import java.util.Properties;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.OnGenRAErrorViewModel;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Assembles {@link OnGenRAErrorViewModel} for
  * {@code billing/CA/ON/onGenRAError.jsp}, the Billing Reconciliation Error
@@ -51,7 +52,7 @@ public final class OnGenRAErrorDataAssembler {
         String selectedProvider = (proNoParam == null) ? "" : proNoParam;
         b.raNo(raNoParam).selectedProviderOhip(selectedProvider);
 
-        BillingRAPrep prep = new BillingRAPrep();
+        BillingRAPrep prep = SpringUtils.getBean(BillingRAPrep.class);
 
         // Always populate the dropdown — both render paths show it.
         List rawProviders = prep.getProviderListFromRAReport(raNoParam);

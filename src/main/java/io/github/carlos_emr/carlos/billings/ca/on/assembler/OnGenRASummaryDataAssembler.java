@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingRAPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRAPrep;
 
 /**
  * Builds the {@link OnGenRASummaryViewModel} for {@code onGenRASummary.jsp} and
@@ -72,7 +72,7 @@ public final class OnGenRASummaryDataAssembler {
         String selectedProvider = (proNoParam == null || proNoParam.isEmpty()) ? "all" : proNoParam;
         builder.raNo(raNoParam).selectedProviderOhip(selectedProvider);
 
-        BillingRAPrep prep = new BillingRAPrep();
+        BillingRAPrep prep = SpringUtils.getBean(BillingRAPrep.class);
         builder.providerOptions(loadProviderOptions(prep, raNoParam));
 
         List<String> obBillingNos = prep.getRABillingNo4Code(raNoParam, OB_CODES);

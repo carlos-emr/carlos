@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -38,11 +38,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
 public class BillingSavePrep {
     private static final Logger _logger = MiscUtils.getLogger();
     BillingONClaimPersistenceService dbObj = SpringUtils.getBean(BillingONClaimPersistenceService.class);

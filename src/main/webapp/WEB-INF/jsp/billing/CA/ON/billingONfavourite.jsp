@@ -40,8 +40,17 @@
             <!--
             function setfocus() {
                 this.focus();
-                document.forms[0].name.focus();
-                document.forms[0].name.select();
+                // Form input named "name" shadows the form's .name property,
+                // but `.name` on a form returns the FORM's name string when
+                // no input has name="name" — so .select()/.focus() fail.
+                // Resolve via elements[] which always returns the element.
+                var nameInput = document.forms[0].elements['name'];
+                if (nameInput && typeof nameInput.focus === 'function') {
+                    nameInput.focus();
+                    if (typeof nameInput.select === 'function') {
+                        nameInput.select();
+                    }
+                }
             }
 
             function onSearch() {

@@ -20,7 +20,7 @@
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -51,17 +51,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
-import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartyService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONServiceCodeService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONCorrectionPersistenceService;
-
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional
 public class BillingCorrectionPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 

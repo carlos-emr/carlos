@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.util.Enumeration;
@@ -35,13 +35,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewCodeItem;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingReviewPercItem;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimPersistenceService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONLookupService;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingReviewPrep {
     private static final Logger _logger = MiscUtils.getLogger();
 

@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingReviewPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewPrep;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
@@ -118,7 +118,7 @@ public final class BillingOHIPSimulationDataAssembler {
     private List<BillingOHIPSimulationViewModel.ProviderOption> loadProviders(
             String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
             boolean teamAccessPrivacy) {
-        BillingReviewPrep prep = new BillingReviewPrep();
+        BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
         @SuppressWarnings("rawtypes")
         List providerStr;
         if (teamBillingOnly || teamAccessPrivacy) {
@@ -187,7 +187,7 @@ public final class BillingOHIPSimulationDataAssembler {
         String pro = request.getParameter("providers");
         List<String> providerList = new ArrayList<>();
         if ("all".equals(pro)) {
-            BillingReviewPrep prep = new BillingReviewPrep();
+            BillingReviewPrep prep = SpringUtils.getBean(BillingReviewPrep.class);
             @SuppressWarnings("rawtypes")
             List providerStr;
             if (teamBillingOnly || teamAccessPrivacy) {

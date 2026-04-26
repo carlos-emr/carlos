@@ -21,7 +21,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,9 +32,10 @@ import java.util.Vector;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONRemittanceAdviceService;
-
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingRAPrep {
     private static final Logger _logger = MiscUtils.getLogger();
     BillingONRemittanceAdviceService dbObj = SpringUtils.getBean(BillingONRemittanceAdviceService.class);

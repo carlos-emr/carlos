@@ -21,16 +21,18 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.billings.ca.on.pageUtil;
+package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
-import io.github.carlos_emr.carlos.billings.ca.on.service.BillingONClaimQueryService;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+@org.springframework.stereotype.Service
+@org.springframework.context.annotation.Lazy
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class BillingStatusPrep {
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";

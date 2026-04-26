@@ -41,7 +41,7 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LogSanitizer;
 
 import java.util.Vector;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingSavePrep;
 
 /**
  * Struts 2Action for Ontario billing save and post-save routing.
@@ -105,7 +105,7 @@ public final class BillingONSave2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        BillingSavePrep bObj = new BillingSavePrep();
+        BillingSavePrep bObj = SpringUtils.getBean(BillingSavePrep.class);
         Vector vecObj = bObj.getBillingClaimObj(request);
         boolean ret = bObj.addABillingRecord(vecObj);
 

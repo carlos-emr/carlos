@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
 
 /**
  * Assembles {@link BillingON3rdInvViewModel} for {@code billingON3rdInv.jsp},
@@ -127,7 +127,7 @@ public final class BillingON3rdInvDataAssembler {
             MiscUtils.getLogger().warn("Invalid Invoice No.");
         }
 
-        Billing3rdPartPrep privateObj = new Billing3rdPartPrep();
+        Billing3rdPartPrep privateObj = SpringUtils.getBean(Billing3rdPartPrep.class);
         Properties propClinic = privateObj.getLocalClinicAddr();
         Properties prop3rdPart = privateObj.get3rdPartBillProp(invoiceNoStr);
         Properties prop3rdPayMethod = privateObj.get3rdPayMethod();

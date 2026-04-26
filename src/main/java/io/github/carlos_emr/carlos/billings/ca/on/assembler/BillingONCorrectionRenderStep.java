@@ -45,8 +45,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.Billing3rdPartPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.Billing3rdPartPrep;
 
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Composer that owns the 11 inline DAO/service lookups
  * {@code billingONCorrection.jsp} used to perform via
@@ -208,7 +209,7 @@ final class BillingONCorrectionRenderStep {
                                      String billNo,
                                      boolean multiSiteProvider,
                                      boolean thirdParty) {
-        Billing3rdPartPrep tObj = new Billing3rdPartPrep();
+        Billing3rdPartPrep tObj = SpringUtils.getBean(Billing3rdPartPrep.class);
         String today = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
 
         if (!thirdParty) {

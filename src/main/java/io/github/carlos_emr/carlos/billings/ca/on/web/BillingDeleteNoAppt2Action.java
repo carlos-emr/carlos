@@ -31,7 +31,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionPrep;
 
 /**
  * Struts 2Action for Ontario billing deletion by billing number without appointment.
@@ -71,7 +71,7 @@ public final class BillingDeleteNoAppt2Action extends ActionSupport {
         CarlosProperties props = CarlosProperties.getInstance();
 
         if (props.getProperty("isNewONbilling", "").equals("true")) {
-            BillingCorrectionPrep dbObj = new BillingCorrectionPrep();
+            BillingCorrectionPrep dbObj = SpringUtils.getBean(BillingCorrectionPrep.class);
             dbObj.deleteBilling(billingNoStr, "D", curUserNo);
         } else {
             try {

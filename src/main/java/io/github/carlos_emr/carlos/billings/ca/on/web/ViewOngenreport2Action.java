@@ -21,7 +21,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingDiskCreatePrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreatePrep;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnBillingDiskService;
 
 /**

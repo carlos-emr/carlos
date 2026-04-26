@@ -64,7 +64,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
-import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusPrep;
 import io.github.carlos_emr.carlos.util.ParamAppender;
 
 /**
