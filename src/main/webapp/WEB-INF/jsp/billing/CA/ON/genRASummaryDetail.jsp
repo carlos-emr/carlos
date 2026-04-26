@@ -24,27 +24,44 @@
 --%>
 
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.data.GenRASummaryViewModel" %>
+<%@page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.GenRASummaryDataAssembler" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
+<%--
+  Defensive model-resolver: ensures ${raSummaryModel} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  ViewGenRASummaryDetail2Action. Shares the GenRASummaryDataAssembler with
+  genRASummary.jsp — the two pages render the same model.
+--%>
 <%
-    // Shares the GenRASummaryDataAssembler with genRASummary.jsp — the two
-    // pages render the same model. Differences in the legacy code were
-    // cosmetic only.
-    GenRASummaryViewModel raSummaryModel =
-            (GenRASummaryViewModel) request.getAttribute("raSummaryModel");
-    if (raSummaryModel == null) {
-        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                "genRASummaryDetail.jsp reached without raSummaryModel — caller "
-              + "should route through billing/CA/ON/ViewGenRASummaryDetail.");
-        raSummaryModel = GenRASummaryViewModel.builder().build();
+    if (request.getAttribute("raSummaryModel") == null) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("genRASummaryDetail.jsp fallback: missing session");
+        }
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
+                    "genRASummaryDetail.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException("genRASummaryDetail.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("genRASummaryDetail.jsp fallback: missing required sec object (_billing)");
+        }
+        request.setAttribute("raSummaryModel",
+                new GenRASummaryDataAssembler().assemble(request));
     }
 %>
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <link rel="stylesheet" href="billing.css">
     <title>Billing Reconcilliation</title>
 </head>
@@ -66,17 +83,15 @@
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#333333">
         <th align='CENTRE'>
-            <form action="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummaryDetail" method="post">
+            <form action="${pageContext.request.contextPath}/billing/CA/ON/ViewGenRASummaryDetail" method="post">
                 <input type="hidden" name="rano" value="<carlos:encode value="${raSummaryModel.raNo}" context="htmlAttribute"/>">
                 <select name="proNo">
-                    <% for (GenRASummaryViewModel.ProviderOption __opt : raSummaryModel.getProviderOptions()) {
-                            String __sel = __opt.selected() ? " selected=\"selected\"" : "";
-                    %>
-                    <option value="<carlos:encode value='<%= __opt.ohipNo() %>' context="htmlAttribute"/>"<%= __sel %>><carlos:encode value='<%= __opt.displayName() %>' context="html"/></option>
-                    <% } %>
+                    <c:forEach var="__opt" items="${raSummaryModel.providerOptions}">
+                    <option value="<carlos:encode value='${__opt.ohipNo}' context='htmlAttribute'/>" <c:if test="${__opt.selected}">selected="selected"</c:if>><carlos:encode value="${__opt.displayName}" context="html"/></option>
+                    </c:forEach>
                 </select>
                 <input type="submit" name="submit" value="Generate">
-                <a href="<%= request.getContextPath() %>/billing/CA/ON/ViewGenRASummary?rano=<carlos:encode value="${raSummaryModel.raNo}" context="uriComponent"/>&proNo=">Summary</a>
+                <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewGenRASummary?rano=<carlos:encode value='${raSummaryModel.raNo}' context='uriComponent'/>&proNo=">Summary</a>
             </form>
         </th>
     </tr>
@@ -98,30 +113,25 @@
         <td width="7%" height="16" align=right>OB</td>
         <td width="5%" height="16" align=right>Error</td>
     </tr>
-    <% for (GenRASummaryViewModel.ReportRow __row : raSummaryModel.getRows()) {
-            String __clinicCell;
-            String __hospitalCell;
-            switch (__row.category()) {
-                case HOSPITAL -> { __clinicCell = "N/A"; __hospitalCell = __row.paidAmount(); }
-                case LOCAL_CLINIC -> { __clinicCell = __row.paidAmount(); __hospitalCell = "N/A"; }
-                default -> { __clinicCell = "N/A"; __hospitalCell = "N/A"; }
-            }
-    %>
+    <%-- Per-category clinic / hospital cell rendering is encapsulated in
+         ReportRow.getClinicCell() / .getHospitalCell() — the legacy switch
+         on category() now lives on the record itself. --%>
+    <c:forEach var="__row" items="${raSummaryModel.rows}">
     <tr>
-        <td height="16"><carlos:encode value='<%= __row.billingNo() %>' context="html"/></td>
-        <td height="16"><carlos:encode value='<%= __row.providerName() %>' context="html"/></td>
-        <td height="16"><carlos:encode value='<%= __row.demoName() %>' context="html"/></td>
-        <td height="16"><carlos:encode value='<%= __row.demoHin() %>' context="html"/></td>
-        <td height="16"><carlos:encode value='<%= __row.serviceDate() %>' context="html"/></td>
-        <td height="16"><carlos:encode value='<%= __row.serviceCode() %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __row.invoicedAmount() %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __row.paidAmount() %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __clinicCell %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __hospitalCell %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __row.obAmount() %>' context="html"/></td>
-        <td height="16" align=right><carlos:encode value='<%= __row.errorCode() %>' context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.billingNo}" context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.providerName}" context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.demoName}" context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.demoHin}" context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.serviceDate}" context="html"/></td>
+        <td height="16"><carlos:encode value="${__row.serviceCode}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.invoicedAmount}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.paidAmount}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.clinicCell}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.hospitalCell}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.obAmount}" context="html"/></td>
+        <td height="16" align=right><carlos:encode value="${__row.errorCode}" context="html"/></td>
     </tr>
-    <% } %>
+    </c:forEach>
     <tr bgcolor='#FFFF3E'>
         <td height="16"></td>
         <td height="16"></td>

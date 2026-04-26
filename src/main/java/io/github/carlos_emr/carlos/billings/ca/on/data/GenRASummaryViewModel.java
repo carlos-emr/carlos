@@ -72,7 +72,19 @@ public final class GenRASummaryViewModel {
                             String paidAmount,
                             String obAmount,
                             String errorCode,
-                            Category category) {}
+                            Category category) {
+        /** Per-category render: HOSPITAL category shows N/A in the clinic
+         *  column. Hoisted out of the JSP scriptlet body so the view layer
+         *  can render the cell value with a single EL binding. */
+        public String getClinicCell() {
+            return category == Category.LOCAL_CLINIC ? paidAmount : "N/A";
+        }
+        /** Per-category render: LOCAL_CLINIC category shows N/A in the
+         *  hospital column. */
+        public String getHospitalCell() {
+            return category == Category.HOSPITAL ? paidAmount : "N/A";
+        }
+    }
 
     private GenRASummaryViewModel(Builder b) {
         this.raNo = nullToEmpty(b.raNo);
