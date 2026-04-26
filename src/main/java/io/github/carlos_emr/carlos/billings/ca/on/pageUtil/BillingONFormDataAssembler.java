@@ -515,7 +515,118 @@ public final class BillingONFormDataAssembler {
         b.defaultXmlVdate(xmlVdateReq != null && !xmlVdateReq.isEmpty()
                 ? xmlVdateReq : admDate);
 
+        // ---- selected bill type (for the xml_billtype dropdown) ----
+        // Legacy logic: roster_status QU/FS (with defaultServiceType != RN)
+        // forces PAT, then request param overrides.
+        String defaultBillTypeForJsp = nullToEmpty(b.peekDefaultBillType());
+        String defaultServiceTypeForRoster = nullToEmpty(b.peekDefaultServiceType());
+        if (("QU - Quebec".equals(rosterStatus) || "FS".equals(rosterStatus))
+                && !"RN".equals(defaultServiceTypeForRoster)) {
+            defaultBillTypeForJsp = "PAT";
+            b.defaultBillType(defaultBillTypeForJsp);
+        }
+        String reqBillType = request.getParameter("xml_billtype");
+        b.selectedBillType(reqBillType != null && !reqBillType.isEmpty()
+                ? reqBillType : defaultBillTypeForJsp);
+
+        // ---- assigned billing physician display name (was providerBean session map) ----
+        // The "providerBean" session attribute stores Provider.getFormattedName()
+        // keyed by providerNo. Falls back to a fresh Provider lookup when the
+        // session attribute hasn't been seeded yet.
+        b.assgProviderDisplay(resolveAssgProviderDisplay(request, apptProviderNo));
+
+        // ---- referral checkbox + name/no defaults ----
+        String rfCheckParam = request.getParameter("rfcheck");
+        String refDocNameParam = request.getParameter("referralDocName");
+        String refCodeParam = request.getParameter("referralCode");
+        boolean refDefaultChecked = "checked".equals(
+                oscarVars.getProperty("billingRefBoxDefault", ""));
+        if (rfCheckParam != null) {
+            b.referralCheckedDefault("checked".equals(rfCheckParam) ? "checked" : "")
+                    .referralNameDefault(nullToEmpty(refDocNameParam))
+                    .referralNoDefault(nullToEmpty(refCodeParam));
+        } else if (refDefaultChecked) {
+            b.referralCheckedDefault("checked")
+                    .referralNameDefault(nullToEmpty(b.peekReferralDoctor()))
+                    .referralNoDefault(nullToEmpty(b.peekReferralDoctorOhip()));
+        } else {
+            b.referralCheckedDefault("")
+                    .referralNameDefault("")
+                    .referralNoDefault("");
+        }
+
+        // ---- dx code default for the dxCode input (request param > model.dxCode) ----
+        String reqDxCode = request.getParameter("dxCode");
+        b.dxCodeDefault(reqDxCode != null && !reqDxCode.isEmpty()
+                ? reqDxCode : nullToEmpty(b.peekDxCode()));
+
+        // ---- service date default (only used when appt_no == "0") ----
+        String reqServiceDate = request.getParameter("service_date");
+        b.serviceDateDefault(reqServiceDate != null && !reqServiceDate.isEmpty()
+                ? reqServiceDate : today);
+
+        // ---- request-param echoes (form-state preservation across self-posts) ----
+        java.util.Map<String, String> echoes = new java.util.HashMap<>();
+        for (String name : new String[]{
+                "appointment_date", "start_time", "asstProvider_no", "apptProvider_no",
+                "billNo_old", "billStatus_old", "dxCode1", "dxCode2"}) {
+            String v = request.getParameter(name);
+            if (v != null) echoes.put(name, v);
+        }
+        // Service-code grid (FIELD_SERVICE_NUM = 12 inputs).
+        for (int i = 0; i < io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp.FIELD_SERVICE_NUM; i++) {
+            for (String prefix : new String[]{"serviceCode", "serviceUnit", "serviceAt"}) {
+                String name = prefix + i;
+                String v = request.getParameter(name);
+                if (v != null) echoes.put(name, v);
+            }
+        }
+        // checkFlag (referenced by titlesearch hidden input).
+        String checkFlag = request.getParameter("checkFlag");
+        echoes.put("checkFlag", checkFlag != null ? checkFlag : "0");
+        b.requestParamEchoes(echoes);
+
+        // ---- pre-rendered msg (errorMsg + warningMsg + DOB-invalid notice) ----
+        StringBuilder msg = new StringBuilder("The default unit and @ value is 1.");
+        msg.append(nullToEmpty(b.peekErrorMsg()));
+        msg.append(nullToEmpty(b.peekWarningMsg()));
+        if (b.peekDemoDobInvalid()) {
+            msg.append("<br><b><font color='orange'>Warning: the patient's stored DOB is malformed; "
+                    + "age-keyed premium codes and visit-type defaults are unreliable.</font></b><br>");
+        }
+        b.displayMessage(msg.toString());
+
         return b.build();
+    }
+
+    /**
+     * Resolves the "assigned billing physician" display string the legacy JSP
+     * looked up via {@code providerBean.getProperty(assgProvider_no, "")}.
+     * The session bean is populated by post-login flows; falls back to a
+     * direct {@link ProviderDao} lookup for the truncate-or-full pattern when
+     * the session map is empty (e.g., test / fresh-login paths).
+     */
+    private String resolveAssgProviderDisplay(HttpServletRequest request, String apptProviderNo) {
+        if (apptProviderNo == null || apptProviderNo.isEmpty()) return "";
+        Object sessionBean = request.getSession().getAttribute("providerBean");
+        String name = "";
+        if (sessionBean instanceof java.util.Properties props) {
+            name = props.getProperty(apptProviderNo, "");
+        }
+        if (name.isEmpty()) {
+            try {
+                Provider p = providerDao.getProvider(apptProviderNo);
+                if (p != null) {
+                    name = p.getFormattedName();
+                }
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().warn(
+                        "assgProvider display lookup failed for provider={}; rendering blank",
+                        LogSanitizer.sanitize(apptProviderNo), e);
+            }
+        }
+        if (name == null) return "";
+        return name.length() > 15 ? name.substring(0, 14) : name;
     }
 
     /**

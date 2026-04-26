@@ -222,6 +222,35 @@ public final class BillingONFormViewModel {
     private final String admissionDate;
     /** Pre-resolved xml_vdate input value: param &gt; admissionDate &gt; "". */
     private final String defaultXmlVdate;
+    /** Pre-resolved xml_billtype selection (request param &gt; rosterStatus
+     *  override of {@code defaultBillType}). Lets the JSP iterate the static
+     *  bill-type list with {@code fn:startsWith(formModel.selectedBillType, ...)}
+     *  instead of computing the local {@code srtBillType} inline. */
+    private final String selectedBillType;
+    /** Display name of the assigned billing physician (was {@code providerBean.getProperty}).
+     *  Truncated to 14 chars when the full name exceeds 15 to keep the legacy
+     *  rendering width contract. */
+    private final String assgProviderDisplay;
+    /** Default referral-doctor checkbox state ("checked" or ""). */
+    private final String referralCheckedDefault;
+    /** Default referral-doctor name input value. */
+    private final String referralNameDefault;
+    /** Default referral-doctor OHIP-no input value. */
+    private final String referralNoDefault;
+    /** Default dx code for the dxCode input (request param &gt; preference &gt; history). */
+    private final String dxCodeDefault;
+    /** Default service date for the input above the dx panel. */
+    private final String serviceDateDefault;
+    /** Pre-rendered "msg" string (msg seed + errorMsg + warningMsg + DOB-invalid
+     *  warning) the legacy JSP built inline at lines 273-280. */
+    private final String displayMessage;
+    /** Pre-resolved request-param echoes for hidden-input value attributes —
+     *  appointment_date / start_time / asstProvider_no / apptProvider_no /
+     *  billNo_old / billStatus_old / dxCode1 / dxCode2 / serviceCodeN /
+     *  serviceUnitN / serviceAtN. Carried through the model so the JSP never
+     *  references {@code ${param.X}} directly (the encoder-validator hook
+     *  treats raw param refs as XSS even inside {@code <c:out>}). */
+    private final Map<String, String> requestParamEchoes;
 
     // Future expansion (not yet populated)
     private final Map<String, String> requestEchoes;
@@ -313,6 +342,16 @@ public final class BillingONFormViewModel {
                 ? Collections.emptyList() : List.copyOf(b.legacySiteOptions);
         this.admissionDate = nullToEmpty(b.admissionDate);
         this.defaultXmlVdate = nullToEmpty(b.defaultXmlVdate);
+        this.selectedBillType = nullToEmpty(b.selectedBillType);
+        this.assgProviderDisplay = nullToEmpty(b.assgProviderDisplay);
+        this.referralCheckedDefault = nullToEmpty(b.referralCheckedDefault);
+        this.referralNameDefault = nullToEmpty(b.referralNameDefault);
+        this.referralNoDefault = nullToEmpty(b.referralNoDefault);
+        this.dxCodeDefault = nullToEmpty(b.dxCodeDefault);
+        this.serviceDateDefault = nullToEmpty(b.serviceDateDefault);
+        this.displayMessage = nullToEmpty(b.displayMessage);
+        this.requestParamEchoes = b.requestParamEchoes == null
+                ? Collections.emptyMap() : Map.copyOf(b.requestParamEchoes);
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
     }
 
@@ -416,6 +455,15 @@ public final class BillingONFormViewModel {
     public List<LegacySiteOption> getLegacySiteOptions() { return legacySiteOptions; }
     public String getAdmissionDate() { return admissionDate; }
     public String getDefaultXmlVdate() { return defaultXmlVdate; }
+    public String getSelectedBillType() { return selectedBillType; }
+    public String getAssgProviderDisplay() { return assgProviderDisplay; }
+    public String getReferralCheckedDefault() { return referralCheckedDefault; }
+    public String getReferralNameDefault() { return referralNameDefault; }
+    public String getReferralNoDefault() { return referralNoDefault; }
+    public String getDxCodeDefault() { return dxCodeDefault; }
+    public String getServiceDateDefault() { return serviceDateDefault; }
+    public String getDisplayMessage() { return displayMessage; }
+    public Map<String, String> getRequestParamEchoes() { return requestParamEchoes; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
     public static final class Builder {
@@ -485,6 +533,15 @@ public final class BillingONFormViewModel {
         private List<LegacySiteOption> legacySiteOptions;
         private String admissionDate;
         private String defaultXmlVdate;
+        private String selectedBillType;
+        private String assgProviderDisplay;
+        private String referralCheckedDefault;
+        private String referralNameDefault;
+        private String referralNoDefault;
+        private String dxCodeDefault;
+        private String serviceDateDefault;
+        private String displayMessage;
+        private Map<String, String> requestParamEchoes;
         private Map<String, String> requestEchoes;
 
         public Builder userNo(String v) { this.userNo = v; return this; }
@@ -577,11 +634,35 @@ public final class BillingONFormViewModel {
         public Builder legacySiteOptions(List<LegacySiteOption> v) { this.legacySiteOptions = v == null ? null : List.copyOf(v); return this; }
         public Builder admissionDate(String v) { this.admissionDate = v; return this; }
         public Builder defaultXmlVdate(String v) { this.defaultXmlVdate = v; return this; }
+        public Builder selectedBillType(String v) { this.selectedBillType = v; return this; }
+        public Builder assgProviderDisplay(String v) { this.assgProviderDisplay = v; return this; }
+        public Builder referralCheckedDefault(String v) { this.referralCheckedDefault = v; return this; }
+        public Builder referralNameDefault(String v) { this.referralNameDefault = v; return this; }
+        public Builder referralNoDefault(String v) { this.referralNoDefault = v; return this; }
+        public Builder dxCodeDefault(String v) { this.dxCodeDefault = v; return this; }
+        public Builder serviceDateDefault(String v) { this.serviceDateDefault = v; return this; }
+        public Builder displayMessage(String v) { this.displayMessage = v; return this; }
+        public Builder requestParamEchoes(Map<String, String> v) { this.requestParamEchoes = v == null ? null : Map.copyOf(v); return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v == null ? null : Map.copyOf(v); return this; }
 
         public BillingONFormViewModel build() {
             return new BillingONFormViewModel(this);
         }
+
+        // Package-private peek accessors so the assembler can read fields it
+        // (or a composer) wrote earlier in the build pipeline without
+        // duplicating local state. Used to resolve dependent precomputed
+        // fields such as displayMessage, selectedBillType, dxCodeDefault, and
+        // referral defaults that depend on values produced by upstream
+        // composers (DemographicLoader, BillFormResolver).
+        public String peekDefaultBillType() { return defaultBillType; }
+        public String peekDefaultServiceType() { return defaultServiceType; }
+        public String peekReferralDoctor() { return referralDoctor; }
+        public String peekReferralDoctorOhip() { return referralDoctorOhip; }
+        public String peekDxCode() { return dxCode; }
+        public String peekErrorMsg() { return errorMsg; }
+        public String peekWarningMsg() { return warningMsg; }
+        public boolean peekDemoDobInvalid() { return demoDobInvalid; }
     }
 
     /**

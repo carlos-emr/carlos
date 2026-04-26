@@ -1111,12 +1111,8 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 
 <form method="post" id="titlesearch" name="titlesearch"
       action="<carlos:encode value='${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONReview' context='htmlAttribute'/>" onsubmit="return onNext();">
-    <%
-        String checkFlag = request.getParameter("checkFlag");
-        if (checkFlag == null) checkFlag = "0";
-    %>
     <input type="hidden" name="checkFlag" id="checkFlag"
-           value="<carlos:encode value='<%= checkFlag %>' context="htmlAttribute"/>"/>
+           value="<carlos:encode value='${formModel.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
 
@@ -1150,20 +1146,24 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 					<table  style="width: 100%;">
                     <tr>
                         <td style="white-space:nowrap; width: 10%; text-align: center"><b>&nbsp;<oscar:nameage
-                                demographicNo="<%=demo_no%>"/> <carlos:encode value='${formModel.rosterStatus}' context="html"/>
+                                demographicNo="${formModel.demographicNo}"/> <carlos:encode value='${formModel.rosterStatus}' context='html'/>
                         </b>
-                            <%if (appt_no.compareTo("0") == 0) {%>
-                            <span class="input-group">
-								<input type="text" class="form-control" id="service_date" name="service_date" readonly
-                                       value="<carlos:encode value='<%= request.getParameter("service_date")!=null? request.getParameter("service_date"):strToday %>' context="htmlAttribute"/>"
-                                       style="width: 80px; height:14px;  vertical-align: bottom;">
-                                <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
-                                    <img src="${ pageContext.request.contextPath }/images/cal.gif"
-                                         style="height:14px;" alt="cal"></span></span>
-                            <%} else {%>
-                                <input type="text" id="service_date" name="service_date" readonly
-								value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"
-                                   maxlength="10" style="width: 80px;"> <%}%></td>
+                            <c:choose>
+                                <c:when test="${formModel.appointmentNo eq '0'}">
+                                    <span class="input-group">
+								        <input type="text" class="form-control" id="service_date" name="service_date" readonly
+                                           value="<carlos:encode value='${formModel.serviceDateDefault}' context='htmlAttribute'/>"
+                                           style="width: 80px; height:14px;  vertical-align: bottom;">
+                                        <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
+                                            <img src="${pageContext.request.contextPath}/images/cal.gif"
+                                                 style="height:14px;" alt="cal"></span></span>
+                                </c:when>
+                                <c:otherwise>
+                                    <input type="text" id="service_date" name="service_date" readonly
+								        value="<carlos:encode value='${formModel.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"
+                                       maxlength="10" style="width: 80px;">
+                                </c:otherwise>
+                            </c:choose></td>
                         <%
                             String warningClass = "";
                             if (billingRecomendations.length() > 0) {
@@ -1171,9 +1171,9 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                             }
                         %>
                         <td style="text-align: center;"
-                            class="<%=warningClass%>"><%=billingRecomendations.toString()%>
+                            class="${not empty formModel.billingRecommendations ? 'alert' : ''}">${formModel.billingRecommendations}
                         </td>
-                        <td style="text-align: center;"><%=msg%>
+                        <td style="text-align: center;">${formModel.displayMessage}
                         </td>
                     </tr>
                 </table>
@@ -1206,74 +1206,62 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
                                                            onchange="changeCodeDesc();"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode")!=null?request.getParameter("dxCode"):dxCode %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode1")!=null?request.getParameter("dxCode1"):"" %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
                                                            maxlength="5"
-                                                           value="<carlos:encode value='<%= request.getParameter("dxCode2")!=null?request.getParameter("dxCode2"):"" %>' context="htmlAttribute"/>"/>
+                                                           value="<carlos:encode value='${formModel.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                         </table>
                                         <a
-                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a> <%
-                                        String checkRefBox = "";
-                                        String refName = "";
-                                        String refNo = "";
-                                        if (request.getParameter("rfcheck") != null) {
-                                            checkRefBox = request.getParameter("rfcheck");
-                                            refName = request.getParameter("referralDocName");
-                                            refNo = request.getParameter("referralCode");
-                                        } else if (oscarVariables.getProperty("billingRefBoxDefault", "").equals("checked")) {
-                                            checkRefBox = "checked";
-                                            refName = r_doctor;
-                                            refNo = r_doctor_ohip;
-                                        }
-
-
-                                    %> <input type="checkbox" name="rfcheck" value="checked"
-                                            <%= "checked".equals(checkRefBox) ? "checked" : "" %> onclick="onClickRefDoc()"/><br/>
+                                                href="javascript:referralScriptAttach2('referralCode','referralDocName')"><fmt:message key="oscar.billing.ca.on.billingON.referralDoctor"/></a>
+                                        <input type="checkbox" name="rfcheck" value="checked"
+                                            ${formModel.referralCheckedDefault eq 'checked' ? 'checked' : ''} onclick="onClickRefDoc()"/><br/>
                                         <input
                                                 type="text" name="referralCode" class="form-control form-control-sm d-inline-block w-auto" maxlength="6"
                                                 placeholder="<fmt:message key="encounter.oscarConsultationRequest.config.AddSpecialist.referralNo"/>"
-                                                value="<carlos:encode value='<%= refNo %>' context="html"/>"><br/>
+                                                value="<carlos:encode value='${formModel.referralNoDefault}' context='html'/>"><br/>
                                         <input placeholder="<fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>"
                                                type="text" name="referralDocName" class="form-control" maxlength="60"
-                                               value="<carlos:encode value='<%= refName %>' context="html"/>">
+                                               value="<carlos:encode value='${formModel.referralNameDefault}' context='html'/>">
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = 0; i < BillingDataHlp.FIELD_SERVICE_NUM / 2; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
-                                               onBlur="upCaseCtrl(this)"/>x
-                                        <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="4"
-                                               style="width: 20px;"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
-                                        <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
-                                               style="width: 30px"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
-                                        <% } %></td>
-                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/> <% for (int i = BillingDataHlp.FIELD_SERVICE_NUM / 2; i < BillingDataHlp.FIELD_SERVICE_NUM; i++) { %>
-                                        <input type="text" name="serviceCode<%=i%>" class="form-control form-control-sm d-inline-block w-auto"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceCode"+i)!=null?request.getParameter("serviceCode"+i):"" %>' context="htmlAttribute"/>"
-                                               onBlur="upCaseCtrl(this)"/>x
-                                        <input type="text" name="serviceUnit<%=i%>" size="2" maxlength="2"
-                                               style="width: 20px;"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceUnit"+i)!=null?request.getParameter("serviceUnit"+i):"" %>' context="htmlAttribute"/>"/>@
-                                        <input type="text" name="serviceAt<%=i%>" size="3" maxlength="4"
-                                               style="width: 30px"
-                                               value="<carlos:encode value='<%= request.getParameter("serviceAt"+i)!=null?request.getParameter("serviceAt"+i):"" %>' context="htmlAttribute"/>"/><br/>
-                                        <% } %></td>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
+                                        <c:forEach var="i" begin="0" end="5">
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   onBlur="upCaseCtrl(this)"/>x
+                                            <input type="text" name="serviceUnit${i}" size="2" maxlength="4"
+                                                   style="width: 20px;"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                            <input type="text" name="serviceAt${i}" size="3" maxlength="4"
+                                                   style="width: 30px"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                        </c:forEach></td>
+                                    <td style="white-space:nowrap; width: 33%; text-align: center" class="xmyPink"><b><fmt:message key="oscar.billing.ca.on.billingON.codeTimePercent"/></b><br/>
+                                        <c:forEach var="i" begin="6" end="11">
+                                            <input type="text" name="serviceCode${i}" class="form-control form-control-sm d-inline-block w-auto"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceCode\".concat(i)]}' context='htmlAttribute'/>"
+                                                   onBlur="upCaseCtrl(this)"/>x
+                                            <input type="text" name="serviceUnit${i}" size="2" maxlength="2"
+                                                   style="width: 20px;"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceUnit\".concat(i)]}' context='htmlAttribute'/>"/>@
+                                            <input type="text" name="serviceAt${i}" size="3" maxlength="4"
+                                                   style="width: 30px"
+                                                   value="<carlos:encode value='${formModel.requestParamEchoes[\"serviceAt\".concat(i)]}' context='htmlAttribute'/>"/><br/>
+                                        </c:forEach></td>
                                 </tr>
                             </table>
                         </td>
@@ -1398,9 +1386,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
 
                                     </td>
                                     <td style="white-space:nowrap; width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.assignedPhysician"/></b></td>
-                                    <td style="width: 20%"><carlos:encode value='<%= providerBean.getProperty(assgProvider_no, "").length() > 15
-                                            ? providerBean.getProperty(assgProvider_no, "").substring(0, 14)
-                                            : providerBean.getProperty(assgProvider_no, "") %>' context="html"/>
+                                    <td style="width: 20%"><carlos:encode value='${formModel.assgProviderDisplay}' context='html'/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -1433,22 +1419,22 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         } else {
                                         %>
                                         <option value="00| Clinic Visit"
-                                                <%=visitType.startsWith("00") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
+                                                ${fn:startsWith(formModel.visitType, '00') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.00"/>
                                         </option>
                                         <option value="01| Outpatient Visit"
-                                                <%=visitType.startsWith("01") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
+                                                ${fn:startsWith(formModel.visitType, '01') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.01"/>
                                         </option>
                                         <option value="02| Hospital Visit"
-                                                <%=visitType.startsWith("02") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
+                                                ${fn:startsWith(formModel.visitType, '02') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.02"/>
                                         </option>
                                         <option value="03| ER"
-                                                <%=visitType.startsWith("03") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
+                                                ${fn:startsWith(formModel.visitType, '03') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.03"/>
                                         </option>
                                         <option value="04| Nursing Home"
-                                                <%=visitType.startsWith("04") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
+                                                ${fn:startsWith(formModel.visitType, '04') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.04"/>
                                         </option>
                                         <option value="05| Home Visit"
-                                                <%=visitType.startsWith("05") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
+                                                ${fn:startsWith(formModel.visitType, '05') ? 'selected' : ''}><fmt:message key="oscar.billing.ca.on.billingON.visitType.05"/>
                                         </option>
                                         <%
                                             }
@@ -1456,42 +1442,40 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                     </select></td>
                                     <td style="width: 30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width: 20%">
-                                        <%
-												if ((roster_status.equals("QU - Quebec")||roster_status.equals("FS")) && !defaultServiceType.equals("RN")) {
-												    defaultBillType = "PAT";
-												}
-                                            String srtBillType = request.getParameter("xml_billtype") != null ? request.getParameter("xml_billtype") : defaultBillType;
-                                        %> <select name="xml_billtype" onchange="onChangePrivate();">
+                                        <%-- selectedBillType pre-resolved by the assembler:
+                                             roster QU/FS forces PAT (when defaultServiceType != RN),
+                                             then request param overrides. --%>
+                                        <select name="xml_billtype" onchange="onChangePrivate();">
                                         <option value="ODP | Bill OHIP"
-                                                <%=srtBillType.startsWith("ODP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "ODP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODP"/>
                                         </option>
                                         <option value="WCB | Worker's Compensation Board"
-                                                <%=srtBillType.startsWith("WCB") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "WCB") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.WCB"/>
                                         </option>
                                         <option value="NOT | Do Not Bill"
-                                                <%=srtBillType.startsWith("NOT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "NOT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.NOT"/>
                                         </option>
                                         <option value="IFH | Interm Federal Health"
-                                                <%=srtBillType.startsWith("IFH") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "IFH") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.IFH"/>
                                         </option>
                                         <option value="PAT | Bill Patient"
-                                                <%=srtBillType.startsWith("PAT") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "PAT") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.PAT"/>
                                         </option>
                                         <option value="OCF | "
-                                                <%=srtBillType.startsWith("OCF") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "OCF") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.OCF"/>
                                         </option>
                                         <option value="ODS | "
-                                                <%=srtBillType.startsWith("ODS") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "ODS") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.ODS"/>
                                         </option>
                                         <option value="CPP | Canada Pension Plan"
-                                                <%=srtBillType.startsWith("CPP") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "CPP") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.CPP"/>
                                         </option>
                                         <option
                                                 value="STD | Short Term Disability / Long Term Disability"
-                                                <%=srtBillType.startsWith("STD") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "STD") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.STD"/>
                                         </option>
                                         <option value="BON | Bonus Codes"
-                                                <%=srtBillType.startsWith("BON") ? "selected" : ""%>><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
+                                                ${fn:startsWith(formModel.selectedBillType, "BON") ? "selected" : ""}><fmt:message key="oscar.billing.ca.on.billingON.billType.BON"/>
                                         </option>
                                     </select>
                                     </td>
@@ -1511,7 +1495,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td colspan="3"><select name="xml_slicode">
-                                        <option value="<%=clinicNo%>">
+                                        <option value="<carlos:encode value='${formModel.clinicNo}' context='htmlAttribute'/>">
                                             <fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode.NA"/>
                                         </option>
                                         <option value="HDS">
@@ -1761,44 +1745,44 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
             </td>
         </tr>
 
-        <input type="hidden" name="clinic_no" value="<%=clinicNo%>"/>
-        <input type="hidden" name="demographic_no" value="<carlos:encode value='${formModel.demographicNo}' context="htmlAttribute"/>"/>
-        <input type="hidden" name="appointment_no" value="<carlos:encode value='${formModel.appointmentNo}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="clinic_no" value="<carlos:encode value='${formModel.clinicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="demographic_no" value="<carlos:encode value='${formModel.demographicNo}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${formModel.appointmentNo}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="ohip_version" value="V03G"/>
-        <input type="hidden" name="hin" value="<%=demoHIN%>"/>
-        <input type="hidden" name="ver" value="<%=demoVer%>"/>
-        <input type="hidden" name="hc_type" value="<%=demoHCTYPE%>"/>
-        <input type="hidden" name="sex" value="<carlos:encode value='${formModel.demoSex}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="hin" value="<carlos:encode value='${formModel.demoHin}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="ver" value="<carlos:encode value='${formModel.demoVer}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="hc_type" value="<carlos:encode value='${formModel.demoHcType}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="sex" value="<carlos:encode value='${formModel.demoSex}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="start_time"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("start_time")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"start_time\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_dob" value="<%=demoDOB%>"/>
+        <input type="hidden" name="demographic_dob" value="<carlos:encode value='${formModel.demoDob}' context='htmlAttribute'/>"/>
 
         <input type="hidden" name="apptProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("apptProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"apptProvider_no\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="asstProvider_no"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("asstProvider_no")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"asstProvider_no\"]}' context='htmlAttribute'/>"/>
 
-        <input type="hidden" name="demographic_name" value="<carlos:encode value='${formModel.demoName}' context="htmlAttribute"/>"/>
-        <input type="hidden" name="providerview" value="<carlos:encode value='${formModel.providerView}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="demographic_name" value="<carlos:encode value='${formModel.demoName}' context='htmlAttribute'/>"/>
+        <input type="hidden" name="providerview" value="<carlos:encode value='${formModel.providerView}' context='htmlAttribute'/>"/>
         <input type="hidden" name="appointment_date"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("appointment_date")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"appointment_date\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="assgProvider_no"
-               value="<carlos:encode value='${formModel.assgProviderNo}' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.assgProviderNo}' context='htmlAttribute'/>"/>
         <%-- billForm is already declared at the form-name input above (line ~1573,
              id="billForm") — that field is the one toggleDiv() updates when the
              user switches forms. Keeping a second name="billForm" here would
              post two values for the same param, making the receiver dependent
              on parameter ordering. curBillForm tracks the original form. --%>
-        <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="curBillForm" value="<carlos:encode value='${formModel.ctlBillForm}' context='htmlAttribute'/>"/>
         <input type="hidden" name="services_checked">
         <input type="hidden" name="url_back">
         <input type="hidden" name="billNo_old" id="billNo_old"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billNo_old")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"billNo_old\"]}' context='htmlAttribute'/>"/>
         <input type="hidden" name="billStatus_old" id="billStatus_old"
-               value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("billStatus_old")) %>' context="htmlAttribute"/>"/>
+               value="<carlos:encode value='${formModel.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
 
     </table>
 
