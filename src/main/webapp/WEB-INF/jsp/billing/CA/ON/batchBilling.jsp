@@ -29,66 +29,60 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    String user_no = "";
-    user_no = (String) session.getAttribute("user");
-%>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.web.BatchBillingDataAssembler" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BatchBillingViewModel" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<fmt:setBundle basename="oscarResources"/>
-<%@ page import="java.util.*, java.sql.*, java.net.*" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO, io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation, io.github.carlos_emr.carlos.commn.model.Provider, io.github.carlos_emr.carlos.commn.model.BatchBilling, io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+
+<%--
+  Defensive model-resolver: ensures ${batchModel} is set on the request
+  even on the unlikely path where this JSP is reached without going through
+  BatchBill2Action.execute() (e.g., a stray <jsp:forward> from an unguarded
+  entry). The action's own _billing w privilege check is duplicated here
+  for parity: without it a future bypass would silently render PHI on an
+  unauthenticated request. Mirrors billingON.jsp.
+--%>
 <%
-    ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
-%>
-<% GregorianCalendar now = new GregorianCalendar();
-    int curYear = now.get(Calendar.YEAR);
-    int curMonth = (now.get(Calendar.MONTH) + 1);
-    int curDay = now.get(Calendar.DAY_OF_MONTH);
-    String nowDate = String.valueOf(curYear) + "/" + String.valueOf(curMonth) + "/" + String.valueOf(curDay);
-    String nowTime = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-    String clinicview = CarlosProperties.getInstance().getProperty("clinic_view");
-    String Clinic_no = CarlosProperties.getInstance().getProperty("clinic_no");
-    String servicecode = request.getParameter("service_code");
-
-    BatchBillingDAO batchBillingDAO = (BatchBillingDAO) SpringUtils.getBean(BatchBillingDAO.class);
-    String providerview = request.getParameter("provider_no") == null ? "" : request.getParameter("provider_no");
-    List<BatchBilling> batchBillings = null;
-
-    if (!providerview.equalsIgnoreCase("#") && !providerview.equalsIgnoreCase("")) {
-        if (providerview.compareTo("all") == 0) {
-            if (servicecode.equals("all")) {
-                batchBillings = batchBillingDAO.findAll();
-            } else {
-                batchBillings = batchBillingDAO.findByServiceCode(servicecode);
-            }
-        } else {
-            if (servicecode.equals("all")) {
-                batchBillings = batchBillingDAO.findByProvider(providerview.trim());
-            } else {
-                batchBillings = batchBillingDAO.findByProvider(providerview.trim(), servicecode);
-            }
+    if (request.getAttribute("batchModel") == null) {
+        MiscUtils.getLogger().warn(
+                "batchBilling.jsp reached without batchModel — re-running assembler defensively. "
+                        + "Caller should route through billing/CA/ON/BatchBill.");
+        LoggedInInfo __fallbackLii = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (__fallbackLii == null) {
+            throw new SecurityException("batchBilling.jsp fallback: missing session");
         }
+        SecurityInfoManager __secMgr;
+        try {
+            __secMgr = SpringUtils.getBean(SecurityInfoManager.class);
+        } catch (RuntimeException __springEx) {
+            MiscUtils.getLogger().error(
+                    "batchBilling.jsp fallback: SecurityInfoManager bean lookup failed", __springEx);
+            throw new SecurityException(
+                    "batchBilling.jsp fallback: privilege check unavailable", __springEx);
+        }
+        if (!__secMgr.hasPrivilege(__fallbackLii, "_billing", "w", null)) {
+            throw new SecurityException("batchBilling.jsp fallback: missing required sec object (_billing)");
+        }
+        BatchBillingViewModel __fallbackModel = new BatchBillingDataAssembler().assemble(request);
+        request.setAttribute("batchModel", __fallbackModel);
     }
-
 %>
 
 <html>
 <head>
-    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript" src="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
 
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${ctx}/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
     <title><fmt:message key="admin.admin.btnBatchBilling"/></title>
     <script type="text/javascript">
@@ -131,15 +125,26 @@
             var providerNo = provider.options[provider.selectedIndex].value;
 
             if (providerNo != "#") {
-                eval(targ + ".location='<%= request.getContextPath() %>/billing/CA/ON/BatchBill?provider_no=" + providerNo + "&service_code=" + service + "'");
+                var url = '${ctx}/billing/CA/ON/BatchBill?provider_no=' + encodeURIComponent(providerNo) + '&service_code=' + encodeURIComponent(service);
+                if (targ === 'window') {
+                    window.location = url;
+                } else {
+                    // Legacy contract supports targ="self" / "parent"; resolve
+                    // dynamically without using eval so we keep behavior parity
+                    // without an arbitrary-code-execution sink.
+                    var target = window[targ];
+                    if (target && typeof target.location !== 'undefined') {
+                        target.location = url;
+                    } else {
+                        window.location = url;
+                    }
+                }
             }
 
         }
 
         function init() {
-            <%
-            if( batchBillings != null && batchBillings.size() > 0 ) {
-            %>
+            <c:if test="${batchModel.rowsAvailable}">
             Calendar.setup({
                 inputField: "BillDate",
                 ifFormat: "%Y-%m-%d",
@@ -148,9 +153,7 @@
                 singleClick: true,
                 step: 1
             });
-            <%
-            }
-            %>
+            </c:if>
         }
 
         //-->
@@ -165,9 +168,6 @@
 
     <div class="row card card-body bg-body-tertiary d-print-none">
 
-        <%
-            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-        %>
         <form name="serviceform" method="post" action="BatchBill" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" id="method" name="method" value="">
 
@@ -175,58 +175,35 @@
                 <fmt:message key="billing.batchbilling.msgProvider"/><br>
                 <select name="providers" class="form-select" onChange="jumpMenu('window',this)">
                     <option value="#"><b><fmt:message key="billing.batchbilling.msgProvider"/></b></option>
-                    <option value="all"
-                            <%=providerview.equals("all") ? "selected" : ""%>><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
-                    <% List<Provider> providers = providerDao.getBillableProviders();
-                        String proFirst, proLast, proNo;
-                        for (Provider p : providers) {
-                            proFirst = p.getFirstName();
-                            proLast = p.getLastName();
-                            proNo = p.getProviderNo();
-                    %>
-                    <option value="<carlos:encode value='<%= proNo %>' context="htmlAttribute"/>"
-                            <%=providerview.equals(proNo) ? "selected" : ""%>><carlos:encode value='<%= proLast %>' context="html"/>,
-                        <carlos:encode value='<%= proFirst %>' context="html"/>
+                    <option value="all" ${batchModel.providerView eq 'all' ? 'selected' : ''}><fmt:message key="billing.batchbilling.msgAllProvider"/></option>
+                    <c:forEach var="__p" items="${batchModel.providers}">
+                    <option value="${carlos:forHtmlAttribute(__p.providerNo)}"
+                            ${batchModel.providerView eq __p.providerNo ? 'selected' : ''}><carlos:encode value="${__p.lastName}" context="html"/>,
+                        <carlos:encode value="${__p.firstName}" context="html"/>
                     </option>
-                    <%
-
-                        }
-                    %>
+                    </c:forEach>
                 </select>
             </div>
 
             <div class="col-md-3">
                 <fmt:message key="billing.batchbilling.serviceCode"/>:
                 <select id="service_code" class="form-select" name="service_code">
-                    <option value="all" <%=servicecode.equals("all") ? "selected" : ""%>><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
-                    <%
-                        List<String> serviceCodes = batchBillingDAO.findDistinctServiceCodes();
-                        for (String service : serviceCodes) {
-                    %>
-                    <option value="<carlos:encode value='<%= service %>' context="htmlAttribute"/>" <%=servicecode.equals(service) ? "selected" : ""%>><carlos:encode value='<%= service %>' context="html"/>
+                    <option value="all" ${batchModel.serviceCode eq 'all' ? 'selected' : ''}><fmt:message key="billing.batchbilling.msgAllServiceCode"/></option>
+                    <c:forEach var="__sc" items="${batchModel.serviceCodes}">
+                    <option value="${carlos:forHtmlAttribute(__sc)}" ${batchModel.serviceCode eq __sc ? 'selected' : ''}><carlos:encode value="${__sc}" context="html"/>
                     </option>
-                    <%
-                        }
-                    %>
+                    </c:forEach>
                 </select>
             </div>
 
             <div class="col-md-4">
                 <fmt:message key="billing.batchbilling.msgClinicLocation"/>:
                 <select name="clinic_view" class="form-select">
-                    <%
-                        String clinic_location = "", clinic_code = "";
-                        List<ClinicLocation> clinicLocations = clinicLocationDao.findByClinicNo(1);
-                        for (ClinicLocation clinicLocation : clinicLocations) {
-                            clinic_location = clinicLocation.getClinicLocationName();
-                            clinic_code = clinicLocation.getClinicLocationNo();
-                    %>
-                    <option value="<carlos:encode value='<%= clinic_code %>' context="htmlAttribute"/>"
-                            <%=clinicview.equals(clinic_code) ? "selected" : ""%>><carlos:encode value='<%= clinic_location %>' context="html"/>
+                    <c:forEach var="__cl" items="${batchModel.clinicLocations}">
+                    <option value="${carlos:forHtmlAttribute(__cl.code)}"
+                            ${batchModel.clinicView eq __cl.code ? 'selected' : ''}><carlos:encode value="${__cl.name}" context="html"/>
                     </option>
-                    <%
-                        }
-                    %>
+                    </c:forEach>
                 </select>
             </div>
     </div><!--row well-->
@@ -237,16 +214,14 @@
 
         <input type="hidden" name="verCode"
                value="V03"> <input type="hidden" name="curUser"
-                                   value="<carlos:encode value='<%= user_no %>' context="htmlAttribute"/>"> <input type="hidden" name="curDate"
-                                                                value="<%=nowDate%>"> <input type="hidden"
+                                   value="${carlos:forHtmlAttribute(batchModel.userNo)}"> <input type="hidden" name="curDate"
+                                                                value="${carlos:forHtmlAttribute(batchModel.nowDate)}"> <input type="hidden"
                                                                                              name="curTime"
-                                                                                             value="<%=nowTime%>">
+                                                                                             value="${carlos:forHtmlAttribute(batchModel.nowTime)}">
 
 
-        <%
-            if (batchBillings != null && batchBillings.size() > 0) {
-
-        %>
+        <c:choose>
+        <c:when test="${batchModel.rowsAvailable}">
 
         <button class="btn float-end" type='button' name='print' value='Print' onClick='window.print()'><i
                 class="fa-solid fa-print"></i> Print
@@ -268,74 +243,25 @@
             </thead>
             <tbody>
 
-            <%
-                DemographicDao demographicDAO = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
-                String demo_name = "";
-                String diagnostic_code = "", service_code = "", billing_amount = "";
-                String billdate = "";
-                java.util.Date billDate;
-                int colorCount = 0;
-                String color = "";
-                int Count1 = 0;
-
-                Provider provider = null;
-                Demographic demographic = null;
-                String proName1;
-                for (BatchBilling batchBilling : batchBillings) {
-
-                    provider = providerDao.getProvider(batchBilling.getBillingProviderNo());
-                    proFirst = provider.getFirstName();
-                    proLast = provider.getLastName();
-                    proName1 = provider.getFullName();
-
-                    demographic = demographicDAO.getDemographic(String.valueOf(batchBilling.getDemographicNo()));
-                    demo_name = demographic.getFormattedName();
-                    service_code = batchBilling.getServiceCode();
-                    billing_amount = batchBilling.getBillingAmount() == null ? "N/A" : batchBilling.getBillingAmount();
-                    diagnostic_code = batchBilling.getDxcode();
-                    billDate = batchBilling.getLastBilledDate();
-                    if (billDate == null) {
-                        billdate = "N/A";
-                    } else {
-                        billdate = DateUtils.format("yyyy-MM-dd", billDate, request.getLocale());
-                    }
-
-
-                    if (colorCount == 0) {
-                        colorCount = 1;
-                        color = "#FFFFFF";
-                    } else {
-                        colorCount = 0;
-                        color = "#EEEEFF";
-                    }
-                    Count1 = Count1 + 1;
-            %>
-
+            <c:forEach var="__row" items="${batchModel.rows}">
             <tr>
                 <td><input type="checkbox"
                            name="bill"
-                           value="<carlos:encode value='<%= service_code + ";" + diagnostic_code + ";" + batchBilling.getDemographicNo() + ";" + batchBilling.getBillingProviderNo() %>' context="htmlAttribute"/>">
+                           value="${carlos:forHtmlAttribute(__row.checkboxValue)}">
                 </td>
-                <td><carlos:encode value='<%= demo_name %>' context="html"/></td>
-                <td><carlos:encode value='<%= proName1 %>' context="html"/>
+                <td><carlos:encode value="${__row.demoName}" context="html"/></td>
+                <td><carlos:encode value="${__row.providerName}" context="html"/>
                 </td>
-                <td><carlos:encode value='<%= service_code %>' context="html"/>
+                <td><carlos:encode value="${__row.serviceCode}" context="html"/>
                 </td>
-                <td><carlos:encode value='<%= billing_amount %>' context="html"/>
+                <td><carlos:encode value="${__row.billingAmount}" context="html"/>
                 </td>
-                <td><carlos:encode value='<%= diagnostic_code %>' context="html"/>
+                <td><carlos:encode value="${__row.diagnosticCode}" context="html"/>
                 </td>
-                <td><carlos:encode value='<%= billdate %>' context="html"/>
+                <td><carlos:encode value="${__row.lastBilledDate}" context="html"/>
                 </td>
             </tr>
-            <%
-                }
-                if (Count1 == 0) {
-            %>
-            <tr>
-                <td colspan=7><fmt:message key="billing.batchbilling.msgNoMatch"/></td>
-            </tr>
-            <%} else {%>
+            </c:forEach>
 
             <tr>
                 <td colspan="7">
@@ -343,7 +269,7 @@
                         <fmt:message key="billing.batchbilling.serviceDate"/>
                         <div class="input-group">
                             <input type="text" class="form-control" name="BillDate" id="BillDate"
-                                   value="<%=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH)%>"
+                                   value="${carlos:forHtmlAttribute(batchModel.defaultBillDate)}"
                                    style="width:90px" autocomplete="off" readonly/>
                             <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
@@ -358,22 +284,28 @@
                 </td>
             </tr>
 
-            <%
-                }
-            } else if (servicecode != null && providerview != null && batchBillings == null) {
-            %>
+            </tbody>
+        </table>
+        </c:when>
+        <c:when test="${batchModel.filterApplied}">
+        <table class="table table-striped table-hover table-sm">
+            <tbody>
             <tr>
                 <td>* Make selection above to generate batch billing</td>
             </tr>
-            <%
-            } else {
-            %>
+            </tbody>
+        </table>
+        </c:when>
+        <c:otherwise>
+        <table class="table table-striped table-hover table-sm">
+            <tbody>
             <tr>
                 <td>Nothing to report</td>
             </tr>
-            <%}%>
             </tbody>
         </table>
+        </c:otherwise>
+        </c:choose>
 
         </form>
     </div>

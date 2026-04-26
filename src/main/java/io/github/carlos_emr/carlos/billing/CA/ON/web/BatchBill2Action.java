@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.time.DateUtils;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BatchBillingViewModel;
 import io.github.carlos_emr.carlos.commn.dao.BatchBillingDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.model.BatchBilling;
@@ -137,6 +138,13 @@ public class BatchBill2Action extends ActionSupport {
             }
 
         }
+        // Assemble the JSP view model so batchBilling.jsp can render purely
+        // via EL/JSTL. The JSP scriptlet body previously called four
+        // SpringUtils.getBean lookups inline plus per-row provider /
+        // demographic resolution; that all moves into the assembler.
+        BatchBillingViewModel batchModel = new BatchBillingDataAssembler().assemble(request);
+        request.setAttribute("batchModel", batchModel);
+
         // Returning null leaves Struts with no result to render -> empty body.
         // Render the batch-billing form view. Saves return through the same path.
         return SUCCESS;
