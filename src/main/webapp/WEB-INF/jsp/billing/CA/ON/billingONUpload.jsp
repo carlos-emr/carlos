@@ -23,20 +23,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
-    CarlosProperties props = CarlosProperties.getInstance();
-    session.setAttribute("homepath", props.getProperty("project_home", ""));
-%>
+<%--
+    Authentication / authorization is enforced by BillingONUpload2Action
+    (struts mapping billing/CA/ON/billingONUpload), which gates _admin.billing
+    w privilege and POST-only. The legacy session-user check / project_home
+    sessioning that was here is now handled by the upstream action; the
+    DocumentErrorReportUpload form action below uses an extensionless
+    Struts route, so no JSP-side project_home lookup is needed.
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <html>
 <head>
     <title><fmt:message key="admin.admin.uploadMOHFile"/></title>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
     <script type="text/javascript">
         function onSubmit() {
@@ -57,10 +59,10 @@
                 }
             } else {
                 if (document.all) {
-                    document.all.form1.action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload";
+                    document.all.form1.action = "${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload";
                     document.all.form1.submit();
                 } else {
-                    document.getElementById('form1').action = "/<%=props.getProperty("project_home", "")%>/oscarBilling/DocumentErrorReportUpload";
+                    document.getElementById('form1').action = "${pageContext.request.contextPath}/oscarBilling/DocumentErrorReportUpload";
                     document.getElementById('form1').submit();
                 }
             }

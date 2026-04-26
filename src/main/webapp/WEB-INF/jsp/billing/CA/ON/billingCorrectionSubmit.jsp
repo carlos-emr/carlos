@@ -12,31 +12,35 @@
     @since 2026
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
 </head>
 <body>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr bgcolor="<%= request.getAttribute("correctionError") != null ? "#bd4848" : "#486ebd" %>">
+    <tr bgcolor="${not empty correctionError ? '#bd4848' : '#486ebd'}">
         <th align="CENTER" nowrap><font face="Helvetica" color="#FFFFFF">
-            <% if (request.getAttribute("correctionError") != null) { %>
-                Billing Correction Failed
-            <% } else { %>
-                <fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
-            <% } %>
+            <c:choose>
+                <c:when test="${not empty correctionError}">
+                    Billing Correction Failed
+                </c:when>
+                <c:otherwise>
+                    <fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
+                </c:otherwise>
+            </c:choose>
         </font></th>
     </tr>
 </table>
 
 <form action="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingCorrection">
     <input type="hidden" name="billing_no" value="">
-    <% if (request.getAttribute("correctionError") == null) { %>
-    <input type="submit" value="<fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">
-    <% } %>
+    <c:if test="${empty correctionError}">
+        <input type="submit" value="<fmt:message key='billing.billingCorrectionSubmit.btnCorrectAnother'/>" name="submit">
+    </c:if>
     <input type="button" value="<fmt:message key='billing.billingCorrectionSubmit.btnClose'/>" onClick="window.close()">
 </form>
 </body>

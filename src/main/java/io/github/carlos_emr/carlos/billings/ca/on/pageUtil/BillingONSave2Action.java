@@ -154,6 +154,9 @@ public final class BillingONSave2Action extends ActionSupport {
 
             if ("Save & Add Another Bill".equals(submit)) {
                 request.setAttribute("safeUrlBack", safeUrlBack);
+                // Drives the c:choose branch in billingONSave.jsp without
+                // forcing the JSP to read request parameters directly.
+                request.setAttribute("addAnotherBill", Boolean.TRUE);
                 return "addAnother";
             }
 

@@ -13,13 +13,10 @@
     @since 2026
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%
-    Integer billingNo = (Integer) request.getAttribute("billingNo");
-%>
 <!DOCTYPE html>
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
 </head>
 <body>
 <script type="text/javascript">
@@ -35,7 +32,7 @@
         }
     }
 
-    popupPage(700, 720, '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingON3rdInv?billingNo=<%= billingNo != null ? billingNo : 0 %>');
+    popupPage(700, 720, '${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv?billingNo=${empty billingNo ? 0 : billingNo}');
     self.close();
     try { if (self.opener && self.opener.refresh) { self.opener.refresh(); } else { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); } } catch(e) { new BroadcastChannel('carlos_schedule_refresh').postMessage('refresh'); }
 </script>
