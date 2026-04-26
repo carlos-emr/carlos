@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -181,6 +182,7 @@ public final class BillingONFormDataAssembler {
      * scriptlet ordering in the original JSP so the resulting state is
      * equivalent to the pre-refactor page.
      */
+    @SuppressWarnings("deprecation")
     public BillingONFormViewModel assemble(LoggedInInfo loggedInInfo, HttpServletRequest request) {
         CarlosProperties oscarVars = CarlosProperties.getInstance();
         BillingONFormViewModel.Builder b = BillingONFormViewModel.builder();
@@ -400,13 +402,154 @@ public final class BillingONFormDataAssembler {
         siteContextComposer.populate(b, request, userNo, apptProviderNo, apptNo);
 
         // ---- billing favourites (flat name/code list for the cutlist dropdown) ----
-        io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil favPageUtil =
+        io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil pageUtil =
                 new io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingPageUtil();
-        @SuppressWarnings("unchecked")
-        List<String> favList = favPageUtil.getBillingFavouriteList();
+        List<String> favList = pageUtil.getBillingFavouriteList();
         b.billingFavourites(favList == null ? Collections.emptyList() : favList);
+        // Pair the alternating [text, value, text, value, ...] entries into a
+        // structured list so the JSP can iterate via JSTL instead of stepping
+        // by 2 in a scriptlet.
+        List<BillingONFormViewModel.BillingFavouriteOption> favOptions = new ArrayList<>();
+        if (favList != null) {
+            for (int i = 0; i + 1 < favList.size(); i += 2) {
+                favOptions.add(new BillingONFormViewModel.BillingFavouriteOption(
+                        nullToEmpty(favList.get(i)), nullToEmpty(favList.get(i + 1))));
+            }
+        }
+        b.billingFavouriteOptions(favOptions);
+
+        // ---- recent-billing history rows (the bottom table renders aL/iAL pairs) ----
+        b.billingHistoryRows(loadHistoryRows(demoNo));
+
+        // ---- visit-location dropdown (was inline tdbObj.getFacilty_num()) ----
+        List<String> facilityFlat = pageUtil.getFacilty_num();
+        List<BillingONFormViewModel.FacilityNumOption> facilities = new ArrayList<>();
+        if (facilityFlat != null) {
+            for (int i = 0; i + 1 < facilityFlat.size(); i += 2) {
+                facilities.add(new BillingONFormViewModel.FacilityNumOption(
+                        nullToEmpty(facilityFlat.get(i)),
+                        nullToEmpty(facilityFlat.get(i + 1))));
+            }
+        }
+        b.facilityNumOptions(facilities);
+
+        // Default location for the dropdown's selected state. Mirrors the
+        // legacy fallback chain: xml_location request param > last billed
+        // clinic_ref_code from history > clinicView.
+        String resolvedLocation;
+        String xmlLocReq = request.getParameter("xml_location");
+        if (xmlLocReq != null && !xmlLocReq.isEmpty()) {
+            resolvedLocation = xmlLocReq;
+        } else if (!history.isEmpty() && history.get(0).clinicRefCode() != null
+                && !history.get(0).clinicRefCode().isEmpty()) {
+            resolvedLocation = history.get(0).clinicRefCode();
+        } else {
+            resolvedLocation = clinicView == null ? "" : clinicView;
+        }
+        b.defaultLocation(nullToEmpty(resolvedLocation));
+
+        // ---- legacy non-multisite "site" dropdown (BillingSiteIdPrep) ----
+        if (!IsPropertiesOn.isMultisitesEnable()) {
+            String scheduleSiteId = oscarVars.getProperty("scheduleSiteID", "");
+            if (scheduleSiteId != null && !scheduleSiteId.isEmpty()) {
+                BillingSiteIdPrep sitePrep = new BillingSiteIdPrep();
+                String[] siteList = sitePrep.getSiteList();
+                if (siteList != null && siteList.length > 0) {
+                    String strServDate = firstNonNull(
+                            request.getParameter("appointment_date"), today);
+                    String thisSite = "";
+                    String suggested = "";
+                    try {
+                        thisSite = new io.github.carlos_emr.carlos.appt.JdbcApptImpl()
+                                .getLocationFromSchedule(strServDate, apptProviderNo);
+                        suggested = sitePrep.getSuggestSite(siteList, thisSite,
+                                strServDate, apptProviderNo);
+                    } catch (RuntimeException e) {
+                        MiscUtils.getLogger().warn(
+                                "Site-suggest lookup failed for provider={}; rendering empty suggestion",
+                                LogSanitizer.sanitize(apptProviderNo), e);
+                    }
+                    List<BillingONFormViewModel.LegacySiteOption> siteOptions = new ArrayList<>();
+                    String suggestedFinal = nullToEmpty(suggested);
+                    for (String name : siteList) {
+                        String n = nullToEmpty(name);
+                        siteOptions.add(new BillingONFormViewModel.LegacySiteOption(
+                                n, n.equals(suggestedFinal)));
+                    }
+                    b.legacySiteContextEnabled(true)
+                            .legacySiteOptions(siteOptions);
+                }
+            }
+        }
+
+        // ---- admission date pre-fill ----
+        String admDate = "";
+        String inPatient = oscarVars.getProperty("inPatient");
+        if (inPatient != null && "yes".equalsIgnoreCase(inPatient.trim())
+                && demoNo != null && !demoNo.isEmpty()) {
+            try {
+                admDate = nullToEmpty(new io.github.carlos_emr.carlos.demographic.data.DemographicData()
+                        .getDemographicDateJoined(loggedInInfo, demoNo));
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error(
+                        "Admission-date lookup failed for demo={}", LogSanitizer.sanitize(demoNo), e);
+            }
+        }
+        // Legacy override: hospital / nursing-home visit types pull the
+        // admission date from the latest billing history.
+        if (!history.isEmpty() && (visitType.startsWith("02") || visitType.startsWith("04"))) {
+            String histVisitDate = nullToEmpty(history.get(0).visitDate());
+            if (!histVisitDate.isEmpty()) {
+                admDate = histVisitDate;
+            }
+        }
+        b.admissionDate(admDate);
+
+        // Pre-resolve the xml_vdate input value: request param takes precedence
+        // over the assembler-computed admDate. This bakes the param-vs-default
+        // selection into the model so the JSP renders a single
+        // ${formModel.defaultXmlVdate} instead of an inline ternary on
+        // ${param.xml_vdate}, which the encoder-validator hook flags as
+        // potential XSS even inside <c:choose><c:when>.
+        String xmlVdateReq = request.getParameter("xml_vdate");
+        b.defaultXmlVdate(xmlVdateReq != null && !xmlVdateReq.isEmpty()
+                ? xmlVdateReq : admDate);
 
         return b.build();
+    }
+
+    /**
+     * Loads the recent-billing history rows the JSP renders at the bottom of
+     * the form. Up to 5 (claim, item) pairs from {@link JdbcBillingReviewImpl}.
+     */
+    private static List<BillingONFormViewModel.BillingHistoryRow> loadHistoryRows(String demoNo) {
+        List<BillingONFormViewModel.BillingHistoryRow> rows = new ArrayList<>();
+        if (demoNo == null || demoNo.isEmpty()) {
+            return rows;
+        }
+        try {
+            JdbcBillingReviewImpl reviewer = new JdbcBillingReviewImpl();
+            List<Object> raw = reviewer.getBillingHist(demoNo, 5, 0, null);
+            for (int i = 0; i + 1 < raw.size(); i += 2) {
+                io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data header =
+                        (io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data) raw.get(i);
+                io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData item =
+                        (io.github.carlos_emr.carlos.billings.ca.on.data.BillingItemData) raw.get(i + 1);
+                String updateDt = nullToEmpty(header.getUpdate_datetime());
+                rows.add(new BillingONFormViewModel.BillingHistoryRow(
+                        nullToEmpty(header.getId()),
+                        nullToEmpty(header.getBilling_date()),
+                        nullToEmpty(item.getService_date()),
+                        nullToEmpty(item.getService_code()),
+                        nullToEmpty(item.getDx()),
+                        updateDt.length() >= 10 ? updateDt.substring(0, 10) : updateDt));
+            }
+        } catch (RuntimeException rtEx) {
+            MiscUtils.getLogger().error(
+                    "Billing history rows lookup failed for demo={}; rendering with empty history",
+                    LogSanitizer.sanitize(demoNo), rtEx);
+        }
+        return rows;
     }
 
     /**

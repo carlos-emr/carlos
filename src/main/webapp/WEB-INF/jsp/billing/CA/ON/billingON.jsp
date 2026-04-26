@@ -1130,12 +1130,9 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                     <fmt:message key="oscar.billing.ca.on.billingON.edit"/>
                 </a> <select name="cutlist" id="cutlist" onchange="changeCut(this)">
                     <option selected="selected" value=""><fmt:message key="oscar.billing.ca.on.billingON.superCodes"/></option>
-                    <% //
-                        List sL = tdbObj.getBillingFavouriteList();
-                        for (int i = 0; i < sL.size(); i = i + 2) { %>
-                    <option value="<%=(String) sL.get(i+1)%>"><%=(String) sL.get(i)%>
-                    </option>
-                    <% } %>
+                    <c:forEach var="fav" items="${formModel.billingFavouriteOptions}">
+                        <option value="<carlos:encode value='${fav.value}' context='htmlAttribute'/>"><carlos:encode value='${fav.text}' context='html'/></option>
+                    </c:forEach>
                 </select></td>
             <td style="text-align: right; width: 10%; white-space:nowrap">
                 <input type="submit"
@@ -1502,26 +1499,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td colspan="3"><select name="xml_location">
-                                        <%
-                                            //
-                                            String billLocationNo = "", billLocation = "";
-                                            String strLocation = "";
-                                            List lLocation = tdbObj.getFacilty_num();
-                                            String last_location = getDefaultValue(request.getParameter("xml_visittype"), vecHist, "clinic_ref_code");
-                                            for (int i = 0; i < lLocation.size(); i = i + 2) {
-                                                billLocationNo = (String) lLocation.get(i);
-                                                billLocation = (String) lLocation.get(i + 1);
-                                                strLocation = request.getParameter("xml_location") != null ? request.getParameter("xml_location") : last_location != null ? last_location : clinicview;
-                                        %>
-                                        <option value="<%=billLocationNo + "|" + billLocation%>"
-                                                <%=strLocation.startsWith(billLocationNo) ? "selected" : ""%>>
-                                            <%=billLocation%>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
+                                        <c:forEach var="loc" items="${formModel.facilityNumOptions}">
+                                            <option value="<carlos:encode value='${loc.code}|${loc.label}' context='htmlAttribute'/>"
+                                                    ${fn:startsWith(formModel.defaultLocation, loc.code) ? 'selected' : ''}>
+                                                <carlos:encode value='${loc.label}' context='html'/>
+                                            </option>
+                                        </c:forEach>
                                     </select><fmt:message key="oscar.billing.ca.on.billingON.manualReviewFlag"/> <input type="checkbox" name="m_review" value="Y"
-                                        <%=m_review.equals("Y")?"checked":""%>></td>
+                                        ${formModel.MReview eq 'Y' ? 'checked' : ''}></td>
                                 </tr>
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
@@ -1564,24 +1549,13 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                 <tr>
                                     <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
 										<td>
-                                        <%
-                                            String admDate = "";
-                                            String inPatient = oscarVariables.getProperty("inPatient");
-                                            try {
-                                                if (inPatient != null && inPatient.trim().equalsIgnoreCase("YES")) {
-                                                    DemographicData demoData = new DemographicData();
-                                                    admDate = demoData.getDemographicDateJoined(loggedInInfo, demo_no);
-                                                }
-                                            } catch (Exception inPatientEx) {
-                                                MiscUtils.getLogger().error("Error", inPatientEx);
-                                                admDate = "";
-                                            }
-                                            if (visitType.startsWith("02") || visitType.startsWith("04"))
-                                                admDate = getDefaultValue(request.getParameter("visitdate"), vecHist, "visitdate");
-                                        %>
+                                        <%-- xml_vdate default resolved by the assembler:
+                                             request param > admissionDate (from
+                                             oscarVariables.inPatient + DemographicData
+                                             with the visit-type 02/04 history fallback). --%>
 											<div class="input-group input-group-sm">
 											    <input type="text" name="xml_vdate" id="xml_vdate" onchange="getDays();"
-                                               value="<carlos:encode value='<%= request.getParameter("xml_vdate")!=null? request.getParameter("xml_vdate"):admDate %>' context="htmlAttribute"/>"
+                                               value="<carlos:encode value='${formModel.defaultXmlVdate}' context='htmlAttribute'/>"
 											class="form-control" readonly>
 											<button type="button" class="btn btn-outline-secondary" id="xml_vdate_cal" title="<fmt:message key="oscar.billing.ca.on.billingON.chooseDate"/>">
 											    <img alt="cal" style="height:14px;"
@@ -1597,37 +1571,22 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                                         <input type="hidden" name="billForm" id="billForm"
                                                value="<carlos:encode value='${formModel.ctlBillForm}' context="htmlAttribute"/>"/></td>
                                 </tr>
-                                <%
-                                    if (!IsPropertiesOn.isMultisitesEnable()) {
-                                        CarlosProperties props = CarlosProperties.getInstance();
-                                        boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
-                                        if (bMoreAddr) {
-                                            BillingSiteIdPrep sitePrep = new BillingSiteIdPrep();
-                                            String[] siteList = sitePrep.getSiteList();
-                                            String strServDate = request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : strToday;
-                                            String thisSite = (new JdbcApptImpl()).getLocationFromSchedule(strServDate, apptProvider_no);
-                                            String suggestSite = sitePrep.getSuggestSite(siteList, thisSite, strServDate, apptProvider_no);
-                                %>
+                                <%-- Legacy non-multisite "site" dropdown (BillingSiteIdPrep +
+                                     JdbcApptImpl.getLocationFromSchedule) now driven by
+                                     formModel.legacySiteContextEnabled / legacySiteOptions. --%>
+                                <c:if test="${formModel.legacySiteContextEnabled}">
                                 <tr>
                                     <td style="text-align: right"><fmt:message key="oscar.billing.ca.on.billingON.site"/></td>
                                     <td colspan="3"><select name="siteId">
-                                        <%
-                                            for (int i = 0; i < siteList.length; i++) {
-                                        %>
-                                        <option value="<%=siteList[i]%>"
-                                                <%=suggestSite.equals(siteList[i]) ? "selected" : ""%>>
-                                            <b><%=siteList[i]%>
-                                            </b>
-                                        </option>
-                                        <%
-                                            }
-                                        %>
+                                        <c:forEach var="site" items="${formModel.legacySiteOptions}">
+                                            <option value="<carlos:encode value='${site.name}' context='htmlAttribute'/>"
+                                                    ${site.suggested ? 'selected' : ''}>
+                                                <b><carlos:encode value='${site.name}' context='html'/></b>
+                                            </option>
+                                        </c:forEach>
                                     </select></td>
                                 </tr>
-                                <%
-                                        }
-                                    }
-                                %>
+                                </c:if>
 
                             </table>
                         </td>
@@ -1870,29 +1829,16 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billingForms}" varSt
                     <th style="white-space:nowrap"><fmt:message key="oscar.billing.ca.on.billingON.history.dx"/></th>
                     <th><fmt:message key="oscar.billing.ca.on.billingON.history.createDate"/></th>
                 </tr>
-                <%
-                    // new billing records
-                    for (int i = 0; i < aL.size(); i = i + 2) {
-                        BillingClaimHeader1Data obj = (BillingClaimHeader1Data) aL.get(i);
-                        BillingItemData iobj = (BillingItemData) aL.get(i + 1);
-                %>
+                <c:forEach var="row" items="${formModel.billingHistoryRows}">
                 <tr style="text-align: center">
-                    <td class="smallFont"><%=obj.getId()%>
-                    </td>
-                    <td class="smallFont"><%=obj.getBilling_date()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getService_date()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getService_code()%>
-                    </td>
-                    <td class="smallFont"><%=iobj.getDx()%>
-                    </td>
-                    <td class="smallFont"><%=obj.getUpdate_datetime().substring(0, 10)%>
-                    </td>
+                    <td class="smallFont"><carlos:encode value='${row.id}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.billingDate}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.serviceDate}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.serviceCode}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.dx}' context='html'/></td>
+                    <td class="smallFont"><carlos:encode value='${row.updateDate}' context='html'/></td>
                 </tr>
-                <%
-                    }
-                %>
+                </c:forEach>
             </table>
         </td>
     </tr>

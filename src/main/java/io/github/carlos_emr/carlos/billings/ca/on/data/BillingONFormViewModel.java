@@ -69,6 +69,32 @@ public final class BillingONFormViewModel {
             String diagnosticCode,
             String description) { }
 
+    /**
+     * One row in the recent-billing history table at the bottom of the form.
+     * Replaces the inline {@code aL.get(i)/aL.get(i+1)} cast pairs the legacy
+     * JSP used to iterate {@code JdbcBillingReviewImpl.getBillingHist}.
+     */
+    public record BillingHistoryRow(
+            String id,
+            String billingDate,
+            String serviceDate,
+            String serviceCode,
+            String dx,
+            String updateDate) { }
+
+    /** One entry in the visit-location dropdown ({@code xml_location}). */
+    public record FacilityNumOption(String code, String label) { }
+
+    /** One entry in the {@code cutlist} (favourite super-codes) dropdown. */
+    public record BillingFavouriteOption(String text, String value) { }
+
+    /**
+     * One entry in the legacy non-multisite "site" dropdown rendered when
+     * {@code scheduleSiteID} is set in the props file. Resolved via
+     * {@link io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSiteIdPrep}.
+     */
+    public record LegacySiteOption(String name, boolean suggested) { }
+
     // Identity / context
     private final String userNo;
     private final String demographicNo;
@@ -178,6 +204,25 @@ public final class BillingONFormViewModel {
     // Favourite combo list used by the cutlist dropdown (flat code/name pairs)
     private final List<String> billingFavourites;
 
+    // Round-A6: residual body-DAO data — pulled from the assembler so the JSP
+    // body no longer reaches into JdbcBillingPageUtil / JdbcBillingReviewImpl /
+    // BillingSiteIdPrep / DemographicData / JdbcApptImpl directly.
+    /** All recent-history rows the bottom table renders (was {@code aL} in JSP). */
+    private final List<BillingHistoryRow> billingHistoryRows;
+    /** Visit-location dropdown options (was {@code tdbObj.getFacilty_num()}). */
+    private final List<FacilityNumOption> facilityNumOptions;
+    /** Resolved default "strLocation" for the location dropdown's selected state. */
+    private final String defaultLocation;
+    /** Cut-list super-code options (was {@code tdbObj.getBillingFavouriteList()}). */
+    private final List<BillingFavouriteOption> billingFavouriteOptions;
+    /** Legacy non-multisite site dropdown context (was {@code BillingSiteIdPrep}). */
+    private final boolean legacySiteContextEnabled;
+    private final List<LegacySiteOption> legacySiteOptions;
+    /** Admission-date pre-fill (was {@code DemographicData.getDemographicDateJoined}). */
+    private final String admissionDate;
+    /** Pre-resolved xml_vdate input value: param &gt; admissionDate &gt; "". */
+    private final String defaultXmlVdate;
+
     // Future expansion (not yet populated)
     private final Map<String, String> requestEchoes;
 
@@ -256,6 +301,18 @@ public final class BillingONFormViewModel {
                 : copyOfNestedListMap(b.dxCodesByServiceType);
         this.billingFavourites = b.billingFavourites == null
                 ? Collections.emptyList() : List.copyOf(b.billingFavourites);
+        this.billingHistoryRows = b.billingHistoryRows == null
+                ? Collections.emptyList() : List.copyOf(b.billingHistoryRows);
+        this.facilityNumOptions = b.facilityNumOptions == null
+                ? Collections.emptyList() : List.copyOf(b.facilityNumOptions);
+        this.defaultLocation = nullToEmpty(b.defaultLocation);
+        this.billingFavouriteOptions = b.billingFavouriteOptions == null
+                ? Collections.emptyList() : List.copyOf(b.billingFavouriteOptions);
+        this.legacySiteContextEnabled = b.legacySiteContextEnabled;
+        this.legacySiteOptions = b.legacySiteOptions == null
+                ? Collections.emptyList() : List.copyOf(b.legacySiteOptions);
+        this.admissionDate = nullToEmpty(b.admissionDate);
+        this.defaultXmlVdate = nullToEmpty(b.defaultXmlVdate);
         this.requestEchoes = b.requestEchoes == null ? Collections.emptyMap() : Map.copyOf(b.requestEchoes);
     }
 
@@ -351,6 +408,14 @@ public final class BillingONFormViewModel {
     public List<BillingFormMenuEntry> getBillingForms() { return billingForms; }
     public Map<String, List<DxCodeEntry>> getDxCodesByServiceType() { return dxCodesByServiceType; }
     public List<String> getBillingFavourites() { return billingFavourites; }
+    public List<BillingHistoryRow> getBillingHistoryRows() { return billingHistoryRows; }
+    public List<FacilityNumOption> getFacilityNumOptions() { return facilityNumOptions; }
+    public String getDefaultLocation() { return defaultLocation; }
+    public List<BillingFavouriteOption> getBillingFavouriteOptions() { return billingFavouriteOptions; }
+    public boolean isLegacySiteContextEnabled() { return legacySiteContextEnabled; }
+    public List<LegacySiteOption> getLegacySiteOptions() { return legacySiteOptions; }
+    public String getAdmissionDate() { return admissionDate; }
+    public String getDefaultXmlVdate() { return defaultXmlVdate; }
     public Map<String, String> getRequestEchoes() { return requestEchoes; }
 
     public static final class Builder {
@@ -412,6 +477,14 @@ public final class BillingONFormViewModel {
         private List<BillingFormMenuEntry> billingForms;
         private Map<String, List<DxCodeEntry>> dxCodesByServiceType;
         private List<String> billingFavourites;
+        private List<BillingHistoryRow> billingHistoryRows;
+        private List<FacilityNumOption> facilityNumOptions;
+        private String defaultLocation;
+        private List<BillingFavouriteOption> billingFavouriteOptions;
+        private boolean legacySiteContextEnabled;
+        private List<LegacySiteOption> legacySiteOptions;
+        private String admissionDate;
+        private String defaultXmlVdate;
         private Map<String, String> requestEchoes;
 
         public Builder userNo(String v) { this.userNo = v; return this; }
@@ -496,6 +569,14 @@ public final class BillingONFormViewModel {
         public Builder billingForms(List<BillingFormMenuEntry> v) { this.billingForms = v == null ? null : List.copyOf(v); return this; }
         public Builder dxCodesByServiceType(Map<String, List<DxCodeEntry>> v) { this.dxCodesByServiceType = v == null ? null : copyOfNestedListMap(v); return this; }
         public Builder billingFavourites(List<String> v) { this.billingFavourites = v == null ? null : List.copyOf(v); return this; }
+        public Builder billingHistoryRows(List<BillingHistoryRow> v) { this.billingHistoryRows = v == null ? null : List.copyOf(v); return this; }
+        public Builder facilityNumOptions(List<FacilityNumOption> v) { this.facilityNumOptions = v == null ? null : List.copyOf(v); return this; }
+        public Builder defaultLocation(String v) { this.defaultLocation = v; return this; }
+        public Builder billingFavouriteOptions(List<BillingFavouriteOption> v) { this.billingFavouriteOptions = v == null ? null : List.copyOf(v); return this; }
+        public Builder legacySiteContextEnabled(boolean v) { this.legacySiteContextEnabled = v; return this; }
+        public Builder legacySiteOptions(List<LegacySiteOption> v) { this.legacySiteOptions = v == null ? null : List.copyOf(v); return this; }
+        public Builder admissionDate(String v) { this.admissionDate = v; return this; }
+        public Builder defaultXmlVdate(String v) { this.defaultXmlVdate = v; return this; }
         public Builder requestEchoes(Map<String, String> v) { this.requestEchoes = v == null ? null : Map.copyOf(v); return this; }
 
         public BillingONFormViewModel build() {
